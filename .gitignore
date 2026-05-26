@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+
+# Frontend
+node_modules/
+frontend/dist/
+*.local
+.vite/
+
+# Data & secrets (NEVER commit these)
+backend/data/
+data/
+*.db
+*.sqlite
+*.sqlite3
+.key
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS
+desktop.ini
+
+# Claude
+.claude/launch.json

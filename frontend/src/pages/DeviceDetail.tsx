@@ -1,0 +1,193 @@
+import { useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { devicesApi } from '../lib/api'
+import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
+import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity } from 'lucide-react'
+import { cn } from '../lib/utils'
+
+type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource'
+
+const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'resource', label: 'Zasoby', icon: Activity },
+  { id: 'interfaces', label: 'Interfejsy', icon: Network },
+  { id: 'addresses', label: 'Adresy IP', icon: Globe },
+  { id: 'routes', label: 'Trasy', icon: List },
+  { id: 'firewall', label: 'Firewall', icon: Shield },
+  { id: 'wireless', label: 'Wireless', icon: Wifi },
+  { id: 'dhcp', label: 'DHCP', icon: Server },
+  { id: 'tunnels', label: 'Tunele L2', icon: Network },
+]
+
+function DataTable({ data }: { data: Record<string, unknown>[] }) {
+  if (!data || data.length === 0) return <p className="text-sm text-gray-500 py-4 text-center">Brak danych</p>
+
+  const keys = Object.keys(data[0]).filter(k => k !== '.id')
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-800">
+            {keys.map(k => (
+              <th key={k} className="px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">{k}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+              {keys.map(k => (
+                <td key={k} className="px-3 py-2 text-gray-300 font-mono whitespace-nowrap">
+                  {String(row[k] ?? '—')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
+  const queries: Record<Tab, () => Promise<unknown>> = {
+    interfaces: () => devicesApi.interfaces(deviceId),
+    addresses: () => devicesApi.addresses(deviceId),
+    routes: () => devicesApi.routes(deviceId),
+    firewall: () => devicesApi.firewall(deviceId),
+    wireless: () => devicesApi.wireless(deviceId),
+    dhcp: () => devicesApi.dhcpLeases(deviceId),
+    tunnels: () => devicesApi.tunnels(deviceId),
+    resource: () => devicesApi.resource(deviceId),
+  }
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['device', deviceId, tab],
+    queryFn: queries[tab],
+    retry: false,
+  })
+
+  if (isLoading) return <p className="text-sm text-gray-500 py-8 text-center">Ładowanie z urządzenia...</p>
+  if (error) return <p className="text-sm text-red-400 py-8 text-center">Błąd połączenia z urządzeniem</p>
+  if (!data) return null
+
+  if (tab === 'resource') {
+    const r = data as Record<string, unknown>
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 py-2">
+        {Object.entries(r).filter(([k]) => k !== '.id').map(([k, v]) => (
+          <div key={k} className="bg-gray-800 rounded-lg px-4 py-3">
+            <p className="text-xs text-gray-500 mb-1">{k}</p>
+            <p className="text-sm text-gray-200 font-mono">{String(v)}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (tab === 'firewall') {
+    const fw = data as { filter: Record<string, unknown>[]; nat: Record<string, unknown>[] }
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-xs font-semibold text-gray-400 mb-2">Filter</h3>
+          <DataTable data={fw.filter ?? []} />
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold text-gray-400 mb-2">NAT</h3>
+          <DataTable data={fw.nat ?? []} />
+        </div>
+      </div>
+    )
+  }
+
+  if (tab === 'tunnels') {
+    const t = data as Record<string, Record<string, unknown>[]>
+    return (
+      <div className="space-y-4">
+        {Object.entries(t).map(([type, rows]) => (
+          <div key={type}>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase mb-2">{type}</h3>
+            <DataTable data={rows} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return <DataTable data={data as Record<string, unknown>[]} />
+}
+
+export function DeviceDetail() {
+  const { id } = useParams<{ id: string }>()
+  const deviceId = Number(id)
+  const [activeTab, setActiveTab] = useState<Tab>('resource')
+
+  const { data: device, isLoading } = useQuery({
+    queryKey: ['device', deviceId],
+    queryFn: () => devicesApi.get(deviceId),
+  })
+
+  if (isLoading) return <div className="p-6 text-gray-500">Ładowanie...</div>
+  if (!device) return <div className="p-6 text-red-400">Urządzenie nie znalezione</div>
+
+  return (
+    <div className="p-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <Link to="/devices">
+          <Button size="sm" variant="ghost"><ArrowLeft size={16} /></Button>
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold text-gray-100">
+            {device.identity || device.name || device.ip}
+          </h1>
+          <p className="text-sm text-gray-500">{device.ip} · {device.model || 'Nieznany model'} · ROS {device.ros_version || '?'}</p>
+        </div>
+        <Badge variant={device.online ? 'green' : 'red'} className="ml-auto">
+          {device.online ? 'Online' : 'Offline'}
+        </Badge>
+      </div>
+
+      {/* Capability badges */}
+      <div className="flex gap-2">
+        {device.has_api && <Badge variant="blue">API :{device.api_port}</Badge>}
+        {device.has_ssh && <Badge variant="gray">SSH :{device.ssh_port}</Badge>}
+        {device.has_web && <Badge variant="yellow">Web :{device.web_port}</Badge>}
+        {!device.credential_id && <Badge variant="red">Brak poświadczeń</Badge>}
+      </div>
+
+      {/* Tabs */}
+      <Card>
+        <div className="flex border-b border-gray-800 overflow-x-auto">
+          {tabs.map(({ id: tid, label, icon: Icon }) => (
+            <button
+              key={tid}
+              onClick={() => setActiveTab(tid)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap transition-colors border-b-2',
+                activeTab === tid
+                  ? 'border-indigo-500 text-indigo-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-300'
+              )}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+        <CardContent>
+          {device.credential_id ? (
+            <TabContent deviceId={deviceId} tab={activeTab} />
+          ) : (
+            <p className="text-sm text-yellow-400 py-6 text-center">
+              Przypisz poświadczenia do urządzenia, aby pobrać dane konfiguracji.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
