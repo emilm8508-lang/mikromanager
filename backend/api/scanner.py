@@ -57,41 +57,67 @@ async def delete_range(range_id: int, db: Session = Depends(get_db)):
 
 @router.get("/run")
 async def run_scan(credential_id: Optional[int] = None):
-    """SSE stream — yields discovered devices as JSON events during scan.
+    """SSE stream — discovers devices, then tries each stored credential
+    to enrich and auto-assign whichever one authenticates.
 
-    Uses a fresh DB session because the SSE generator outlives the request
-    lifecycle of FastAPI's Depends-injected session.
+    Query params:
+      credential_id — if set, only try this one credential (legacy single-cred mode).
+                      If omitted, tries ALL stored credentials in order until one works.
     """
-    # Snapshot config under a short-lived session, then close it.
+    # Snapshot config + credential list under a short-lived session
     with SessionLocal() as db:
         ranges = db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all()
         if not ranges:
             raise HTTPException(400, "No active scan ranges configured")
         cidrs = [r.cidr for r in ranges]
 
-        cred_info = None
         if credential_id:
-            cred = db.execute(select(Credential).where(Credential.id == credential_id)).scalar_one_or_none()
-            if cred:
-                cred_info = {
-                    "id": cred.id,
-                    "username": cred.username,
-                    "password": decrypt(cred.password_enc),
-                }
+            cred_rows = db.execute(
+                select(Credential).where(Credential.id == credential_id)
+            ).scalars().all()
+        else:
+            cred_rows = db.execute(select(Credential)).scalars().all()
+
+        creds = [
+            {
+                "id": c.id,
+                "name": c.name,
+                "username": c.username,
+                "password": decrypt(c.password_enc),
+            }
+            for c in cred_rows
+        ]
 
     async def event_generator():
+        if creds:
+            yield f"data: {json.dumps({'status': 'info', 'message': f'Skan z {len(creds)} zestaw(ami) poświadczeń'})}\n\n"
+        else:
+            yield f"data: {json.dumps({'status': 'info', 'message': 'Brak poświadczeń — tylko wykrycie portów'})}\n\n"
+
         for cidr in cidrs:
             yield f"data: {json.dumps({'status': 'scanning', 'cidr': cidr})}\n\n"
             async for found in svc.scan_range(cidr):
-                if cred_info:
+                matched_cred_id = None
+                matched_cred_name = None
+
+                # Try each credential until one returns real device data.
+                # "Real" = we got identity OR model — i.e. auth worked.
+                for cred in creds:
                     try:
                         extra = await svc.enrich_device(
-                            found["ip"], cred_info["username"], cred_info["password"],
+                            found["ip"], cred["username"], cred["password"],
                             web_port=found.get("web_port", 80)
                         )
-                        found.update(extra)
+                        if extra.get("identity") or extra.get("model") or extra.get("ros_version"):
+                            found.update(extra)
+                            matched_cred_id = cred["id"]
+                            matched_cred_name = cred["name"]
+                            break
                     except Exception:
-                        pass
+                        continue
+
+                if matched_cred_name:
+                    found["matched_credential"] = matched_cred_name
 
                 # Upsert with a fresh per-event session
                 with SessionLocal() as db:
@@ -110,8 +136,9 @@ async def run_scan(credential_id: Optional[int] = None):
                             device.model = found["model"]
                         if found.get("ros_version"):
                             device.ros_version = found["ros_version"]
-                        if cred_info and not device.credential_id:
-                            device.credential_id = cred_info["id"]
+                        # Only auto-assign credential if device has none yet
+                        if matched_cred_id and not device.credential_id:
+                            device.credential_id = matched_cred_id
                     else:
                         device = Device(
                             ip=found["ip"],
@@ -126,7 +153,7 @@ async def run_scan(credential_id: Optional[int] = None):
                             board_name=found.get("board_name"),
                             online=True,
                             last_seen=datetime.utcnow(),
-                            credential_id=credential_id,
+                            credential_id=matched_cred_id,
                         )
                         db.add(device)
                     db.commit()
