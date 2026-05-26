@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Callable, Awaitable
 from datetime import datetime
+import asyncio
+import aiohttp
 from models.database import Device, Credential, get_db
 from services.crypto import decrypt
 
@@ -103,62 +105,94 @@ def _get_client(device_id: int, db: Session):
         .where(Device.id == device_id)
     ).one_or_none()
     if not row:
-        raise HTTPException(404, "Device or credential not found")
+        # Distinguish: device exists but no credential?
+        dev = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
+        if dev and not dev.credential_id:
+            raise HTTPException(412, "Urządzenie nie ma przypisanych poświadczeń")
+        raise HTTPException(404, "Urządzenie lub poświadczenia nie znalezione")
     device, cred = row
     password = decrypt(cred.password_enc)
     return MikrotikClient(device.ip, cred.username, password,
                           api_port=device.api_port, web_port=device.web_port), device
 
 
+async def _safe_call(coro_fn: Callable[[], Awaitable]):
+    """Execute a Mikrotik client call and translate errors to user-friendly messages."""
+    try:
+        return await coro_fn()
+    except aiohttp.ClientResponseError as e:
+        if e.status == 401:
+            raise HTTPException(401, "Nieprawidłowe poświadczenia (401)")
+        if e.status == 403:
+            raise HTTPException(403, "Brak uprawnień użytkownika do tego zasobu (403)")
+        if e.status == 404:
+            raise HTTPException(404, "Endpoint REST API nie istnieje — RouterOS może być starszy niż v7 lub usługa www jest wyłączona")
+        raise HTTPException(502, f"HTTP {e.status} z urządzenia: {e.message}")
+    except aiohttp.ClientConnectorError as e:
+        raise HTTPException(503, f"Nie można połączyć się z urządzeniem ({e.os_error if hasattr(e, 'os_error') else e})")
+    except aiohttp.ServerDisconnectedError:
+        raise HTTPException(503, "Urządzenie zamknęło połączenie")
+    except asyncio.TimeoutError:
+        raise HTTPException(504, "Timeout — urządzenie nie odpowiedziało w ciągu 8s")
+    except aiohttp.ClientSSLError as e:
+        raise HTTPException(502, f"Błąd SSL: {e}")
+    except aiohttp.ClientError as e:
+        raise HTTPException(502, f"Błąd HTTP: {type(e).__name__}: {e}")
+    except OSError as e:
+        raise HTTPException(503, f"Błąd sieciowy: {e}")
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
+
+
 @router.get("/{device_id}/interfaces")
 async def get_interfaces(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_interfaces()
+    return await _safe_call(client.get_interfaces)
 
 
 @router.get("/{device_id}/addresses")
 async def get_addresses(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_ip_addresses()
+    return await _safe_call(client.get_ip_addresses)
 
 
 @router.get("/{device_id}/routes")
 async def get_routes(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_routes()
+    return await _safe_call(client.get_routes)
 
 
 @router.get("/{device_id}/neighbors")
 async def get_neighbors(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_neighbors()
+    return await _safe_call(client.get_neighbors)
 
 
 @router.get("/{device_id}/firewall")
 async def get_firewall(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_firewall_rules()
+    return await _safe_call(client.get_firewall_rules)
 
 
 @router.get("/{device_id}/wireless")
 async def get_wireless(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_wireless()
+    return await _safe_call(client.get_wireless)
 
 
 @router.get("/{device_id}/dhcp-leases")
 async def get_dhcp_leases(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_dhcp_leases()
+    return await _safe_call(client.get_dhcp_leases)
 
 
 @router.get("/{device_id}/tunnels")
 async def get_tunnels(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_vpn_tunnels()
+    return await _safe_call(client.get_vpn_tunnels)
 
 
 @router.get("/{device_id}/resource")
 async def get_resource(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
-    return await client.get_resource()
+    return await _safe_call(client.get_resource)

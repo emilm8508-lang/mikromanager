@@ -5,8 +5,19 @@ import { devicesApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity } from 'lucide-react'
+import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle } from 'lucide-react'
 import { cn } from '../lib/utils'
+import axios from 'axios'
+
+function errorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data?.detail
+    if (typeof detail === 'string') return detail
+    if (err.code === 'ECONNABORTED') return 'Timeout połączenia'
+    return err.message
+  }
+  return err instanceof Error ? err.message : String(err)
+}
 
 type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource'
 
@@ -71,7 +82,15 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
   })
 
   if (isLoading) return <p className="text-sm text-gray-500 py-8 text-center">Ładowanie z urządzenia...</p>
-  if (error) return <p className="text-sm text-red-400 py-8 text-center">Błąd połączenia z urządzeniem</p>
+  if (error) return (
+    <div className="py-8 px-4 flex flex-col items-center gap-2">
+      <AlertTriangle size={22} className="text-red-400" />
+      <p className="text-sm text-red-400 font-medium">Błąd połączenia z urządzeniem</p>
+      <p className="text-xs text-gray-400 font-mono text-center max-w-xl break-words">
+        {errorMessage(error)}
+      </p>
+    </div>
+  )
   if (!data) return null
 
   if (tab === 'resource') {
