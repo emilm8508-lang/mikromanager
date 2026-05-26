@@ -123,7 +123,8 @@
     "scanDone": "Skan zakończony. Znaleziono {{found}} urządzeń",
     "scanDoneMatched": "({{matched}} z dopasowanymi poświadczeniami)",
     "scanWithN": "Skan z {{count}} zestaw(ami) poświadczeń",
-    "scanWithNone": "Brak poświadczeń — tylko wykrycie portów"
+    "scanWithNone": "Brak poświadczeń — tylko wykrycie portów",
+    "foundDevices": "Znalezione urządzenia ({{count}})"
   },
   "logs": {
     "title": "Logi urządzeń",

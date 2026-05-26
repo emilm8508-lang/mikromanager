@@ -1,18 +1,32 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { scannerApi, credentialsApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { Search, Plus, Trash2, CheckCircle2, AlertCircle, Info, KeyRound } from 'lucide-react'
+import { Search, Plus, Trash2, CheckCircle2, AlertCircle, Info, KeyRound, Activity } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ScanEvent {
-  status: 'scanning' | 'found' | 'done' | 'info'
+  type: 'info' | 'cidr_start' | 'progress' | 'found' | 'cidr_done' | 'done'
   cidr?: string
+  ip?: string
+  total?: number
+  completed?: number
   device?: Record<string, unknown>
-  message?: string
+  message_key?: string
+  count?: number
+  total_found?: number
+  found?: number
+}
+
+interface FoundLine {
+  ip: string
+  identity?: string
+  model?: string
+  has_snmp?: boolean
+  matched_credential?: string
 }
 
 export function Scanner() {
@@ -24,7 +38,12 @@ export function Scanner() {
   const [newCidr, setNewCidr] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const [scanning, setScanning] = useState(false)
-  const [events, setEvents] = useState<ScanEvent[]>([])
+  const [foundList, setFoundList] = useState<FoundLine[]>([])
+  const [currentCidr, setCurrentCidr] = useState<string | null>(null)
+  const [currentIp, setCurrentIp] = useState<string | null>(null)
+  const [progress, setProgress] = useState({ completed: 0, total: 0 })
+  const [totalFound, setTotalFound] = useState<number | null>(null)
+  const esRef = useRef<EventSource | null>(null)
 
   const addRange = useMutation({
     mutationFn: () => scannerApi.addRange({ cidr: newCidr, label: newLabel || undefined }),
@@ -37,23 +56,68 @@ export function Scanner() {
   })
 
   const runScan = () => {
-    setEvents([])
+    setFoundList([])
+    setCurrentCidr(null)
+    setCurrentIp(null)
+    setProgress({ completed: 0, total: 0 })
+    setTotalFound(null)
     setScanning(true)
+
     const es = new EventSource('/api/scanner/run')
+    esRef.current = es
     es.onmessage = (e) => {
-      const data: ScanEvent = JSON.parse(e.data)
-      setEvents(prev => [...prev, data])
-      if (data.status === 'done') {
-        es.close()
-        setScanning(false)
-        qc.invalidateQueries({ queryKey: ['devices'] })
+      const ev: ScanEvent = JSON.parse(e.data)
+
+      switch (ev.type) {
+        case 'cidr_start':
+          setCurrentCidr(ev.cidr ?? null)
+          setProgress({ completed: 0, total: 0 })
+          break
+        case 'progress':
+          setCurrentIp(ev.ip ?? null)
+          setProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
+          break
+        case 'found':
+          setCurrentIp(ev.ip ?? null)
+          setProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
+          if (ev.device) {
+            setFoundList(prev => [...prev, {
+              ip: String(ev.device!.ip),
+              identity: ev.device!.identity as string | undefined,
+              model: ev.device!.model as string | undefined,
+              has_snmp: ev.device!.has_snmp as boolean | undefined,
+              matched_credential: ev.device!.matched_credential as string | undefined,
+            }])
+          }
+          break
+        case 'cidr_done':
+          // keep state
+          break
+        case 'done':
+          setTotalFound(ev.total_found ?? null)
+          setCurrentIp(null)
+          es.close()
+          esRef.current = null
+          setScanning(false)
+          qc.invalidateQueries({ queryKey: ['devices'] })
+          break
       }
     }
-    es.onerror = () => { es.close(); setScanning(false) }
+    es.onerror = () => {
+      es.close()
+      esRef.current = null
+      setScanning(false)
+    }
   }
 
-  const found = events.filter(e => e.status === 'found')
-  const matchedCount = found.filter(e => e.device?.matched_credential).length
+  const stopScan = () => {
+    esRef.current?.close()
+    esRef.current = null
+    setScanning(false)
+    setCurrentIp(null)
+  }
+
+  const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   return (
     <div className="p-6 space-y-6">
@@ -111,10 +175,16 @@ export function Scanner() {
                 {creds.length > 0 && ' ' + t('scanner.credsInfoSuffix')}
               </span>
             </div>
-            <Button variant="primary" onClick={runScan} disabled={scanning || ranges.length === 0}>
-              <Search size={16} />
-              {scanning ? t('scanner.scanning') : t('scanner.scanNow')}
-            </Button>
+            {!scanning ? (
+              <Button variant="primary" onClick={runScan} disabled={ranges.length === 0}>
+                <Search size={16} />
+                {t('scanner.scanNow')}
+              </Button>
+            ) : (
+              <Button variant="danger" onClick={stopScan}>
+                {t('logs.stopStream')}
+              </Button>
+            )}
           </div>
 
           {creds.length === 0 && (
@@ -124,46 +194,55 @@ export function Scanner() {
             </div>
           )}
 
-          {/* Events */}
-          {events.length > 0 && (
-            <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto scrollbar-thin space-y-1.5">
-              {events.map((ev, i) => (
-                <div key={i} className="flex items-start gap-2 text-sm">
-                  {ev.status === 'info' && (
-                    <>
-                      <Info size={14} className="text-gray-400 mt-0.5 shrink-0" />
-                      <span className="text-gray-400">{ev.message}</span>
-                    </>
+          {/* Progress bar */}
+          {(scanning || progress.total > 0) && (
+            <div className="space-y-2 bg-gray-950 border border-gray-800 rounded-lg p-4">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <Activity size={13} className={scanning ? 'text-indigo-400 animate-pulse' : 'text-gray-500'} />
+                  {currentCidr && (
+                    <span className="font-mono text-gray-300">{currentCidr}</span>
                   )}
-                  {ev.status === 'scanning' && (
-                    <>
-                      <Search size={14} className="text-blue-400 mt-0.5 shrink-0" />
-                      <span className="text-blue-400">{t('scanner.scanningCidr', { cidr: ev.cidr })}</span>
-                    </>
+                  {currentIp && scanning && (
+                    <span className="text-gray-500">→ <span className="text-gray-300 font-mono">{currentIp}</span></span>
                   )}
-                  {ev.status === 'found' && ev.device && (
-                    <>
-                      <CheckCircle2 size={14} className="text-green-400 mt-0.5 shrink-0" />
-                      <span className="text-green-300 font-mono">{String(ev.device.ip)}</span>
-                      {ev.device.identity != null && <span className="text-gray-300">— {String(ev.device.identity)}</span>}
-                      {ev.device.model != null && <Badge variant="blue" className="ml-1">{String(ev.device.model)}</Badge>}
-                      {ev.device.has_snmp ? <Badge variant="purple" className="ml-1">SNMP</Badge> : null}
-                      {ev.device.matched_credential != null && (
-                        <Badge variant="green" className="ml-1 inline-flex items-center gap-1">
-                          <KeyRound size={10} />
-                          {String(ev.device.matched_credential)}
-                        </Badge>
-                      )}
-                    </>
-                  )}
-                  {ev.status === 'done' && (
-                    <>
-                      <AlertCircle size={14} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-indigo-300 font-medium">
-                        {t('scanner.scanDone', { found: found.length })}
-                        {creds.length > 0 && ' ' + t('scanner.scanDoneMatched', { matched: matchedCount })}.
-                      </span>
-                    </>
+                </div>
+                <span className="text-gray-400 font-mono">
+                  {progress.completed}/{progress.total} ({pct}%)
+                </span>
+              </div>
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-500 transition-all duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {totalFound !== null && (
+                <p className="text-xs text-indigo-300 font-medium pt-1">
+                  ✓ {t('scanner.scanDone', { found: totalFound })}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Found devices list */}
+          {foundList.length > 0 && (
+            <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 max-h-80 overflow-y-auto scrollbar-thin space-y-1.5">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                {t('scanner.foundDevices', { count: foundList.length, defaultValue: 'Znalezione urządzenia ({{count}})' })}
+              </p>
+              {foundList.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                  <span className="text-green-300 font-mono">{d.ip}</span>
+                  {d.identity && <span className="text-gray-300">— {d.identity}</span>}
+                  {d.model && <Badge variant="blue" className="ml-1">{d.model}</Badge>}
+                  {d.has_snmp && <Badge variant="purple" className="ml-1">SNMP</Badge>}
+                  {d.matched_credential && (
+                    <Badge variant="green" className="ml-1 inline-flex items-center gap-1">
+                      <KeyRound size={10} />
+                      {d.matched_credential}
+                    </Badge>
                   )}
                 </div>
               ))}
