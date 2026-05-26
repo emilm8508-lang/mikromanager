@@ -57,8 +57,13 @@ async def delete_range(range_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/run")
-async def run_scan(credential_id: Optional[int] = None):
+async def run_scan(credential_id: Optional[int] = None, full: bool = False):
     """SSE stream with full progress events.
+
+    Query params:
+      credential_id: limit credential set tried for enrichment
+      full=true:    re-scan ALL IPs including ones already in DB. Default false:
+                    skip known IPs (they are refreshed by the periodic refresher).
 
     Event types pushed to client:
       - info     : startup message
@@ -92,6 +97,13 @@ async def run_scan(credential_id: Optional[int] = None):
             for c in cred_rows
         ]
 
+        # Snapshot IPs already in DB — by default scanner skips them and
+        # looks only for new devices. Existing ones are kept fresh by refresher.
+        if full:
+            known_ips: set = set()
+        else:
+            known_ips = {ip for (ip,) in db.execute(select(Device.ip)).all()}
+
     async def event_generator():
         # Event queue bridge: probe callbacks → SSE output
         queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
@@ -106,12 +118,16 @@ async def run_scan(credential_id: Optional[int] = None):
             try:
                 emit({"type": "info",
                       "message_key": "credsCount",
-                      "count": len(creds)})
+                      "count": len(creds),
+                      "known_count": len(known_ips),
+                      "full_scan": full})
 
                 total_found = 0
                 for cidr in cidrs:
                     emit({"type": "cidr_start", "cidr": cidr})
-                    found = await svc.scan_range_with_progress(cidr, emit)
+                    found = await svc.scan_range_with_progress(
+                        cidr, emit, skip_ips=known_ips
+                    )
                     total_found += found
 
                 emit({"type": "done", "total_found": total_found})

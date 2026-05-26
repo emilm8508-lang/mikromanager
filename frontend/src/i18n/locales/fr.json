@@ -124,7 +124,11 @@
     "scanDoneMatched": "({{matched}} avec identifiants correspondants)",
     "scanWithN": "Scan avec {{count}} jeu(x) d'identifiants",
     "scanWithNone": "Aucun identifiant — détection de ports uniquement",
-    "foundDevices": "Appareils trouvés ({{count}})"
+    "foundDevices": "Appareils trouvés ({{count}})",
+    "fullScanLabel": "Scan complet (vérifier aussi les IPs connues)",
+    "incrementalHint": "Uniquement les nouveaux IPs — les connus sont mis à jour par l'actualisation auto",
+    "fullScanHint": "Tous les IPs seront re-scannés",
+    "skippedKnown": "{{count}} connus ignorés"
   },
   "logs": {
     "title": "Journaux des appareils",

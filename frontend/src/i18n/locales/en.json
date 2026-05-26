@@ -124,7 +124,11 @@
     "scanDoneMatched": "({{matched}} with matched credentials)",
     "scanWithN": "Scanning with {{count}} credential set(s)",
     "scanWithNone": "No credentials — port discovery only",
-    "foundDevices": "Found devices ({{count}})"
+    "foundDevices": "Found devices ({{count}})",
+    "fullScanLabel": "Full scan (also re-check known IPs)",
+    "incrementalHint": "New IPs only — known ones are updated by auto-refresh",
+    "fullScanHint": "All IPs will be re-scanned",
+    "skippedKnown": "{{count}} known skipped"
   },
   "logs": {
     "title": "Device logs",

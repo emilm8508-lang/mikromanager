@@ -124,7 +124,11 @@
     "scanDoneMatched": "({{matched}} mit passenden Zugangsdaten)",
     "scanWithN": "Scan mit {{count}} Zugangsdatensatz/-sätzen",
     "scanWithNone": "Keine Zugangsdaten — nur Portscan",
-    "foundDevices": "Gefundene Geräte ({{count}})"
+    "foundDevices": "Gefundene Geräte ({{count}})",
+    "fullScanLabel": "Vollständiger Scan (auch bekannte IPs prüfen)",
+    "incrementalHint": "Nur neue IPs — bekannte werden durch Auto-Aktualisierung aktualisiert",
+    "fullScanHint": "Alle IPs werden erneut gescannt",
+    "skippedKnown": "{{count}} bekannte übersprungen"
   },
   "logs": {
     "title": "Geräteprotokolle",

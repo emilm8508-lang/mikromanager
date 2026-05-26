@@ -124,7 +124,11 @@
     "scanDoneMatched": "({{matched}} z dopasowanymi poświadczeniami)",
     "scanWithN": "Skan z {{count}} zestaw(ami) poświadczeń",
     "scanWithNone": "Brak poświadczeń — tylko wykrycie portów",
-    "foundDevices": "Znalezione urządzenia ({{count}})"
+    "foundDevices": "Znalezione urządzenia ({{count}})",
+    "fullScanLabel": "Pełny skan (sprawdź również znane IP)",
+    "incrementalHint": "Tylko nowe IP — znane są aktualizowane przez auto-odświeżanie",
+    "fullScanHint": "Wszystkie IP zostaną przeskanowane ponownie",
+    "skippedKnown": "{{count}} znanych pominięto"
   },
   "logs": {
     "title": "Logi urządzeń",

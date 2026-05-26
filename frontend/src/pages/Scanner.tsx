@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { Search, Plus, Trash2, CheckCircle2, AlertCircle, Info, KeyRound, Activity } from 'lucide-react'
+import { Search, Plus, Trash2, CheckCircle2, AlertCircle, KeyRound, Activity, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ScanEvent {
@@ -13,10 +13,14 @@ interface ScanEvent {
   cidr?: string
   ip?: string
   total?: number
+  total_all?: number
+  skipped_known?: number
   completed?: number
   device?: Record<string, unknown>
   message_key?: string
   count?: number
+  known_count?: number
+  full_scan?: boolean
   total_found?: number
   found?: number
 }
@@ -38,10 +42,12 @@ export function Scanner() {
   const [newCidr, setNewCidr] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [fullScan, setFullScan] = useState(false)
   const [foundList, setFoundList] = useState<FoundLine[]>([])
   const [currentCidr, setCurrentCidr] = useState<string | null>(null)
   const [currentIp, setCurrentIp] = useState<string | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
+  const [skippedKnown, setSkippedKnown] = useState(0)
   const [totalFound, setTotalFound] = useState<number | null>(null)
   const esRef = useRef<EventSource | null>(null)
 
@@ -60,10 +66,12 @@ export function Scanner() {
     setCurrentCidr(null)
     setCurrentIp(null)
     setProgress({ completed: 0, total: 0 })
+    setSkippedKnown(0)
     setTotalFound(null)
     setScanning(true)
 
-    const es = new EventSource('/api/scanner/run')
+    const url = fullScan ? '/api/scanner/run?full=true' : '/api/scanner/run'
+    const es = new EventSource(url)
     esRef.current = es
     es.onmessage = (e) => {
       const ev: ScanEvent = JSON.parse(e.data)
@@ -77,6 +85,9 @@ export function Scanner() {
           setCurrentIp(ev.ip ?? null)
           setProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
           break
+        case 'cidr_done':
+          if (ev.skipped_known) setSkippedKnown(s => s + (ev.skipped_known ?? 0))
+          break
         case 'found':
           setCurrentIp(ev.ip ?? null)
           setProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
@@ -89,9 +100,6 @@ export function Scanner() {
               matched_credential: ev.device!.matched_credential as string | undefined,
             }])
           }
-          break
-        case 'cidr_done':
-          // keep state
           break
         case 'done':
           setTotalFound(ev.total_found ?? null)
@@ -187,6 +195,23 @@ export function Scanner() {
             )}
           </div>
 
+          <div className="flex items-start gap-2 bg-gray-800/40 border border-gray-800 rounded-lg px-3 py-2.5 text-xs">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={fullScan}
+                onChange={e => setFullScan(e.target.checked)}
+                disabled={scanning}
+                className="rounded border-gray-700 bg-gray-900 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
+              />
+              <span className="text-gray-300">{t('scanner.fullScanLabel')}</span>
+            </label>
+            <span className="text-gray-500 ml-auto flex items-center gap-1.5">
+              <RefreshCw size={11} />
+              {fullScan ? t('scanner.fullScanHint') : t('scanner.incrementalHint')}
+            </span>
+          </div>
+
           {creds.length === 0 && (
             <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg px-4 py-2.5 text-xs text-amber-300 flex items-center gap-2">
               <AlertCircle size={14} />
@@ -220,6 +245,9 @@ export function Scanner() {
               {totalFound !== null && (
                 <p className="text-xs text-indigo-300 font-medium pt-1">
                   ✓ {t('scanner.scanDone', { found: totalFound })}
+                  {skippedKnown > 0 && (
+                    <span className="text-gray-500 font-normal"> · {t('scanner.skippedKnown', { count: skippedKnown })}</span>
+                  )}
                 </p>
               )}
             </div>

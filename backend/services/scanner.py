@@ -142,20 +142,40 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
 async def scan_range_with_progress(
     cidr: str,
     on_event: Callable,
+    skip_ips: Optional[set] = None,
 ) -> int:
     """Scan a CIDR, calling on_event(dict) for every state change.
-    Events: {type: 'total'|'progress'|'found'|'dead'|'cidr_done', ...}
+    Events: {type: 'total'|'progress'|'found'|'dead'|'cidr_done'|'skipped', ...}
+
+    If skip_ips is provided, hosts whose IP is in this set are skipped
+    entirely (not probed). Use this to focus only on UNKNOWN IPs — known
+    devices are kept up to date by the periodic refresher instead.
+
     Returns number of found devices.
     """
+    skip_ips = skip_ips or set()
     network = ipaddress.ip_network(cidr, strict=False)
-    hosts = [str(h) for h in network.hosts()]
+    all_hosts = [str(h) for h in network.hosts()]
+    hosts = [ip for ip in all_hosts if ip not in skip_ips]
+    skipped_count = len(all_hosts) - len(hosts)
     total = len(hosts)
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
     found_count = 0
     completed = 0
     completed_lock = asyncio.Lock()
 
-    on_event({"type": "total", "cidr": cidr, "total": total})
+    on_event({
+        "type": "total",
+        "cidr": cidr,
+        "total": total,
+        "total_all": len(all_hosts),
+        "skipped_known": skipped_count,
+    })
+
+    if total == 0:
+        on_event({"type": "cidr_done", "cidr": cidr, "found": 0,
+                  "skipped_known": skipped_count})
+        return 0
 
     async def _run_one(ip):
         nonlocal completed, found_count
@@ -172,7 +192,8 @@ async def scan_range_with_progress(
         return result
 
     await asyncio.gather(*[_run_one(ip) for ip in hosts])
-    on_event({"type": "cidr_done", "cidr": cidr, "found": found_count})
+    on_event({"type": "cidr_done", "cidr": cidr, "found": found_count,
+              "skipped_known": skipped_count})
     return found_count
 
 
