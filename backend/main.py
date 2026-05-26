@@ -1,8 +1,18 @@
 import sys
 import os
+import asyncio
 
 # Ensure backend package root is on path when run directly
 sys.path.insert(0, os.path.dirname(__file__))
+
+# Windows: force ProactorEventLoop (IOCP-based, no FD_SETSIZE 512 limit).
+# Without this, scanner concurrent socket count can hit select() limit and
+# crash with "too many file descriptors in select()".
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except AttributeError:
+        pass
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

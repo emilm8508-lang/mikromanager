@@ -10,6 +10,7 @@ This means an empty /24 finishes in seconds instead of minutes.
 """
 import asyncio
 import ipaddress
+import os
 from typing import AsyncGenerator, Optional, Callable
 import aiohttp
 import ssl
@@ -18,24 +19,33 @@ LIVENESS_TIMEOUT = 0.4   # short — for empty-host detection
 PORT_TIMEOUT = 0.8       # confirmation probe
 SNMP_TIMEOUT = 1.2
 HTTP_TIMEOUT = 2.0
-MAX_CONCURRENT = 80
+# Concurrency cap. Each host probe can open up to ~8 sockets in parallel
+# (4 liveness + 1 SSL TCP + 2 HTTP + 1 SNMP). On Windows select() has a 512
+# FD limit, so default 30 * 8 = 240 keeps us well under. ProactorEventLoop
+# (IOCP) is unlimited, but we keep this default to be polite to networks/devices.
+MAX_CONCURRENT = int(os.environ.get("MIKROTIK_SCAN_CONCURRENCY", "30"))
 
 # Ports used for fast liveness check
 LIVENESS_PORTS = [8728, 22, 80, 443]
 
 
 async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
+    """Open + immediately close a TCP socket. Uses raw socket via create_connection
+    to ensure cleanup even on timeout/cancellation."""
+    writer = None
     try:
         conn = asyncio.open_connection(ip, port)
         reader, writer = await asyncio.wait_for(conn, timeout=timeout)
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
         return True
     except Exception:
         return False
+    finally:
+        if writer is not None:
+            try:
+                writer.close()
+                # Don't await wait_closed() — it can hang on broken connections
+            except Exception:
+                pass
 
 
 async def _is_alive(ip: str) -> dict:
@@ -62,10 +72,10 @@ async def _is_mikrotik_rest(ip: str, port: int) -> Optional[dict]:
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
+    connector = aiohttp.TCPConnector(force_close=True, limit=1, ssl=ssl_ctx)
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, ssl=ssl_ctx,
-                                   timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT)) as resp:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT)) as resp:
                 if resp.status in (401, 200):
                     return {"web_port": port, "has_web": True}
     except Exception:

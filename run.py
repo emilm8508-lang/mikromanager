@@ -1,7 +1,7 @@
 """
 Mikrotik Manager — launcher.
 Starts FastAPI backend on port 8000 and opens the browser.
-In dev mode (--dev) also starts Vite dev server on 5173.
+In dev mode (--dev) also starts Vite dev server on 5173 and enables --reload.
 """
 import subprocess
 import sys
@@ -16,14 +16,17 @@ BACKEND = os.path.join(BASE, "backend")
 FRONTEND = os.path.join(BASE, "frontend")
 
 
-def run_backend():
+def run_backend(dev: bool = False):
     env = os.environ.copy()
     env["PYTHONPATH"] = BACKEND
-    return subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
-        cwd=BACKEND,
-        env=env,
-    )
+
+    cmd = [sys.executable, "-m", "uvicorn", "main:app",
+           "--host", "0.0.0.0", "--port", "8000",
+           "--loop", "asyncio"]  # ensures ProactorEventLoop on Windows (no FD limit)
+    if dev:
+        cmd.append("--reload")  # reload uses watchfiles+selector; only enable in dev
+
+    return subprocess.Popen(cmd, cwd=BACKEND, env=env)
 
 
 def run_frontend_dev():
@@ -40,13 +43,13 @@ def open_browser(url: str, delay: float = 2.0):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dev", action="store_true", help="Start Vite dev server alongside backend")
+    parser.add_argument("--dev", action="store_true", help="Start Vite dev server + uvicorn --reload")
     args = parser.parse_args()
 
     procs = []
     try:
         print("Starting Mikrotik Manager backend...")
-        procs.append(run_backend())
+        procs.append(run_backend(dev=args.dev))
 
         if args.dev:
             print("Starting Vite dev server...")
