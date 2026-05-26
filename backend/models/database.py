@@ -1,14 +1,14 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
+from sqlalchemy import (
+    Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float,
+    create_engine, inspect, text,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import os
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "mikrotik.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-# Sync engine — avoids greenlet/aiosqlite (which lack stable wheels on newer Pythons).
-# SQLite calls are microsecond-fast, so doing them sync inside async FastAPI endpoints
-# is fine for this single-user admin tool.
 engine = create_engine(
     f"sqlite:///{DB_PATH}",
     echo=False,
@@ -32,9 +32,11 @@ class Device(Base):
     api_port = Column(Integer, default=8728)
     ssh_port = Column(Integer, default=22)
     web_port = Column(Integer, default=80)
+    snmp_port = Column(Integer, default=161)
     has_api = Column(Boolean, default=False)
     has_ssh = Column(Boolean, default=False)
     has_web = Column(Boolean, default=False)
+    has_snmp = Column(Boolean, default=False)
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     online = Column(Boolean, default=False)
@@ -53,6 +55,7 @@ class Credential(Base):
     name = Column(String, nullable=False)
     username = Column(String, nullable=False)
     password_enc = Column(Text, nullable=False)
+    snmp_community_enc = Column(Text, nullable=True)  # encrypted; v2c community string
     description = Column(String, nullable=True)
 
     devices = relationship("Device", back_populates="credential")
@@ -67,8 +70,29 @@ class ScanRange(Base):
     active = Column(Boolean, default=True)
 
 
+def _migrate_add_columns():
+    """Add new columns to existing tables without dropping data.
+    SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""
+    inspector = inspect(engine)
+
+    if "credentials" in inspector.get_table_names():
+        cred_cols = {c["name"] for c in inspector.get_columns("credentials")}
+        with engine.begin() as conn:
+            if "snmp_community_enc" not in cred_cols:
+                conn.execute(text("ALTER TABLE credentials ADD COLUMN snmp_community_enc TEXT"))
+
+    if "devices" in inspector.get_table_names():
+        dev_cols = {c["name"] for c in inspector.get_columns("devices")}
+        with engine.begin() as conn:
+            if "has_snmp" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN has_snmp BOOLEAN DEFAULT 0"))
+            if "snmp_port" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN snmp_port INTEGER DEFAULT 161"))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate_add_columns()
 
 
 def get_db():

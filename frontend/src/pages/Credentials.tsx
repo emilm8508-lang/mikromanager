@@ -1,33 +1,61 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { credentialsApi, Credential } from '../lib/api'
-import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { credentialsApi, Credential, CredentialInput } from '../lib/api'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Plus, Pencil, Trash2, Key } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import { Plus, Pencil, Trash2, Key, Radio } from 'lucide-react'
 
 function CredentialForm({ initial, onSave, onCancel }: {
   initial?: Credential
-  onSave: (data: { name: string; username: string; password: string; description?: string }) => void
+  onSave: (data: CredentialInput) => void
   onCancel: () => void
 }) {
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     username: initial?.username ?? '',
     password: '',
+    snmp_community: '',
     description: initial?.description ?? '',
   })
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Send only fields that have values, plus required ones
+    const payload: CredentialInput = {
+      name: form.name,
+      username: form.username,
+      password: form.password,
+      description: form.description || undefined,
+      snmp_community: form.snmp_community || undefined,
+    }
+    onSave(payload)
+  }
+
   return (
-    <form onSubmit={e => { e.preventDefault(); onSave(form) }} className="space-y-4">
+    <form onSubmit={submit} className="space-y-4">
       <Input label="Nazwa" value={form.name} onChange={set('name')} required placeholder="np. Admin główny" />
-      <Input label="Login" value={form.username} onChange={set('username')} required placeholder="admin" />
+      <Input label="Login (API/REST/SSH)" value={form.username} onChange={set('username')} required placeholder="admin" />
       <Input label="Hasło" type="password" value={form.password} onChange={set('password')}
         required={!initial} placeholder={initial ? '(zostaw puste = bez zmian)' : ''} />
+
+      <div className="border-t border-gray-800 pt-4">
+        <Input
+          label="SNMP community (opcjonalnie, v2c)"
+          value={form.snmp_community}
+          onChange={set('snmp_community')}
+          placeholder={initial?.has_snmp ? '(zostaw puste = bez zmian, wpisz "-" by usunąć)' : 'np. public'}
+        />
+        <p className="text-[11px] text-gray-500 mt-1">
+          Używane jako fallback gdy REST/API zawiodą — przydatne dla RouterOS v6 i urządzeń z tylko web/SNMP.
+        </p>
+      </div>
+
       <Input label="Opis (opcjonalny)" value={form.description} onChange={set('description')} />
       <div className="flex gap-2 justify-end pt-2">
         <Button type="button" variant="ghost" onClick={onCancel}>Anuluj</Button>
@@ -50,7 +78,7 @@ export function Credentials() {
   })
 
   const update = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => credentialsApi.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: CredentialInput }) => credentialsApi.update(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['credentials'] }); setModal(null) },
   })
 
@@ -64,7 +92,7 @@ export function Credentials() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-100">Poświadczenia</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Zarządzaj loginami do urządzeń</p>
+          <p className="text-sm text-gray-500 mt-0.5">Loginy + opcjonalnie community SNMP dla starszych urządzeń</p>
         </div>
         <Button variant="primary" onClick={() => setModal('create')}>
           <Plus size={16} /> Dodaj
@@ -86,7 +114,14 @@ export function Credentials() {
               <Key size={16} className="text-indigo-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-200">{c.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-200">{c.name}</p>
+                {c.has_snmp && (
+                  <Badge variant="purple" className="inline-flex items-center gap-1">
+                    <Radio size={10} /> SNMP
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-gray-500">Login: <span className="text-gray-300 font-mono">{c.username}</span></p>
               {c.description && <p className="text-xs text-gray-600 mt-0.5">{c.description}</p>}
             </div>

@@ -9,6 +9,7 @@ export interface Credential {
   name: string
   username: string
   description?: string
+  has_snmp: boolean
 }
 
 export interface Device {
@@ -26,6 +27,8 @@ export interface Device {
   has_api: boolean
   has_ssh: boolean
   has_web: boolean
+  has_snmp: boolean
+  snmp_port: number
   credential_id?: number
   last_seen?: string
   online: boolean
@@ -43,11 +46,18 @@ export interface ScanRange {
 
 // ── Credentials ──────────────────────────────────────────────────────────────
 
+export interface CredentialInput {
+  name: string
+  username: string
+  password: string
+  snmp_community?: string
+  description?: string
+}
+
 export const credentialsApi = {
   list: () => api.get<Credential[]>('/credentials').then(r => r.data),
-  create: (data: { name: string; username: string; password: string; description?: string }) =>
-    api.post<Credential>('/credentials', data).then(r => r.data),
-  update: (id: number, data: { name: string; username: string; password: string; description?: string }) =>
+  create: (data: CredentialInput) => api.post<Credential>('/credentials', data).then(r => r.data),
+  update: (id: number, data: CredentialInput) =>
     api.put<Credential>(`/credentials/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/credentials/${id}`),
 }

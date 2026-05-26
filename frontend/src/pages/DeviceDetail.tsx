@@ -175,6 +175,7 @@ export function DeviceDetail() {
         {device.has_api && <Badge variant="blue">API :{device.api_port}</Badge>}
         {device.has_ssh && <Badge variant="gray">SSH :{device.ssh_port}</Badge>}
         {device.has_web && <Badge variant="yellow">Web :{device.web_port}</Badge>}
+        {device.has_snmp && <Badge variant="purple">SNMP :{device.snmp_port}</Badge>}
         {!device.credential_id && <Badge variant="red">Brak poświadczeń</Badge>}
       </div>
 

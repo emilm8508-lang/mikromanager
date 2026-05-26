@@ -105,15 +105,18 @@ def _get_client(device_id: int, db: Session):
         .where(Device.id == device_id)
     ).one_or_none()
     if not row:
-        # Distinguish: device exists but no credential?
         dev = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
         if dev and not dev.credential_id:
             raise HTTPException(412, "Urządzenie nie ma przypisanych poświadczeń")
         raise HTTPException(404, "Urządzenie lub poświadczenia nie znalezione")
     device, cred = row
     password = decrypt(cred.password_enc)
-    return MikrotikClient(device.ip, cred.username, password,
-                          api_port=device.api_port, web_port=device.web_port), device
+    community = decrypt(cred.snmp_community_enc) if cred.snmp_community_enc else None
+    return MikrotikClient(
+        device.ip, cred.username, password,
+        api_port=device.api_port, web_port=device.web_port,
+        snmp_community=community, snmp_port=device.snmp_port or 161,
+    ), device
 
 
 async def _safe_call(coro_fn: Callable[[], Awaitable]):

@@ -124,6 +124,7 @@ export function Devices() {
                       {d.has_api && <Badge variant="blue">API</Badge>}
                       {d.has_ssh && <Badge variant="gray">SSH</Badge>}
                       {d.has_web && <Badge variant="yellow">Web</Badge>}
+                      {d.has_snmp && <Badge variant="purple">SNMP</Badge>}
                     </div>
                   </td>
                   <td className="px-5 py-3 text-gray-400 text-xs">

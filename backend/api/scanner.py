@@ -84,6 +84,7 @@ async def run_scan(credential_id: Optional[int] = None):
                 "name": c.name,
                 "username": c.username,
                 "password": decrypt(c.password_enc),
+                "snmp_community": decrypt(c.snmp_community_enc) if c.snmp_community_enc else None,
             }
             for c in cred_rows
         ]
@@ -106,7 +107,9 @@ async def run_scan(credential_id: Optional[int] = None):
                     try:
                         extra = await svc.enrich_device(
                             found["ip"], cred["username"], cred["password"],
-                            web_port=found.get("web_port", 80)
+                            web_port=found.get("web_port", 80),
+                            snmp_community=cred.get("snmp_community"),
+                            snmp_port=found.get("snmp_port", 161),
                         )
                         if extra.get("identity") or extra.get("model") or extra.get("ros_version"):
                             found.update(extra)
@@ -126,8 +129,10 @@ async def run_scan(credential_id: Optional[int] = None):
                         device.has_api = found.get("has_api", device.has_api)
                         device.has_ssh = found.get("has_ssh", device.has_ssh)
                         device.has_web = found.get("has_web", device.has_web)
+                        device.has_snmp = found.get("has_snmp", device.has_snmp)
                         device.api_port = found.get("api_port", device.api_port)
                         device.web_port = found.get("web_port", device.web_port)
+                        device.snmp_port = found.get("snmp_port", device.snmp_port)
                         device.online = True
                         device.last_seen = datetime.utcnow()
                         if found.get("identity"):
@@ -145,8 +150,10 @@ async def run_scan(credential_id: Optional[int] = None):
                             has_api=found.get("has_api", False),
                             has_ssh=found.get("has_ssh", False),
                             has_web=found.get("has_web", False),
+                            has_snmp=found.get("has_snmp", False),
                             api_port=found.get("api_port", 8728),
                             web_port=found.get("web_port", 80),
+                            snmp_port=found.get("snmp_port", 161),
                             identity=found.get("identity"),
                             model=found.get("model"),
                             ros_version=found.get("ros_version"),

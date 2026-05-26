@@ -1,7 +1,7 @@
 import { cn } from '../../lib/utils'
 
 interface Props {
-  variant?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
+  variant?: 'green' | 'red' | 'gray' | 'blue' | 'yellow' | 'purple'
   children: React.ReactNode
   className?: string
 }
@@ -12,6 +12,7 @@ const styles = {
   gray: 'bg-gray-800 text-gray-400 border-gray-700',
   blue: 'bg-blue-900/40 text-blue-400 border-blue-800',
   yellow: 'bg-yellow-900/40 text-yellow-400 border-yellow-800',
+  purple: 'bg-purple-900/40 text-purple-300 border-purple-800',
 }
 
 export function Badge({ variant = 'gray', children, className }: Props) {

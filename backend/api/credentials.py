@@ -13,6 +13,7 @@ class CredentialCreate(BaseModel):
     name: str
     username: str
     password: str
+    snmp_community: Optional[str] = None
     description: Optional[str] = None
 
 
@@ -21,14 +22,26 @@ class CredentialOut(BaseModel):
     name: str
     username: str
     description: Optional[str]
+    has_snmp: bool  # whether community is set (we don't expose actual value)
 
     class Config:
         from_attributes = True
 
 
+def _to_out(cred: Credential) -> dict:
+    return {
+        "id": cred.id,
+        "name": cred.name,
+        "username": cred.username,
+        "description": cred.description,
+        "has_snmp": bool(cred.snmp_community_enc),
+    }
+
+
 @router.get("", response_model=List[CredentialOut])
 async def list_credentials(db: Session = Depends(get_db)):
-    return db.execute(select(Credential)).scalars().all()
+    rows = db.execute(select(Credential)).scalars().all()
+    return [_to_out(c) for c in rows]
 
 
 @router.post("", response_model=CredentialOut)
@@ -37,12 +50,13 @@ async def create_credential(data: CredentialCreate, db: Session = Depends(get_db
         name=data.name,
         username=data.username,
         password_enc=encrypt(data.password),
+        snmp_community_enc=encrypt(data.snmp_community) if data.snmp_community else None,
         description=data.description,
     )
     db.add(cred)
     db.commit()
     db.refresh(cred)
-    return cred
+    return _to_out(cred)
 
 
 @router.put("/{cred_id}", response_model=CredentialOut)
@@ -52,11 +66,18 @@ async def update_credential(cred_id: int, data: CredentialCreate, db: Session = 
         raise HTTPException(404, "Not found")
     cred.name = data.name
     cred.username = data.username
-    cred.password_enc = encrypt(data.password)
+    # Empty password means "keep existing" (UI sends '' for edit-without-change)
+    if data.password:
+        cred.password_enc = encrypt(data.password)
+    # snmp_community: explicit None = clear, '' = clear, set value = update
+    if data.snmp_community is None or data.snmp_community == "":
+        cred.snmp_community_enc = None
+    else:
+        cred.snmp_community_enc = encrypt(data.snmp_community)
     cred.description = data.description
     db.commit()
     db.refresh(cred)
-    return cred
+    return _to_out(cred)
 
 
 @router.delete("/{cred_id}")
