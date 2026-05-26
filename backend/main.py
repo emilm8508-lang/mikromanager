@@ -16,7 +16,7 @@ from api import devices, credentials, logs, scanner
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    init_db()
     yield
 
 

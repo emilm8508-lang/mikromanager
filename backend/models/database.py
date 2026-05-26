@@ -1,14 +1,20 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
 from datetime import datetime
 import os
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "mikrotik.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}", echo=False)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Sync engine — avoids greenlet/aiosqlite (which lack stable wheels on newer Pythons).
+# SQLite calls are microsecond-fast, so doing them sync inside async FastAPI endpoints
+# is fine for this single-user admin tool.
+engine = create_engine(
+    f"sqlite:///{DB_PATH}",
+    echo=False,
+    connect_args={"check_same_thread": False},
+)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 Base = declarative_base()
 
 
@@ -61,11 +67,13 @@ class ScanRange(Base):
     active = Column(Boolean, default=True)
 
 
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+def init_db():
+    Base.metadata.create_all(bind=engine)
 
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
