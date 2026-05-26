@@ -102,7 +102,8 @@
     "snmpHint": "Wird als Fallback verwendet, wenn REST/API fehlschlagen — nützlich für RouterOS v6 und Geräte mit nur Web/SNMP.",
     "descriptionOptional": "Beschreibung (optional)",
     "loginPrefix": "Anmeldung:",
-    "empty": "Keine Zugangsdaten. Fügen Sie die ersten hinzu."
+    "empty": "Keine Zugangsdaten. Fügen Sie die ersten hinzu.",
+    "emptyPasswordCheckbox": "Leeres Passwort (Standard 'admin' bei werkseitigem RouterOS)"
   },
   "scanner": {
     "title": "Netzwerkscanner",

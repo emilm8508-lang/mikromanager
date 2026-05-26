@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/credentials", tags=["credentials"])
 class CredentialCreate(BaseModel):
     name: str
     username: str
-    password: str
+    password: str = ""  # empty allowed — RouterOS default 'admin' has no password
     snmp_community: Optional[str] = None
     description: Optional[str] = None
 
@@ -46,10 +46,12 @@ async def list_credentials(db: Session = Depends(get_db)):
 
 @router.post("", response_model=CredentialOut)
 async def create_credential(data: CredentialCreate, db: Session = Depends(get_db)):
+    # Empty password is intentional (default Mikrotik 'admin' has none).
+    # Always encrypt — even "" — so downstream code can always decrypt.
     cred = Credential(
         name=data.name,
         username=data.username,
-        password_enc=encrypt(data.password),
+        password_enc=encrypt(data.password or ""),
         snmp_community_enc=encrypt(data.snmp_community) if data.snmp_community else None,
         description=data.description,
     )
@@ -66,8 +68,12 @@ async def update_credential(cred_id: int, data: CredentialCreate, db: Session = 
         raise HTTPException(404, "Not found")
     cred.name = data.name
     cred.username = data.username
-    # Empty password means "keep existing" (UI sends '' for edit-without-change)
-    if data.password:
+    # For edits: empty password = "keep existing" (so user doesn't have to retype).
+    # To intentionally set EMPTY password use the explicit checkbox 'allow_empty_password'
+    # (sent as password="<empty>" sentinel from UI).
+    if data.password == "<empty>":
+        cred.password_enc = encrypt("")
+    elif data.password:
         cred.password_enc = encrypt(data.password)
     # snmp_community: explicit None = clear, '' = clear, set value = update
     if data.snmp_community is None or data.snmp_community == "":

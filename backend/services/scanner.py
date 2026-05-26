@@ -25,8 +25,10 @@ HTTP_TIMEOUT = 2.0
 # (IOCP) is unlimited, but we keep this default to be polite to networks/devices.
 MAX_CONCURRENT = int(os.environ.get("MIKROTIK_SCAN_CONCURRENCY", "30"))
 
-# Ports used for fast liveness check
-LIVENESS_PORTS = [8728, 22, 80, 443]
+# Ports used for fast liveness check.
+# 8291 = Winbox (definitive Mikrotik signal — almost always enabled on RouterOS).
+# 8728 = legacy API, 22 = SSH, 80/443 = WebFig / REST.
+LIVENESS_PORTS = [8728, 8291, 22, 80, 443]
 
 
 async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
@@ -66,21 +68,49 @@ async def _snmp_alive(ip: str, port: int = 161) -> bool:
         return False
 
 
-async def _is_mikrotik_rest(ip: str, port: int) -> Optional[dict]:
+async def _is_mikrotik_web(ip: str, port: int) -> Optional[dict]:
+    """Detect Mikrotik web interface — works for both RouterOS v7 (REST API)
+    and v6 (WebFig HTML). Returns {web_port, has_web, web_kind} or None."""
     scheme = "https" if port == 443 else "http"
-    url = f"{scheme}://{ip}:{port}/rest/system/resource"
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
     connector = aiohttp.TCPConnector(force_close=True, limit=1, ssl=ssl_ctx)
+
+    # 1. Try REST API (v7+). Mikrotik returns 401 Unauthorized without creds.
     try:
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT)) as resp:
+            async with session.get(f"{scheme}://{ip}:{port}/rest/system/resource",
+                                   timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT)) as resp:
                 if resp.status in (401, 200):
-                    return {"web_port": port, "has_web": True}
+                    return {"web_port": port, "has_web": True, "web_kind": "rest"}
     except Exception:
         pass
+
+    # 2. Try root page (v6 WebFig has "RouterOS"/"Mikrotik" in HTML/headers).
+    connector2 = aiohttp.TCPConnector(force_close=True, limit=1, ssl=ssl_ctx)
+    try:
+        async with aiohttp.ClientSession(connector=connector2) as session:
+            async with session.get(f"{scheme}://{ip}:{port}/",
+                                   timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
+                                   allow_redirects=True) as resp:
+                # Header check — Mikrotik web server identifies itself
+                server = resp.headers.get("Server", "").lower()
+                if "mikrotik" in server or "webfig" in server:
+                    return {"web_port": port, "has_web": True, "web_kind": "webfig"}
+                # Body check — read up to 4 KB
+                body = await resp.content.read(4096)
+                text = body.decode("utf-8", errors="ignore").lower()
+                if "mikrotik" in text or "routeros" in text or "webfig" in text:
+                    return {"web_port": port, "has_web": True, "web_kind": "webfig"}
+    except Exception:
+        pass
+
     return None
+
+
+# Backwards-compat alias
+_is_mikrotik_rest = _is_mikrotik_web
 
 
 async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
@@ -106,8 +136,8 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
 
         # ── Phase 2: detailed checks (in parallel) ────────────────────────
         has_api_ssl_task = _tcp_open(ip, 8729)
-        web_80_task = _is_mikrotik_rest(ip, 80) if ports.get(80) else asyncio.sleep(0, result=None)
-        web_443_task = _is_mikrotik_rest(ip, 443) if ports.get(443) else asyncio.sleep(0, result=None)
+        web_80_task = _is_mikrotik_web(ip, 80) if ports.get(80) else asyncio.sleep(0, result=None)
+        web_443_task = _is_mikrotik_web(ip, 443) if ports.get(443) else asyncio.sleep(0, result=None)
         snmp_task = _snmp_alive(ip)
 
         has_api_ssl, web_80, web_443, has_snmp = await asyncio.gather(
@@ -117,9 +147,20 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
         web_result = web_80 or web_443
         has_api = ports.get(8728, False)
         has_ssh = ports.get(22, False)
+        has_winbox = ports.get(8291, False)
 
-        if not (has_api or has_api_ssl or web_result or has_snmp):
-            # Ports were open but nothing matched Mikrotik signature → skip
+        # Mikrotik signature: ANY of these is definitive:
+        #   - 8291 (Winbox) — only Mikrotik runs this
+        #   - 8728/8729 (RouterOS API) — only Mikrotik runs this
+        #   - web responded with Mikrotik signature (REST or WebFig HTML)
+        #   - SNMP responded (combined with port 80 open is strong signal)
+        is_mikrotik = (
+            has_winbox or has_api or has_api_ssl or
+            bool(web_result) or
+            (has_snmp and (ports.get(80) or ports.get(443)))
+        )
+
+        if not is_mikrotik:
             if on_progress:
                 on_progress(ip, "dead")
             return None
@@ -127,15 +168,21 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
         if on_progress:
             on_progress(ip, "found")
 
+        # If web port is open but didn't match REST/WebFig signature, still mark
+        # has_web=True if Winbox is open (probably old device with non-standard web)
+        web_port = web_result["web_port"] if web_result else (80 if ports.get(80) else (443 if ports.get(443) else 80))
+        has_web_flag = bool(web_result) or (has_winbox and (ports.get(80) or ports.get(443)))
+
         return {
             "ip": ip,
             "has_api": has_api or has_api_ssl,
             "api_port": 8729 if has_api_ssl else 8728,
             "has_ssh": has_ssh,
-            "has_web": bool(web_result),
-            "web_port": web_result["web_port"] if web_result else 80,
+            "has_web": has_web_flag,
+            "web_port": web_port,
             "has_snmp": has_snmp,
             "snmp_port": 161,
+            "has_winbox": has_winbox,
         }
 
 

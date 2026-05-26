@@ -19,6 +19,7 @@ function CredentialForm({ initial, onSave, onCancel }: {
     name: initial?.name ?? '',
     username: initial?.username ?? '',
     password: '',
+    emptyPassword: false,  // intentional empty password (e.g. default Mikrotik admin)
     snmp_community: '',
     description: initial?.description ?? '',
   })
@@ -28,10 +29,19 @@ function CredentialForm({ initial, onSave, onCancel }: {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
+    // password handling:
+    //   - new credential + emptyPassword checked → send "<empty>"
+    //   - new credential + password typed → send password
+    //   - edit + emptyPassword checked → send "<empty>" (replace with empty)
+    //   - edit + password typed → send password (replace)
+    //   - edit + nothing → send "" (keep existing)
+    let password = form.password
+    if (form.emptyPassword) password = '<empty>'
+
     const payload: CredentialInput = {
       name: form.name,
       username: form.username,
-      password: form.password,
+      password,
       description: form.description || undefined,
       snmp_community: form.snmp_community || undefined,
     }
@@ -43,7 +53,18 @@ function CredentialForm({ initial, onSave, onCancel }: {
       <Input label={t('common.name')} value={form.name} onChange={set('name')} required placeholder={t('credentials.namePlaceholder') as string} />
       <Input label={t('credentials.usernameLabel')} value={form.username} onChange={set('username')} required placeholder="admin" />
       <Input label={t('common.password')} type="password" value={form.password} onChange={set('password')}
-        required={!initial} placeholder={initial ? (t('credentials.passwordKeep') as string) : ''} />
+        disabled={form.emptyPassword}
+        required={!initial && !form.emptyPassword}
+        placeholder={initial ? (t('credentials.passwordKeep') as string) : ''} />
+      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none -mt-2">
+        <input
+          type="checkbox"
+          checked={form.emptyPassword}
+          onChange={e => setForm(f => ({ ...f, emptyPassword: e.target.checked, password: '' }))}
+          className="rounded border-gray-700 bg-gray-900 text-indigo-500"
+        />
+        <span>{t('credentials.emptyPasswordCheckbox')}</span>
+      </label>
 
       <div className="border-t border-gray-800 pt-4">
         <Input

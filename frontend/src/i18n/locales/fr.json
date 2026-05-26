@@ -102,7 +102,8 @@
     "snmpHint": "Utilisé en repli si REST/API échouent — utile pour RouterOS v6 et les appareils avec seulement web/SNMP.",
     "descriptionOptional": "Description (facultative)",
     "loginPrefix": "Identifiant :",
-    "empty": "Aucun identifiant. Ajoutez le premier."
+    "empty": "Aucun identifiant. Ajoutez le premier.",
+    "emptyPasswordCheckbox": "Mot de passe vide (par défaut 'admin' sur RouterOS d'usine)"
   },
   "scanner": {
     "title": "Scanner réseau",
