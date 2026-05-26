@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { devicesApi } from '../lib/api'
-import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useTranslation } from 'react-i18next'
 import axios from 'axios'
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const detail = err.response?.data?.detail
     if (typeof detail === 'string') return detail
-    if (err.code === 'ECONNABORTED') return 'Timeout połączenia'
+    if (err.code === 'ECONNABORTED') return 'Timeout'
     return err.message
   }
   return err instanceof Error ? err.message : String(err)
@@ -21,19 +22,8 @@ function errorMessage(err: unknown): string {
 
 type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource'
 
-const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'resource', label: 'Zasoby', icon: Activity },
-  { id: 'interfaces', label: 'Interfejsy', icon: Network },
-  { id: 'addresses', label: 'Adresy IP', icon: Globe },
-  { id: 'routes', label: 'Trasy', icon: List },
-  { id: 'firewall', label: 'Firewall', icon: Shield },
-  { id: 'wireless', label: 'Wireless', icon: Wifi },
-  { id: 'dhcp', label: 'DHCP', icon: Server },
-  { id: 'tunnels', label: 'Tunele L2', icon: Network },
-]
-
-function DataTable({ data }: { data: Record<string, unknown>[] }) {
-  if (!data || data.length === 0) return <p className="text-sm text-gray-500 py-4 text-center">Brak danych</p>
+function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; emptyLabel: string }) {
+  if (!data || data.length === 0) return <p className="text-sm text-gray-500 py-4 text-center">{emptyLabel}</p>
 
   const keys = Object.keys(data[0]).filter(k => k !== '.id')
 
@@ -64,6 +54,7 @@ function DataTable({ data }: { data: Record<string, unknown>[] }) {
 }
 
 function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
+  const { t } = useTranslation()
   const queries: Record<Tab, () => Promise<unknown>> = {
     interfaces: () => devicesApi.interfaces(deviceId),
     addresses: () => devicesApi.addresses(deviceId),
@@ -81,11 +72,11 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
     retry: false,
   })
 
-  if (isLoading) return <p className="text-sm text-gray-500 py-8 text-center">Ładowanie z urządzenia...</p>
+  if (isLoading) return <p className="text-sm text-gray-500 py-8 text-center">{t('common.loadingFromDevice')}</p>
   if (error) return (
     <div className="py-8 px-4 flex flex-col items-center gap-2">
       <AlertTriangle size={22} className="text-red-400" />
-      <p className="text-sm text-red-400 font-medium">Błąd połączenia z urządzeniem</p>
+      <p className="text-sm text-red-400 font-medium">{t('deviceDetail.connectionError')}</p>
       <p className="text-xs text-gray-400 font-mono text-center max-w-xl break-words">
         {errorMessage(error)}
       </p>
@@ -113,34 +104,35 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
       <div className="space-y-4">
         <div>
           <h3 className="text-xs font-semibold text-gray-400 mb-2">Filter</h3>
-          <DataTable data={fw.filter ?? []} />
+          <DataTable data={fw.filter ?? []} emptyLabel={t('common.noData')} />
         </div>
         <div>
           <h3 className="text-xs font-semibold text-gray-400 mb-2">NAT</h3>
-          <DataTable data={fw.nat ?? []} />
+          <DataTable data={fw.nat ?? []} emptyLabel={t('common.noData')} />
         </div>
       </div>
     )
   }
 
   if (tab === 'tunnels') {
-    const t = data as Record<string, Record<string, unknown>[]>
+    const t2 = data as Record<string, Record<string, unknown>[]>
     return (
       <div className="space-y-4">
-        {Object.entries(t).map(([type, rows]) => (
+        {Object.entries(t2).map(([type, rows]) => (
           <div key={type}>
             <h3 className="text-xs font-semibold text-gray-400 uppercase mb-2">{type}</h3>
-            <DataTable data={rows} />
+            <DataTable data={rows} emptyLabel={t('common.noData')} />
           </div>
         ))}
       </div>
     )
   }
 
-  return <DataTable data={data as Record<string, unknown>[]} />
+  return <DataTable data={data as Record<string, unknown>[]} emptyLabel={t('common.noData')} />
 }
 
 export function DeviceDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const deviceId = Number(id)
   const [activeTab, setActiveTab] = useState<Tab>('resource')
@@ -150,8 +142,19 @@ export function DeviceDetail() {
     queryFn: () => devicesApi.get(deviceId),
   })
 
-  if (isLoading) return <div className="p-6 text-gray-500">Ładowanie...</div>
-  if (!device) return <div className="p-6 text-red-400">Urządzenie nie znalezione</div>
+  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'resource', label: t('deviceDetail.tabs.resource'), icon: Activity },
+    { id: 'interfaces', label: t('deviceDetail.tabs.interfaces'), icon: Network },
+    { id: 'addresses', label: t('deviceDetail.tabs.addresses'), icon: Globe },
+    { id: 'routes', label: t('deviceDetail.tabs.routes'), icon: List },
+    { id: 'firewall', label: t('deviceDetail.tabs.firewall'), icon: Shield },
+    { id: 'wireless', label: t('deviceDetail.tabs.wireless'), icon: Wifi },
+    { id: 'dhcp', label: t('deviceDetail.tabs.dhcp'), icon: Server },
+    { id: 'tunnels', label: t('deviceDetail.tabs.tunnels'), icon: Network },
+  ]
+
+  if (isLoading) return <div className="p-6 text-gray-500">{t('common.loading')}</div>
+  if (!device) return <div className="p-6 text-red-400">{t('common.notFound')}</div>
 
   return (
     <div className="p-6 space-y-5">
@@ -163,10 +166,10 @@ export function DeviceDetail() {
           <h1 className="text-xl font-bold text-gray-100">
             {device.identity || device.name || device.ip}
           </h1>
-          <p className="text-sm text-gray-500">{device.ip} · {device.model || 'Nieznany model'} · ROS {device.ros_version || '?'}</p>
+          <p className="text-sm text-gray-500">{device.ip} · {device.model || t('deviceDetail.unknownModel')} · ROS {device.ros_version || '?'}</p>
         </div>
         <Badge variant={device.online ? 'green' : 'red'} className="ml-auto">
-          {device.online ? 'Online' : 'Offline'}
+          {device.online ? t('common.online') : t('common.offline')}
         </Badge>
       </div>
 
@@ -176,7 +179,7 @@ export function DeviceDetail() {
         {device.has_ssh && <Badge variant="gray">SSH :{device.ssh_port}</Badge>}
         {device.has_web && <Badge variant="yellow">Web :{device.web_port}</Badge>}
         {device.has_snmp && <Badge variant="purple">SNMP :{device.snmp_port}</Badge>}
-        {!device.credential_id && <Badge variant="red">Brak poświadczeń</Badge>}
+        {!device.credential_id && <Badge variant="red">{t('deviceDetail.noCredsBadge')}</Badge>}
       </div>
 
       {/* Tabs */}
@@ -203,7 +206,7 @@ export function DeviceDetail() {
             <TabContent deviceId={deviceId} tab={activeTab} />
           ) : (
             <p className="text-sm text-yellow-400 py-6 text-center">
-              Przypisz poświadczenia do urządzenia, aby pobrać dane konfiguracji.
+              {t('deviceDetail.noCredsAssign')}
             </p>
           )}
         </CardContent>

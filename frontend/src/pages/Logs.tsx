@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { devicesApi, Device } from '../lib/api'
+import { devicesApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { ScrollText, Play, Square, Trash2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface LogEntry {
   '.id'?: string
@@ -25,6 +26,7 @@ const topicColor = (topics?: string) => {
 }
 
 export function Logs() {
+  const { t } = useTranslation()
   const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list })
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -38,12 +40,11 @@ export function Logs() {
   const fetchOnce = async () => {
     if (!selectedId) return
     try {
-      const data = await devicesApi.interfaces(selectedId) // placeholder — use logs endpoint
       const res = await fetch(`/api/logs/${selectedId}`)
       const json = await res.json()
       setLogs(json)
     } catch {
-      setLogs([{ message: 'Błąd pobierania logów', topics: 'error' }])
+      setLogs([{ message: t('deviceDetail.connectionError'), topics: 'error' }])
     }
   }
 
@@ -82,8 +83,8 @@ export function Logs() {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-gray-100">Logi</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Podgląd na żywo — bez składowania lokalnie</p>
+        <h1 className="text-xl font-bold text-gray-100">{t('logs.title')}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t('logs.subtitle')}</p>
       </div>
 
       <Card>
@@ -94,7 +95,7 @@ export function Logs() {
               value={selectedId ?? ''}
               onChange={e => { stopStream(); setSelectedId(Number(e.target.value) || null); setLogs([]) }}
             >
-              <option value="">— wybierz urządzenie —</option>
+              <option value="">{t('logs.selectDevice')}</option>
               {devicesWithCreds.map(d => (
                 <option key={d.id} value={d.id}>
                   {d.identity || d.ip} {d.model ? `(${d.model})` : ''}
@@ -104,18 +105,18 @@ export function Logs() {
 
             <input
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 flex-1 min-w-40"
-              placeholder="Filtruj logi..."
+              placeholder={t('common.search')}
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
 
             {!streaming ? (
               <Button variant="primary" size="sm" disabled={!selectedId} onClick={startStream}>
-                <Play size={14} /> Start live
+                <Play size={14} /> {t('logs.startStream')}
               </Button>
             ) : (
               <Button variant="danger" size="sm" onClick={stopStream}>
-                <Square size={14} /> Stop
+                <Square size={14} /> {t('logs.stopStream')}
               </Button>
             )}
 
@@ -123,7 +124,7 @@ export function Logs() {
               <Trash2 size={14} />
             </Button>
 
-            {streaming && <Badge variant="green" className="animate-pulse">● Live</Badge>}
+            {streaming && <Badge variant="green" className="animate-pulse">● {t('logs.live')}</Badge>}
           </div>
         </CardHeader>
 
@@ -131,15 +132,15 @@ export function Logs() {
           {!selectedId ? (
             <div className="py-14 text-center">
               <ScrollText size={32} className="mx-auto text-gray-700 mb-3" />
-              <p className="text-gray-500 text-sm">Wybierz urządzenie aby zobaczyć logi</p>
+              <p className="text-gray-500 text-sm">{t('logs.selectDevice')}</p>
               {devicesWithCreds.length === 0 && (
-                <p className="text-yellow-500 text-xs mt-2">Brak urządzeń z przypisanymi poświadczeniami</p>
+                <p className="text-yellow-500 text-xs mt-2">{t('deviceDetail.noCredsBadge')}</p>
               )}
             </div>
           ) : (
             <div className="bg-gray-950 font-mono text-xs h-[500px] overflow-y-auto p-4 space-y-0.5 scrollbar-thin">
               {filtered.length === 0 && (
-                <p className="text-gray-600 text-center py-8">Brak logów</p>
+                <p className="text-gray-600 text-center py-8">{t('logs.noLogs')}</p>
               )}
               {filtered.map((l, i) => (
                 <div key={l['.id'] ?? i} className="flex gap-3 hover:bg-gray-900/50 px-1 py-0.5 rounded">

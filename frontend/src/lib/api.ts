@@ -89,3 +89,20 @@ export const scannerApi = {
     api.post<ScanRange>('/scanner/ranges', data).then(r => r.data),
   deleteRange: (id: number) => api.delete(`/scanner/ranges/${id}`),
 }
+
+// ── System (refresher) ───────────────────────────────────────────────────────
+
+export interface RefreshStatus {
+  interval_min: number
+  in_progress: boolean
+  last_run: string | null
+  last_duration_sec: number | null
+  devices_checked_last: number
+  devices_updated_last: number
+  next_run_estimated: number | null  // epoch seconds
+}
+
+export const systemApi = {
+  refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
+  runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
+}

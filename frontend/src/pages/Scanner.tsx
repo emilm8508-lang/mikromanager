@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { Search, Plus, Trash2, CheckCircle2, AlertCircle, Info, KeyRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ScanEvent {
   status: 'scanning' | 'found' | 'done' | 'info'
@@ -15,6 +16,7 @@ interface ScanEvent {
 }
 
 export function Scanner() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: ranges = [] } = useQuery({ queryKey: ['ranges'], queryFn: scannerApi.listRanges })
   const { data: creds = [] } = useQuery({ queryKey: ['credentials'], queryFn: credentialsApi.list })
@@ -37,7 +39,6 @@ export function Scanner() {
   const runScan = () => {
     setEvents([])
     setScanning(true)
-    // No credential_id query param — backend tries ALL stored credentials
     const es = new EventSource('/api/scanner/run')
     es.onmessage = (e) => {
       const data: ScanEvent = JSON.parse(e.data)
@@ -57,35 +58,35 @@ export function Scanner() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-100">Skaner sieci</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Wykryj urządzenia Mikrotik w podanych zakresach IP</p>
+        <h1 className="text-xl font-bold text-gray-100">{t('scanner.title')}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t('scanner.subtitle')}</p>
       </div>
 
       {/* Ranges */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-gray-300">Zakresy skanowania</h2>
+          <h2 className="text-sm font-semibold text-gray-300">{t('scanner.rangesTitle')}</h2>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
-            <Input placeholder="192.168.1.0/24" value={newCidr} onChange={e => setNewCidr(e.target.value)}
+            <Input placeholder={t('scanner.cidrPlaceholder') as string} value={newCidr} onChange={e => setNewCidr(e.target.value)}
               className="flex-1" />
-            <Input placeholder="Etykieta (opcjonalnie)" value={newLabel} onChange={e => setNewLabel(e.target.value)}
+            <Input placeholder={t('scanner.labelPlaceholder') as string} value={newLabel} onChange={e => setNewLabel(e.target.value)}
               className="flex-1" />
             <Button variant="primary" onClick={() => addRange.mutate()} disabled={!newCidr}>
-              <Plus size={16} /> Dodaj
+              <Plus size={16} /> {t('common.add')}
             </Button>
           </div>
 
           {ranges.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">Brak zakresów. Dodaj zakres CIDR powyżej.</p>
+            <p className="text-sm text-gray-500 text-center py-4">{t('scanner.noRanges')}</p>
           ) : (
             <div className="space-y-2">
               {ranges.map(r => (
                 <div key={r.id} className="flex items-center gap-3 bg-gray-800 rounded-lg px-4 py-2.5">
                   <span className="font-mono text-sm text-gray-200">{r.cidr}</span>
                   {r.label && <span className="text-xs text-gray-500">{r.label}</span>}
-                  <Badge variant={r.active ? 'green' : 'gray'}>{r.active ? 'Aktywny' : 'Nieaktywny'}</Badge>
+                  <Badge variant={r.active ? 'green' : 'gray'}>{r.active ? t('scanner.active') : t('scanner.inactive')}</Badge>
                   <Button size="sm" variant="danger" className="ml-auto" onClick={() => deleteRange.mutate(r.id)}>
                     <Trash2 size={13} />
                   </Button>
@@ -99,27 +100,27 @@ export function Scanner() {
       {/* Run scan */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-gray-300">Uruchom skan</h2>
+          <h2 className="text-sm font-semibold text-gray-300">{t('scanner.runTitle')}</h2>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <KeyRound size={15} className="text-indigo-400" />
               <span>
-                Skan użyje wszystkich zapisanych poświadczeń (<span className="text-gray-200 font-medium">{creds.length}</span>)
-                {creds.length > 0 && ' — dla każdego urządzenia próbuje każde po kolei i przypisuje te które zadziałają'}
+                {t('scanner.credsInfo')} (<span className="text-gray-200 font-medium">{creds.length}</span>)
+                {creds.length > 0 && ' ' + t('scanner.credsInfoSuffix')}
               </span>
             </div>
             <Button variant="primary" onClick={runScan} disabled={scanning || ranges.length === 0}>
               <Search size={16} />
-              {scanning ? 'Skanowanie...' : 'Skanuj teraz'}
+              {scanning ? t('scanner.scanning') : t('scanner.scanNow')}
             </Button>
           </div>
 
           {creds.length === 0 && (
             <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg px-4 py-2.5 text-xs text-amber-300 flex items-center gap-2">
               <AlertCircle size={14} />
-              Brak zapisanych poświadczeń — skan wykryje tylko porty, bez identyfikacji urządzeń.
+              {t('scanner.noCredsWarn')}
             </div>
           )}
 
@@ -137,7 +138,7 @@ export function Scanner() {
                   {ev.status === 'scanning' && (
                     <>
                       <Search size={14} className="text-blue-400 mt-0.5 shrink-0" />
-                      <span className="text-blue-400">Skanuję {ev.cidr}...</span>
+                      <span className="text-blue-400">{t('scanner.scanningCidr', { cidr: ev.cidr })}</span>
                     </>
                   )}
                   {ev.status === 'found' && ev.device && (
@@ -146,6 +147,7 @@ export function Scanner() {
                       <span className="text-green-300 font-mono">{String(ev.device.ip)}</span>
                       {ev.device.identity != null && <span className="text-gray-300">— {String(ev.device.identity)}</span>}
                       {ev.device.model != null && <Badge variant="blue" className="ml-1">{String(ev.device.model)}</Badge>}
+                      {ev.device.has_snmp ? <Badge variant="purple" className="ml-1">SNMP</Badge> : null}
                       {ev.device.matched_credential != null && (
                         <Badge variant="green" className="ml-1 inline-flex items-center gap-1">
                           <KeyRound size={10} />
@@ -158,8 +160,8 @@ export function Scanner() {
                     <>
                       <AlertCircle size={14} className="text-indigo-400 mt-0.5 shrink-0" />
                       <span className="text-indigo-300 font-medium">
-                        Skan zakończony. Znaleziono {found.length} urządzeń
-                        {creds.length > 0 && ` (${matchedCount} z dopasowanymi poświadczeniami)`}.
+                        {t('scanner.scanDone', { found: found.length })}
+                        {creds.length > 0 && ' ' + t('scanner.scanDoneMatched', { matched: matchedCount })}.
                       </span>
                     </>
                   )}

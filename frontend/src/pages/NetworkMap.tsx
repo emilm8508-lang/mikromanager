@@ -1,17 +1,19 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { devicesApi, Device } from '../lib/api'
 import { Badge } from '../components/ui/Badge'
-import { Card } from '../components/ui/Card'
 import { Network, Server, Move } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const NODE_W = 160
 const NODE_H = 72
 
-function DeviceNode({ device, onDragEnd }: {
+function DeviceNode({ device, onDragEnd, onlineLabel, offlineLabel }: {
   device: Device
   onDragEnd: (id: number, x: number, y: number) => void
+  onlineLabel: string
+  offlineLabel: string
 }) {
   const dragRef = useRef<{ startX: number; startY: number; nodeX: number; nodeY: number } | null>(null)
 
@@ -61,7 +63,7 @@ function DeviceNode({ device, onDragEnd }: {
         </div>
         <p className="text-[10px] font-mono text-gray-500 mb-1.5">{device.ip}</p>
         <div className="flex gap-1 flex-wrap">
-          <Badge variant={device.online ? 'green' : 'red'} className="text-[10px] py-0">{device.online ? 'Online' : 'Off'}</Badge>
+          <Badge variant={device.online ? 'green' : 'red'} className="text-[10px] py-0">{device.online ? onlineLabel : offlineLabel}</Badge>
           {device.model && <Badge variant="gray" className="text-[10px] py-0">{device.model}</Badge>}
         </div>
       </div>
@@ -70,6 +72,7 @@ function DeviceNode({ device, onDragEnd }: {
 }
 
 export function NetworkMap() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: devices = [], isLoading } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list })
   const [hint, setHint] = useState(true)
@@ -93,14 +96,14 @@ export function NetworkMap() {
     <div className="p-6 space-y-4 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-100">Mapa sieci</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Przeciągaj urządzenia, by ułożyć topologię</p>
+          <h1 className="text-xl font-bold text-gray-100">{t('map.title')}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{t('map.subtitle')}</p>
         </div>
         <button
           onClick={autoLayout}
           className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
         >
-          <Move size={13} /> Auto-układ
+          <Move size={13} /> {t('map.resetLayout')}
         </button>
       </div>
 
@@ -116,13 +119,13 @@ export function NetworkMap() {
         </svg>
 
         {isLoading && (
-          <p className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">Ładowanie...</p>
+          <p className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">{t('common.loading')}</p>
         )}
 
         {!isLoading && devices.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <Network size={40} className="text-gray-700" />
-            <p className="text-gray-500 text-sm">Brak urządzeń. Uruchom skaner aby je wykryć.</p>
+            <p className="text-gray-500 text-sm">{t('map.noDevices')}</p>
           </div>
         )}
 
@@ -131,6 +134,8 @@ export function NetworkMap() {
             key={d.id}
             device={d}
             onDragEnd={(id, x, y) => updatePos.mutate({ id, x, y })}
+            onlineLabel={t('common.online')}
+            offlineLabel={t('common.offline')}
           />
         ))}
 
@@ -139,7 +144,7 @@ export function NetworkMap() {
             onClick={() => setHint(false)}
             className="absolute bottom-3 right-3 text-xs text-gray-600 hover:text-gray-400 bg-gray-900/80 px-3 py-1.5 rounded-lg border border-gray-800"
           >
-            Przeciągnij węzły aby ułożyć topologię · kliknij aby ukryć
+            {t('map.subtitle')}
           </button>
         )}
       </div>

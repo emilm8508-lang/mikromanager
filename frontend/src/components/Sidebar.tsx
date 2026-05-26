@@ -1,17 +1,114 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { cn } from '../lib/utils'
+import { SUPPORTED_LANGS } from '../i18n'
+import { systemApi } from '../lib/api'
 
-const nav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/devices', label: 'Urządzenia', icon: Server },
-  { to: '/map', label: 'Mapa sieci', icon: Network },
-  { to: '/scanner', label: 'Skaner', icon: Search },
-  { to: '/credentials', label: 'Poświadczenia', icon: Key },
-  { to: '/logs', label: 'Logi', icon: ScrollText },
-]
+function RefresherStatus() {
+  const { t, i18n } = useTranslation()
+  const qc = useQueryClient()
+  const { data } = useQuery({
+    queryKey: ['refresh-status'],
+    queryFn: systemApi.refreshStatus,
+    refetchInterval: 10_000,
+  })
+
+  const trigger = useMutation({
+    mutationFn: systemApi.runRefresh,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['refresh-status'] }),
+  })
+
+  if (!data) return null
+
+  const lastRun = data.last_run ? new Date(data.last_run) : null
+  const minsAgo = lastRun ? Math.round((Date.now() - lastRun.getTime()) / 60000) : null
+  const nextInMin = data.next_run_estimated
+    ? Math.max(0, Math.round((data.next_run_estimated * 1000 - Date.now()) / 60000))
+    : null
+
+  const whenStr = lastRun
+    ? lastRun.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) +
+      (minsAgo !== null && minsAgo < 60 ? ` (${minsAgo}m)` : '')
+    : t('refresher.neverRun')
+
+  return (
+    <div className="px-4 py-3 border-t border-gray-800 space-y-2 text-[10.5px]">
+      <div className="flex items-center justify-between">
+        <span className="text-gray-500 uppercase tracking-wider font-semibold">{t('refresher.label')}</span>
+        <button
+          onClick={() => trigger.mutate()}
+          disabled={data.in_progress || trigger.isPending}
+          title={t('refresher.runManual') as string}
+          className="text-gray-500 hover:text-indigo-300 disabled:opacity-40"
+        >
+          <RefreshCw size={11} className={data.in_progress ? 'animate-spin' : ''} />
+        </button>
+      </div>
+      {data.in_progress ? (
+        <p className="text-indigo-300">{t('refresher.running')}</p>
+      ) : (
+        <>
+          <p className="text-gray-400 truncate">{t('refresher.lastRun', { when: whenStr })}</p>
+          {nextInMin !== null && (
+            <p className="text-gray-600">{t('refresher.nextRun', { min: nextInMin })}</p>
+          )}
+        </>
+      )}
+      <p className="text-gray-600">{t('refresher.intervalEvery', { min: data.interval_min })}</p>
+    </div>
+  )
+}
+
+function LanguageSwitcher() {
+  const { i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const current = SUPPORTED_LANGS.find(l => l.code === i18n.language) ?? SUPPORTED_LANGS[0]
+
+  return (
+    <div className="relative px-3 py-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+      >
+        <Globe size={13} />
+        <span>{current.flag} {current.name}</span>
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-3 right-3 mb-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+          {SUPPORTED_LANGS.map(lang => (
+            <button
+              key={lang.code}
+              onClick={() => { i18n.changeLanguage(lang.code); setOpen(false) }}
+              className={cn(
+                'w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors',
+                i18n.language === lang.code ? 'text-indigo-300 bg-gray-700/50' : 'text-gray-300'
+              )}
+            >
+              {lang.flag} {lang.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Sidebar() {
+  const { t } = useTranslation()
+
+  const nav = [
+    { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { to: '/devices', label: t('nav.devices'), icon: Server },
+    { to: '/map', label: t('nav.map'), icon: Network },
+    { to: '/scanner', label: t('nav.scanner'), icon: Search },
+    { to: '/credentials', label: t('nav.credentials'), icon: Key },
+    { to: '/logs', label: t('nav.logs'), icon: ScrollText },
+  ]
+
   return (
     <aside className="w-56 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
       {/* Logo */}
@@ -22,7 +119,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="text-sm font-bold text-gray-100 leading-none">MikroManager</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">RouterOS v7</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">RouterOS v6 / v7</p>
           </div>
         </div>
       </div>
@@ -49,8 +146,11 @@ export function Sidebar() {
         ))}
       </nav>
 
+      <RefresherStatus />
+      <LanguageSwitcher />
+
       <div className="px-5 py-3 border-t border-gray-800">
-        <p className="text-[10px] text-gray-600">MikroManager v1.0</p>
+        <p className="text-[10px] text-gray-600">MikroManager v1.1</p>
       </div>
     </aside>
   )

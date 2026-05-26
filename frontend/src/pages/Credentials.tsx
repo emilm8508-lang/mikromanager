@@ -7,12 +7,14 @@ import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { Plus, Pencil, Trash2, Key, Radio } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 function CredentialForm({ initial, onSave, onCancel }: {
   initial?: Credential
   onSave: (data: CredentialInput) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     username: initial?.username ?? '',
@@ -26,7 +28,6 @@ function CredentialForm({ initial, onSave, onCancel }: {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Send only fields that have values, plus required ones
     const payload: CredentialInput = {
       name: form.name,
       username: form.username,
@@ -39,33 +40,32 @@ function CredentialForm({ initial, onSave, onCancel }: {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <Input label="Nazwa" value={form.name} onChange={set('name')} required placeholder="np. Admin główny" />
-      <Input label="Login (API/REST/SSH)" value={form.username} onChange={set('username')} required placeholder="admin" />
-      <Input label="Hasło" type="password" value={form.password} onChange={set('password')}
-        required={!initial} placeholder={initial ? '(zostaw puste = bez zmian)' : ''} />
+      <Input label={t('common.name')} value={form.name} onChange={set('name')} required placeholder={t('credentials.namePlaceholder') as string} />
+      <Input label={t('credentials.usernameLabel')} value={form.username} onChange={set('username')} required placeholder="admin" />
+      <Input label={t('common.password')} type="password" value={form.password} onChange={set('password')}
+        required={!initial} placeholder={initial ? (t('credentials.passwordKeep') as string) : ''} />
 
       <div className="border-t border-gray-800 pt-4">
         <Input
-          label="SNMP community (opcjonalnie, v2c)"
+          label={t('credentials.snmpLabel')}
           value={form.snmp_community}
           onChange={set('snmp_community')}
-          placeholder={initial?.has_snmp ? '(zostaw puste = bez zmian, wpisz "-" by usunąć)' : 'np. public'}
+          placeholder={(initial?.has_snmp ? t('credentials.snmpPlaceholderKeep') : t('credentials.snmpPlaceholder')) as string}
         />
-        <p className="text-[11px] text-gray-500 mt-1">
-          Używane jako fallback gdy REST/API zawiodą — przydatne dla RouterOS v6 i urządzeń z tylko web/SNMP.
-        </p>
+        <p className="text-[11px] text-gray-500 mt-1">{t('credentials.snmpHint')}</p>
       </div>
 
-      <Input label="Opis (opcjonalny)" value={form.description} onChange={set('description')} />
+      <Input label={t('credentials.descriptionOptional')} value={form.description} onChange={set('description')} />
       <div className="flex gap-2 justify-end pt-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>Anuluj</Button>
-        <Button type="submit" variant="primary">Zapisz</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit" variant="primary">{t('common.save')}</Button>
       </div>
     </form>
   )
 }
 
 export function Credentials() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: creds = [] } = useQuery({ queryKey: ['credentials'], queryFn: credentialsApi.list })
 
@@ -91,11 +91,11 @@ export function Credentials() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-100">Poświadczenia</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Loginy + opcjonalnie community SNMP dla starszych urządzeń</p>
+          <h1 className="text-xl font-bold text-gray-100">{t('credentials.title')}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{t('credentials.subtitle')}</p>
         </div>
         <Button variant="primary" onClick={() => setModal('create')}>
-          <Plus size={16} /> Dodaj
+          <Plus size={16} /> {t('common.add')}
         </Button>
       </div>
 
@@ -104,7 +104,7 @@ export function Credentials() {
           <Card>
             <CardContent className="py-12 text-center">
               <Key size={32} className="mx-auto text-gray-700 mb-3" />
-              <p className="text-gray-500 text-sm">Brak poświadczeń. Dodaj pierwsze.</p>
+              <p className="text-gray-500 text-sm">{t('credentials.empty')}</p>
             </CardContent>
           </Card>
         )}
@@ -122,7 +122,7 @@ export function Credentials() {
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-gray-500">Login: <span className="text-gray-300 font-mono">{c.username}</span></p>
+              <p className="text-sm text-gray-500">{t('credentials.loginPrefix')} <span className="text-gray-300 font-mono">{c.username}</span></p>
               {c.description && <p className="text-xs text-gray-600 mt-0.5">{c.description}</p>}
             </div>
             <div className="flex gap-2">
@@ -137,11 +137,11 @@ export function Credentials() {
         ))}
       </div>
 
-      <Modal open={modal === 'create'} onClose={() => setModal(null)} title="Nowe poświadczenia">
+      <Modal open={modal === 'create'} onClose={() => setModal(null)} title={t('credentials.newTitle')}>
         <CredentialForm onSave={data => create.mutate(data)} onCancel={() => setModal(null)} />
       </Modal>
 
-      <Modal open={modal === 'edit'} onClose={() => setModal(null)} title="Edytuj poświadczenia">
+      <Modal open={modal === 'edit'} onClose={() => setModal(null)} title={t('credentials.editTitle')}>
         {editing && (
           <CredentialForm
             initial={editing}

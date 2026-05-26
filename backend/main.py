@@ -11,13 +11,18 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner
+from api import devices, credentials, logs, scanner, system
+from services import refresher
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    yield
+    refresher.start()
+    try:
+        yield
+    finally:
+        refresher.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
@@ -34,6 +39,7 @@ app.include_router(devices.router)
 app.include_router(credentials.router)
 app.include_router(logs.router)
 app.include_router(scanner.router)
+app.include_router(system.router)
 
 # Serve built frontend if available
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
