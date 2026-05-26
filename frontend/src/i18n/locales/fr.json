@@ -143,7 +143,12 @@
     "title": "Carte réseau",
     "subtitle": "Topologie L2 entre les appareils",
     "noDevices": "Aucun appareil à afficher",
-    "resetLayout": "Réinitialiser la mise en page"
+    "resetLayout": "Disposition auto",
+    "rediscover": "Découvrir la topologie",
+    "linkTypes": "Types de lien",
+    "nodes": "nœuds",
+    "links": "liens",
+    "noLinksYet": "Aucun lien — cliquez sur \"Découvrir la topologie\" ou attendez l'actualisation auto (voisins LLDP/CDP/MNDP + tunnels L2)"
   },
   "refresher": {
     "label": "Actualisation auto",

@@ -143,7 +143,12 @@
     "title": "Mapa sieci",
     "subtitle": "Topologia L2 między urządzeniami",
     "noDevices": "Brak urządzeń do wyświetlenia",
-    "resetLayout": "Resetuj układ"
+    "resetLayout": "Auto-układ",
+    "rediscover": "Odkryj topologię",
+    "linkTypes": "Typy połączeń",
+    "nodes": "węzły",
+    "links": "połączeń",
+    "noLinksYet": "Brak połączeń — kliknij \"Odkryj topologię\" lub poczekaj na cykl auto-odświeżania (sąsiedzi LLDP/CDP/MNDP + tunele L2)"
   },
   "refresher": {
     "label": "Auto-odświeżanie",

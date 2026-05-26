@@ -102,7 +102,39 @@ export interface RefreshStatus {
   next_run_estimated: number | null  // epoch seconds
 }
 
+export interface TopologyNode {
+  id: number
+  ip: string
+  name?: string
+  identity?: string
+  model?: string
+  online: boolean
+  x_pos: number
+  y_pos: number
+  has_api: boolean
+  has_web: boolean
+  has_ssh: boolean
+  has_snmp: boolean
+}
+
+export interface TopologyLink {
+  id: number
+  a: number
+  b: number
+  iface_a?: string
+  iface_b?: string
+  type: string  // 'lldp'|'cdp'|'mndp'|'eoip'|'gre'|'vxlan'|'ipip'
+  last_seen?: string
+}
+
+export interface Topology {
+  nodes: TopologyNode[]
+  links: TopologyLink[]
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
+  topology: () => api.get<Topology>('/system/topology').then(r => r.data),
+  discoverTopology: () => api.post('/system/topology/discover').then(r => r.data),
 }

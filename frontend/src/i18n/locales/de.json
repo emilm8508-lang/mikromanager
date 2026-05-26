@@ -143,7 +143,12 @@
     "title": "Netzwerkkarte",
     "subtitle": "L2-Topologie zwischen Geräten",
     "noDevices": "Keine Geräte anzuzeigen",
-    "resetLayout": "Layout zurücksetzen"
+    "resetLayout": "Auto-Layout",
+    "rediscover": "Topologie erkennen",
+    "linkTypes": "Verbindungstypen",
+    "nodes": "Knoten",
+    "links": "Verbindungen",
+    "noLinksYet": "Noch keine Verbindungen — klicke \"Topologie erkennen\" oder warte auf Auto-Aktualisierung (LLDP/CDP/MNDP-Nachbarn + L2-Tunnel)"
   },
   "refresher": {
     "label": "Auto-Aktualisierung",

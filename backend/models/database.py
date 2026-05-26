@@ -70,6 +70,24 @@ class ScanRange(Base):
     active = Column(Boolean, default=True)
 
 
+class DeviceLink(Base):
+    """An edge between two devices in the topology — discovered via
+    /ip/neighbor (LLDP/CDP/MNDP) or via L2 tunnels (EOIP/GRE/VXLAN).
+
+    Pair is stored canonically: device_a_id < device_b_id, so each link
+    appears exactly once regardless of which side reported it.
+    """
+    __tablename__ = "device_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_a_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    device_b_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    interface_a = Column(String, nullable=True)   # port on device A
+    interface_b = Column(String, nullable=True)   # port on device B
+    link_type = Column(String, nullable=True)     # 'lldp' | 'cdp' | 'mndp' | 'eoip' | 'gre' | 'vxlan' | 'ipip'
+    last_seen = Column(DateTime, default=datetime.utcnow)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

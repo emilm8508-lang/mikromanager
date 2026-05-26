@@ -14,6 +14,7 @@ from sqlalchemy import select
 from models.database import SessionLocal, Device, Credential
 from services.crypto import decrypt
 from services import scanner as scan_svc
+from services import topology as topo_svc
 
 
 # ── State (read by /api/system endpoint) ──────────────────────────────────────
@@ -135,6 +136,13 @@ async def refresh_all_devices() -> None:
                     _devices_checked += 1
 
         await asyncio.gather(*(_bounded(i) for i in ids))
+
+        # After per-device refresh, rediscover topology (LLDP/CDP/MNDP + tunnels).
+        # This is cheap relative to the refresh itself.
+        try:
+            await topo_svc.discover_all()
+        except Exception as e:
+            print(f"[refresher] topology error: {e}")
     finally:
         _last_run = datetime.utcnow()
         _last_duration_sec = (_last_run - start).total_seconds()

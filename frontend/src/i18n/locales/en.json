@@ -143,7 +143,12 @@
     "title": "Network map",
     "subtitle": "L2 topology between devices",
     "noDevices": "No devices to display",
-    "resetLayout": "Reset layout"
+    "resetLayout": "Auto layout",
+    "rediscover": "Discover topology",
+    "linkTypes": "Link types",
+    "nodes": "nodes",
+    "links": "links",
+    "noLinksYet": "No links yet — click \"Discover topology\" or wait for auto-refresh (LLDP/CDP/MNDP neighbors + L2 tunnels)"
   },
   "refresher": {
     "label": "Auto-refresh",

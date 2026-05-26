@@ -143,7 +143,12 @@
     "title": "Mapa de red",
     "subtitle": "Topología L2 entre dispositivos",
     "noDevices": "Sin dispositivos para mostrar",
-    "resetLayout": "Reiniciar disposición"
+    "resetLayout": "Auto-distribución",
+    "rediscover": "Descubrir topología",
+    "linkTypes": "Tipos de enlace",
+    "nodes": "nodos",
+    "links": "enlaces",
+    "noLinksYet": "Sin enlaces aún — haz clic en \"Descubrir topología\" o espera el auto-refresh (vecinos LLDP/CDP/MNDP + túneles L2)"
   },
   "refresher": {
     "label": "Auto-actualización",
