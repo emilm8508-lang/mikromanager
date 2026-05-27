@@ -35,29 +35,29 @@ function RefresherStatus() {
     : t('refresher.neverRun')
 
   return (
-    <div className="px-4 py-3 border-t border-gray-800 space-y-2 text-[10.5px]">
+    <div className="px-4 py-3 border-t border-slate-200 space-y-2 text-[10.5px]">
       <div className="flex items-center justify-between">
-        <span className="text-gray-500 uppercase tracking-wider font-semibold">{t('refresher.label')}</span>
+        <span className="text-slate-500 uppercase tracking-wider font-semibold">{t('refresher.label')}</span>
         <button
           onClick={() => trigger.mutate()}
           disabled={data.in_progress || trigger.isPending}
           title={t('refresher.runManual') as string}
-          className="text-gray-500 hover:text-indigo-300 disabled:opacity-40"
+          className="text-slate-500 hover:text-indigo-600 disabled:opacity-40"
         >
           <RefreshCw size={11} className={data.in_progress ? 'animate-spin' : ''} />
         </button>
       </div>
       {data.in_progress ? (
-        <p className="text-indigo-300">{t('refresher.running')}</p>
+        <p className="text-indigo-600">{t('refresher.running')}</p>
       ) : (
         <>
-          <p className="text-gray-400 truncate">{t('refresher.lastRun', { when: whenStr })}</p>
+          <p className="text-slate-600 truncate">{t('refresher.lastRun', { when: whenStr })}</p>
           {nextInMin !== null && (
-            <p className="text-gray-600">{t('refresher.nextRun', { min: nextInMin })}</p>
+            <p className="text-slate-400">{t('refresher.nextRun', { min: nextInMin })}</p>
           )}
         </>
       )}
-      <p className="text-gray-600">{t('refresher.intervalEvery', { min: data.interval_min })}</p>
+      <p className="text-slate-400">{t('refresher.intervalEvery', { min: data.interval_min })}</p>
     </div>
   )
 }
@@ -72,20 +72,20 @@ function LanguageSwitcher() {
     <div className="relative px-3 py-2">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
       >
         <Globe size={13} />
         <span>{current.flag} {current.name}</span>
       </button>
       {open && (
-        <div className="absolute bottom-full left-3 right-3 mb-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute bottom-full left-3 right-3 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
           {SUPPORTED_LANGS.map(lang => (
             <button
               key={lang.code}
               onClick={() => { i18n.changeLanguage(lang.code); setOpen(false) }}
               className={cn(
-                'w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors',
-                i18n.language === lang.code ? 'text-indigo-300 bg-gray-700/50' : 'text-gray-300'
+                'w-full text-left px-3 py-2 text-xs hover:bg-slate-100 transition-colors',
+                i18n.language === lang.code ? 'text-indigo-600 bg-indigo-50 font-medium' : 'text-slate-700'
               )}
             >
               {lang.flag} {lang.name}
@@ -110,16 +110,16 @@ export function Sidebar() {
   ]
 
   return (
-    <aside className="w-56 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-800">
+      <div className="px-5 py-5 border-b border-slate-200">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
             <Network size={15} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-100 leading-none">MikroManager</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">RouterOS v6 / v7</p>
+            <p className="text-sm font-bold text-slate-900 leading-none">MikroManager</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">RouterOS v6 / v7</p>
           </div>
         </div>
       </div>
@@ -135,8 +135,8 @@ export function Sidebar() {
               cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
                 isActive
-                  ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/30'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               )
             }
           >
@@ -149,8 +149,8 @@ export function Sidebar() {
       <RefresherStatus />
       <LanguageSwitcher />
 
-      <div className="px-5 py-3 border-t border-gray-800">
-        <p className="text-[10px] text-gray-600">MikroManager v1.1</p>
+      <div className="px-5 py-3 border-t border-slate-200">
+        <p className="text-[10px] text-slate-400">MikroManager v1.2</p>
       </div>
     </aside>
   )

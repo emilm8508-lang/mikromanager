@@ -7,12 +7,12 @@ interface Props {
 }
 
 const styles = {
-  green: 'bg-green-900/40 text-green-400 border-green-800',
-  red: 'bg-red-900/40 text-red-400 border-red-800',
-  gray: 'bg-gray-800 text-gray-400 border-gray-700',
-  blue: 'bg-blue-900/40 text-blue-400 border-blue-800',
-  yellow: 'bg-yellow-900/40 text-yellow-400 border-yellow-800',
-  purple: 'bg-purple-900/40 text-purple-300 border-purple-800',
+  green: 'bg-green-50 text-green-700 border-green-200',
+  red: 'bg-red-50 text-red-700 border-red-200',
+  gray: 'bg-slate-100 text-slate-700 border-slate-200',
+  blue: 'bg-blue-50 text-blue-700 border-blue-200',
+  yellow: 'bg-amber-50 text-amber-700 border-amber-200',
+  purple: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
 export function Badge({ variant = 'gray', children, className }: Props) {

@@ -46,12 +46,13 @@ async def list_credentials(db: Session = Depends(get_db)):
 
 @router.post("", response_model=CredentialOut)
 async def create_credential(data: CredentialCreate, db: Session = Depends(get_db)):
-    # Empty password is intentional (default Mikrotik 'admin' has none).
-    # Always encrypt — even "" — so downstream code can always decrypt.
+    # "<empty>" sentinel from UI = intentional empty password (e.g. factory admin).
+    # Empty string or missing = also empty. Anything else = the actual password.
+    pw = "" if data.password == "<empty>" else (data.password or "")
     cred = Credential(
         name=data.name,
         username=data.username,
-        password_enc=encrypt(data.password or ""),
+        password_enc=encrypt(pw),
         snmp_community_enc=encrypt(data.snmp_community) if data.snmp_community else None,
         description=data.description,
     )

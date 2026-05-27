@@ -5,6 +5,9 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from services import refresher
 from services import topology as topo_svc
+from services import versions as ver_svc
+from models.database import SessionLocal, Device
+from sqlalchemy import select
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -34,3 +37,30 @@ async def trigger_topology_discover():
     """Re-discover topology now (independently of full refresh)."""
     result = await topo_svc.discover_all()
     return result
+
+
+@router.get("/versions/latest")
+async def get_latest_versions():
+    """Latest available RouterOS versions per channel from upgrade.mikrotik.com."""
+    data = await ver_svc.fetch_latest()
+    return data
+
+
+@router.get("/versions/status")
+async def get_version_status():
+    """For every device — returns its current version and upgrade recommendation."""
+    latest = await ver_svc.fetch_latest()
+    with SessionLocal() as db:
+        devices = db.execute(select(Device)).scalars().all()
+        result = []
+        for d in devices:
+            target = ver_svc.pick_target(d.ros_version or "", latest)
+            result.append({
+                "id": d.id,
+                "ip": d.ip,
+                "name": d.name,
+                "identity": d.identity,
+                "current": d.ros_version,
+                "target": target,
+            })
+    return {"latest": latest, "devices": result}

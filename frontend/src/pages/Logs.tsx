@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { devicesApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -17,12 +17,12 @@ interface LogEntry {
 }
 
 const topicColor = (topics?: string) => {
-  if (!topics) return 'text-gray-400'
-  if (topics.includes('error') || topics.includes('critical')) return 'text-red-400'
-  if (topics.includes('warning')) return 'text-yellow-400'
-  if (topics.includes('info')) return 'text-blue-400'
+  if (!topics) return 'text-slate-600'
+  if (topics.includes('error') || topics.includes('critical')) return 'text-red-600'
+  if (topics.includes('warning')) return 'text-amber-600'
+  if (topics.includes('info')) return 'text-blue-600'
   if (topics.includes('firewall')) return 'text-orange-400'
-  return 'text-gray-400'
+  return 'text-slate-600'
 }
 
 export function Logs() {
@@ -83,15 +83,15 @@ export function Logs() {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-gray-100">{t('logs.title')}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{t('logs.subtitle')}</p>
+        <h1 className="text-xl font-bold text-slate-900">{t('logs.title')}</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{t('logs.subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <select
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100"
+              className="bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900"
               value={selectedId ?? ''}
               onChange={e => { stopStream(); setSelectedId(Number(e.target.value) || null); setLogs([]) }}
             >
@@ -104,7 +104,7 @@ export function Logs() {
             </select>
 
             <input
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 flex-1 min-w-40"
+              className="bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 flex-1 min-w-40"
               placeholder={t('common.search')}
               value={filter}
               onChange={e => setFilter(e.target.value)}
@@ -124,29 +124,29 @@ export function Logs() {
               <Trash2 size={14} />
             </Button>
 
-            {streaming && <Badge variant="green" className="animate-pulse">● {t('logs.live')}</Badge>}
+            {streaming && <Badge variant="green" className="animate-pulse">â—Ź {t('logs.live')}</Badge>}
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
           {!selectedId ? (
             <div className="py-14 text-center">
-              <ScrollText size={32} className="mx-auto text-gray-700 mb-3" />
-              <p className="text-gray-500 text-sm">{t('logs.selectDevice')}</p>
+              <ScrollText size={32} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-slate-500 text-sm">{t('logs.selectDevice')}</p>
               {devicesWithCreds.length === 0 && (
-                <p className="text-yellow-500 text-xs mt-2">{t('deviceDetail.noCredsBadge')}</p>
+                <p className="text-amber-600 text-xs mt-2">{t('deviceDetail.noCredsBadge')}</p>
               )}
             </div>
           ) : (
-            <div className="bg-gray-950 font-mono text-xs h-[500px] overflow-y-auto p-4 space-y-0.5 scrollbar-thin">
+            <div className="bg-slate-50 font-mono text-xs h-[500px] overflow-y-auto p-4 space-y-0.5 scrollbar-thin">
               {filtered.length === 0 && (
-                <p className="text-gray-600 text-center py-8">{t('logs.noLogs')}</p>
+                <p className="text-slate-400 text-center py-8">{t('logs.noLogs')}</p>
               )}
               {filtered.map((l, i) => (
-                <div key={l['.id'] ?? i} className="flex gap-3 hover:bg-gray-900/50 px-1 py-0.5 rounded">
-                  <span className="text-gray-600 shrink-0 w-20">{l.time ?? ''}</span>
+                <div key={l['.id'] ?? i} className="flex gap-3 hover:bg-white/60 px-1 py-0.5 rounded">
+                  <span className="text-slate-400 shrink-0 w-20">{l.time ?? ''}</span>
                   <span className={cn('shrink-0 w-28 truncate', topicColor(l.topics))}>{l.topics ?? ''}</span>
-                  <span className="text-gray-300 break-all">{l.message ?? JSON.stringify(l)}</span>
+                  <span className="text-slate-700 break-all">{l.message ?? JSON.stringify(l)}</span>
                 </div>
               ))}
               <div ref={bottomRef} />

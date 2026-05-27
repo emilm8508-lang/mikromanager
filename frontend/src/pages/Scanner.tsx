@@ -130,14 +130,14 @@ export function Scanner() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-100">{t('scanner.title')}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{t('scanner.subtitle')}</p>
+        <h1 className="text-xl font-bold text-slate-900">{t('scanner.title')}</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{t('scanner.subtitle')}</p>
       </div>
 
       {/* Ranges */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-gray-300">{t('scanner.rangesTitle')}</h2>
+          <h2 className="text-sm font-semibold text-slate-700">{t('scanner.rangesTitle')}</h2>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -151,13 +151,13 @@ export function Scanner() {
           </div>
 
           {ranges.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">{t('scanner.noRanges')}</p>
+            <p className="text-sm text-slate-500 text-center py-4">{t('scanner.noRanges')}</p>
           ) : (
             <div className="space-y-2">
               {ranges.map(r => (
-                <div key={r.id} className="flex items-center gap-3 bg-gray-800 rounded-lg px-4 py-2.5">
-                  <span className="font-mono text-sm text-gray-200">{r.cidr}</span>
-                  {r.label && <span className="text-xs text-gray-500">{r.label}</span>}
+                <div key={r.id} className="flex items-center gap-3 bg-slate-100 rounded-lg px-4 py-2.5">
+                  <span className="font-mono text-sm text-slate-800">{r.cidr}</span>
+                  {r.label && <span className="text-xs text-slate-500">{r.label}</span>}
                   <Badge variant={r.active ? 'green' : 'gray'}>{r.active ? t('scanner.active') : t('scanner.inactive')}</Badge>
                   <Button size="sm" variant="danger" className="ml-auto" onClick={() => deleteRange.mutate(r.id)}>
                     <Trash2 size={13} />
@@ -172,14 +172,14 @@ export function Scanner() {
       {/* Run scan */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-gray-300">{t('scanner.runTitle')}</h2>
+          <h2 className="text-sm font-semibold text-slate-700">{t('scanner.runTitle')}</h2>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <KeyRound size={15} className="text-indigo-400" />
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <KeyRound size={15} className="text-indigo-600" />
               <span>
-                {t('scanner.credsInfo')} (<span className="text-gray-200 font-medium">{creds.length}</span>)
+                {t('scanner.credsInfo')} (<span className="text-slate-800 font-medium">{creds.length}</span>)
                 {creds.length > 0 && ' ' + t('scanner.credsInfoSuffix')}
               </span>
             </div>
@@ -195,25 +195,25 @@ export function Scanner() {
             )}
           </div>
 
-          <div className="flex items-start gap-2 bg-gray-800/40 border border-gray-800 rounded-lg px-3 py-2.5 text-xs">
+          <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-xs">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={fullScan}
                 onChange={e => setFullScan(e.target.checked)}
                 disabled={scanning}
-                className="rounded border-gray-700 bg-gray-900 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
+                className="rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
               />
-              <span className="text-gray-300">{t('scanner.fullScanLabel')}</span>
+              <span className="text-slate-700">{t('scanner.fullScanLabel')}</span>
             </label>
-            <span className="text-gray-500 ml-auto flex items-center gap-1.5">
+            <span className="text-slate-500 ml-auto flex items-center gap-1.5">
               <RefreshCw size={11} />
               {fullScan ? t('scanner.fullScanHint') : t('scanner.incrementalHint')}
             </span>
           </div>
 
           {creds.length === 0 && (
-            <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg px-4 py-2.5 text-xs text-amber-300 flex items-center gap-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-xs text-amber-700 flex items-center gap-2">
               <AlertCircle size={14} />
               {t('scanner.noCredsWarn')}
             </div>
@@ -221,32 +221,32 @@ export function Scanner() {
 
           {/* Progress bar */}
           {(scanning || progress.total > 0) && (
-            <div className="space-y-2 bg-gray-950 border border-gray-800 rounded-lg p-4">
+            <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-lg p-4">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Activity size={13} className={scanning ? 'text-indigo-400 animate-pulse' : 'text-gray-500'} />
+                  <Activity size={13} className={scanning ? 'text-indigo-600 animate-pulse' : 'text-slate-500'} />
                   {currentCidr && (
-                    <span className="font-mono text-gray-300">{currentCidr}</span>
+                    <span className="font-mono text-slate-700">{currentCidr}</span>
                   )}
                   {currentIp && scanning && (
-                    <span className="text-gray-500">→ <span className="text-gray-300 font-mono">{currentIp}</span></span>
+                    <span className="text-slate-500">â†’ <span className="text-slate-700 font-mono">{currentIp}</span></span>
                   )}
                 </div>
-                <span className="text-gray-400 font-mono">
+                <span className="text-slate-600 font-mono">
                   {progress.completed}/{progress.total} ({pct}%)
                 </span>
               </div>
-              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-indigo-500 transition-all duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>
               {totalFound !== null && (
-                <p className="text-xs text-indigo-300 font-medium pt-1">
-                  ✓ {t('scanner.scanDone', { found: totalFound })}
+                <p className="text-xs text-indigo-700 font-medium pt-1">
+                  âś“ {t('scanner.scanDone', { found: totalFound })}
                   {skippedKnown > 0 && (
-                    <span className="text-gray-500 font-normal"> · {t('scanner.skippedKnown', { count: skippedKnown })}</span>
+                    <span className="text-slate-500 font-normal"> · {t('scanner.skippedKnown', { count: skippedKnown })}</span>
                   )}
                 </p>
               )}
@@ -255,15 +255,15 @@ export function Scanner() {
 
           {/* Found devices list */}
           {foundList.length > 0 && (
-            <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 max-h-80 overflow-y-auto scrollbar-thin space-y-1.5">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
-                {t('scanner.foundDevices', { count: foundList.length, defaultValue: 'Znalezione urządzenia ({{count}})' })}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 max-h-80 overflow-y-auto scrollbar-thin space-y-1.5">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">
+                {t('scanner.foundDevices', { count: foundList.length, defaultValue: 'Znalezione urzÄ…dzenia ({{count}})' })}
               </p>
               {foundList.map((d, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 size={14} className="text-green-400 shrink-0" />
-                  <span className="text-green-300 font-mono">{d.ip}</span>
-                  {d.identity && <span className="text-gray-300">— {d.identity}</span>}
+                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
+                  <span className="text-green-700 font-mono">{d.ip}</span>
+                  {d.identity && <span className="text-slate-700">— {d.identity}</span>}
                   {d.model && <Badge variant="blue" className="ml-1">{d.model}</Badge>}
                   {d.has_snmp && <Badge variant="purple" className="ml-1">SNMP</Badge>}
                   {d.matched_credential && (

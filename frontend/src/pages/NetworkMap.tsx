@@ -69,18 +69,18 @@ function DeviceNode({ node, onDragEnd, onlineLabel, offlineLabel }: {
       className="absolute select-none z-10"
       style={{ transform: `translate(${node.x_pos}px, ${node.y_pos}px)`, width: NODE_W }}
     >
-      <div className={`bg-gray-900 border rounded-xl p-3 shadow-lg cursor-move transition-shadow hover:shadow-indigo-500/20 ${node.online ? 'border-gray-700' : 'border-red-900/50'}`}>
+      <div className={`bg-white border rounded-xl p-3 shadow-lg cursor-move transition-shadow hover:shadow-indigo-500/20 ${node.online ? 'border-slate-300' : 'border-red-200'}`}>
         <div className="flex items-center gap-2 mb-1" onMouseDown={onMouseDown}>
-          <div className={`w-6 h-6 rounded flex items-center justify-center ${node.online ? 'bg-indigo-600/20' : 'bg-red-600/20'}`}>
-            <Server size={13} className={node.online ? 'text-indigo-400' : 'text-red-400'} />
+          <div className={`w-6 h-6 rounded flex items-center justify-center ${node.online ? 'bg-indigo-50' : 'bg-red-50'}`}>
+            <Server size={13} className={node.online ? 'text-indigo-600' : 'text-red-600'} />
           </div>
           <Link to={`/devices/${node.id}`}
             onMouseDown={e => e.stopPropagation()}
-            className="text-xs font-medium text-gray-200 hover:text-indigo-300 truncate">
+            className="text-xs font-medium text-slate-800 hover:text-indigo-700 truncate">
             {node.identity || node.name || node.ip}
           </Link>
         </div>
-        <p className="text-[10px] font-mono text-gray-500 mb-1.5">{node.ip}</p>
+        <p className="text-[10px] font-mono text-slate-500 mb-1.5">{node.ip}</p>
         <div className="flex gap-1 flex-wrap">
           <Badge variant={node.online ? 'green' : 'red'} className="text-[10px] py-0">{node.online ? onlineLabel : offlineLabel}</Badge>
           {node.model && <Badge variant="gray" className="text-[10px] py-0">{node.model}</Badge>}
@@ -195,7 +195,7 @@ export function NetworkMap() {
   const [posOverride, setPosOverride] = useState<Record<number, { x: number; y: number }>>({})
   const [version, setVersion] = useState(0)
 
-  // Listen for drag events to bump version → SVG recomputes positions in realtime
+  // Listen for drag events to bump version â†’ SVG recomputes positions in realtime
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as CustomEvent
@@ -248,21 +248,21 @@ export function NetworkMap() {
     <div className="p-6 space-y-4 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-100">{t('map.title')}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{t('map.subtitle')}</p>
+          <h1 className="text-xl font-bold text-slate-900">{t('map.title')}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{t('map.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => rediscover.mutate()}
             disabled={rediscover.isPending}
-            className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
           >
             <RefreshCw size={13} className={rediscover.isPending ? 'animate-spin' : ''} />
             {t('map.rediscover')}
           </button>
           <button
             onClick={autoLayout}
-            className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
           >
             <Move size={13} /> {t('map.resetLayout')}
           </button>
@@ -272,22 +272,22 @@ export function NetworkMap() {
       {/* Legend */}
       {linkTypesPresent.length > 0 && (
         <div className="flex items-center gap-3 text-xs flex-wrap">
-          <Link2 size={13} className="text-gray-500" />
-          <span className="text-gray-500">{t('map.linkTypes')}:</span>
+          <Link2 size={13} className="text-slate-500" />
+          <span className="text-slate-500">{t('map.linkTypes')}:</span>
           {linkTypesPresent.map(type => (
             <span key={type} className="flex items-center gap-1.5">
               <span className="inline-block w-4 h-0.5" style={{
                 background: linkTypeColor[type] ?? '#6b7280',
                 borderStyle: ['eoip', 'gre', 'vxlan', 'ipip'].includes(type) ? 'dashed' : 'solid'
               }} />
-              <span className="text-gray-400 font-mono uppercase">{type}</span>
+              <span className="text-slate-600 font-mono uppercase">{type}</span>
             </span>
           ))}
-          <span className="text-gray-600 ml-3">· {nodes.length} {t('map.nodes')} · {links.length} {t('map.links')}</span>
+          <span className="text-slate-400 ml-3">· {nodes.length} {t('map.nodes')} · {links.length} {t('map.links')}</span>
         </div>
       )}
 
-      <div className="flex-1 relative bg-gray-950 border border-gray-800 rounded-xl overflow-hidden min-h-[500px]">
+      <div className="flex-1 relative bg-slate-50 border border-slate-200 rounded-xl overflow-hidden min-h-[500px]">
         {/* Grid pattern */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
@@ -302,18 +302,18 @@ export function NetworkMap() {
         <LinksSvg nodes={nodes} links={links} version={version} />
 
         {isLoading && (
-          <p className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">{t('common.loading')}</p>
+          <p className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">{t('common.loading')}</p>
         )}
 
         {!isLoading && nodes.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <Network size={40} className="text-gray-700" />
-            <p className="text-gray-500 text-sm">{t('map.noDevices')}</p>
+            <Network size={40} className="text-slate-300" />
+            <p className="text-slate-500 text-sm">{t('map.noDevices')}</p>
           </div>
         )}
 
         {!isLoading && nodes.length > 0 && links.length === 0 && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-950/40 border border-amber-900/50 rounded-lg px-3 py-1.5 text-xs text-amber-300">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-xs text-amber-700">
             {t('map.noLinksYet')}
           </div>
         )}

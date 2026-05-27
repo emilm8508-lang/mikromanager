@@ -132,9 +132,32 @@ export interface Topology {
   links: TopologyLink[]
 }
 
+export interface VersionTarget {
+  status: 'up_to_date' | 'outdated'
+  current: string
+  target: string
+  channel: string
+  released_at?: number | null
+}
+
+export interface DeviceVersionInfo {
+  id: number
+  ip: string
+  name?: string
+  identity?: string
+  current?: string
+  target: VersionTarget | null
+}
+
+export interface VersionStatus {
+  latest: Record<string, { channel: string; version: string; released_at?: number | null }>
+  devices: DeviceVersionInfo[]
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
   topology: () => api.get<Topology>('/system/topology').then(r => r.data),
   discoverTopology: () => api.post('/system/topology/discover').then(r => r.data),
+  versionStatus: () => api.get<VersionStatus>('/system/versions/status').then(r => r.data),
 }
