@@ -96,20 +96,56 @@ class SnmpClient:
         return {"name": name}
 
     async def get_resource(self) -> dict:
-        """Return dict mimicking REST /system/resource shape."""
+        """Return dict mimicking REST /system/resource shape. Tries multiple OIDs
+        and parses sysDescr as fallback — useful for older RouterOS / restricted
+        SNMP views that may not expose enterprise OIDs."""
         out = {}
+        # Get sysDescr first — used as parsing fallback
+        sys_descr = ""
+        try:
+            sys_descr = _decode(await self._get(OID_SYS_DESCR))
+            out["sys-descr"] = sys_descr
+        except Exception:
+            pass
         try:
             out["uptime"] = _decode(await self._get(OID_SYS_UPTIME))
         except Exception:
             pass
+        # board-name — try enterprise OID, then parse sysDescr
         try:
-            out["board-name"] = _decode(await self._get(OID_MTXR_SYSTEM_BOARD_NAME))
+            board = _decode(await self._get(OID_MTXR_SYSTEM_BOARD_NAME))
+            if board:
+                out["board-name"] = board
         except Exception:
             pass
+        if not out.get("board-name") and sys_descr:
+            # sysDescr is often "RouterOS RB951G-2HnD" — extract board name
+            parts = sys_descr.split()
+            for p in parts:
+                if p.upper() not in ("ROUTEROS", "MIKROTIK") and any(c.isdigit() for c in p):
+                    out["board-name"] = p
+                    break
+        # version — try enterprise OID, then parse sysDescr / firmware
         try:
-            out["version"] = _decode(await self._get(OID_MTXR_LIC_VERSION))
+            ver = _decode(await self._get(OID_MTXR_LIC_VERSION))
+            if ver:
+                out["version"] = ver
         except Exception:
             pass
+        if not out.get("version"):
+            # Try also fw-version which on some devices = ROS version
+            try:
+                fw = _decode(await self._get(OID_MTXR_SYSTEM_FW_VERSION))
+                if fw and any(c.isdigit() for c in fw) and "." in fw:
+                    out["version"] = fw
+            except Exception:
+                pass
+        if not out.get("version") and sys_descr:
+            # RouterOS sysDescr sometimes contains version: "RouterOS v6.49.6"
+            import re
+            m = re.search(r"\b(\d+\.\d+(?:\.\d+)?)\b", sys_descr)
+            if m:
+                out["version"] = m.group(1)
         try:
             out["serial-number"] = _decode(await self._get(OID_MTXR_SYSTEM_SERIAL))
         except Exception:
@@ -120,10 +156,6 @@ class SnmpClient:
             pass
         try:
             out["cpu-load"] = _decode(await self._get(OID_MTXR_CPU_LOAD))
-        except Exception:
-            pass
-        try:
-            out["sys-descr"] = _decode(await self._get(OID_SYS_DESCR))
         except Exception:
             pass
         return out

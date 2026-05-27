@@ -70,12 +70,16 @@
       "status": "Status",
       "lastSeen": "Ostatnio widziano"
     },
+    "versionCheckOk": "Wersje pobrane",
+    "versionCheckFail": "Nie udało się pobrać aktualnych wersji z Mikrotika",
     "noCredsBadge": "brak"
   },
   "deviceDetail": {
     "unknownModel": "Nieznany model",
     "noCredsAssign": "Przypisz poświadczenia do urządzeniu, aby pobrać dane konfiguracji.",
     "connectionError": "Błąd połączenia z urządzeniem",
+    "versionCheckOk": "Wersje pobrane",
+    "versionCheckFail": "Nie udało się pobrać aktualnych wersji z Mikrotika",
     "noCredsBadge": "Brak poświadczeń",
     "tabs": {
       "resource": "Zasoby",

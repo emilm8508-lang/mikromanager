@@ -149,7 +149,28 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                     matched_cred_id = None
                     matched_cred_name = None
 
-                    for cred in creds:
+                    # Order credentials: those WITHOUT SNMP-only role first (i.e. ones
+                    # with non-empty password), SNMP-only ones last. This way if any
+                    # real API/REST credential works, we prefer it over a pure SNMP
+                    # match (which is read-only and limited).
+                    def cred_priority(c):
+                        has_password = bool(c.get("password"))
+                        has_snmp = bool(c.get("snmp_community"))
+                        # Lower = higher priority. Password creds first.
+                        if has_password and not has_snmp:
+                            return 0  # API-only
+                        if has_password and has_snmp:
+                            return 1  # Combined
+                        if has_snmp and not has_password:
+                            return 2  # SNMP-only
+                        return 3
+
+                    ordered_creds = sorted(creds, key=cred_priority)
+
+                    best = None       # {cred_id, cred_name, extra, score}
+                    best_score = -1
+
+                    for cred in ordered_creds:
                         try:
                             extra = await svc.enrich_device(
                                 found["ip"], cred["username"], cred["password"],
@@ -157,15 +178,36 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                                 snmp_community=cred.get("snmp_community"),
                                 snmp_port=found.get("snmp_port", 161),
                             )
-                            if extra.get("identity") or extra.get("model") or extra.get("ros_version"):
-                                found.update(extra)
-                                matched_cred_id = cred["id"]
-                                matched_cred_name = cred["name"]
-                                break
                         except Exception:
                             continue
 
-                    if matched_cred_name:
+                        # Score the result. Higher = better.
+                        # API-capable cred (has password) that succeeded → bonus 100.
+                        # Otherwise, count fields populated.
+                        score = 0
+                        if extra.get("identity"): score += 1
+                        if extra.get("model"):    score += 2
+                        if extra.get("ros_version"): score += 3
+                        if extra.get("board_name"): score += 1
+                        # Strong preference for password-bearing credentials when they actually returned anything
+                        if cred.get("password") and score > 0:
+                            score += 100
+
+                        if score > best_score:
+                            best_score = score
+                            best = {
+                                "cred_id": cred["id"],
+                                "cred_name": cred["name"],
+                                "extra": extra,
+                            }
+                            # If a password-cred returned a complete record, take it and stop.
+                            if cred.get("password") and extra.get("model") and extra.get("ros_version"):
+                                break
+
+                    if best and best_score > 0:
+                        found.update(best["extra"])
+                        matched_cred_id = best["cred_id"]
+                        matched_cred_name = best["cred_name"]
                         found["matched_credential"] = matched_cred_name
 
                     # Upsert
@@ -187,8 +229,19 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                                 device.model = found["model"]
                             if found.get("ros_version"):
                                 device.ros_version = found["ros_version"]
-                            if matched_cred_id and not device.credential_id:
-                                device.credential_id = matched_cred_id
+                            if matched_cred_id:
+                                # Assign if device has no cred yet, OR if existing cred
+                                # is SNMP-only and the new match has a real password.
+                                if not device.credential_id:
+                                    device.credential_id = matched_cred_id
+                                else:
+                                    # Check existing cred — upgrade to password-bearing one if available
+                                    existing_cred = next((c for c in creds if c["id"] == device.credential_id), None)
+                                    new_cred = next((c for c in creds if c["id"] == matched_cred_id), None)
+                                    if (existing_cred and new_cred
+                                        and not existing_cred.get("password")
+                                        and new_cred.get("password")):
+                                        device.credential_id = matched_cred_id
                         else:
                             device = Device(
                                 ip=found["ip"],

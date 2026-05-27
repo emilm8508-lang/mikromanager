@@ -50,6 +50,7 @@ async def get_latest_versions():
 async def get_version_status():
     """For every device — returns its current version and upgrade recommendation."""
     latest = await ver_svc.fetch_latest()
+    cache_info = ver_svc.cache_info()
     with SessionLocal() as db:
         devices = db.execute(select(Device)).scalars().all()
         result = []
@@ -63,4 +64,15 @@ async def get_version_status():
                 "current": d.ros_version,
                 "target": target,
             })
-    return {"latest": latest, "devices": result}
+    return {
+        "latest": latest,
+        "devices": result,
+        "fetch_status": cache_info,
+    }
+
+
+@router.post("/versions/refresh")
+async def force_refresh_versions():
+    """Force re-fetch of latest versions from upgrade.mikrotik.com (bypass cache)."""
+    data = await ver_svc.fetch_latest(force=True)
+    return {"latest": data, "fetch_status": ver_svc.cache_info()}

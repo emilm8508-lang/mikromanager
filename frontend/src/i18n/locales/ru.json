@@ -70,12 +70,16 @@
       "status": "Статус",
       "lastSeen": "Последний раз"
     },
+    "versionCheckOk": "Последние версии загружены",
+    "versionCheckFail": "Не удалось получить последние версии с Mikrotik",
     "noCredsBadge": "нет"
   },
   "deviceDetail": {
     "unknownModel": "Неизвестная модель",
     "noCredsAssign": "Назначьте устройству учётные данные для получения конфигурации.",
     "connectionError": "Ошибка подключения",
+    "versionCheckOk": "Последние версии загружены",
+    "versionCheckFail": "Не удалось получить последние версии с Mikrotik",
     "noCredsBadge": "Нет учётных данных",
     "tabs": {
       "resource": "Ресурсы",

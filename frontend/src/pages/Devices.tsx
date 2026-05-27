@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2 } from 'lucide-react'
+import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -95,6 +95,39 @@ export function Devices() {
           <Plus size={16} /> {t('common.addManual')}
         </Button>
       </div>
+
+      {/* Version-check status banner */}
+      {versionStatus && (
+        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs">
+          {versionStatus.fetch_status.has_data ? (
+            <>
+              <CheckCircle2 size={14} className="text-green-600 shrink-0" />
+              <span className="text-slate-600">
+                {t('devices.versionCheckOk')}:{' '}
+                {Object.values(versionStatus.latest).map(v => (
+                  <span key={v.channel} className="font-mono text-slate-800 ml-1">
+                    v{v.channel.replace('fix','').replace('rc','')}={v.version}
+                  </span>
+                ))}
+              </span>
+            </>
+          ) : (
+            <>
+              <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+              <span className="text-amber-700">
+                {t('devices.versionCheckFail')}: {versionStatus.fetch_status.last_error}
+              </span>
+            </>
+          )}
+          <button
+            onClick={() => systemApi.refreshVersions().then(() => qc.invalidateQueries({ queryKey: ['version-status'] }))}
+            className="ml-auto text-slate-500 hover:text-indigo-600"
+            title={t('common.refresh') as string}
+          >
+            <RefreshCw size={12} />
+          </button>
+        </div>
+      )}
 
       <Input placeholder={t('devices.searchPlaceholder')} value={search}
         onChange={e => setSearch(e.target.value)} />

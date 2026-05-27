@@ -70,12 +70,16 @@
       "status": "Status",
       "lastSeen": "Last seen"
     },
+    "versionCheckOk": "Latest versions loaded",
+    "versionCheckFail": "Failed to fetch latest versions from Mikrotik",
     "noCredsBadge": "none"
   },
   "deviceDetail": {
     "unknownModel": "Unknown model",
     "noCredsAssign": "Assign credentials to this device to fetch configuration data.",
     "connectionError": "Connection error",
+    "versionCheckOk": "Latest versions loaded",
+    "versionCheckFail": "Failed to fetch latest versions from Mikrotik",
     "noCredsBadge": "No credentials",
     "tabs": {
       "resource": "Resource",

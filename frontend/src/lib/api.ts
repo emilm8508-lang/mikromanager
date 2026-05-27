@@ -149,9 +149,17 @@ export interface DeviceVersionInfo {
   target: VersionTarget | null
 }
 
+export interface VersionFetchStatus {
+  fetched_at: number
+  age_sec: number | null
+  last_error: string | null
+  has_data: boolean
+}
+
 export interface VersionStatus {
   latest: Record<string, { channel: string; version: string; released_at?: number | null }>
   devices: DeviceVersionInfo[]
+  fetch_status: VersionFetchStatus
 }
 
 export const systemApi = {
@@ -160,4 +168,5 @@ export const systemApi = {
   topology: () => api.get<Topology>('/system/topology').then(r => r.data),
   discoverTopology: () => api.post('/system/topology/discover').then(r => r.data),
   versionStatus: () => api.get<VersionStatus>('/system/versions/status').then(r => r.data),
+  refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
 }

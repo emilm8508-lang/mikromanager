@@ -70,12 +70,16 @@
       "status": "Status",
       "lastSeen": "Zuletzt gesehen"
     },
+    "versionCheckOk": "Neueste Versionen geladen",
+    "versionCheckFail": "Aktuelle Versionen konnten nicht abgerufen werden",
     "noCredsBadge": "keine"
   },
   "deviceDetail": {
     "unknownModel": "Unbekanntes Modell",
     "noCredsAssign": "Weisen Sie dem Gerät Zugangsdaten zu, um Konfigurationsdaten abzurufen.",
     "connectionError": "Verbindungsfehler",
+    "versionCheckOk": "Neueste Versionen geladen",
+    "versionCheckFail": "Aktuelle Versionen konnten nicht abgerufen werden",
     "noCredsBadge": "Keine Zugangsdaten",
     "tabs": {
       "resource": "Ressourcen",

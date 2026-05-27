@@ -70,12 +70,16 @@
       "status": "Statut",
       "lastSeen": "Vu en dernier"
     },
+    "versionCheckOk": "Dernières versions chargées",
+    "versionCheckFail": "Échec de récupération des dernières versions de Mikrotik",
     "noCredsBadge": "aucun"
   },
   "deviceDetail": {
     "unknownModel": "Modèle inconnu",
     "noCredsAssign": "Attribuez des identifiants à l'appareil pour récupérer les données de configuration.",
     "connectionError": "Erreur de connexion",
+    "versionCheckOk": "Dernières versions chargées",
+    "versionCheckFail": "Échec de récupération des dernières versions de Mikrotik",
     "noCredsBadge": "Aucun identifiant",
     "tabs": {
       "resource": "Ressources",

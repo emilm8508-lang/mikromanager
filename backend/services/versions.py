@@ -24,25 +24,30 @@ CHANNELS = {
 }
 
 CACHE_TTL_SEC = 6 * 3600   # 6h
-_cache: dict = {"data": None, "fetched_at": 0}
+_cache: dict = {"data": None, "fetched_at": 0, "last_error": None}
 
 
-async def _fetch_one(name: str, url: str) -> Optional[dict]:
+async def _fetch_one(name: str, url: str) -> tuple:
+    """Returns (result_dict, error_str). Exactly one of them is non-None."""
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
-                    return None
+                    return None, f"HTTP {resp.status}"
                 text = (await resp.text()).strip()
                 parts = text.split()
                 if not parts:
-                    return None
+                    return None, "empty body"
                 version = parts[0]
                 released = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-                return {"channel": name, "version": version, "released_at": released}
-    except Exception:
-        return None
+                return {"channel": name, "version": version, "released_at": released}, None
+    except asyncio.TimeoutError:
+        return None, "timeout"
+    except aiohttp.ClientConnectorError as e:
+        return None, f"connect error: {e}"
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
 
 
 async def fetch_latest(force: bool = False) -> dict:
@@ -55,11 +60,30 @@ async def fetch_latest(force: bool = False) -> dict:
         _fetch_one(name, url) for name, url in CHANNELS.items()
     ])
 
-    data = {r["channel"]: r for r in results if r is not None}
+    data = {}
+    errors = []
+    for (name, _), (result, err) in zip(CHANNELS.items(), results):
+        if result is not None:
+            data[result["channel"]] = result
+        elif err:
+            errors.append(f"{name}: {err}")
+
     if data:
         _cache["data"] = data
         _cache["fetched_at"] = now
+        _cache["last_error"] = None
+    else:
+        _cache["last_error"] = "; ".join(errors) if errors else "all channels returned no data"
     return _cache["data"] or {}
+
+
+def cache_info() -> dict:
+    return {
+        "fetched_at": _cache["fetched_at"],
+        "age_sec": int(time.time() - _cache["fetched_at"]) if _cache["fetched_at"] else None,
+        "last_error": _cache["last_error"],
+        "has_data": bool(_cache["data"]),
+    }
 
 
 # ── Version comparison ────────────────────────────────────────────────────────
