@@ -40,6 +40,15 @@
     "recentlySeen": "Recently seen devices",
     "noDevicesYet": "No devices yet. Run a network scan.",
     "goToScanner": "Go to scanner →",
+      "criticalLogs": "Critical logs (last 20)",
+    "noCriticalLogs": "No critical logs - all clear",
+    "criticalCols": {
+      "device": "Device",
+      "time": "Time",
+      "topics": "Topics",
+      "message": "Message"
+    },
+  
     "cols": {
       "ip": "IP",
       "identity": "Identity",

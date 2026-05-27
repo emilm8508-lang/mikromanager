@@ -40,6 +40,15 @@
     "recentlySeen": "Dispositivos vistos recientemente",
     "noDevicesYet": "Sin dispositivos. Ejecuta un escaneo de red.",
     "goToScanner": "Ir al escáner →",
+      "criticalLogs": "Registros críticos (últimos 20)",
+    "noCriticalLogs": "Sin registros críticos - todo bien",
+    "criticalCols": {
+      "device": "Dispositivo",
+      "time": "Hora",
+      "topics": "Tema",
+      "message": "Mensaje"
+    },
+  
     "cols": {
       "ip": "IP",
       "identity": "Identidad",

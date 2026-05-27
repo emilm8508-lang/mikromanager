@@ -162,6 +162,15 @@ export interface VersionStatus {
   fetch_status: VersionFetchStatus
 }
 
+export interface CriticalLogEntry {
+  device_id: number
+  device_ip: string
+  device_label: string
+  time?: string
+  topics?: string
+  message?: string
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
@@ -169,4 +178,5 @@ export const systemApi = {
   discoverTopology: () => api.post('/system/topology/discover').then(r => r.data),
   versionStatus: () => api.get<VersionStatus>('/system/versions/status').then(r => r.data),
   refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
+  criticalLogs: (limit = 20) => api.get<CriticalLogEntry[]>('/system/critical-logs', { params: { limit } }).then(r => r.data),
 }

@@ -40,6 +40,15 @@
     "recentlySeen": "Zuletzt gesehene Geräte",
     "noDevicesYet": "Keine Geräte. Führen Sie einen Netzwerkscan aus.",
     "goToScanner": "Zum Scanner →",
+      "criticalLogs": "Kritische Protokolle (letzte 20)",
+    "noCriticalLogs": "Keine kritischen Protokolle - alles in Ordnung",
+    "criticalCols": {
+      "device": "Gerät",
+      "time": "Zeit",
+      "topics": "Thema",
+      "message": "Nachricht"
+    },
+  
     "cols": {
       "ip": "IP",
       "identity": "Identität",

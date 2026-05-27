@@ -40,6 +40,15 @@
     "recentlySeen": "Ostatnio widziane urządzenia",
     "noDevicesYet": "Brak urządzeń. Uruchom skan sieci.",
     "goToScanner": "Przejdź do skanera →",
+      "criticalLogs": "Logi krytyczne (ostatnie 20)",
+    "noCriticalLogs": "Brak krytycznych logów - wszystko OK",
+    "criticalCols": {
+      "device": "Urządzenie",
+      "time": "Czas",
+      "topics": "Temat",
+      "message": "Komunikat"
+    },
+  
     "cols": {
       "ip": "IP",
       "identity": "Tożsamość",

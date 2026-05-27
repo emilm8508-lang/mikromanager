@@ -40,6 +40,15 @@
     "recentlySeen": "Appareils vus récemment",
     "noDevicesYet": "Aucun appareil. Lancez un scan réseau.",
     "goToScanner": "Aller au scanner →",
+      "criticalLogs": "Journaux critiques (20 derniers)",
+    "noCriticalLogs": "Aucun journal critique - tout va bien",
+    "criticalCols": {
+      "device": "Appareil",
+      "time": "Heure",
+      "topics": "Sujet",
+      "message": "Message"
+    },
+  
     "cols": {
       "ip": "IP",
       "identity": "Identité",

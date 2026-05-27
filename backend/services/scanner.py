@@ -15,15 +15,14 @@ from typing import AsyncGenerator, Optional, Callable
 import aiohttp
 import ssl
 
-LIVENESS_TIMEOUT = 0.4   # short — for empty-host detection
-PORT_TIMEOUT = 0.8       # confirmation probe
-SNMP_TIMEOUT = 1.2
-HTTP_TIMEOUT = 2.0
-# Concurrency cap. Each host probe can open up to ~8 sockets in parallel
-# (4 liveness + 1 SSL TCP + 2 HTTP + 1 SNMP). On Windows select() has a 512
-# FD limit, so default 30 * 8 = 240 keeps us well under. ProactorEventLoop
-# (IOCP) is unlimited, but we keep this default to be polite to networks/devices.
-MAX_CONCURRENT = int(os.environ.get("MIKROTIK_SCAN_CONCURRENCY", "30"))
+LIVENESS_TIMEOUT = 0.25  # short — for empty-host detection
+PORT_TIMEOUT = 0.6       # confirmation probe
+SNMP_TIMEOUT = 0.8
+HTTP_TIMEOUT = 1.5
+# Concurrency cap. With ProactorEventLoop on Windows we are not bound by the
+# select() 512 FD limit, so we can run much higher concurrency. 100 is a sweet
+# spot — fast scan without overwhelming switches/routers with TCP SYNs.
+MAX_CONCURRENT = int(os.environ.get("MIKROTIK_SCAN_CONCURRENCY", "100"))
 
 # Ports used for fast liveness check.
 # 8291 = Winbox (definitive Mikrotik signal — almost always enabled on RouterOS).
@@ -134,20 +133,32 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
         if on_progress:
             on_progress(ip, "probing")
 
+        has_winbox = ports.get(8291, False)
+        has_api = ports.get(8728, False)
+
         # ── Phase 2: detailed checks (in parallel) ────────────────────────
+        # If Winbox (8291) or API (8728) is already open, we know this is a
+        # Mikrotik — skip the expensive web HTML probe entirely. Otherwise
+        # check web ports to detect WebFig-only devices.
+        is_definitive_mikrotik = has_winbox or has_api
+
         has_api_ssl_task = _tcp_open(ip, 8729)
-        web_80_task = _is_mikrotik_web(ip, 80) if ports.get(80) else asyncio.sleep(0, result=None)
-        web_443_task = _is_mikrotik_web(ip, 443) if ports.get(443) else asyncio.sleep(0, result=None)
         snmp_task = _snmp_alive(ip)
+
+        if is_definitive_mikrotik:
+            # Skip web HTML probe — just record what's open
+            web_80_task = asyncio.sleep(0, result=({"web_port": 80, "has_web": True, "web_kind": "open"} if ports.get(80) else None))
+            web_443_task = asyncio.sleep(0, result=({"web_port": 443, "has_web": True, "web_kind": "open"} if ports.get(443) else None))
+        else:
+            web_80_task = _is_mikrotik_web(ip, 80) if ports.get(80) else asyncio.sleep(0, result=None)
+            web_443_task = _is_mikrotik_web(ip, 443) if ports.get(443) else asyncio.sleep(0, result=None)
 
         has_api_ssl, web_80, web_443, has_snmp = await asyncio.gather(
             has_api_ssl_task, web_80_task, web_443_task, snmp_task
         )
 
         web_result = web_80 or web_443
-        has_api = ports.get(8728, False)
         has_ssh = ports.get(22, False)
-        has_winbox = ports.get(8291, False)
 
         # Mikrotik signature: ANY of these is definitive:
         #   - 8291 (Winbox) — only Mikrotik runs this
