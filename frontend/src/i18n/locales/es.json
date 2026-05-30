@@ -5,7 +5,8 @@
     "map": "Mapa de red",
     "scanner": "Escáner",
     "credentials": "Credenciales",
-    "logs": "Registros"
+    "logs": "Registros",
+    "central": "Central"
   },
   "common": {
     "online": "En línea",
@@ -176,5 +177,39 @@
     "runManual": "Actualizar ahora",
     "started": "Iniciado",
     "alreadyRunning": "Ya en ejecución"
+  }
+,
+  "central": {
+    "title": "Panel central",
+    "subtitle": "Vista agregada de todos los clientes vía servidor relay",
+    "tabViewer": "Viewer (laptop)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Enviar a central",
+    "enabled": "Activado",
+    "disabled": "No configurado",
+    "serverUrl": "URL del endpoint (ingest.php)",
+    "tenantId": "ID del cliente",
+    "intervalSec": "Intervalo (s)",
+    "apiKey": "Clave API",
+    "apiKeyKeep": "(vacío = sin cambios)",
+    "interval": "Intervalo",
+    "lastSent": "Último éxito",
+    "totalSent": "Total enviado",
+    "failed": "fallidos",
+    "buffered": "En buffer",
+    "lastError": "Último error",
+    "sendNow": "Enviar ahora",
+    "viewerSetup": "Configuración del viewer",
+    "viewerApiUrl": "URL API (api.php)",
+    "viewerPassword": "Contraseña del viewer",
+    "tenants": "Clientes",
+    "clearConfig": "Cerrar sesión",
+    "noTenants": "Sin clientes - ningún agent ha reportado todavía",
+    "viewing": "Viendo",
+    "snapshotFrom": "Snapshot de",
+    "ago": "hace",
+    "staleWarning": "Datos antiguos - agent probablemente offline",
+    "devicesAt": "Dispositivos ({{count}})",
+    "noSnapshot": "Sin datos para este cliente"
   }
 }

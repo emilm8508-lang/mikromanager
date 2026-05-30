@@ -5,7 +5,8 @@
     "map": "Carte réseau",
     "scanner": "Scanner",
     "credentials": "Identifiants",
-    "logs": "Journaux"
+    "logs": "Journaux",
+    "central": "Central"
   },
   "common": {
     "online": "En ligne",
@@ -176,5 +177,39 @@
     "runManual": "Actualiser maintenant",
     "started": "Démarré",
     "alreadyRunning": "Déjà en cours"
+  }
+,
+  "central": {
+    "title": "Tableau de bord central",
+    "subtitle": "Vue agrégée de tous les clients via serveur relais",
+    "tabViewer": "Viewer (laptop)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Envoyer au central",
+    "enabled": "Activé",
+    "disabled": "Non configuré",
+    "serverUrl": "URL endpoint (ingest.php)",
+    "tenantId": "ID client",
+    "intervalSec": "Intervalle (s)",
+    "apiKey": "Clé API",
+    "apiKeyKeep": "(vide = inchangé)",
+    "interval": "Intervalle",
+    "lastSent": "Dernier succès",
+    "totalSent": "Total envoyé",
+    "failed": "échecs",
+    "buffered": "En tampon",
+    "lastError": "Dernière erreur",
+    "sendNow": "Envoyer maintenant",
+    "viewerSetup": "Configuration viewer",
+    "viewerApiUrl": "URL API (api.php)",
+    "viewerPassword": "Mot de passe viewer",
+    "tenants": "Clients",
+    "clearConfig": "Déconnexion",
+    "noTenants": "Aucun client - aucun agent n'a encore envoyé de données",
+    "viewing": "Visualisation",
+    "snapshotFrom": "Snapshot du",
+    "ago": "il y a",
+    "staleWarning": "Données anciennes - agent probablement hors ligne",
+    "devicesAt": "Appareils ({{count}})",
+    "noSnapshot": "Aucune donnée pour ce client"
   }
 }

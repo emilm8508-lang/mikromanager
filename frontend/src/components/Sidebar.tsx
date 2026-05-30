@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -107,6 +107,7 @@ export function Sidebar() {
     { to: '/scanner', label: t('nav.scanner'), icon: Search },
     { to: '/credentials', label: t('nav.credentials'), icon: Key },
     { to: '/logs', label: t('nav.logs'), icon: ScrollText },
+    { to: '/central', label: t('nav.central'), icon: Cloud },
   ]
 
   return (

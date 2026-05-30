@@ -5,7 +5,8 @@
     "map": "Карта сети",
     "scanner": "Сканер",
     "credentials": "Учётные данные",
-    "logs": "Журналы"
+    "logs": "Журналы",
+    "central": "Центр"
   },
   "common": {
     "online": "В сети",
@@ -176,5 +177,39 @@
     "runManual": "Обновить сейчас",
     "started": "Запущено",
     "alreadyRunning": "Уже выполняется"
+  }
+,
+  "central": {
+    "title": "Центральная панель",
+    "subtitle": "Агрегированный вид всех клиентов через relay-сервер",
+    "tabViewer": "Viewer (ноутбук)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Отправка в центр",
+    "enabled": "Включено",
+    "disabled": "Не настроено",
+    "serverUrl": "URL endpoint (ingest.php)",
+    "tenantId": "ID клиента",
+    "intervalSec": "Интервал (с)",
+    "apiKey": "API-ключ",
+    "apiKeyKeep": "(пусто = без изменений)",
+    "interval": "Интервал",
+    "lastSent": "Последний успех",
+    "totalSent": "Всего отправлено",
+    "failed": "ошибок",
+    "buffered": "В буфере",
+    "lastError": "Последняя ошибка",
+    "sendNow": "Отправить сейчас",
+    "viewerSetup": "Настройка viewer",
+    "viewerApiUrl": "URL API (api.php)",
+    "viewerPassword": "Пароль viewer",
+    "tenants": "Клиенты",
+    "clearConfig": "Выйти",
+    "noTenants": "Клиентов нет - ни один agent ещё не отправил данные",
+    "viewing": "Просмотр",
+    "snapshotFrom": "Снимок от",
+    "ago": "назад",
+    "staleWarning": "Данные устарели - agent вероятно offline",
+    "devicesAt": "Устройства ({{count}})",
+    "noSnapshot": "Нет данных для этого клиента"
   }
 }

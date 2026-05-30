@@ -8,10 +8,12 @@ from fastapi import APIRouter, HTTPException
 from services import refresher
 from services import topology as topo_svc
 from services import versions as ver_svc
+from services import uplink as uplink_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
 from sqlalchemy import select
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -142,3 +144,33 @@ async def get_critical_logs(limit: int = 20):
     _crit_cache["data"] = results
     _crit_cache["fetched_at"] = now
     return results[:limit]
+
+
+# ── Uplink (central server integration) ──────────────────────────────────────
+
+class UplinkConfig(BaseModel):
+    url: str
+    tenant: str
+    api_key: str
+    interval_sec: int = 120
+
+
+@router.get("/uplink/status")
+async def uplink_status():
+    return uplink_svc.status()
+
+
+@router.post("/uplink/config")
+async def uplink_configure(cfg: UplinkConfig):
+    return uplink_svc.configure(
+        url=cfg.url.rstrip("/"),
+        tenant=cfg.tenant,
+        api_key=cfg.api_key,
+        interval_sec=cfg.interval_sec,
+    )
+
+
+@router.post("/uplink/send-now")
+async def uplink_send_now():
+    """Force one snapshot send right now (for testing)."""
+    return await uplink_svc.send_now()

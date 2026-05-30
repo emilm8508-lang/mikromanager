@@ -23,16 +23,19 @@ from contextlib import asynccontextmanager
 from models.database import init_db
 from api import devices, credentials, logs, scanner, system
 from services import refresher
+from services import uplink
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     refresher.start()
+    uplink.start()
     try:
         yield
     finally:
         refresher.stop()
+        uplink.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

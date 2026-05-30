@@ -5,7 +5,8 @@
     "map": "Карта мережі",
     "scanner": "Сканер",
     "credentials": "Облікові дані",
-    "logs": "Журнали"
+    "logs": "Журнали",
+    "central": "Центр"
   },
   "common": {
     "online": "В мережі",
@@ -176,5 +177,39 @@
     "runManual": "Оновити зараз",
     "started": "Запущено",
     "alreadyRunning": "Вже виконується"
+  }
+,
+  "central": {
+    "title": "Центральна панель",
+    "subtitle": "Агрегований вигляд усіх клієнтів через relay-сервер",
+    "tabViewer": "Viewer (ноутбук)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Надсилання в центр",
+    "enabled": "Увімкнено",
+    "disabled": "Не налаштовано",
+    "serverUrl": "URL endpoint (ingest.php)",
+    "tenantId": "ID клієнта",
+    "intervalSec": "Інтервал (с)",
+    "apiKey": "API-ключ",
+    "apiKeyKeep": "(порожньо = без змін)",
+    "interval": "Інтервал",
+    "lastSent": "Останній успіх",
+    "totalSent": "Всього надіслано",
+    "failed": "помилок",
+    "buffered": "У буфері",
+    "lastError": "Остання помилка",
+    "sendNow": "Надіслати зараз",
+    "viewerSetup": "Налаштування viewer",
+    "viewerApiUrl": "URL API (api.php)",
+    "viewerPassword": "Пароль viewer",
+    "tenants": "Клієнти",
+    "clearConfig": "Вийти",
+    "noTenants": "Клієнтів немає - жоден agent ще не надіслав даних",
+    "viewing": "Перегляд",
+    "snapshotFrom": "Знімок від",
+    "ago": "тому",
+    "staleWarning": "Дані застарілі - agent ймовірно offline",
+    "devicesAt": "Пристрої ({{count}})",
+    "noSnapshot": "Немає даних для цього клієнта"
   }
 }

@@ -171,6 +171,20 @@ export interface CriticalLogEntry {
   message?: string
 }
 
+export interface UplinkStatus {
+  enabled: boolean
+  url: string
+  tenant: string
+  interval_sec: number
+  has_api_key: boolean
+  last_sent: string | null
+  last_attempt: string | null
+  last_error: string | null
+  buffered_count: number
+  total_sent: number
+  total_failed: number
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
@@ -179,4 +193,69 @@ export const systemApi = {
   versionStatus: () => api.get<VersionStatus>('/system/versions/status').then(r => r.data),
   refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
   criticalLogs: (limit = 20) => api.get<CriticalLogEntry[]>('/system/critical-logs', { params: { limit } }).then(r => r.data),
+  uplinkStatus: () => api.get<UplinkStatus>('/system/uplink/status').then(r => r.data),
+  uplinkConfigure: (data: { url: string; tenant: string; api_key: string; interval_sec: number }) =>
+    api.post<UplinkStatus>('/system/uplink/config', data).then(r => r.data),
+  uplinkSendNow: () => api.post<{ success: boolean; status: UplinkStatus }>('/system/uplink/send-now').then(r => r.data),
+}
+
+// ── Central (viewer querying OVH directly) ───────────────────────────────────
+
+export interface CentralTenant {
+  id: string
+  first_seen: string | null
+  last_seen: string | null
+  age_sec: number | null
+  last_payload_bytes: number
+  online: boolean
+  notes?: string | null
+}
+
+export interface CentralTenantList {
+  tenants: CentralTenant[]
+  offline_threshold_sec: number
+  server_time: string
+}
+
+// Central calls bypass our backend — they go directly to the OVH PHP API.
+// Config is stored in localStorage.
+const CENTRAL_LS = 'mikromanager_central'
+
+export interface CentralConfig {
+  apiUrl: string
+  password: string
+}
+
+export const centralConfig = {
+  load(): CentralConfig | null {
+    try {
+      const raw = localStorage.getItem(CENTRAL_LS)
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  },
+  save(cfg: CentralConfig) {
+    localStorage.setItem(CENTRAL_LS, JSON.stringify(cfg))
+  },
+  clear() {
+    localStorage.removeItem(CENTRAL_LS)
+  },
+}
+
+async function centralRequest<T>(action: string, params: Record<string, string> = {}): Promise<T> {
+  const cfg = centralConfig.load()
+  if (!cfg) throw new Error('Central not configured')
+  const url = new URL(cfg.apiUrl)
+  url.searchParams.set('action', action)
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+  const resp = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${cfg.password}` },
+  })
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`)
+  return resp.json()
+}
+
+export const centralApi = {
+  tenants: () => centralRequest<CentralTenantList>('tenants'),
+  snapshot: (tenant: string) => centralRequest<any>('snapshot', { tenant }),
+  history: (tenant: string) => centralRequest<Array<{ id: number; received_at: string; bytes: number }>>('history', { tenant }),
 }

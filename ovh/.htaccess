@@ -1,0 +1,20 @@
+# Force HTTPS — agents and viewer must use TLS.
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Block direct access to config.php and SQL/MD files
+<FilesMatch "\.(sql|md)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# CORS — only the viewer (your laptop running MikroManager) needs this.
+# If you want to lock down further, replace * with your laptop's static IP
+# or a specific origin.
+Header set Access-Control-Allow-Origin "*"

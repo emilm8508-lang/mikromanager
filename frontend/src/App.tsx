@@ -7,6 +7,7 @@ import { NetworkMap } from './pages/NetworkMap'
 import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
+import { Central } from './pages/Central'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/scanner" element={<Scanner />} />
           <Route path="/credentials" element={<Credentials />} />
           <Route path="/logs" element={<Logs />} />
+          <Route path="/central" element={<Central />} />
         </Routes>
       </main>
     </div>

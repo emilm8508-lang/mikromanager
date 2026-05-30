@@ -5,7 +5,8 @@
     "map": "Netzwerkkarte",
     "scanner": "Scanner",
     "credentials": "Zugangsdaten",
-    "logs": "Protokolle"
+    "logs": "Protokolle",
+    "central": "Zentral"
   },
   "common": {
     "online": "Online",
@@ -176,5 +177,39 @@
     "runManual": "Jetzt aktualisieren",
     "started": "Gestartet",
     "alreadyRunning": "Bereits aktiv"
+  }
+,
+  "central": {
+    "title": "Zentrales Dashboard",
+    "subtitle": "Aggregierte Ansicht aller Kunden über Relay-Server",
+    "tabViewer": "Viewer (Laptop)",
+    "tabAgent": "Agent (Uplink)",
+    "agentUplink": "An Zentrale senden",
+    "enabled": "Aktiviert",
+    "disabled": "Nicht konfiguriert",
+    "serverUrl": "Endpoint-URL (ingest.php)",
+    "tenantId": "Kunden-ID",
+    "intervalSec": "Intervall (s)",
+    "apiKey": "API-Schlüssel",
+    "apiKeyKeep": "(leer = unverändert)",
+    "interval": "Intervall",
+    "lastSent": "Letzter Erfolg",
+    "totalSent": "Insgesamt gesendet",
+    "failed": "fehlgeschlagen",
+    "buffered": "Gepuffert",
+    "lastError": "Letzter Fehler",
+    "sendNow": "Jetzt senden",
+    "viewerSetup": "Viewer-Setup",
+    "viewerApiUrl": "API-URL (api.php)",
+    "viewerPassword": "Viewer-Passwort",
+    "tenants": "Kunden",
+    "clearConfig": "Viewer abmelden",
+    "noTenants": "Keine Kunden - noch kein Agent hat Daten gesendet",
+    "viewing": "Ansicht",
+    "snapshotFrom": "Snapshot von",
+    "ago": "vor",
+    "staleWarning": "Daten sind veraltet - Agent vermutlich offline",
+    "devicesAt": "Geräte ({{count}})",
+    "noSnapshot": "Keine Daten für diesen Kunden"
   }
 }

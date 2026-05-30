@@ -5,7 +5,8 @@
     "map": "Mapa sieci",
     "scanner": "Skaner",
     "credentials": "Poświadczenia",
-    "logs": "Logi"
+    "logs": "Logi",
+    "central": "Centralny"
   },
   "common": {
     "online": "Online",
@@ -176,5 +177,39 @@
     "runManual": "Odśwież teraz",
     "started": "Uruchomiono",
     "alreadyRunning": "Już trwa"
+  }
+,
+  "central": {
+    "title": "Centralny dashboard",
+    "subtitle": "Zbiorczy widok wszystkich klientów przez serwer pośredniczący",
+    "tabViewer": "Viewer (laptop)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Wysyłanie do centrali",
+    "enabled": "Włączone",
+    "disabled": "Nieskonfigurowane",
+    "serverUrl": "URL endpointu (ingest.php)",
+    "tenantId": "ID klienta",
+    "intervalSec": "Interwał (s)",
+    "apiKey": "Klucz API",
+    "apiKeyKeep": "(zostaw puste = bez zmian)",
+    "interval": "Interwał",
+    "lastSent": "Ostatni udany",
+    "totalSent": "Łącznie wysłano",
+    "failed": "błędów",
+    "buffered": "W buforze",
+    "lastError": "Ostatni błąd",
+    "sendNow": "Wyślij teraz",
+    "viewerSetup": "Konfiguracja viewera",
+    "viewerApiUrl": "URL API (api.php)",
+    "viewerPassword": "Hasło viewera",
+    "tenants": "Klienci",
+    "clearConfig": "Wyloguj viewera",
+    "noTenants": "Brak klientów - żaden agent jeszcze nie wysłał danych",
+    "viewing": "Przeglądasz",
+    "snapshotFrom": "Snapshot z",
+    "ago": "temu",
+    "staleWarning": "Dane są stare - agent prawdopodobnie offline lub nie ma łączności",
+    "devicesAt": "Urządzenia ({{count}})",
+    "noSnapshot": "Brak danych z tego klienta"
   }
 }

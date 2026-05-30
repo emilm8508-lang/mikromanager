@@ -5,7 +5,8 @@
     "map": "Network map",
     "scanner": "Scanner",
     "credentials": "Credentials",
-    "logs": "Logs"
+    "logs": "Logs",
+    "central": "Central"
   },
   "common": {
     "online": "Online",
@@ -176,5 +177,39 @@
     "runManual": "Refresh now",
     "started": "Started",
     "alreadyRunning": "Already running"
+  }
+,
+  "central": {
+    "title": "Central dashboard",
+    "subtitle": "Aggregated view of all customers via relay server",
+    "tabViewer": "Viewer (laptop)",
+    "tabAgent": "Agent (uplink)",
+    "agentUplink": "Send to central",
+    "enabled": "Enabled",
+    "disabled": "Not configured",
+    "serverUrl": "Endpoint URL (ingest.php)",
+    "tenantId": "Customer ID",
+    "intervalSec": "Interval (s)",
+    "apiKey": "API key",
+    "apiKeyKeep": "(leave empty to keep)",
+    "interval": "Interval",
+    "lastSent": "Last success",
+    "totalSent": "Total sent",
+    "failed": "failed",
+    "buffered": "Buffered",
+    "lastError": "Last error",
+    "sendNow": "Send now",
+    "viewerSetup": "Viewer setup",
+    "viewerApiUrl": "API URL (api.php)",
+    "viewerPassword": "Viewer password",
+    "tenants": "Customers",
+    "clearConfig": "Sign out viewer",
+    "noTenants": "No customers - no agent has reported yet",
+    "viewing": "Viewing",
+    "snapshotFrom": "Snapshot from",
+    "ago": "ago",
+    "staleWarning": "Data is stale - agent probably offline or unreachable",
+    "devicesAt": "Devices ({{count}})",
+    "noSnapshot": "No data for this customer"
   }
 }
