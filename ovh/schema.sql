@@ -14,5 +14,9 @@ CREATE TABLE IF NOT EXISTS snapshots (
     tenant VARCHAR(64) NOT NULL,
     received_at DATETIME NOT NULL,
     payload MEDIUMTEXT NOT NULL,
+    encrypted TINYINT(1) NOT NULL DEFAULT 0,  -- 1 = E2E ciphertext envelope, 0 = plaintext JSON
     INDEX idx_tenant_time (tenant, received_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- If upgrading existing DB, run this once:
+-- ALTER TABLE snapshots ADD COLUMN encrypted TINYINT(1) NOT NULL DEFAULT 0;

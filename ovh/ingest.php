@@ -2,11 +2,17 @@
 /**
  * MikroManager central — ingest endpoint.
  *
- * Receives JSON snapshot from an agent. Auth via:
- *   Header: Authorization: Bearer <tenant_api_key>
- *   Header: X-Tenant: <tenant_id>
+ * Security layers (in order):
+ *   1. HTTPS only (.htaccess redirect)
+ *   2. POST method required
+ *   3. Rate limit per source IP (config: rate_limit_per_min)
+ *   4. Tenant ID from header must exist in config
+ *   5. Source IP must match tenant's allow_ips (if configured)
+ *   6. HMAC-SHA256(api_key, timestamp || "|" || body) signature verified
+ *      (timing-safe), with timestamp window check (±300s default)
+ *   7. Body stored as-is — may be plaintext JSON OR an E2E-encrypted envelope
  *
- * Stores in MySQL. Keeps last 50 snapshots per tenant.
+ * Server NEVER sees the plaintext snapshot when E2E encryption is active.
  */
 
 declare(strict_types=1);
@@ -15,55 +21,113 @@ header('X-Content-Type-Options: nosniff');
 
 $config = require __DIR__ . '/config.php';
 
-// ── Method check ─────────────────────────────────────────────────────────────
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'POST required']);
+function fail(int $code, string $msg): void {
+    http_response_code($code);
+    echo json_encode(['error' => $msg]);
     exit;
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// ── Method check ─────────────────────────────────────────────────────────────
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    fail(405, 'POST required');
+}
+
+// ── Source IP detection ──────────────────────────────────────────────────────
+function client_ip(): string {
+    // Trust X-Forwarded-For only if behind known proxy; on OVH shared hosting
+    // REMOTE_ADDR is normally the real client IP.
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+$ip = client_ip();
+
+// ── Rate limit (simple file-based counter) ───────────────────────────────────
+function rate_limit_check(string $ip, array $config): void {
+    $dir = $config['state_dir'];
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    $bucket = (int)(time() / 60);
+    $path = $dir . '/rl_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $ip) . '_' . $bucket;
+    $count = is_file($path) ? (int)file_get_contents($path) : 0;
+    $count++;
+    @file_put_contents($path, (string)$count, LOCK_EX);
+    if ($count > ($config['rate_limit_per_min'] ?? 30)) {
+        fail(429, 'rate limit exceeded');
+    }
+    // Clean old buckets occasionally (1% of requests)
+    if (random_int(0, 99) === 0) {
+        foreach (glob($dir . '/rl_*') as $f) {
+            if (filemtime($f) < time() - 300) @unlink($f);
+        }
+    }
+}
+rate_limit_check($ip, $config);
+
+// ── Headers ──────────────────────────────────────────────────────────────────
 $auth_header   = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 $tenant_header = trim($_SERVER['HTTP_X_TENANT'] ?? '');
+$ts_header     = $_SERVER['HTTP_X_TIMESTAMP'] ?? '';
+$sig_header    = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
+$encrypted     = ($_SERVER['HTTP_X_ENCRYPTED'] ?? '0') === '1';
 
 if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
-    http_response_code(401);
-    echo json_encode(['error' => 'missing or malformed Authorization header']);
-    exit;
+    fail(401, 'missing or malformed Authorization header');
 }
 $provided_key = trim($m[1]);
 
+// ── Tenant lookup ────────────────────────────────────────────────────────────
 if ($tenant_header === '' || !isset($config['tenants'][$tenant_header])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'unknown tenant']);
-    exit;
+    fail(401, 'unknown tenant');
+}
+$tenant_cfg = $config['tenants'][$tenant_header];
+$expected_key = $tenant_cfg['api_key'] ?? '';
+
+if (!hash_equals($expected_key, $provided_key)) {
+    fail(401, 'invalid api key');
 }
 
-if (!hash_equals($config['tenants'][$tenant_header], $provided_key)) {
-    http_response_code(401);
-    echo json_encode(['error' => 'invalid api key']);
-    exit;
+// ── IP allowlist ─────────────────────────────────────────────────────────────
+function ip_in_cidr(string $ip, string $cidr): bool {
+    if (strpos($cidr, '/') === false) return $ip === $cidr;
+    [$subnet, $bits] = explode('/', $cidr, 2);
+    $bits = (int)$bits;
+    $ipL = ip2long($ip);
+    $subL = ip2long($subnet);
+    if ($ipL === false || $subL === false) return false;
+    $mask = $bits === 0 ? 0 : -1 << (32 - $bits);
+    return ($ipL & $mask) === ($subL & $mask);
+}
+
+$allowed_ips = $tenant_cfg['allow_ips'] ?? ['0.0.0.0/0'];
+$ip_ok = false;
+foreach ($allowed_ips as $cidr) {
+    if (ip_in_cidr($ip, $cidr)) { $ip_ok = true; break; }
+}
+if (!$ip_ok) {
+    fail(403, 'source IP not in tenant allowlist');
 }
 
 // ── Body ─────────────────────────────────────────────────────────────────────
 $body = file_get_contents('php://input');
 if ($body === false || strlen($body) === 0) {
-    http_response_code(400);
-    echo json_encode(['error' => 'empty body']);
-    exit;
+    fail(400, 'empty body');
+}
+if (strlen($body) > 2 * 1024 * 1024) {
+    fail(413, 'payload too large');
 }
 
-if (strlen($body) > 2 * 1024 * 1024) {  // 2 MB cap
-    http_response_code(413);
-    echo json_encode(['error' => 'payload too large']);
-    exit;
+// ── Timestamp ────────────────────────────────────────────────────────────────
+$ts = (int)$ts_header;
+if ($ts <= 0) fail(400, 'missing X-Timestamp');
+$now = time();
+$window = (int)($config['timestamp_window_sec'] ?? 300);
+if (abs($now - $ts) > $window) {
+    fail(401, 'timestamp out of window (clock drift or replay?)');
 }
 
-$decoded = json_decode($body, true);
-if ($decoded === null) {
-    http_response_code(400);
-    echo json_encode(['error' => 'invalid JSON: ' . json_last_error_msg()]);
-    exit;
+// ── HMAC verification ────────────────────────────────────────────────────────
+$expected_sig = hash_hmac('sha256', $ts_header . '|' . $body, $expected_key);
+if (!hash_equals($expected_sig, $sig_header)) {
+    fail(401, 'invalid signature (tampered or wrong key)');
 }
 
 // ── Persist ──────────────────────────────────────────────────────────────────
@@ -74,17 +138,21 @@ try {
         $config['db']['name']
     );
     $pdo = new PDO($dsn, $config['db']['user'], $config['db']['password'], [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_ERRMODE          => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 
-    // 1. Insert snapshot
-    $stmt = $pdo->prepare(
-        'INSERT INTO snapshots (tenant, received_at, payload) VALUES (?, NOW(), ?)'
-    );
-    $stmt->execute([$tenant_header, $body]);
+    // Decode just enough to extract public metadata (not snapshot contents).
+    // For E2E envelopes only public fields tenant/sent_at/devices_count are exposed.
+    $public_meta = json_decode($body, true);
+    $devices_count = is_array($public_meta) ? ($public_meta['devices_count'] ?? null) : null;
 
-    // 2. Upsert tenants (last_seen, first_seen on first insert)
+    $stmt = $pdo->prepare(
+        'INSERT INTO snapshots (tenant, received_at, payload, encrypted)
+         VALUES (?, NOW(), ?, ?)'
+    );
+    $stmt->execute([$tenant_header, $body, $encrypted ? 1 : 0]);
+
     $stmt = $pdo->prepare(
         'INSERT INTO tenants (id, first_seen, last_seen, last_payload_bytes)
          VALUES (?, NOW(), NOW(), ?)
@@ -92,7 +160,6 @@ try {
     );
     $stmt->execute([$tenant_header, strlen($body)]);
 
-    // 3. Prune: keep last 50 per tenant
     $stmt = $pdo->prepare(
         'DELETE FROM snapshots
          WHERE tenant = ?
@@ -106,14 +173,14 @@ try {
 
     http_response_code(200);
     echo json_encode([
-        'ok'        => true,
-        'tenant'    => $tenant_header,
-        'bytes'     => strlen($body),
-        'devices'   => $decoded['devices_count'] ?? null,
-        'received_at' => date('c'),
+        'ok'           => true,
+        'tenant'       => $tenant_header,
+        'bytes'        => strlen($body),
+        'encrypted'    => $encrypted,
+        'devices_count' => $devices_count,
+        'received_at'  => date('c'),
     ]);
 } catch (Throwable $e) {
     error_log('[mm-ingest] ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['error' => 'server error']);
+    fail(500, 'server error');
 }

@@ -210,6 +210,18 @@
     "ago": "hace",
     "staleWarning": "Datos antiguos - agent probablemente offline",
     "devicesAt": "Dispositivos ({{count}})",
-    "noSnapshot": "Sin datos para este cliente"
+    "noSnapshot": "Sin datos para este cliente",
+    "e2eHeader": "Cifrado de extremo a extremo",
+    "e2eActive": "E2E activo",
+    "e2eOff": "Texto plano (no recomendado)",
+    "encKey": "Clave de cifrado (base64 32 bytes)",
+    "encKeyKeep": "(vacío = sin cambios)",
+    "e2eHint": "Si vacío, OVH ve el snapshot en texto plano. Recomendado: generar clave.",
+    "generateKey": "Generar clave",
+    "saveKeyWarn": "GUARDA ESTA CLAVE AHORA! Sin ella el viewer no puede descifrar.",
+    "snapshotEncrypted": "Snapshot cifrado",
+    "keyNeeded": "Introduce clave de descifrado. La clave viene del admin del agent.",
+    "decryptionKey": "Clave de descifrado",
+    "saveKey": "Guardar clave"
   }
 }

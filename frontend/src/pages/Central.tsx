@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant } from '../lib/api'
+import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, generateEncKey } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
-  Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw,
+  Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -34,16 +34,19 @@ function UplinkPanel() {
     tenant: '',
     api_key: '',
     interval_sec: 120,
+    enc_key: '',
   })
   const [editing, setEditing] = useState(false)
+  const [showGeneratedKey, setShowGeneratedKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (status && !editing) {
       setForm({
         url: status.url || '',
         tenant: status.tenant || '',
-        api_key: '',  // never sent back from server
+        api_key: '',
         interval_sec: status.interval_sec || 120,
+        enc_key: '',
       })
     }
   }, [status, editing])
@@ -93,8 +96,37 @@ function UplinkPanel() {
             <Input label={t('central.apiKey')} type="password"
               placeholder={status?.has_api_key ? t('central.apiKeyKeep') as string : ''}
               value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))} />
+
+            <div className="border-t border-slate-200 pt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Lock size={13} className="text-indigo-600" />
+                <span className="text-xs font-medium text-slate-700">{t('central.e2eHeader')}</span>
+                {status?.has_enc_key && <Badge variant="green">{t('central.e2eActive')}</Badge>}
+              </div>
+              <Input label={t('central.encKey')} type="password"
+                placeholder={status?.has_enc_key ? t('central.encKeyKeep') as string : 'base64 32 bytes'}
+                value={form.enc_key} onChange={e => setForm(f => ({ ...f, enc_key: e.target.value }))} />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-[11px] text-slate-500">{t('central.e2eHint')}</p>
+                <button type="button" onClick={async () => {
+                  const k = await systemApi.uplinkGenerateEncKey()
+                  setForm(f => ({ ...f, enc_key: k.enc_key }))
+                  setShowGeneratedKey(k.enc_key)
+                }}
+                  className="text-xs text-indigo-600 hover:underline shrink-0 ml-2">
+                  {t('central.generateKey')}
+                </button>
+              </div>
+              {showGeneratedKey && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-[11px]">
+                  <p className="font-semibold text-amber-700 mb-1">{t('central.saveKeyWarn')}</p>
+                  <p className="font-mono break-all text-amber-900">{showGeneratedKey}</p>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-2 justify-end pt-1">
-              <Button type="button" variant="ghost" onClick={() => setEditing(false)}>{t('common.cancel')}</Button>
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setShowGeneratedKey(null) }}>{t('common.cancel')}</Button>
               <Button type="submit" variant="primary">{t('common.save')}</Button>
             </div>
           </form>
@@ -105,6 +137,14 @@ function UplinkPanel() {
               <span className="font-mono text-xs text-slate-800 break-all">{status?.url || '—'}</span>
               <span className="text-slate-500">Tenant:</span>
               <span className="text-slate-800">{status?.tenant || '—'}</span>
+              <span className="text-slate-500">E2E:</span>
+              <span className="text-slate-800 flex items-center gap-1">
+                {status?.has_enc_key ? (
+                  <><Shield size={12} className="text-green-600" /> <span className="text-green-700 font-medium">{t('central.e2eActive')}</span></>
+                ) : (
+                  <><ShieldOff size={12} className="text-amber-600" /> <span className="text-amber-700">{t('central.e2eOff')}</span></>
+                )}
+              </span>
               <span className="text-slate-500">{t('central.interval')}:</span>
               <span className="text-slate-800">{status?.interval_sec ?? '—'} s</span>
               <span className="text-slate-500">{t('central.lastSent')}:</span>
@@ -196,8 +236,11 @@ function TenantRow({ tenant, threshold, onSelect }: {
 
 function TenantSnapshot({ tenantId }: { tenantId: string }) {
   const { t } = useTranslation()
+  const [newKey, setNewKey] = useState('')
+  const [keyVersion, setKeyVersion] = useState(0)  // bumps to force refetch after key save
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['central-snapshot', tenantId],
+    queryKey: ['central-snapshot', tenantId, keyVersion],
     queryFn: () => centralApi.snapshot(tenantId),
     refetchInterval: 30_000,
   })
@@ -205,6 +248,42 @@ function TenantSnapshot({ tenantId }: { tenantId: string }) {
   if (isLoading) return <p className="px-5 py-8 text-center text-slate-500 text-sm">{t('common.loading')}</p>
   if (error) return <p className="px-5 py-8 text-center text-red-600 text-sm">{String(error)}</p>
   if (!data) return <p className="px-5 py-8 text-center text-slate-500 text-sm">{t('central.noSnapshot')}</p>
+
+  // Encrypted snapshot we cannot decrypt → prompt for key
+  if (data._encrypted) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 py-5">
+          <div className="flex items-center gap-2">
+            <Lock size={18} className="text-amber-600" />
+            <p className="font-medium text-slate-900">{t('central.snapshotEncrypted')}</p>
+          </div>
+          <p className="text-xs text-slate-600">
+            {data._error === 'missing_key' ? t('central.keyNeeded') : data._error}
+          </p>
+          <div className="text-xs text-slate-500 space-y-0.5">
+            <p>{t('central.snapshotFrom')}: <span className="font-mono">{data.received_at}</span> ({formatAge(data.age_sec)} {t('central.ago')})</p>
+            {data.devices_count != null && <p>{t('central.devicesAt', { count: data.devices_count })}</p>}
+          </div>
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            if (newKey) {
+              centralConfig.setTenantKey(tenantId, newKey)
+              setNewKey('')
+              setKeyVersion(v => v + 1)
+            }
+          }} className="space-y-2">
+            <Input label={t('central.decryptionKey')} type="password"
+              placeholder="base64 32 bytes"
+              value={newKey} onChange={e => setNewKey(e.target.value)} />
+            <Button type="submit" variant="primary" size="sm" disabled={!newKey}>
+              <Lock size={12} /> {t('central.saveKey')}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const devices = data.devices ?? []
   const critical = data.critical_logs ?? []

@@ -9,11 +9,17 @@ On send failure, snapshots are buffered locally (up to 50) and retried.
 Configuration via environment variables OR via /api/system/uplink/config.
 """
 import asyncio
+import base64
+import hashlib
+import hmac
+import json
 import os
+import secrets
 import time
 from datetime import datetime
 from typing import Optional
 import aiohttp
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, DeviceLink
@@ -23,9 +29,13 @@ from services.mikrotik_client import MikrotikClient
 
 # Config — can be overridden via UI/env vars
 _config = {
-    "url": os.environ.get("MIKROTIK_UPLINK_URL", ""),       # e.g. https://example.com/ingest.php
-    "tenant": os.environ.get("MIKROTIK_UPLINK_TENANT", ""), # tenant identifier
-    "api_key": os.environ.get("MIKROTIK_UPLINK_KEY", ""),   # bearer token
+    "url": os.environ.get("MIKROTIK_UPLINK_URL", ""),
+    "tenant": os.environ.get("MIKROTIK_UPLINK_TENANT", ""),
+    "api_key": os.environ.get("MIKROTIK_UPLINK_KEY", ""),
+    # End-to-end encryption key (base64). If set, payload is AES-256-GCM
+    # encrypted before POST. Server stores only ciphertext. Viewer needs
+    # the same key to decrypt.
+    "enc_key": os.environ.get("MIKROTIK_UPLINK_ENC_KEY", ""),
     "interval_sec": int(os.environ.get("MIKROTIK_UPLINK_INTERVAL", "120")),
 }
 
@@ -52,21 +62,39 @@ def status() -> dict:
         "tenant": _config["tenant"],
         "interval_sec": _config["interval_sec"],
         "has_api_key": bool(_config["api_key"]),
+        "has_enc_key": bool(_config["enc_key"]),  # E2E encryption active
         **_state,
     }
 
 
-def configure(url: str, tenant: str, api_key: str, interval_sec: int = 120) -> dict:
+def configure(url: str, tenant: str, api_key: str, interval_sec: int = 120,
+              enc_key: str = "") -> dict:
     """Update uplink configuration at runtime. Persists to a small JSON file."""
     _config["url"] = url
     _config["tenant"] = tenant
     _config["api_key"] = api_key
+    if enc_key:
+        # Validate it's base64 of 32 bytes (AES-256 key)
+        try:
+            raw = base64.b64decode(enc_key)
+            if len(raw) != 32:
+                raise ValueError(f"enc_key must be 32 bytes (got {len(raw)})")
+            _config["enc_key"] = enc_key
+        except Exception as e:
+            raise ValueError(f"invalid enc_key: {e}")
+    elif enc_key == "":
+        # Empty string explicitly = keep existing
+        pass
     _config["interval_sec"] = max(30, interval_sec)
     _persist()
-    # Restart task with new config
     stop()
     start()
     return status()
+
+
+def generate_enc_key() -> str:
+    """Generate a fresh 32-byte AES-256-GCM key, return base64-encoded."""
+    return base64.b64encode(secrets.token_bytes(32)).decode()
 
 
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "uplink.json")
@@ -147,20 +175,62 @@ async def _build_snapshot() -> dict:
     }
 
 
-async def _send_one(snapshot: dict) -> bool:
-    if not is_configured():
-        return False
+def _build_request_body(snapshot: dict) -> tuple:
+    """Build the request body (encrypted if enc_key configured) and HMAC headers.
+    Returns (body_bytes, headers_dict)."""
+    plaintext = json.dumps(snapshot, separators=(",", ":")).encode("utf-8")
+
+    if _config["enc_key"]:
+        # E2E encryption: AES-256-GCM with random 12-byte nonce.
+        # Result envelope: { v: 2, alg: "aes-256-gcm", nonce: b64, ciphertext: b64 }
+        # Server stores this opaquely. Only client with enc_key can decrypt.
+        key = base64.b64decode(_config["enc_key"])
+        nonce = secrets.token_bytes(12)
+        ct = AESGCM(key).encrypt(nonce, plaintext, None)
+        envelope = {
+            "v": 2,
+            "alg": "aes-256-gcm",
+            "nonce": base64.b64encode(nonce).decode(),
+            "ciphertext": base64.b64encode(ct).decode(),
+            # These two are PUBLIC metadata that the server/index page can use
+            # for listing without decrypting. They reveal only timestamp + size.
+            "tenant": _config["tenant"],
+            "sent_at": snapshot.get("sent_at"),
+            "devices_count": snapshot.get("devices_count"),
+            "devices_online": snapshot.get("devices_online"),
+        }
+        body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+    else:
+        body = plaintext
+
+    # HMAC-SHA256 over: timestamp || body. Prevents tamper + replay.
+    ts = str(int(time.time()))
+    sig = hmac.new(
+        _config["api_key"].encode(), (ts + "|").encode() + body,
+        hashlib.sha256
+    ).hexdigest()
+
     headers = {
         "Authorization": f"Bearer {_config['api_key']}",
         "X-Tenant": _config["tenant"],
+        "X-Timestamp": ts,
+        "X-Signature": sig,
+        "X-Encrypted": "1" if _config["enc_key"] else "0",
         "Content-Type": "application/json",
         "User-Agent": "MikroManager-Agent/1.2",
     }
+    return body, headers
+
+
+async def _send_one(snapshot: dict) -> bool:
+    if not is_configured():
+        return False
+    body, headers = _build_request_body(snapshot)
     timeout = aiohttp.ClientTimeout(total=20)
     _state["last_attempt"] = datetime.utcnow().isoformat()
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(_config["url"], json=snapshot, headers=headers) as resp:
+            async with session.post(_config["url"], data=body, headers=headers) as resp:
                 if 200 <= resp.status < 300:
                     _state["last_sent"] = datetime.utcnow().isoformat()
                     _state["last_error"] = None

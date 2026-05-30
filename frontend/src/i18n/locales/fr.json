@@ -210,6 +210,18 @@
     "ago": "il y a",
     "staleWarning": "Données anciennes - agent probablement hors ligne",
     "devicesAt": "Appareils ({{count}})",
-    "noSnapshot": "Aucune donnée pour ce client"
+    "noSnapshot": "Aucune donnée pour ce client",
+    "e2eHeader": "Chiffrement de bout en bout",
+    "e2eActive": "E2E actif",
+    "e2eOff": "En clair (non recommandé)",
+    "encKey": "Clé de chiffrement (base64 32 octets)",
+    "encKeyKeep": "(vide = inchangé)",
+    "e2eHint": "Si vide, OVH voit le snapshot en clair. Recommandé : générer une clé.",
+    "generateKey": "Générer clé",
+    "saveKeyWarn": "ENREGISTREZ CETTE CLÉ MAINTENANT ! Sans elle, le viewer ne peut pas déchiffrer.",
+    "snapshotEncrypted": "Snapshot chiffré",
+    "keyNeeded": "Saisissez la clé de déchiffrement. Clé fournie par admin agent.",
+    "decryptionKey": "Clé de déchiffrement",
+    "saveKey": "Enregistrer clé"
   }
 }

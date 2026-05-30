@@ -177,6 +177,7 @@ export interface UplinkStatus {
   tenant: string
   interval_sec: number
   has_api_key: boolean
+  has_enc_key: boolean
   last_sent: string | null
   last_attempt: string | null
   last_error: string | null
@@ -194,9 +195,10 @@ export const systemApi = {
   refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
   criticalLogs: (limit = 20) => api.get<CriticalLogEntry[]>('/system/critical-logs', { params: { limit } }).then(r => r.data),
   uplinkStatus: () => api.get<UplinkStatus>('/system/uplink/status').then(r => r.data),
-  uplinkConfigure: (data: { url: string; tenant: string; api_key: string; interval_sec: number }) =>
+  uplinkConfigure: (data: { url: string; tenant: string; api_key: string; interval_sec: number; enc_key?: string }) =>
     api.post<UplinkStatus>('/system/uplink/config', data).then(r => r.data),
   uplinkSendNow: () => api.post<{ success: boolean; status: UplinkStatus }>('/system/uplink/send-now').then(r => r.data),
+  uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
 }
 
 // ── Central (viewer querying OVH directly) ───────────────────────────────────
@@ -224,6 +226,9 @@ const CENTRAL_LS = 'mikromanager_central'
 export interface CentralConfig {
   apiUrl: string
   password: string
+  // Per-tenant E2E decryption keys (base64). Map tenant id → key.
+  // The server never has these. Without it, encrypted snapshots cannot be read.
+  tenantKeys?: Record<string, string>
 }
 
 export const centralConfig = {
@@ -235,6 +240,12 @@ export const centralConfig = {
   },
   save(cfg: CentralConfig) {
     localStorage.setItem(CENTRAL_LS, JSON.stringify(cfg))
+  },
+  setTenantKey(tenant: string, key: string) {
+    const cfg = centralConfig.load()
+    if (!cfg) return
+    cfg.tenantKeys = { ...(cfg.tenantKeys ?? {}), [tenant]: key }
+    centralConfig.save(cfg)
   },
   clear() {
     localStorage.removeItem(CENTRAL_LS)
@@ -254,8 +265,84 @@ async function centralRequest<T>(action: string, params: Record<string, string> 
   return resp.json()
 }
 
+// ── E2E decryption (Web Crypto API, runs in-browser only) ────────────────────
+
+function b64ToBytes(s: string): Uint8Array {
+  const bin = atob(s)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+async function decryptEnvelope(envelope: any, keyB64: string): Promise<any> {
+  if (envelope?.v !== 2 || envelope?.alg !== 'aes-256-gcm') {
+    throw new Error(`unsupported envelope: v=${envelope?.v} alg=${envelope?.alg}`)
+  }
+  const rawKey = b64ToBytes(keyB64)
+  if (rawKey.length !== 32) throw new Error('decryption key must be 32 bytes')
+  const nonce = b64ToBytes(envelope.nonce)
+  const ct = b64ToBytes(envelope.ciphertext)
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt'])
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct)
+  const text = new TextDecoder().decode(pt)
+  return JSON.parse(text)
+}
+
 export const centralApi = {
   tenants: () => centralRequest<CentralTenantList>('tenants'),
-  snapshot: (tenant: string) => centralRequest<any>('snapshot', { tenant }),
-  history: (tenant: string) => centralRequest<Array<{ id: number; received_at: string; bytes: number }>>('history', { tenant }),
+  history: (tenant: string) =>
+    centralRequest<Array<{ id: number; received_at: string; bytes: number }>>('history', { tenant }),
+
+  async snapshot(tenant: string): Promise<any> {
+    const data = await centralRequest<any>('snapshot', { tenant })
+    if (!data) return null
+    // Check if data is an encrypted envelope (has v + ciphertext fields)
+    if (data.v === 2 && data.ciphertext) {
+      const cfg = centralConfig.load()
+      const key = cfg?.tenantKeys?.[tenant]
+      if (!key) {
+        return {
+          _encrypted: true,
+          _error: 'missing_key',
+          tenant,
+          sent_at: data.sent_at,
+          devices_count: data.devices_count,
+          devices_online: data.devices_online,
+          received_at: data.received_at,
+          age_sec: data.age_sec,
+          online: data.online,
+        }
+      }
+      try {
+        const decrypted = await decryptEnvelope(data, key)
+        return {
+          ...decrypted,
+          received_at: data.received_at,
+          age_sec: data.age_sec,
+          online: data.online,
+          _decrypted: true,
+        }
+      } catch (e) {
+        return {
+          _encrypted: true,
+          _error: `decrypt_failed: ${(e as Error).message}`,
+          tenant,
+          received_at: data.received_at,
+          age_sec: data.age_sec,
+          online: data.online,
+        }
+      }
+    }
+    // Plaintext snapshot
+    return data
+  },
+}
+
+// Helper to generate a fresh 32-byte key in browser (base64)
+export function generateEncKey(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin)
 }

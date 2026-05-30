@@ -153,6 +153,7 @@ class UplinkConfig(BaseModel):
     tenant: str
     api_key: str
     interval_sec: int = 120
+    enc_key: str = ""  # base64 32 bytes; empty = no E2E (NOT recommended)
 
 
 @router.get("/uplink/status")
@@ -167,7 +168,15 @@ async def uplink_configure(cfg: UplinkConfig):
         tenant=cfg.tenant,
         api_key=cfg.api_key,
         interval_sec=cfg.interval_sec,
+        enc_key=cfg.enc_key,
     )
+
+
+@router.post("/uplink/generate-enc-key")
+async def uplink_generate_enc_key():
+    """Generate a fresh AES-256-GCM key (base64). Show ONCE to user — they
+    must save it manually and configure the viewer with the same key."""
+    return {"enc_key": uplink_svc.generate_enc_key()}
 
 
 @router.post("/uplink/send-now")

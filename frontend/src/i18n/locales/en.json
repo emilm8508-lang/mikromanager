@@ -210,6 +210,18 @@
     "ago": "ago",
     "staleWarning": "Data is stale - agent probably offline or unreachable",
     "devicesAt": "Devices ({{count}})",
-    "noSnapshot": "No data for this customer"
+    "noSnapshot": "No data for this customer",
+    "e2eHeader": "End-to-end encryption",
+    "e2eActive": "E2E active",
+    "e2eOff": "Plain (not recommended)",
+    "encKey": "Encryption key (base64 32 bytes)",
+    "encKeyKeep": "(leave empty to keep)",
+    "e2eHint": "If empty, OVH server sees snapshot plaintext. Recommended: generate a key.",
+    "generateKey": "Generate key",
+    "saveKeyWarn": "SAVE THIS KEY NOW! Without it viewer cannot decrypt data. Key cannot be recovered.",
+    "snapshotEncrypted": "Snapshot encrypted",
+    "keyNeeded": "Enter decryption key to view data. Key comes from agent admin.",
+    "decryptionKey": "Decryption key",
+    "saveKey": "Save key"
   }
 }

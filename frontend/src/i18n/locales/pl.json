@@ -210,6 +210,18 @@
     "ago": "temu",
     "staleWarning": "Dane są stare - agent prawdopodobnie offline lub nie ma łączności",
     "devicesAt": "Urządzenia ({{count}})",
-    "noSnapshot": "Brak danych z tego klienta"
+    "noSnapshot": "Brak danych z tego klienta",
+    "e2eHeader": "Szyfrowanie end-to-end",
+    "e2eActive": "E2E aktywne",
+    "e2eOff": "Bez E2E (niezalecane)",
+    "encKey": "Klucz szyfrowania (base64 32 bajty)",
+    "encKeyKeep": "(zostaw puste = bez zmian)",
+    "e2eHint": "Jeśli puste, OVH widzi plaintext snapshotu. Zalecane: wygeneruj klucz.",
+    "generateKey": "Wygeneruj klucz",
+    "saveKeyWarn": "ZAPISZ TEN KLUCZ TERAZ! Bez niego viewer nie odszyfruje danych. Klucza nie da się odzyskać.",
+    "snapshotEncrypted": "Snapshot zaszyfrowany",
+    "keyNeeded": "Wprowadź klucz dekrypcji żeby zobaczyć dane. Klucz dostaniesz od admina agenta.",
+    "decryptionKey": "Klucz dekrypcji",
+    "saveKey": "Zapisz klucz"
   }
 }
