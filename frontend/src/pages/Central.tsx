@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, generateEncKey } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
