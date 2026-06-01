@@ -4,7 +4,7 @@ critical-logs aggregator.
 """
 import asyncio
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from services import refresher
 from services import topology as topo_svc
 from services import versions as ver_svc
@@ -177,6 +177,44 @@ async def uplink_generate_enc_key():
     """Generate a fresh AES-256-GCM key (base64). Show ONCE to user — they
     must save it manually and configure the viewer with the same key."""
     return {"enc_key": uplink_svc.generate_enc_key()}
+
+
+# ── Central proxy (viewer → localhost → OVH) ─────────────────────────────────
+# Browsers may fail to fetch the OVH API directly when:
+#   - Corporate antivirus (Norton, Kaspersky, ESET) does TLS interception and
+#     breaks CORS preflight responses.
+#   - Custom DNS / proxy injects errors into cross-origin requests.
+# Proxying through our local backend sidesteps both — the browser only talks
+# to localhost, and Python's aiohttp does clean TLS to OVH.
+
+@router.get("/central-proxy")
+async def central_proxy(request: Request, upstream: str):
+    """Forward viewer's request to OVH api.php. Pass-through Authorization
+    header and query params except 'upstream'."""
+    if not upstream.startswith("https://"):
+        raise HTTPException(400, "upstream must be HTTPS")
+
+    import aiohttp
+    # Build query string for upstream — everything except 'upstream' itself
+    params = {k: v for k, v in request.query_params.items() if k != "upstream"}
+    auth = request.headers.get("authorization", "")
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(upstream, params=params,
+                                   headers={"Authorization": auth}) as resp:
+                body = await resp.read()
+                from fastapi.responses import Response
+                return Response(
+                    content=body,
+                    status_code=resp.status,
+                    media_type=resp.content_type or "application/json",
+                )
+    except aiohttp.ClientError as e:
+        raise HTTPException(502, f"Proxy upstream error: {type(e).__name__}: {e}")
+    except asyncio.TimeoutError:
+        raise HTTPException(504, "Upstream timeout")
 
 
 @router.post("/uplink/send-now")
