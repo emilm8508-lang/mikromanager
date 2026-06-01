@@ -48,3 +48,4 @@ klucz.txt
 ovh/config.php
 *.key
 secrets*.txt
+.commit-msg
