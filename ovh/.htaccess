@@ -1,32 +1,47 @@
-# Force HTTPS — agents and viewer must use TLS.
-RewriteEngine On
-RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# MikroManager OVH central — Apache config (works on Apache 2.2 / 2.4 + PHP-FPM)
 
-# CRITICAL: Many shared hosts (incl. OVH) strip the Authorization header before
-# it reaches PHP. This forwards it as REDIRECT_HTTP_AUTHORIZATION which PHP
-# code then maps back. Without this, agents get 401 "missing Authorization".
-RewriteCond %{HTTP:Authorization} ^(.+)$
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%1,L]
+<IfModule mod_rewrite.c>
+    RewriteEngine On
 
-# Alternative method (some Apache configs need this instead):
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+    # Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Block direct access to config.php and SQL/MD files
+    # Forward Authorization header (Apache + PHP-FPM strips it by default)
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+</IfModule>
+
+# Second method to forward Authorization (different Apache configs use different ones)
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# Block direct access to config.php, .sql, .md files
+# Use both Apache 2.2 (Order/Deny) and 2.4 (Require) syntax for compatibility.
 <FilesMatch "\.(sql|md)$">
-    Require all denied
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 <Files "config.php">
-    Require all denied
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
 </Files>
 
-# Block access to state/ directory (rate-limit counters)
-<Directory "state">
-    Require all denied
-</Directory>
-
-# CORS — only the viewer (your laptop running MikroManager) needs this.
-Header set Access-Control-Allow-Origin "*"
-Header set Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant, X-Timestamp, X-Signature, X-Encrypted"
-Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+# CORS — viewer (laptop) needs these to fetch the API cross-origin.
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant, X-Timestamp, X-Signature, X-Encrypted"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+</IfModule>
