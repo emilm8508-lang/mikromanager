@@ -211,27 +211,21 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
-function TenantRow({ tenant, threshold, onSelect }: {
-  tenant: CentralTenant; threshold: number; onSelect: (t: string) => void
-}) {
+function TenantRow({ tenant }: { tenant: CentralTenant }) {
   const Icon = tenant.online ? Wifi : WifiOff
   return (
-    <button
-      onClick={() => onSelect(tenant.id)}
-      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 border-b border-slate-200 text-left transition-colors"
-    >
+    <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200">
       <Icon size={16} className={tenant.online ? 'text-green-600' : 'text-red-600'} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-slate-900">{tenant.id}</p>
         <p className="text-xs text-slate-500">
-          {tenant.last_seen ?? '—'} · {tenant.last_payload_bytes} B
+          {tenant.last_seen ?? '—'} · {(tenant.last_payload_bytes / 1024).toFixed(1)} KB
         </p>
       </div>
       <Badge variant={tenant.online ? 'green' : 'red'}>
         {tenant.age_sec !== null ? formatAge(tenant.age_sec) : '—'}
       </Badge>
-      <ChevronRight size={14} className="text-slate-400" />
-    </button>
+    </div>
   )
 }
 
@@ -463,10 +457,68 @@ function UsageBar() {
   )
 }
 
+function EncryptedTenantsPanel() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [keys, setKeys] = useState<Record<string, string>>({})
+
+  // Quick probe: fetch every tenant snapshot, list those that come back encrypted+missing_key
+  const { data: encryptedTenants = [] } = useQuery({
+    queryKey: ['encrypted-tenants'],
+    queryFn: async () => {
+      const list = await centralApi.tenants()
+      const result: string[] = []
+      await Promise.all(list.tenants.map(async (tn) => {
+        try {
+          const snap = await centralApi.snapshot(tn.id)
+          if (snap?._encrypted) result.push(tn.id)
+        } catch { /* ignore */ }
+      }))
+      return result
+    },
+    refetchInterval: 60_000,
+  })
+
+  if (encryptedTenants.length === 0) return null
+
+  const saveKey = (tenant: string) => {
+    const k = keys[tenant]?.trim()
+    if (!k) return
+    centralConfig.setTenantKey(tenant, k)
+    setKeys(prev => ({ ...prev, [tenant]: '' }))
+    qc.invalidateQueries({ queryKey: ['encrypted-tenants'] })
+    qc.invalidateQueries({ queryKey: ['tenant-devices'] })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <Lock size={14} className="text-amber-600" />
+          {t('central.keysNeeded', { count: encryptedTenants.length })}
+        </h2>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {encryptedTenants.map(tn => (
+          <div key={tn} className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input label={tn} type="password" placeholder="base64 32 bytes"
+                value={keys[tn] ?? ''}
+                onChange={e => setKeys(prev => ({ ...prev, [tn]: e.target.value }))} />
+            </div>
+            <Button size="sm" variant="primary" onClick={() => saveKey(tn)} disabled={!keys[tn]}>
+              <Lock size={12} /> {t('central.saveKey')}
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 function ViewerPanel() {
   const { t } = useTranslation()
   const [configured, setConfigured] = useState(!!centralConfig.load())
-  const [selectedTenant, setSelectedTenant] = useState<string | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['central-tenants'],
@@ -495,6 +547,8 @@ function ViewerPanel() {
     <div className="space-y-4">
       <UsageBar />
 
+      <EncryptedTenantsPanel />
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -508,7 +562,7 @@ function ViewerPanel() {
                 <RefreshCw size={13} />
               </button>
               <button
-                onClick={() => { centralConfig.clear(); setConfigured(false); setSelectedTenant(null) }}
+                onClick={() => { centralConfig.clear(); setConfigured(false) }}
                 className="text-slate-400 hover:text-red-600"
                 title={t('central.clearConfig') as string}
               >
@@ -525,24 +579,16 @@ function ViewerPanel() {
           ) : data && data.tenants.length === 0 ? (
             <p className="px-5 py-6 text-center text-slate-500 text-sm">{t('central.noTenants')}</p>
           ) : (
-            data?.tenants.map(t => (
-              <TenantRow key={t.id} tenant={t}
-                threshold={data.offline_threshold_sec}
-                onSelect={setSelectedTenant} />
+            data?.tenants.map(tnt => (
+              <TenantRow key={tnt.id} tenant={tnt} />
             ))
           )}
         </CardContent>
       </Card>
 
-      {selectedTenant && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-base font-bold text-slate-900">{selectedTenant}</h2>
-            <Badge variant="blue">{t('central.viewing')}</Badge>
-          </div>
-          <TenantSnapshot tenantId={selectedTenant} />
-        </div>
-      )}
+      <div className="text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-4 py-2.5">
+        💡 {t('central.devicesMovedHint')}
+      </div>
     </div>
   )
 }

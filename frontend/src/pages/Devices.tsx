@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { devicesApi, credentialsApi, systemApi } from '../lib/api'
+import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig } from '../lib/api'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -54,18 +54,48 @@ function AddDeviceModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+type RowSource = 'local' | string  // tenant id or 'local'
+
+interface UnifiedDevice {
+  source: RowSource         // 'local' | tenant id
+  id: number | string       // local: number; remote: "tenant:id"
+  raw_id?: number           // original numeric id within its source
+  ip: string
+  identity?: string
+  name?: string
+  model?: string
+  ros_version?: string
+  online: boolean
+  last_seen?: string
+  has_api?: boolean
+  has_ssh?: boolean
+  has_web?: boolean
+  has_snmp?: boolean
+  credential_id?: number
+}
+
 export function Devices() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const { data: devices = [], isLoading } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list })
+  const { data: localDevices = [], isLoading } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list })
   const { data: creds = [] } = useQuery({ queryKey: ['credentials'], queryFn: credentialsApi.list })
   const { data: versionStatus } = useQuery({
     queryKey: ['version-status'],
     queryFn: systemApi.versionStatus,
     refetchInterval: 6 * 3600 * 1000,
   })
+  // Aggregated devices from all configured central tenants (decrypted locally).
+  const hasCentral = !!centralConfig.load()
+  const { data: tenantDevices = [] } = useQuery({
+    queryKey: ['tenant-devices'],
+    queryFn: getAllTenantDevices,
+    enabled: hasCentral,
+    refetchInterval: 60_000,
+  })
+
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [tenantFilter, setTenantFilter] = useState<string>('all')  // 'all' | 'local' | tenant id
 
   const versionMap = new Map(
     (versionStatus?.devices ?? []).map(v => [v.id, v.target])
@@ -78,18 +108,63 @@ export function Devices() {
 
   const credMap = Object.fromEntries(creds.map(c => [c.id, c.name]))
 
-  const filtered = devices.filter(d =>
-    !search || d.ip.includes(search) ||
-    (d.identity ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (d.model ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  // Merge local + remote devices into a unified list
+  const unified: UnifiedDevice[] = [
+    ...localDevices.map((d): UnifiedDevice => ({
+      source: 'local',
+      id: d.id,
+      raw_id: d.id,
+      ip: d.ip,
+      identity: d.identity,
+      name: d.name,
+      model: d.model,
+      ros_version: d.ros_version,
+      online: d.online,
+      last_seen: d.last_seen,
+      has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
+      credential_id: d.credential_id,
+    })),
+    ...tenantDevices
+      .filter(d => !d.encrypted && d.ip)  // skip undecryptable tenant rows
+      .map((d): UnifiedDevice => ({
+        source: d.tenant,
+        id: `${d.tenant}:${d.id ?? d.ip}`,
+        raw_id: d.id,
+        ip: d.ip!,
+        identity: d.identity,
+        name: d.name,
+        model: d.model,
+        ros_version: d.ros_version,
+        online: !!d.online,
+        last_seen: d.last_seen,
+        has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
+      })),
+  ]
+
+  // Build tenant list for filter dropdown
+  const allTenants = Array.from(new Set(tenantDevices.map(d => d.tenant))).sort()
+
+  const filtered = unified.filter(d => {
+    if (tenantFilter !== 'all' && d.source !== tenantFilter) return false
+    const q = search.toLowerCase()
+    return !q ||
+      d.ip.includes(search) ||
+      (d.identity ?? '').toLowerCase().includes(q) ||
+      (d.model ?? '').toLowerCase().includes(q) ||
+      d.source.toLowerCase().includes(q)
+  })
+
+  // Devices in tenant encrypted-but-no-key state — show as warning row at top
+  const encryptedTenants = tenantDevices
+    .filter(d => d.encrypted)
+    .map(d => d.tenant)
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{t('devices.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('devices.subtitle', { count: devices.length })}</p>
+          <p className="text-sm text-slate-500 mt-0.5">{t('devices.subtitle', { count: unified.length })}</p>
         </div>
         <Button variant="primary" onClick={() => setAddOpen(true)}>
           <Plus size={16} /> {t('common.addManual')}
@@ -129,8 +204,30 @@ export function Devices() {
         </div>
       )}
 
-      <Input placeholder={t('devices.searchPlaceholder')} value={search}
-        onChange={e => setSearch(e.target.value)} />
+      {/* Encrypted-tenant warnings */}
+      {encryptedTenants.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-xs text-amber-800">
+          {t('devices.encryptedNoKey', { tenants: encryptedTenants.join(', ') })}
+        </div>
+      )}
+
+      <div className="flex gap-2 items-center">
+        <Input placeholder={t('devices.searchPlaceholder')} value={search}
+          onChange={e => setSearch(e.target.value)} className="flex-1" />
+        {(allTenants.length > 0 || localDevices.length > 0) && (
+          <select
+            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-indigo-500"
+            value={tenantFilter}
+            onChange={e => setTenantFilter(e.target.value)}
+          >
+            <option value="all">{t('devices.allSources')}</option>
+            <option value="local">{t('devices.localSource')}</option>
+            {allTenants.map(tn => (
+              <option key={tn} value={tn}>{tn}</option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {isLoading ? (
         <p className="text-slate-500 text-sm text-center py-12">{t('common.loading')}</p>
@@ -144,21 +241,35 @@ export function Devices() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs text-slate-500">
+                <th className="px-5 py-3 text-left">{t('devices.cols.client')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.ipIdentity')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.model')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.ros')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.capabilities')}</th>
-                <th className="px-5 py-3 text-left">{t('devices.cols.credentials')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.status')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.lastSeen')}</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map(d => (
+              {filtered.map(d => {
+                const isLocal = d.source === 'local'
+                const detailPath = isLocal ? `/devices/${d.raw_id}` : '#'
+                return (
                 <tr key={d.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                   <td className="px-5 py-3">
-                    <Link to={`/devices/${d.id}`} className="text-indigo-600 hover:underline font-mono block">{d.ip}</Link>
+                    {isLocal ? (
+                      <Badge variant="gray" className="text-[10px]">{t('devices.localSource')}</Badge>
+                    ) : (
+                      <Badge variant="blue" className="text-[10px]">{d.source}</Badge>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {isLocal ? (
+                      <Link to={detailPath} className="text-indigo-600 hover:underline font-mono block">{d.ip}</Link>
+                    ) : (
+                      <span className="text-slate-700 font-mono block">{d.ip}</span>
+                    )}
                     {d.identity && <span className="text-xs text-slate-500">{d.identity}</span>}
                     {d.name && <span className="text-xs text-slate-400 block">{d.name}</span>}
                   </td>
@@ -167,8 +278,8 @@ export function Devices() {
                     {d.ros_version ? (
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-700">{d.ros_version}</span>
-                        {(() => {
-                          const v = versionMap.get(d.id)
+                        {isLocal && (() => {
+                          const v = versionMap.get(d.raw_id!)
                           if (!v) return null
                           if (v.status === 'up_to_date') {
                             return <CheckCircle2 size={12} className="text-green-600" />
@@ -193,25 +304,26 @@ export function Devices() {
                       {d.has_snmp && <Badge variant="purple">SNMP</Badge>}
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-slate-600 text-xs">
-                    {d.credential_id ? credMap[d.credential_id] || '—' : <span className="text-red-600">{t('devices.noCredsBadge')}</span>}
-                  </td>
                   <td className="px-5 py-3">
                     <Badge variant={d.online ? 'green' : 'red'}>{d.online ? t('common.online') : t('common.offline')}</Badge>
                   </td>
                   <td className="px-5 py-3 text-slate-500 text-xs">{formatDate(d.last_seen)}</td>
                   <td className="px-5 py-3">
-                    <div className="flex gap-1">
-                      <Link to={`/devices/${d.id}`}>
-                        <Button size="sm" variant="ghost"><ExternalLink size={13} /></Button>
-                      </Link>
-                      <Button size="sm" variant="danger" onClick={() => remove.mutate(d.id)}>
-                        <Trash2 size={13} />
-                      </Button>
-                    </div>
+                    {isLocal ? (
+                      <div className="flex gap-1">
+                        <Link to={detailPath}>
+                          <Button size="sm" variant="ghost"><ExternalLink size={13} /></Button>
+                        </Link>
+                        <Button size="sm" variant="danger" onClick={() => remove.mutate(d.raw_id!)}>
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">{t('devices.readOnly')}</span>
+                    )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </Card>

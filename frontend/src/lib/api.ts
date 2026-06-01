@@ -368,6 +368,99 @@ export const centralApi = {
   },
 }
 
+// ── Aggregated fetchers (used by Devices/Dashboard/Logs to merge local+central)
+
+export interface TenantDeviceRow {
+  tenant: string                 // 'sanmed', 'klient-b', etc.
+  online_at_source?: boolean     // tenant's heartbeat status
+  age_sec?: number               // snapshot age
+  encrypted?: boolean            // true if we couldn't decrypt
+  // Device fields (same shape as local Device when decrypted)
+  id?: number
+  ip?: string
+  name?: string
+  identity?: string
+  model?: string
+  ros_version?: string
+  online?: boolean
+  last_seen?: string
+  has_api?: boolean
+  has_ssh?: boolean
+  has_web?: boolean
+  has_snmp?: boolean
+}
+
+export interface TenantCriticalLog {
+  tenant: string
+  device_id?: number
+  device_ip?: string
+  device_label?: string
+  time?: string
+  topics?: string
+  message?: string
+}
+
+/** Fetch every tenant's latest snapshot, decrypt if possible, return flat
+ *  device list tagged with tenant id. */
+export async function getAllTenantDevices(): Promise<TenantDeviceRow[]> {
+  if (!centralConfig.load()) return []
+  let tenantsList: CentralTenantList
+  try {
+    tenantsList = await centralApi.tenants()
+  } catch {
+    return []
+  }
+  const results: TenantDeviceRow[] = []
+  await Promise.all(tenantsList.tenants.map(async (t) => {
+    try {
+      const snap = await centralApi.snapshot(t.id)
+      if (!snap) return
+      if (snap._encrypted) {
+        results.push({ tenant: t.id, encrypted: true, online_at_source: t.online })
+        return
+      }
+      const devs: any[] = Array.isArray(snap.devices) ? snap.devices : []
+      for (const d of devs) {
+        results.push({
+          tenant: t.id,
+          online_at_source: t.online,
+          age_sec: snap.age_sec,
+          id: d.id, ip: d.ip, name: d.name, identity: d.identity,
+          model: d.model, ros_version: d.ros_version,
+          online: d.online, last_seen: d.last_seen,
+          has_api: d.has_api, has_ssh: d.has_ssh,
+          has_web: d.has_web, has_snmp: d.has_snmp,
+        })
+      }
+    } catch { /* ignore one bad tenant */ }
+  }))
+  return results
+}
+
+/** Fetch critical logs from every tenant's latest snapshot. */
+export async function getAllTenantCriticalLogs(): Promise<TenantCriticalLog[]> {
+  if (!centralConfig.load()) return []
+  let tenantsList: CentralTenantList
+  try { tenantsList = await centralApi.tenants() } catch { return [] }
+
+  const all: TenantCriticalLog[] = []
+  await Promise.all(tenantsList.tenants.map(async (t) => {
+    try {
+      const snap = await centralApi.snapshot(t.id)
+      if (!snap || snap._encrypted) return
+      const logs: any[] = Array.isArray(snap.critical_logs) ? snap.critical_logs : []
+      for (const l of logs) {
+        all.push({
+          tenant: t.id,
+          device_id: l.device_id, device_ip: l.device_ip, device_label: l.device_label,
+          time: l.time, topics: l.topics, message: l.message,
+        })
+      }
+    } catch { /* ignore */ }
+  }))
+  return all.sort((a, b) => (b.time ?? '').localeCompare(a.time ?? ''))
+}
+
 // Helper to generate a fresh 32-byte key in browser (base64)
 export function generateEncKey(): string {
   const bytes = new Uint8Array(32)
