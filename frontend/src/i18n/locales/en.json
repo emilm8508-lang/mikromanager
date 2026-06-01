@@ -222,6 +222,13 @@
     "snapshotEncrypted": "Snapshot encrypted",
     "keyNeeded": "Enter decryption key to view data. Key comes from agent admin.",
     "decryptionKey": "Decryption key",
-    "saveKey": "Save key"
+    "saveKey": "Save key",
+    "dbUsage": "Database usage",
+    "snapshots": "snapshots",
+    "cleanupNow": "Clean",
+    "cleaning": "Cleaning...",
+    "cleanupTooltip": "Keep only 20 latest snapshots per tenant",
+    "cleanupConfirm": "Delete old snapshots? Only 20 latest per tenant will be kept.",
+    "quotaWarning": "Database nearly full — auto-prune will delete oldest on next snapshot."
   }
 }

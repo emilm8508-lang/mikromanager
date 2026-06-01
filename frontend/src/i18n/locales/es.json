@@ -222,6 +222,13 @@
     "snapshotEncrypted": "Snapshot cifrado",
     "keyNeeded": "Introduce clave de descifrado. La clave viene del admin del agent.",
     "decryptionKey": "Clave de descifrado",
-    "saveKey": "Guardar clave"
+    "saveKey": "Guardar clave",
+    "dbUsage": "Uso de BD",
+    "snapshots": "snapshots",
+    "cleanupNow": "Limpiar",
+    "cleaning": "Limpiando...",
+    "cleanupTooltip": "Mantener solo 20 snapshots más recientes por cliente",
+    "cleanupConfirm": "Eliminar snapshots antiguos? Solo se conservarán los 20 más recientes por cliente.",
+    "quotaWarning": "BD casi llena — auto-prune borrará los más antiguos en el próximo snapshot."
   }
 }

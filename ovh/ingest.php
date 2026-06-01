@@ -188,16 +188,47 @@ try {
     );
     $stmt->execute([$tenant_header, strlen($body)]);
 
+    // Per-tenant prune: keep only N most recent snapshots
+    $max_per_tenant = (int)($config['max_snapshots_per_tenant'] ?? 50);
     $stmt = $pdo->prepare(
         'DELETE FROM snapshots
          WHERE tenant = ?
            AND id NOT IN (
              SELECT id FROM (
-               SELECT id FROM snapshots WHERE tenant = ? ORDER BY received_at DESC LIMIT 50
+               SELECT id FROM snapshots WHERE tenant = ? ORDER BY received_at DESC LIMIT ' . $max_per_tenant . '
              ) t
            )'
     );
     $stmt->execute([$tenant_header, $tenant_header]);
+
+    // Global size cap: if total payload size exceeds limit, delete oldest
+    // snapshots across all tenants until under the limit.
+    $cap_mb = (float)($config['max_total_snapshot_mb'] ?? 800);
+    if ($cap_mb > 0) {
+        $cap_bytes = (int)($cap_mb * 1024 * 1024);
+
+        $total = (int)$pdo->query('SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM snapshots')->fetchColumn();
+
+        if ($total > $cap_bytes) {
+            // Delete in batches of 50 oldest until under cap (max 10 batches = 500
+            // deletes per request, prevents this single insert from blocking too long).
+            $batches = 0;
+            while ($total > $cap_bytes && $batches < 10) {
+                $del = $pdo->prepare(
+                    'DELETE FROM snapshots
+                     WHERE id IN (
+                       SELECT id FROM (
+                         SELECT id FROM snapshots ORDER BY received_at ASC LIMIT 50
+                       ) t
+                     )'
+                );
+                $del->execute();
+                if ($del->rowCount() === 0) break;
+                $total = (int)$pdo->query('SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM snapshots')->fetchColumn();
+                $batches++;
+            }
+        }
+    }
 
     http_response_code(200);
     echo json_encode([

@@ -222,6 +222,13 @@
     "snapshotEncrypted": "Snapshot zaszyfrowany",
     "keyNeeded": "Wprowadź klucz dekrypcji żeby zobaczyć dane. Klucz dostaniesz od admina agenta.",
     "decryptionKey": "Klucz dekrypcji",
-    "saveKey": "Zapisz klucz"
+    "saveKey": "Zapisz klucz",
+    "dbUsage": "Wykorzystanie bazy",
+    "snapshots": "snapshotów",
+    "cleanupNow": "Wyczyść",
+    "cleaning": "Czyszczę...",
+    "cleanupTooltip": "Zostaw tylko 20 najnowszych snapshotów per klient",
+    "cleanupConfirm": "Usunąć stare snapshoty? Zostaną tylko 20 najnowszych per klient.",
+    "quotaWarning": "Baza prawie pełna — auto-prune zacznie kasować najstarsze przy nastepnym snapshocie."
   }
 }

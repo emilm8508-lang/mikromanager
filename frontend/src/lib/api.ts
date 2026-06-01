@@ -289,10 +289,31 @@ async function decryptEnvelope(envelope: any, keyB64: string): Promise<any> {
   return JSON.parse(text)
 }
 
+export interface CentralUsageTenant {
+  tenant: string
+  bytes: number
+  count: number
+  oldest: string
+  newest: string
+}
+
+export interface CentralUsage {
+  total_bytes: number
+  total_mb: number
+  total_count: number
+  cap_mb: number
+  percent_of_cap: number | null
+  per_tenant_limit: number
+  per_tenant: CentralUsageTenant[]
+}
+
 export const centralApi = {
   tenants: () => centralRequest<CentralTenantList>('tenants'),
   history: (tenant: string) =>
     centralRequest<Array<{ id: number; received_at: string; bytes: number }>>('history', { tenant }),
+  usage: () => centralRequest<CentralUsage>('usage'),
+  cleanup: (keep: number = 20) =>
+    centralRequest<{ deleted: number; kept_per_tenant: number }>('cleanup', { keep: String(keep) }),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })

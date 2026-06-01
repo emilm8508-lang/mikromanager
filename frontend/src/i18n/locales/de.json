@@ -222,6 +222,13 @@
     "snapshotEncrypted": "Snapshot verschlüsselt",
     "keyNeeded": "Entschlüsselungsschlüssel eingeben. Schlüssel vom Agent-Admin.",
     "decryptionKey": "Entschlüsselungsschlüssel",
-    "saveKey": "Schlüssel speichern"
+    "saveKey": "Schlüssel speichern",
+    "dbUsage": "DB-Nutzung",
+    "snapshots": "Snapshots",
+    "cleanupNow": "Aufräumen",
+    "cleaning": "Bereinige...",
+    "cleanupTooltip": "Nur die 20 neuesten Snapshots pro Tenant behalten",
+    "cleanupConfirm": "Alte Snapshots löschen? Nur 20 neueste pro Tenant bleiben.",
+    "quotaWarning": "DB fast voll — Auto-Prune löscht beim nächsten Snapshot die ältesten."
   }
 }

@@ -141,6 +141,66 @@ try {
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             break;
 
+        case 'usage':
+            // Total + per-tenant payload size, plus configured cap.
+            $stmt = $pdo->query(
+                'SELECT
+                   COALESCE(SUM(LENGTH(payload)), 0) AS total_bytes,
+                   COUNT(*) AS total_count
+                 FROM snapshots'
+            );
+            $tot = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $stmt = $pdo->query(
+                'SELECT tenant,
+                        SUM(LENGTH(payload)) AS bytes,
+                        COUNT(*) AS count,
+                        MIN(received_at) AS oldest,
+                        MAX(received_at) AS newest
+                 FROM snapshots
+                 GROUP BY tenant
+                 ORDER BY bytes DESC'
+            );
+            $per_tenant = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($per_tenant as &$t) {
+                $t['bytes'] = (int)$t['bytes'];
+                $t['count'] = (int)$t['count'];
+            }
+
+            $cap_mb = (float)($config['max_total_snapshot_mb'] ?? 800);
+            $total_bytes = (int)$tot['total_bytes'];
+            echo json_encode([
+                'total_bytes'      => $total_bytes,
+                'total_mb'         => round($total_bytes / 1024 / 1024, 2),
+                'total_count'      => (int)$tot['total_count'],
+                'cap_mb'           => $cap_mb,
+                'percent_of_cap'   => $cap_mb > 0 ? round($total_bytes / 1024 / 1024 / $cap_mb * 100, 1) : null,
+                'per_tenant_limit' => (int)($config['max_snapshots_per_tenant'] ?? 50),
+                'per_tenant'       => $per_tenant,
+            ]);
+            break;
+
+        case 'cleanup':
+            // Manual: keep only N latest per tenant. Optional ?keep=20
+            $keep = max(1, (int)($_GET['keep'] ?? 20));
+            $deleted = 0;
+            $tenants = $pdo->query('SELECT DISTINCT tenant FROM snapshots')->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($tenants as $tn) {
+                $stmt = $pdo->prepare(
+                    'DELETE FROM snapshots
+                     WHERE tenant = ?
+                       AND id NOT IN (
+                         SELECT id FROM (
+                           SELECT id FROM snapshots WHERE tenant = ? ORDER BY received_at DESC LIMIT ' . $keep . '
+                         ) t
+                       )'
+                );
+                $stmt->execute([$tn, $tn]);
+                $deleted += $stmt->rowCount();
+            }
+            echo json_encode(['deleted' => $deleted, 'kept_per_tenant' => $keep]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

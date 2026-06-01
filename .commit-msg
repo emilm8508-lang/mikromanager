@@ -1,0 +1,19 @@
+OVH: storage cap + auto-prune + DB usage bar in viewer
+
+Prevents the central MySQL database from filling up unbounded.
+
+Backend (PHP):
+- config.php: max_snapshots_per_tenant (default 50) and
+  max_total_snapshot_mb (default 800, leaving 200MB headroom on 1GB quota).
+- ingest.php: after each insert, if total payload exceeds cap, deletes
+  oldest snapshots across ALL tenants in batches of 50 until under limit.
+  Bounded to max 10 batches per request.
+- api.php: two new actions:
+    action=usage   - total bytes, percent of cap, per-tenant breakdown
+    action=cleanup - manual prune keeping last N per tenant
+
+Frontend:
+- UsageBar in viewer: progress bar (green/amber/red at 70/90 percent),
+  per-tenant size breakdown, manual Clean button, warning above 90 percent.
+- Refreshes every 60s alongside tenant list.
+- All 7 locale files updated.

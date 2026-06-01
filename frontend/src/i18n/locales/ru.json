@@ -222,6 +222,13 @@
     "snapshotEncrypted": "Snapshot зашифрован",
     "keyNeeded": "Введите ключ дешифрования. Ключ от админа агента.",
     "decryptionKey": "Ключ дешифрования",
-    "saveKey": "Сохранить ключ"
+    "saveKey": "Сохранить ключ",
+    "dbUsage": "Использование БД",
+    "snapshots": "снимков",
+    "cleanupNow": "Очистить",
+    "cleaning": "Очистка...",
+    "cleanupTooltip": "Оставить только 20 новейших snapshot per клиент",
+    "cleanupConfirm": "Удалить старые snapshot? Останутся только 20 новейших per клиент.",
+    "quotaWarning": "БД почти полна — auto-prune удалит старые при следующем snapshot."
   }
 }

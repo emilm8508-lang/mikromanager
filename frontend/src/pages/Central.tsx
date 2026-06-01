@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
+  HardDrive, Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -386,6 +387,82 @@ function TenantSnapshot({ tenantId }: { tenantId: string }) {
   )
 }
 
+function UsageBar() {
+  const { t } = useTranslation()
+  const { data: usage, refetch } = useQuery({
+    queryKey: ['central-usage'],
+    queryFn: centralApi.usage,
+    refetchInterval: 60_000,
+  })
+  const [cleaning, setCleaning] = useState(false)
+
+  if (!usage) return null
+
+  const pct = usage.percent_of_cap ?? 0
+  const barColor =
+    pct >= 90 ? 'bg-red-500' :
+    pct >= 70 ? 'bg-amber-500' :
+    'bg-green-500'
+  const textColor =
+    pct >= 90 ? 'text-red-700' :
+    pct >= 70 ? 'text-amber-700' :
+    'text-slate-700'
+
+  const handleCleanup = async () => {
+    if (!confirm(t('central.cleanupConfirm') as string)) return
+    setCleaning(true)
+    try {
+      await centralApi.cleanup(20)
+      refetch()
+    } finally {
+      setCleaning(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 py-3">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <HardDrive size={14} className={textColor} />
+            <span className={`font-medium ${textColor}`}>
+              {t('central.dbUsage')}: {usage.total_mb} / {usage.cap_mb} MB ({pct}%)
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-slate-500">{usage.total_count} {t('central.snapshots')}</span>
+            <button
+              onClick={handleCleanup}
+              disabled={cleaning}
+              className="text-slate-500 hover:text-red-600 inline-flex items-center gap-1"
+              title={t('central.cleanupTooltip') as string}
+            >
+              <Trash2 size={11} />
+              {cleaning ? t('central.cleaning') : t('central.cleanupNow')}
+            </button>
+          </div>
+        </div>
+        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className={`h-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+        </div>
+        {usage.per_tenant && usage.per_tenant.length > 0 && (
+          <div className="pt-1 grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
+            {usage.per_tenant.map(tn => (
+              <div key={tn.tenant} className="flex justify-between">
+                <span className="truncate">{tn.tenant}</span>
+                <span className="font-mono">{(tn.bytes / 1024).toFixed(0)} KB · {tn.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {pct >= 90 && (
+          <p className="text-[11px] text-red-700">{t('central.quotaWarning')}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function ViewerPanel() {
   const { t } = useTranslation()
   const [configured, setConfigured] = useState(!!centralConfig.load())
@@ -416,6 +493,8 @@ function ViewerPanel() {
 
   return (
     <div className="space-y-4">
+      <UsageBar />
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
