@@ -69,10 +69,14 @@ def status() -> dict:
 
 def configure(url: str, tenant: str, api_key: str, interval_sec: int = 120,
               enc_key: str = "") -> dict:
-    """Update uplink configuration at runtime. Persists to a small JSON file."""
+    """Update uplink configuration at runtime. Persists to a small JSON file.
+
+    Empty api_key/enc_key fields mean 'keep existing' (so user can change
+    other fields without retyping secrets)."""
     _config["url"] = url
     _config["tenant"] = tenant
-    _config["api_key"] = api_key
+    if api_key:  # only overwrite if a non-empty value was provided
+        _config["api_key"] = api_key
     if enc_key:
         # Validate it's base64 of 32 bytes (AES-256 key)
         try:
