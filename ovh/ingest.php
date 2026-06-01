@@ -63,11 +63,39 @@ function rate_limit_check(string $ip, array $config): void {
 rate_limit_check($ip, $config);
 
 // ── Headers ──────────────────────────────────────────────────────────────────
-$auth_header   = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-$tenant_header = trim($_SERVER['HTTP_X_TENANT'] ?? '');
-$ts_header     = $_SERVER['HTTP_X_TIMESTAMP'] ?? '';
-$sig_header    = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
-$encrypted     = ($_SERVER['HTTP_X_ENCRYPTED'] ?? '0') === '1';
+/**
+ * Get HTTP header value, trying multiple locations because Apache + PHP-FPM
+ * on shared hosting (incl. OVH) sometimes strips the Authorization header
+ * before it reaches PHP. We check (in order):
+ *   1. $_SERVER['HTTP_<NAME>']           — standard
+ *   2. $_SERVER['REDIRECT_HTTP_<NAME>']  — forwarded by mod_rewrite/.htaccess
+ *   3. apache_request_headers() / getallheaders() — last resort
+ */
+function get_header(string $name): string {
+    $upper = strtoupper(str_replace('-', '_', $name));
+    foreach (["HTTP_$upper", "REDIRECT_HTTP_$upper"] as $key) {
+        if (!empty($_SERVER[$key])) return $_SERVER[$key];
+    }
+    if (function_exists('apache_request_headers')) {
+        $hdrs = apache_request_headers();
+        foreach ($hdrs as $k => $v) {
+            if (strcasecmp($k, $name) === 0) return $v;
+        }
+    }
+    if (function_exists('getallheaders')) {
+        $hdrs = getallheaders();
+        foreach ($hdrs as $k => $v) {
+            if (strcasecmp($k, $name) === 0) return $v;
+        }
+    }
+    return '';
+}
+
+$auth_header   = get_header('Authorization');
+$tenant_header = trim(get_header('X-Tenant'));
+$ts_header     = get_header('X-Timestamp');
+$sig_header    = get_header('X-Signature');
+$encrypted     = get_header('X-Encrypted') === '1';
 
 if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
     fail(401, 'missing or malformed Authorization header');

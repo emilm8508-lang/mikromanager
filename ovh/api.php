@@ -26,7 +26,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 $config = require __DIR__ . '/config.php';
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-$auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+// Apache + PHP-FPM on shared hosting often strips Authorization. Check fallbacks.
+function get_auth_header(): string {
+    foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $k) {
+        if (!empty($_SERVER[$k])) return $_SERVER[$k];
+    }
+    if (function_exists('apache_request_headers')) {
+        foreach (apache_request_headers() as $k => $v) {
+            if (strcasecmp($k, 'Authorization') === 0) return $v;
+        }
+    }
+    if (function_exists('getallheaders')) {
+        foreach (getallheaders() as $k => $v) {
+            if (strcasecmp($k, 'Authorization') === 0) return $v;
+        }
+    }
+    return '';
+}
+
+$auth_header = get_auth_header();
 if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);

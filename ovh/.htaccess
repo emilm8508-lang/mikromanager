@@ -3,18 +3,30 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# CRITICAL: Many shared hosts (incl. OVH) strip the Authorization header before
+# it reaches PHP. This forwards it as REDIRECT_HTTP_AUTHORIZATION which PHP
+# code then maps back. Without this, agents get 401 "missing Authorization".
+RewriteCond %{HTTP:Authorization} ^(.+)$
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1,L]
+
+# Alternative method (some Apache configs need this instead):
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
 # Block direct access to config.php and SQL/MD files
 <FilesMatch "\.(sql|md)$">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </FilesMatch>
 
 <Files "config.php">
-    Order Allow,Deny
-    Deny from all
+    Require all denied
 </Files>
 
+# Block access to state/ directory (rate-limit counters)
+<Directory "state">
+    Require all denied
+</Directory>
+
 # CORS — only the viewer (your laptop running MikroManager) needs this.
-# If you want to lock down further, replace * with your laptop's static IP
-# or a specific origin.
 Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant, X-Timestamp, X-Signature, X-Encrypted"
+Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
