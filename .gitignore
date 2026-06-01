@@ -44,3 +44,7 @@ desktop.ini
 
 # Claude
 .claude/launch.json
+klucz.txt
+ovh/config.php
+*.key
+secrets*.txt

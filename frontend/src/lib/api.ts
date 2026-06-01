@@ -267,21 +267,22 @@ async function centralRequest<T>(action: string, params: Record<string, string> 
 
 // ── E2E decryption (Web Crypto API, runs in-browser only) ────────────────────
 
-function b64ToBytes(s: string): Uint8Array {
+function b64ToBuffer(s: string): ArrayBuffer {
   const bin = atob(s)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out
+  const buf = new ArrayBuffer(bin.length)
+  const view = new Uint8Array(buf)
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i)
+  return buf
 }
 
 async function decryptEnvelope(envelope: any, keyB64: string): Promise<any> {
   if (envelope?.v !== 2 || envelope?.alg !== 'aes-256-gcm') {
     throw new Error(`unsupported envelope: v=${envelope?.v} alg=${envelope?.alg}`)
   }
-  const rawKey = b64ToBytes(keyB64)
-  if (rawKey.length !== 32) throw new Error('decryption key must be 32 bytes')
-  const nonce = b64ToBytes(envelope.nonce)
-  const ct = b64ToBytes(envelope.ciphertext)
+  const rawKey = b64ToBuffer(keyB64)
+  if (rawKey.byteLength !== 32) throw new Error('decryption key must be 32 bytes')
+  const nonce = b64ToBuffer(envelope.nonce)
+  const ct = b64ToBuffer(envelope.ciphertext)
   const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt'])
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct)
   const text = new TextDecoder().decode(pt)
