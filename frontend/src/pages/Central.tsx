@@ -10,6 +10,7 @@ import {
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
   HardDrive, Trash2,
 } from 'lucide-react'
+import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
 
 function formatAge(sec: number | null): string {
@@ -213,12 +214,17 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
 
 function TenantRow({ tenant }: { tenant: CentralTenant }) {
   const Icon = tenant.online ? Wifi : WifiOff
+  const c = tenantColor(tenant.id)
   return (
     <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200">
+      {/* Color stripe indicating the tenant identity */}
+      <span className={`inline-block w-1 h-8 rounded ${c.bg.replace('-100', '-500')}`} />
       <Icon size={16} className={tenant.online ? 'text-green-600' : 'text-red-600'} />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-slate-900">{tenant.id}</p>
-        <p className="text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <TenantBadge tenant={tenant.id} />
+        </div>
+        <p className="text-xs text-slate-500 mt-1">
           {tenant.last_seen ?? '—'} · {(tenant.last_payload_bytes / 1024).toFixed(1)} KB
         </p>
       </div>

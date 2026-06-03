@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from models.database import SessionLocal, Device, Credential, DeviceLink
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
+from services.device_client import build_client
 
 
 def _canon(a: int, b: int) -> tuple:
@@ -90,14 +91,9 @@ async def discover_for_device(device_id: int, ip_map: Optional[dict] = None) -> 
         if not row:
             return 0
         device, cred = row
-        password = decrypt(cred.password_enc)
-        community = decrypt(cred.snmp_community_enc) if cred.snmp_community_enc else None
 
-    client = MikrotikClient(
-        device.ip, cred.username, password,
-        api_port=device.api_port, web_port=device.web_port,
-        snmp_community=community, snmp_port=device.snmp_port or 161,
-    )
+    # Use vendor-aware factory so Cisco SB switches also contribute LLDP neighbors
+    client = build_client(device, cred)
 
     inserts = 0
 

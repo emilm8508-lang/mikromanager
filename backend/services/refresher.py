@@ -65,15 +65,41 @@ async def _refresh_one(dev_id: int) -> bool:
     online_now = False
     new_fields = {}
 
-    if username and password:
-        # Full enrichment via REST → API → SNMP fallback
+    if (username and password) or community:
+        # Full enrichment via REST → API → SNMP fallback (Mikrotik) or pure SNMP (Cisco)
         try:
-            info = await scan_svc.enrich_device(
-                ip, username, password,
-                web_port=web_port,
-                snmp_community=community,
-                snmp_port=snmp_port,
-            )
+            with SessionLocal() as db2:
+                dev_row = db2.execute(select(Device).where(Device.id == dev_id)).scalar_one_or_none()
+            vendor = (dev_row.vendor if dev_row else "mikrotik") or "mikrotik"
+
+            if vendor == "cisco-sb":
+                # Cisco SB — direct via CiscoClient (SNMP-only)
+                from services.cisco_client import CiscoClient
+                client = CiscoClient(
+                    ip=ip, username=username or "", password=password or "",
+                    snmp_community=community, snmp_port=snmp_port,
+                    web_port=web_port,
+                )
+                info = {}
+                try:
+                    ident = await client.get_identity()
+                    info["identity"] = ident.get("name", "")
+                except Exception:
+                    pass
+                try:
+                    res = await client.get_resource()
+                    info["model"] = res.get("board-name", "")
+                    info["ros_version"] = res.get("version", "")
+                except Exception:
+                    pass
+            else:
+                info = await scan_svc.enrich_device(
+                    ip, username or "", password or "",
+                    web_port=web_port,
+                    snmp_community=community,
+                    snmp_port=snmp_port,
+                )
+
             if info.get("identity") or info.get("model") or info.get("ros_version"):
                 online_now = True
                 if info.get("identity"):

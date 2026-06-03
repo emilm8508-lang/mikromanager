@@ -4,6 +4,7 @@ import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConf
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
+import { TenantBadge } from '../components/ui/TenantBadge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
 import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react'
@@ -65,6 +66,7 @@ interface UnifiedDevice {
   name?: string
   model?: string
   ros_version?: string
+  vendor?: string
   online: boolean
   last_seen?: string
   has_api?: boolean
@@ -119,6 +121,7 @@ export function Devices() {
       name: d.name,
       model: d.model,
       ros_version: d.ros_version,
+      vendor: d.vendor,
       online: d.online,
       last_seen: d.last_seen,
       has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
@@ -135,6 +138,7 @@ export function Devices() {
         name: d.name,
         model: d.model,
         ros_version: d.ros_version,
+        vendor: d.vendor,
         online: !!d.online,
         last_seen: d.last_seen,
         has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
@@ -261,7 +265,7 @@ export function Devices() {
                     {isLocal ? (
                       <Badge variant="gray" className="text-[10px]">{t('devices.localSource')}</Badge>
                     ) : (
-                      <Badge variant="blue" className="text-[10px]">{d.source}</Badge>
+                      <TenantBadge tenant={d.source} withDot />
                     )}
                   </td>
                   <td className="px-5 py-3">
@@ -273,7 +277,17 @@ export function Devices() {
                     {d.identity && <span className="text-xs text-slate-500">{d.identity}</span>}
                     {d.name && <span className="text-xs text-slate-400 block">{d.name}</span>}
                   </td>
-                  <td className="px-5 py-3 text-slate-700">{d.model || '—'}</td>
+                  <td className="px-5 py-3 text-slate-700">
+                    <div className="flex items-center gap-1.5">
+                      {d.vendor === 'cisco-sb' && (
+                        <Badge variant="blue" className="text-[10px]">Cisco</Badge>
+                      )}
+                      {(d.vendor === 'cisco-generic' || d.vendor === 'generic-snmp') && (
+                        <Badge variant="gray" className="text-[10px]">{d.vendor}</Badge>
+                      )}
+                      <span>{d.model || '—'}</span>
+                    </div>
+                  </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {d.ros_version ? (
                       <div className="flex items-center gap-1.5">

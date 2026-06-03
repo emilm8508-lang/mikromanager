@@ -37,6 +37,8 @@ class Device(Base):
     has_ssh = Column(Boolean, default=False)
     has_web = Column(Boolean, default=False)
     has_snmp = Column(Boolean, default=False)
+    # Vendor / device type. 'mikrotik' (default) | 'cisco-sb' | 'generic-snmp' | 'unknown'
+    vendor = Column(String, default="mikrotik")
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     online = Column(Boolean, default=False)
@@ -106,6 +108,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN has_snmp BOOLEAN DEFAULT 0"))
             if "snmp_port" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN snmp_port INTEGER DEFAULT 161"))
+            if "vendor" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN vendor VARCHAR(32) DEFAULT 'mikrotik'"))
 
 
 def init_db():

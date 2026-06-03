@@ -67,6 +67,69 @@ async def _snmp_alive(ip: str, port: int = 161) -> bool:
         return False
 
 
+async def _detect_vendor_via_snmp(ip: str, community: str = "public",
+                                  port: int = 161) -> Optional[dict]:
+    """Try SNMP sysObjectID + sysDescr to identify device vendor.
+    Returns {vendor, model, version} on success, None on failure.
+
+    Recognised vendors: 'mikrotik', 'cisco-sb', 'generic-snmp'."""
+    try:
+        from puresnmp import Client, V2C, PyWrapper
+        client = PyWrapper(Client(ip, V2C(community), port=port))
+        # sysObjectID first — most reliable
+        try:
+            sys_oid = await asyncio.wait_for(client.get("1.3.6.1.2.1.1.2.0"),
+                                             timeout=SNMP_TIMEOUT)
+            sys_oid_str = str(sys_oid)
+        except Exception:
+            sys_oid_str = ""
+        # sysDescr as secondary check
+        try:
+            sys_descr = await asyncio.wait_for(client.get("1.3.6.1.2.1.1.1.0"),
+                                               timeout=SNMP_TIMEOUT)
+            sys_descr_str = (sys_descr.decode("utf-8", errors="ignore")
+                             if isinstance(sys_descr, bytes) else str(sys_descr))
+        except Exception:
+            sys_descr_str = ""
+
+        info = {"sys_descr": sys_descr_str, "sys_oid": sys_oid_str}
+
+        # Mikrotik: enterprise 14988
+        if ".14988" in sys_oid_str or "MikroTik" in sys_descr_str or "RouterOS" in sys_descr_str:
+            info["vendor"] = "mikrotik"
+            return info
+
+        # Cisco Small Business: enterprise 9, sub-tree 9.6.1
+        if (".1.3.6.1.4.1.9.6.1" in sys_oid_str
+                or sys_oid_str.startswith("1.3.6.1.4.1.9.6.1")
+                or "Cisco SG" in sys_descr_str
+                or "Small Business" in sys_descr_str):
+            info["vendor"] = "cisco-sb"
+            # Extract model
+            import re
+            m = re.search(r"\bSG\d{3}-\d+\w*", sys_descr_str)
+            if m:
+                info["model"] = m.group(0)
+            mv = re.search(r"Version\s+([\d.]+)", sys_descr_str, re.IGNORECASE)
+            if mv:
+                info["version"] = mv.group(1)
+            return info
+
+        # Generic Cisco (other than SB)
+        if ".1.3.6.1.4.1.9." in sys_oid_str or sys_descr_str.lower().startswith("cisco"):
+            info["vendor"] = "cisco-generic"
+            return info
+
+        # Unknown but SNMP responsive — generic
+        if sys_oid_str or sys_descr_str:
+            info["vendor"] = "generic-snmp"
+            return info
+
+        return None
+    except Exception:
+        return None
+
+
 async def _is_mikrotik_web(ip: str, port: int) -> Optional[dict]:
     """Detect Mikrotik web interface — works for both RouterOS v7 (REST API)
     and v6 (WebFig HTML). Returns {web_port, has_web, web_kind} or None."""
@@ -160,18 +223,21 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
         web_result = web_80 or web_443
         has_ssh = ports.get(22, False)
 
+        # Determine vendor: try SNMP first (works for both Mikrotik AND Cisco SB)
+        vendor_info = None
+        if has_snmp:
+            vendor_info = await _detect_vendor_via_snmp(ip)
+
         # Mikrotik signature: ANY of these is definitive:
         #   - 8291 (Winbox) — only Mikrotik runs this
         #   - 8728/8729 (RouterOS API) — only Mikrotik runs this
-        #   - web responded with Mikrotik signature (REST or WebFig HTML)
-        #   - SNMP responded (combined with port 80 open is strong signal)
-        is_mikrotik = (
-            has_winbox or has_api or has_api_ssl or
-            bool(web_result) or
-            (has_snmp and (ports.get(80) or ports.get(443)))
-        )
+        #   - web responded with Mikrotik signature
+        is_mikrotik_def = (has_winbox or has_api or has_api_ssl or bool(web_result))
+        is_cisco_sb = vendor_info and vendor_info.get("vendor") == "cisco-sb"
+        is_other_snmp = (vendor_info and vendor_info.get("vendor") in
+                         ("cisco-generic", "generic-snmp"))
 
-        if not is_mikrotik:
+        if not (is_mikrotik_def or is_cisco_sb or is_other_snmp):
             if on_progress:
                 on_progress(ip, "dead")
             return None
@@ -179,13 +245,18 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
         if on_progress:
             on_progress(ip, "found")
 
-        # If web port is open but didn't match REST/WebFig signature, still mark
-        # has_web=True if Winbox is open (probably old device with non-standard web)
+        vendor = "mikrotik"
+        if is_cisco_sb:
+            vendor = "cisco-sb"
+        elif vendor_info and not is_mikrotik_def:
+            vendor = vendor_info.get("vendor", "generic-snmp")
+
         web_port = web_result["web_port"] if web_result else (80 if ports.get(80) else (443 if ports.get(443) else 80))
         has_web_flag = bool(web_result) or (has_winbox and (ports.get(80) or ports.get(443)))
 
-        return {
+        result = {
             "ip": ip,
+            "vendor": vendor,
             "has_api": has_api or has_api_ssl,
             "api_port": 8729 if has_api_ssl else 8728,
             "has_ssh": has_ssh,
@@ -195,6 +266,13 @@ async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
             "snmp_port": 161,
             "has_winbox": has_winbox,
         }
+        # Cisco: prefill model/version from sysDescr parse if available
+        if vendor_info:
+            if vendor_info.get("model"):
+                result["model"] = vendor_info["model"]
+            if vendor_info.get("version"):
+                result["ros_version"] = vendor_info["version"]
+        return result
 
 
 async def scan_range_with_progress(

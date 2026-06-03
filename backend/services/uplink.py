@@ -140,6 +140,7 @@ async def _build_snapshot() -> dict:
             "model": d.model,
             "ros_version": d.ros_version,
             "board_name": d.board_name,
+            "vendor": d.vendor or "mikrotik",
             "online": d.online,
             "last_seen": d.last_seen.isoformat() if d.last_seen else None,
             "has_api": d.has_api,

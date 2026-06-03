@@ -42,9 +42,12 @@ class DeviceOut(BaseModel):
     api_port: int
     ssh_port: int
     web_port: int
+    snmp_port: Optional[int] = 161
     has_api: bool
     has_ssh: bool
     has_web: bool
+    has_snmp: Optional[bool] = False
+    vendor: Optional[str] = "mikrotik"
     credential_id: Optional[int]
     last_seen: Optional[datetime]
     online: bool
@@ -98,7 +101,7 @@ async def delete_device(device_id: int, db: Session = Depends(get_db)):
 
 
 def _get_client(device_id: int, db: Session):
-    from services.mikrotik_client import MikrotikClient
+    from services.device_client import build_client
     row = db.execute(
         select(Device, Credential)
         .join(Credential, Device.credential_id == Credential.id)
@@ -110,13 +113,7 @@ def _get_client(device_id: int, db: Session):
             raise HTTPException(412, "Urządzenie nie ma przypisanych poświadczeń")
         raise HTTPException(404, "Urządzenie lub poświadczenia nie znalezione")
     device, cred = row
-    password = decrypt(cred.password_enc)
-    community = decrypt(cred.snmp_community_enc) if cred.snmp_community_enc else None
-    return MikrotikClient(
-        device.ip, cred.username, password,
-        api_port=device.api_port, web_port=device.web_port,
-        snmp_community=community, snmp_port=device.snmp_port or 161,
-    ), device
+    return build_client(device, cred), device
 
 
 async def _safe_call(coro_fn: Callable[[], Awaitable]):

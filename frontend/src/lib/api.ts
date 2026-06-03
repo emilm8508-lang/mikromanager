@@ -29,6 +29,7 @@ export interface Device {
   has_web: boolean
   has_snmp: boolean
   snmp_port: number
+  vendor?: string  // 'mikrotik' | 'cisco-sb' | 'generic-snmp' | 'cisco-generic'
   credential_id?: number
   last_seen?: string
   online: boolean
@@ -382,6 +383,7 @@ export interface TenantDeviceRow {
   identity?: string
   model?: string
   ros_version?: string
+  vendor?: string
   online?: boolean
   last_seen?: string
   has_api?: boolean
@@ -427,6 +429,7 @@ export async function getAllTenantDevices(): Promise<TenantDeviceRow[]> {
           age_sec: snap.age_sec,
           id: d.id, ip: d.ip, name: d.name, identity: d.identity,
           model: d.model, ros_version: d.ros_version,
+          vendor: d.vendor,
           online: d.online, last_seen: d.last_seen,
           has_api: d.has_api, has_ssh: d.has_ssh,
           has_web: d.has_web, has_snmp: d.has_snmp,

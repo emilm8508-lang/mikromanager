@@ -221,6 +221,8 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                             device.api_port = found.get("api_port", device.api_port)
                             device.web_port = found.get("web_port", device.web_port)
                             device.snmp_port = found.get("snmp_port", device.snmp_port)
+                            if found.get("vendor"):
+                                device.vendor = found["vendor"]
                             device.online = True
                             device.last_seen = datetime.utcnow()
                             if found.get("identity"):
@@ -245,6 +247,7 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                         else:
                             device = Device(
                                 ip=found["ip"],
+                                vendor=found.get("vendor", "mikrotik"),
                                 has_api=found.get("has_api", False),
                                 has_ssh=found.get("has_ssh", False),
                                 has_web=found.get("has_web", False),
