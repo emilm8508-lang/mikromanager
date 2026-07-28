@@ -9,6 +9,7 @@ import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertT
 import { cn } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
 import axios from 'axios'
+import { cleanVersion } from '../lib/version'
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -166,7 +167,7 @@ export function DeviceDetail() {
           <h1 className="text-xl font-bold text-slate-900">
             {device.identity || device.name || device.ip}
           </h1>
-          <p className="text-sm text-slate-500">{device.ip} · {device.model || t('deviceDetail.unknownModel')} · ROS {device.ros_version || '?'}</p>
+          <p className="text-sm text-slate-500">{device.ip} · {device.model || t('deviceDetail.unknownModel')} · ROS {cleanVersion(device.ros_version) || '?'}</p>
         </div>
         <Badge variant={device.online ? 'green' : 'red'} className="ml-auto">
           {device.online ? t('common.online') : t('common.offline')}

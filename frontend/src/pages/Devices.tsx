@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig } from '../lib/api'
+import { pickUpgradeTarget, cleanVersion } from '../lib/version'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -99,10 +100,6 @@ export function Devices() {
   const [search, setSearch] = useState('')
   const [tenantFilter, setTenantFilter] = useState<string>('all')  // 'all' | 'local' | tenant id
 
-  const versionMap = new Map(
-    (versionStatus?.devices ?? []).map(v => [v.id, v.target])
-  )
-
   const remove = useMutation({
     mutationFn: devicesApi.delete,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
@@ -183,11 +180,15 @@ export function Devices() {
               <CheckCircle2 size={14} className="text-green-600 shrink-0" />
               <span className="text-slate-600">
                 {t('devices.versionCheckOk')}:{' '}
-                {Object.values(versionStatus.latest).map(v => (
-                  <span key={v.channel} className="font-mono text-slate-800 ml-1">
-                    v{v.channel.replace('fix','').replace('rc','')}={v.version}
-                  </span>
-                ))}
+                {['6', '7'].map(ch => {
+                  const v = versionStatus.latest[ch]
+                  if (!v) return null
+                  return (
+                    <span key={ch} className="font-mono text-slate-800 ml-2">
+                      v{ch}={v.version}
+                    </span>
+                  )
+                })}
               </span>
             </>
           ) : (
@@ -291,9 +292,11 @@ export function Devices() {
                   <td className="px-5 py-3 font-mono text-xs">
                     {d.ros_version ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-slate-700">{d.ros_version}</span>
-                        {isLocal && (() => {
-                          const v = versionMap.get(d.raw_id!)
+                        <span className="text-slate-700">{cleanVersion(d.ros_version)}</span>
+                        {(() => {
+                          // Client-side compare against fetched latest map — works for
+                          // both local and remote (tenant) devices.
+                          const v = pickUpgradeTarget(d.ros_version, versionStatus?.latest)
                           if (!v) return null
                           if (v.status === 'up_to_date') {
                             return <CheckCircle2 size={12} className="text-green-600" />
