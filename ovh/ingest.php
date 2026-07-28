@@ -230,6 +230,16 @@ try {
         }
     }
 
+    // Check for pending commands from the viewer (e.g. "please update")
+    $commands = [];
+    $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+    $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant_header);
+    $update_marker = $state_dir . '/update_pending_' . $safe;
+    if (is_file($update_marker)) {
+        $commands[] = 'update';
+        @unlink($update_marker);  // one-shot; delivered = cleared
+    }
+
     http_response_code(200);
     echo json_encode([
         'ok'           => true,
@@ -238,6 +248,7 @@ try {
         'encrypted'    => $encrypted,
         'devices_count' => $devices_count,
         'received_at'  => date('c'),
+        'commands'     => $commands,
     ]);
 } catch (Throwable $e) {
     error_log('[mm-ingest] ' . $e->getMessage());

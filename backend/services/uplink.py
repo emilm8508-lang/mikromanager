@@ -25,6 +25,7 @@ from sqlalchemy import select
 from models.database import SessionLocal, Device, DeviceLink
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
+from services import updater
 
 
 # Config — can be overridden via UI/env vars
@@ -167,11 +168,16 @@ async def _build_snapshot() -> dict:
     except Exception:
         crit_logs = []
 
+    git_info = updater.read_git_info()
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
         "agent_version": "1.2",
+        # Git identifiers so the viewer can tell how far behind the tenant is
+        "agent_commit": git_info.get("commit"),
+        "agent_commit_time": git_info.get("commit_time"),
+        "agent_branch": git_info.get("branch"),
         "devices_count": len(dev_list),
         "devices_online": sum(1 for d in dev_list if d["online"]),
         "devices": dev_list,
@@ -197,12 +203,14 @@ def _build_request_body(snapshot: dict) -> tuple:
             "alg": "aes-256-gcm",
             "nonce": base64.b64encode(nonce).decode(),
             "ciphertext": base64.b64encode(ct).decode(),
-            # These two are PUBLIC metadata that the server/index page can use
-            # for listing without decrypting. They reveal only timestamp + size.
+            # These fields are PUBLIC metadata that server + viewer's tenant list
+            # can use WITHOUT decryption. Reveal only summary + version identifiers.
             "tenant": _config["tenant"],
             "sent_at": snapshot.get("sent_at"),
             "devices_count": snapshot.get("devices_count"),
             "devices_online": snapshot.get("devices_online"),
+            "agent_commit": snapshot.get("agent_commit"),
+            "agent_commit_time": snapshot.get("agent_commit_time"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
@@ -240,9 +248,16 @@ async def _send_one(snapshot: dict) -> bool:
                     _state["last_sent"] = datetime.utcnow().isoformat()
                     _state["last_error"] = None
                     _state["total_sent"] += 1
+
+                    # Server may include commands for us to run
+                    try:
+                        resp_json = await resp.json(content_type=None)
+                        await _handle_commands(resp_json.get("commands") or [])
+                    except Exception:
+                        pass
                     return True
-                body = await resp.text()
-                _state["last_error"] = f"HTTP {resp.status}: {body[:200]}"
+                resp_body = await resp.text()
+                _state["last_error"] = f"HTTP {resp.status}: {resp_body[:200]}"
                 _state["total_failed"] += 1
                 return False
     except asyncio.TimeoutError:
@@ -253,6 +268,15 @@ async def _send_one(snapshot: dict) -> bool:
         _state["last_error"] = f"{type(e).__name__}: {e}"
         _state["total_failed"] += 1
         return False
+
+
+async def _handle_commands(commands: list) -> None:
+    """Execute commands returned by the central server in the ingest response.
+    Currently supported: 'update' — run git pull + build + exit for restart."""
+    for cmd in commands:
+        if cmd == "update":
+            print("[uplink] received UPDATE command from central — starting")
+            asyncio.create_task(updater.perform_update(restart_supervisor=True))
 
 
 async def send_now() -> dict:

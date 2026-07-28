@@ -75,17 +75,33 @@ try {
     switch ($action) {
 
         case 'tenants':
+            // Join with latest snapshot per tenant to expose agent commit info
+            // (comes from unencrypted envelope metadata — no key needed).
             $stmt = $pdo->query(
-                'SELECT id, first_seen, last_seen,
-                        TIMESTAMPDIFF(SECOND, last_seen, NOW()) AS age_sec,
-                        last_payload_bytes, notes
-                 FROM tenants
-                 ORDER BY id'
+                'SELECT t.id, t.first_seen, t.last_seen,
+                        TIMESTAMPDIFF(SECOND, t.last_seen, NOW()) AS age_sec,
+                        t.last_payload_bytes, t.notes,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
             );
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) {
                 $r['age_sec'] = $r['age_sec'] !== null ? (int)$r['age_sec'] : null;
                 $r['online']  = $r['age_sec'] !== null && $r['age_sec'] < $threshold;
+                // Parse public metadata from latest snapshot
+                $r['agent_commit'] = null;
+                $r['agent_commit_time'] = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) {
+                        $r['agent_commit'] = $meta['agent_commit'] ?? null;
+                        $r['agent_commit_time'] = $meta['agent_commit_time'] ?? null;
+                    }
+                }
+                unset($r['_latest_payload']);
             }
             echo json_encode([
                 'tenants'              => $rows,
@@ -199,6 +215,43 @@ try {
                 $deleted += $stmt->rowCount();
             }
             echo json_encode(['deleted' => $deleted, 'kept_per_tenant' => $keep]);
+            break;
+
+        case 'request_update':
+            // Creates a one-shot marker consumed by ingest.php on next heartbeat.
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant required']);
+                break;
+            }
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . '/update_pending_' . $safe;
+            file_put_contents($marker, date('c'));
+            echo json_encode([
+                'ok' => true,
+                'tenant' => $tenant,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_updates':
+            // Which tenants have update_pending marker set right now.
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/update_pending_*') as $f) {
+                    $tenant = substr(basename($f), strlen('update_pending_'));
+                    $pending[] = [
+                        'tenant'     => $tenant,
+                        'queued_at'  => date('c', filemtime($f)),
+                    ];
+                }
+            }
+            echo json_encode(['pending' => $pending]);
             break;
 
         default:

@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Видалити старі snapshot? Залишаться лише 20 найновіших per клієнт.",
                     "quotaWarning":  "БД майже повна — auto-prune видалить найстаріші при наступному snapshot.",
                     "devicesMovedHint":  "Prystroyi v Prystroyi",
-                    "keysNeeded":  "Nemaye E2E ({{count}})"
+                    "keysNeeded":  "Nemaye E2E ({{count}})",
+                    "yourVersion":  "Vasha versiya",
+                    "versionCurrent":  "aktualna",
+                    "versionOlder":  "vidstaye na {{age}}",
+                    "versionNewer":  "novisha",
+                    "updateBtn":  "Onovyty",
+                    "updateTooltip":  "Prymusovo pidtyagnuty versiyu z GitHub i perezapustyty agenta",
+                    "updateQueued":  "v cherzi",
+                    "confirmUpdate":  "Prymusyty onovlennya kliyenta {{tenant}}? Agent onovytsya protyagom 2 hvylyn."
                 }
 }

@@ -9,6 +9,7 @@ from services import refresher
 from services import topology as topo_svc
 from services import versions as ver_svc
 from services import uplink as uplink_svc
+from services import updater as updater_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -177,6 +178,28 @@ async def uplink_generate_enc_key():
     """Generate a fresh AES-256-GCM key (base64). Show ONCE to user — they
     must save it manually and configure the viewer with the same key."""
     return {"enc_key": uplink_svc.generate_enc_key()}
+
+
+# ── Self-version + self-updater ──────────────────────────────────────────────
+
+@router.get("/self-version")
+async def self_version():
+    """Return local git info so the viewer can compare against tenant agents."""
+    return updater_svc.read_git_info()
+
+
+@router.get("/updater/status")
+async def updater_status():
+    return updater_svc.status()
+
+
+@router.post("/updater/run")
+async def updater_run(restart: bool = True):
+    """Manually trigger update on THIS agent (dev/testing).
+    In production, updates should be initiated from the central viewer."""
+    import asyncio as _a
+    _a.create_task(updater_svc.perform_update(restart_supervisor=restart))
+    return {"started": True}
 
 
 # ── Central proxy (viewer → localhost → OVH) ─────────────────────────────────

@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Delete old snapshots? Only 20 latest per tenant will be kept.",
                     "quotaWarning":  "Database nearly full — auto-prune will delete oldest on next snapshot.",
                     "devicesMovedHint":  "Customer devices in the Devices tab",
-                    "keysNeeded":  "Missing E2E keys ({{count}})"
+                    "keysNeeded":  "Missing E2E keys ({{count}})",
+                    "yourVersion":  "Your version",
+                    "versionCurrent":  "current",
+                    "versionOlder":  "{{age}} behind",
+                    "versionNewer":  "newer",
+                    "updateBtn":  "Update",
+                    "updateTooltip":  "Force pull new version from GitHub and restart the agent",
+                    "updateQueued":  "queued",
+                    "confirmUpdate":  "Force update of client {{tenant}}? The agent will fetch the latest version from GitHub and restart within 2 min."
                 }
 }

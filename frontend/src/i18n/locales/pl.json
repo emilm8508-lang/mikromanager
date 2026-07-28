@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Usunąć stare snapshoty? Zostaną tylko 20 najnowszych per klient.",
                     "quotaWarning":  "Baza prawie pełna — auto-prune zacznie kasować najstarsze przy nastepnym snapshocie.",
                     "devicesMovedHint":  "Urzadzenia z klientow w zakladce Urzadzenia",
-                    "keysNeeded":  "Brakujace klucze E2E ({{count}})"
+                    "keysNeeded":  "Brakujace klucze E2E ({{count}})",
+                    "yourVersion":  "Twoja wersja",
+                    "versionCurrent":  "aktualne",
+                    "versionOlder":  "starsze o {{age}}",
+                    "versionNewer":  "nowsze",
+                    "updateBtn":  "Aktualizuj",
+                    "updateTooltip":  "Wymus pobranie nowej wersji z GitHub i restart agenta",
+                    "updateQueued":  "w kolejce",
+                    "confirmUpdate":  "Wymusic aktualizacje klienta {{tenant}}? Agent za max 2 min pobierze najnowsza wersje z GitHub i zrestartuje sie."
                 }
 }

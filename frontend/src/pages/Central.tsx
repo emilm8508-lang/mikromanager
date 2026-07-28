@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
-  HardDrive, Trash2,
+  HardDrive, Trash2, GitCommit, Download,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
@@ -212,25 +212,95 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
-function TenantRow({ tenant }: { tenant: CentralTenant }) {
+function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate }: {
+  tenant: CentralTenant
+  viewerCommit: string | null
+  viewerCommitTime: number | null
+  pendingUpdate: boolean
+}) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
   const Icon = tenant.online ? Wifi : WifiOff
   const c = tenantColor(tenant.id)
+
+  const trigger = useMutation({
+    mutationFn: () => centralApi.requestUpdate(tenant.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['central-pending-updates'] })
+    },
+  })
+
+  // Determine version status
+  let versionBadge: React.ReactNode = null
+  if (tenant.agent_commit) {
+    if (viewerCommit && tenant.agent_commit === viewerCommit) {
+      versionBadge = <Badge variant="green" className="text-[10px]">{t('central.versionCurrent')}</Badge>
+    } else if (viewerCommitTime && tenant.agent_commit_time) {
+      const behindSec = viewerCommitTime - tenant.agent_commit_time
+      if (behindSec > 60) {
+        versionBadge = (
+          <Badge variant="yellow" className="text-[10px]">
+            {t('central.versionOlder', { age: formatAge(behindSec) })}
+          </Badge>
+        )
+      } else if (behindSec < -60) {
+        versionBadge = <Badge variant="blue" className="text-[10px]">{t('central.versionNewer')}</Badge>
+      } else {
+        versionBadge = <Badge variant="gray" className="text-[10px]">≈ {t('central.versionCurrent')}</Badge>
+      }
+    }
+  }
+
+  const canUpdate = tenant.agent_commit && viewerCommit && tenant.agent_commit !== viewerCommit
+  const behindTarget = viewerCommitTime && tenant.agent_commit_time && (viewerCommitTime > tenant.agent_commit_time)
+
   return (
     <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200">
-      {/* Color stripe indicating the tenant identity */}
-      <span className={`inline-block w-1 h-8 rounded ${c.bg.replace('-100', '-500')}`} />
+      <span className={`inline-block w-1 h-10 rounded ${c.bg.replace('-100', '-500')}`} />
       <Icon size={16} className={tenant.online ? 'text-green-600' : 'text-red-600'} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <TenantBadge tenant={tenant.id} />
+          {versionBadge}
+          {pendingUpdate && (
+            <Badge variant="yellow" className="text-[10px] inline-flex items-center gap-1">
+              <Download size={9} /> {t('central.updateQueued')}
+            </Badge>
+          )}
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {tenant.last_seen ?? '—'} · {(tenant.last_payload_bytes / 1024).toFixed(1)} KB
-        </p>
+        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+          <span>{tenant.last_seen ?? '—'}</span>
+          <span>·</span>
+          <span>{(tenant.last_payload_bytes / 1024).toFixed(1)} KB</span>
+          {tenant.agent_commit && (
+            <>
+              <span>·</span>
+              <span className="font-mono inline-flex items-center gap-1">
+                <GitCommit size={10} />
+                {tenant.agent_commit.slice(0, 8)}
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <Badge variant={tenant.online ? 'green' : 'red'}>
         {tenant.age_sec !== null ? formatAge(tenant.age_sec) : '—'}
       </Badge>
+      {canUpdate && behindTarget && !pendingUpdate && (
+        <button
+          onClick={() => {
+            if (confirm(t('central.confirmUpdate', { tenant: tenant.id }) as string)) {
+              trigger.mutate()
+            }
+          }}
+          disabled={trigger.isPending || !tenant.online}
+          className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded border border-indigo-200 disabled:opacity-40 inline-flex items-center gap-1"
+          title={t('central.updateTooltip') as string}
+        >
+          <Download size={11} />
+          {t('central.updateBtn')}
+        </button>
+      )}
     </div>
   )
 }
@@ -533,6 +603,22 @@ function ViewerPanel() {
     refetchInterval: 30_000,
   })
 
+  // Viewer's own git commit — for compare
+  const { data: selfVer } = useQuery({
+    queryKey: ['self-version'],
+    queryFn: systemApi.selfVersion,
+    refetchInterval: 60_000,
+  })
+
+  // Which tenants currently have update queued (yet to be picked up)
+  const { data: pendingData } = useQuery({
+    queryKey: ['central-pending-updates'],
+    queryFn: centralApi.pendingUpdates,
+    enabled: configured,
+    refetchInterval: 15_000,
+  })
+  const pendingSet = new Set((pendingData?.pending ?? []).map(p => p.tenant))
+
   if (!configured) {
     return (
       <Card>
@@ -551,6 +637,22 @@ function ViewerPanel() {
 
   return (
     <div className="space-y-4">
+      {selfVer?.commit && (
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-4 py-2 text-xs">
+          <GitCommit size={13} className="text-indigo-600" />
+          <span className="text-slate-600">{t('central.yourVersion')}:</span>
+          <span className="font-mono text-slate-900">{selfVer.commit.slice(0, 8)}</span>
+          {selfVer.commit_time && (
+            <span className="text-slate-500">
+              ({formatAge(Math.floor(Date.now() / 1000) - selfVer.commit_time)} {t('central.ago')})
+            </span>
+          )}
+          {selfVer.branch && selfVer.branch !== 'master' && (
+            <Badge variant="gray" className="text-[10px]">{selfVer.branch}</Badge>
+          )}
+        </div>
+      )}
+
       <UsageBar />
 
       <EncryptedTenantsPanel />
@@ -586,7 +688,13 @@ function ViewerPanel() {
             <p className="px-5 py-6 text-center text-slate-500 text-sm">{t('central.noTenants')}</p>
           ) : (
             data?.tenants.map(tnt => (
-              <TenantRow key={tnt.id} tenant={tnt} />
+              <TenantRow
+                key={tnt.id}
+                tenant={tnt}
+                viewerCommit={selfVer?.commit ?? null}
+                viewerCommitTime={selfVer?.commit_time ?? null}
+                pendingUpdate={pendingSet.has(tnt.id)}
+              />
             ))
           )}
         </CardContent>

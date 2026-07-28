@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Supprimer les anciens snapshots ? Seuls les 20 plus récents par client seront conservés.",
                     "quotaWarning":  "BD presque pleine — auto-prune supprimera les plus anciens au prochain snapshot.",
                     "devicesMovedHint":  "Appareils dans Appareils",
-                    "keysNeeded":  "Cles E2E manquantes ({{count}})"
+                    "keysNeeded":  "Cles E2E manquantes ({{count}})",
+                    "yourVersion":  "Votre version",
+                    "versionCurrent":  "actuelle",
+                    "versionOlder":  "{{age}} de retard",
+                    "versionNewer":  "plus recente",
+                    "updateBtn":  "Mettre a jour",
+                    "updateTooltip":  "Forcer le pull depuis GitHub et redemarrer l agent",
+                    "updateQueued":  "en attente",
+                    "confirmUpdate":  "Forcer la mise a jour du client {{tenant}}? L agent recuperera la derniere version dans 2 min."
                 }
 }

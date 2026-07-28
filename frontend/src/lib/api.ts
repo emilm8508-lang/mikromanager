@@ -187,6 +187,12 @@ export interface UplinkStatus {
   total_failed: number
 }
 
+export interface SelfVersion {
+  commit: string | null
+  commit_time: number | null
+  branch: string | null
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
@@ -195,6 +201,7 @@ export const systemApi = {
   versionStatus: () => api.get<VersionStatus>('/system/versions/status').then(r => r.data),
   refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
   criticalLogs: (limit = 20) => api.get<CriticalLogEntry[]>('/system/critical-logs', { params: { limit } }).then(r => r.data),
+  selfVersion: () => api.get<SelfVersion>('/system/self-version').then(r => r.data),
   uplinkStatus: () => api.get<UplinkStatus>('/system/uplink/status').then(r => r.data),
   uplinkConfigure: (data: { url: string; tenant: string; api_key: string; interval_sec: number; enc_key?: string }) =>
     api.post<UplinkStatus>('/system/uplink/config', data).then(r => r.data),
@@ -212,6 +219,8 @@ export interface CentralTenant {
   last_payload_bytes: number
   online: boolean
   notes?: string | null
+  agent_commit?: string | null
+  agent_commit_time?: number | null
 }
 
 export interface CentralTenantList {
@@ -323,6 +332,10 @@ export const centralApi = {
   usage: () => centralRequest<CentralUsage>('usage'),
   cleanup: (keep: number = 20) =>
     centralRequest<{ deleted: number; kept_per_tenant: number }>('cleanup', { keep: String(keep) }),
+  requestUpdate: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_update', { tenant }),
+  pendingUpdates: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_updates'),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })

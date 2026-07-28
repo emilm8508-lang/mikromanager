@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Alte Snapshots löschen? Nur 20 neueste pro Tenant bleiben.",
                     "quotaWarning":  "DB fast voll — Auto-Prune löscht beim nächsten Snapshot die ältesten.",
                     "devicesMovedHint":  "Kundengeraete im Geraete-Tab",
-                    "keysNeeded":  "Fehlende E2E-Schluessel ({{count}})"
+                    "keysNeeded":  "Fehlende E2E-Schluessel ({{count}})",
+                    "yourVersion":  "Ihre Version",
+                    "versionCurrent":  "aktuell",
+                    "versionOlder":  "{{age}} zurueck",
+                    "versionNewer":  "neuer",
+                    "updateBtn":  "Aktualisieren",
+                    "updateTooltip":  "Neueste Version von GitHub abrufen und Agent neu starten",
+                    "updateQueued":  "in Warteschlange",
+                    "confirmUpdate":  "Update fuer Kunde {{tenant}} erzwingen? Der Agent laedt die neueste Version innerhalb von 2 Min."
                 }
 }

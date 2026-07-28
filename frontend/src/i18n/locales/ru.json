@@ -234,6 +234,14 @@
                     "cleanupConfirm":  "Удалить старые snapshot? Останутся только 20 новейших per клиент.",
                     "quotaWarning":  "БД почти полна — auto-prune удалит старые при следующем snapshot.",
                     "devicesMovedHint":  "Ustroistva v Ustroistva",
-                    "keysNeeded":  "Net E2E ({{count}})"
+                    "keysNeeded":  "Net E2E ({{count}})",
+                    "yourVersion":  "Vasha versiya",
+                    "versionCurrent":  "aktualnaya",
+                    "versionOlder":  "otstaet na {{age}}",
+                    "versionNewer":  "novee",
+                    "updateBtn":  "Obnovit",
+                    "updateTooltip":  "Prinuditelno zagruzit versiyu s GitHub i perezapustit agenta",
+                    "updateQueued":  "v ocheredi",
+                    "confirmUpdate":  "Prinudit obnovlenie klienta {{tenant}}? Agent obnovitsya v techeniye 2 min."
                 }
 }
