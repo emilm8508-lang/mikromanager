@@ -49,3 +49,8 @@ ovh/config.php
 *.key
 secrets*.txt
 .commit-msg
+
+# Updater scratch dirs (created at runtime for pip/npm cache when running
+# under a hardened systemd user without /tmp)
+.tmp/
+.cache/

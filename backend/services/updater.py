@@ -79,6 +79,30 @@ def _npm_cmd() -> str:
     return shutil.which("npm") or "npm"
 
 
+def _child_env() -> dict:
+    """Prepared environment for subprocesses spawned by the updater.
+
+    Systemd services usually run under a hardened user (mikromanager) that:
+      - has no home directory (or one it can't write to)
+      - PrivateTmp=true blocks /tmp visibility
+    Both pip and npm need a writable tmp + cache. Point HOME/TMPDIR/npm cache
+    to writable locations inside the app dir so the update works regardless.
+    """
+    env = os.environ.copy()
+    # Writable app-owned scratch dirs — created if missing
+    tmp = os.path.join(REPO_ROOT, ".tmp")
+    cache = os.path.join(REPO_ROOT, ".cache")
+    os.makedirs(tmp, exist_ok=True)
+    os.makedirs(cache, exist_ok=True)
+    env.setdefault("HOME", REPO_ROOT)
+    env["TMPDIR"] = tmp
+    env["TMP"] = tmp
+    env["TEMP"] = tmp
+    env["npm_config_cache"] = cache
+    env["PIP_CACHE_DIR"] = cache
+    return env
+
+
 def _run(cmd, log, cwd, timeout=300) -> int:
     """Run a subprocess capturing stdout/stderr into log list. Returns exit code."""
     label = " ".join(cmd)
@@ -86,6 +110,7 @@ def _run(cmd, log, cwd, timeout=300) -> int:
     try:
         r = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+            env=_child_env(),
         )
         if r.stdout:
             log.append(r.stdout.strip())
