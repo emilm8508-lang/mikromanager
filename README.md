@@ -25,7 +25,9 @@ python run.py
 python run.py --dev
 ```
 
-Aplikacja otwiera się automatycznie w przeglądarce na `http://localhost:8000` (prod) lub `http://localhost:5173` (dev).
+Aplikacja otwiera się automatycznie w przeglądarce na `http://localhost:8888` (prod) lub `http://localhost:5173` (dev).
+
+Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIKROMANAGER_PORT=9000 py run.py`) lub przełącznik `--port`.
 
 ## Pierwsze kroki
 

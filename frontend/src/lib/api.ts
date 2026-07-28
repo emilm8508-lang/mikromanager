@@ -267,7 +267,7 @@ async function centralRequest<T>(action: string, params: Record<string, string> 
   if (!cfg) throw new Error('Central not configured')
 
   // Go through local backend proxy. This avoids:
-  //   - Browser CORS errors (request is now same-origin to localhost:8000)
+  //   - Browser CORS errors (request is now same-origin to localhost:8888)
   //   - Corporate antivirus TLS interception (Norton/ESET/Kaspersky) that
   //     mangles cross-origin fetch responses. The backend uses Python's
   //     own TLS stack which is not affected.

@@ -42,7 +42,14 @@ app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:8000"],
+    # Allow both default (8888) and legacy (8000) ports so existing deployments
+    # keep working even after mixed upgrade of frontend/backend.
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost:8888",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

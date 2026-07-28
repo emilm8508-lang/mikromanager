@@ -3,7 +3,7 @@ Mikrotik Manager — launcher.
 Starts FastAPI backend and opens the browser.
 In dev mode (--dev) also starts Vite dev server on 5173 and enables --reload.
 
-Port is configurable via env var MIKROMANAGER_PORT (default 8000). Set it in
+Port is configurable via env var MIKROMANAGER_PORT (default 8888). Set it in
 systemd unit / NSSM environment when default port is taken (e.g. by check_mk).
 Command-line flag --port also works and takes precedence over env var.
 """
@@ -19,7 +19,7 @@ BASE = os.path.dirname(__file__)
 BACKEND = os.path.join(BASE, "backend")
 FRONTEND = os.path.join(BASE, "frontend")
 
-DEFAULT_PORT = int(os.environ.get("MIKROMANAGER_PORT", "8000"))
+DEFAULT_PORT = int(os.environ.get("MIKROMANAGER_PORT", "8888"))
 DEFAULT_HOST = os.environ.get("MIKROMANAGER_HOST", "0.0.0.0")
 
 
