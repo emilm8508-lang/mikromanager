@@ -86,7 +86,14 @@
                     "localSource":  "Lokalnoe",
                     "allSources":  "Vse",
                     "readOnly":  "read-only",
-                    "encryptedNoKey":  "Nezashifrovannye: {{tenants}}"
+                    "encryptedNoKey":  "Nezashifrovannye: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Obnovit firmware na {{count}} ustroystvah {{backup}}? Perezagruzka POSLEDOVATELNO. Kazhdoe ~2-3 min offline.",
+                    "firmwareUpgradeBtn":  "Obnovit firmware ({{count}})",
+                    "firmwareBulkTitle":  "Massovoe obnovlenie firmware",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Sozdat backup na kazhdom ustroystve pered obnovleniem? [OK] = da, [Otmena] = net."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Неизвестная модель",
@@ -103,7 +110,8 @@
                                       "firewall":  "Файрвол",
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "L2-туннели"
+                                      "tunnels":  "L2-туннели",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Prinuditelno zagruzit versiyu s GitHub i perezapustit agenta",
                     "updateQueued":  "v ocheredi",
                     "confirmUpdate":  "Prinudit obnovlenie klienta {{tenant}}? Agent obnovitsya v techeniye 2 min."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Versiya",
+                    "updateAppTooltip":  "Obnovit MikroManager s GitHub",
+                    "updating":  "Obnovlenie...",
+                    "updateConfirm":  "Obnovit prilozhenie? Poluchit versiyu s GitHub i perezapustit (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Proverit obnovleniya",
+                     "backup":  "Sozdat backup",
+                     "upgrade":  "Obnovit firmware",
+                     "upgradeConfirm":  "VNIMANIE: ustroystvo perezagruzitsya posle zagruzki. Budet offline ~2-3 min. Prodolzhit?",
+                     "installed":  "Ustanovlena",
+                     "latest":  "Dostupna",
+                     "channel":  "Kanal",
+                     "status":  "Status",
+                     "jobStatus":  "Zadanie",
+                     "oldVersion":  "Staraya versiya",
+                     "newVersion":  "Novaya versiya",
+                     "backupBeforeUpgrade":  "Backup pered obnovleniem",
+                     "upgradeConfirmWithBackup":  "Sozdadim BACKUP i obnovim firmware. Perezagruzka, offline ~2-3 min. Prodolzhit?"
+                 }
 }

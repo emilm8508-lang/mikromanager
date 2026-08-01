@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { cn } from '../lib/utils'
 import { SUPPORTED_LANGS } from '../i18n'
 import { systemApi } from '../lib/api'
+import axios from 'axios'
 
 function RefresherStatus() {
   const { t, i18n } = useTranslation()
@@ -148,11 +149,66 @@ export function Sidebar() {
       </nav>
 
       <RefresherStatus />
+      <SelfUpdatePanel />
       <LanguageSwitcher />
 
       <div className="px-5 py-3 border-t border-slate-200">
-        <p className="text-[10px] text-slate-400">MikroManager v1.2</p>
+        <p className="text-[10px] text-slate-400">MikroManager v1.3</p>
       </div>
     </aside>
+  )
+}
+
+function SelfUpdatePanel() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: self } = useQuery({
+    queryKey: ['self-version'],
+    queryFn: systemApi.selfVersion,
+    refetchInterval: 60_000,
+  })
+  const { data: updaterStatus } = useQuery({
+    queryKey: ['updater-status'],
+    queryFn: () => axios.get('/api/system/updater/status').then(r => r.data),
+    refetchInterval: 5_000,
+  })
+
+  const trigger = useMutation({
+    mutationFn: () => axios.post('/api/system/updater/run').then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['updater-status'] }),
+  })
+
+  if (!self) return null
+
+  const inProgress = updaterStatus?.in_progress === true
+
+  const handleClick = () => {
+    if (inProgress) return
+    if (!confirm(t('sidebar.updateConfirm') as string)) return
+    trigger.mutate()
+  }
+
+  return (
+    <div className="px-4 py-3 border-t border-slate-200 text-[10.5px] space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1">
+          <GitCommit size={10} /> {t('sidebar.versionLabel')}
+        </span>
+        <button
+          onClick={handleClick}
+          disabled={inProgress || trigger.isPending}
+          title={t('sidebar.updateAppTooltip') as string}
+          className="text-slate-500 hover:text-indigo-600 disabled:opacity-40 inline-flex items-center gap-1"
+        >
+          {inProgress
+            ? <RefreshCw size={11} className="animate-spin" />
+            : <Download size={11} />}
+        </button>
+      </div>
+      <p className="font-mono text-slate-700 truncate">{self.commit?.slice(0, 10) ?? '—'}</p>
+      {inProgress && (
+        <p className="text-indigo-600 italic">{t('sidebar.updating')}</p>
+      )}
+    </div>
   )
 }

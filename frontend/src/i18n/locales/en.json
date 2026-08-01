@@ -86,7 +86,14 @@
                     "localSource":  "Local",
                     "allSources":  "All",
                     "readOnly":  "read-only",
-                    "encryptedNoKey":  "Undecrypted snapshots: {{tenants}}"
+                    "encryptedNoKey":  "Undecrypted snapshots: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Upgrade firmware on {{count}} devices {{backup}}? Rebooted SEQUENTIALLY. Each offline ~2-3 min. Total ~{{count}}*3 min.",
+                    "firmwareUpgradeBtn":  "Upgrade firmware ({{count}})",
+                    "firmwareBulkTitle":  "Bulk firmware upgrade",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Create backup on each device before upgrade? [OK] = yes, [Cancel] = no (faster)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unknown model",
@@ -103,7 +110,8 @@
                                       "firewall":  "Firewall",
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "L2 tunnels"
+                                      "tunnels":  "L2 tunnels",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Force pull new version from GitHub and restart the agent",
                     "updateQueued":  "queued",
                     "confirmUpdate":  "Force update of client {{tenant}}? The agent will fetch the latest version from GitHub and restart within 2 min."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Version",
+                    "updateAppTooltip":  "Update MikroManager from GitHub",
+                    "updating":  "Updating...",
+                    "updateConfirm":  "Update the app? It will pull the latest from GitHub and restart (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Check updates",
+                     "backup":  "Backup now",
+                     "upgrade":  "Upgrade firmware",
+                     "upgradeConfirm":  "WARNING: the device will reboot after download. It will be offline for ~2-3 min. Continue?",
+                     "installed":  "Installed",
+                     "latest":  "Available",
+                     "channel":  "Channel",
+                     "status":  "Status",
+                     "jobStatus":  "Job",
+                     "oldVersion":  "Old version",
+                     "newVersion":  "New version",
+                     "backupBeforeUpgrade":  "Backup device before upgrade",
+                     "upgradeConfirmWithBackup":  "Device will be BACKED UP and then firmware upgraded. Device reboots, offline ~2-3 min. Continue?"
+                 }
 }

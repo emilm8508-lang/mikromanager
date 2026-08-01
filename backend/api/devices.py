@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from pydantic import BaseModel
@@ -196,3 +196,55 @@ async def get_tunnels(device_id: int, db: Session = Depends(get_db)):
 async def get_resource(device_id: int, db: Session = Depends(get_db)):
     client, _ = _get_client(device_id, db)
     return await _safe_call(client.get_resource)
+
+
+# ── Firmware upgrade ─────────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _PydModel
+
+class BulkUpgradeIn(_PydModel):
+    ids: list[int]
+    backup: bool = False   # optional — user opts in per operation
+
+@router.post("/{device_id}/firmware/check")
+async def firmware_check(device_id: int):
+    from services import firmware
+    return await firmware.check_updates(device_id)
+
+@router.post("/{device_id}/firmware/backup")
+async def firmware_backup(device_id: int):
+    from services import firmware
+    return await firmware.backup_device(device_id, trigger="manual")
+
+@router.post("/{device_id}/firmware/upgrade")
+async def firmware_upgrade(device_id: int, background_tasks: BackgroundTasks, backup: bool = False):
+    """Fire-and-forget: triggers optional backup + download-install + reboot polling.
+    backup=false (default) skips creating a backup on the device.
+    Poll /firmware/status for progress."""
+    from services import firmware
+    background_tasks.add_task(firmware.upgrade_device, device_id, backup)
+    return {"queued": True, "device_id": device_id, "backup": backup}
+
+@router.get("/{device_id}/firmware/status")
+async def firmware_status(device_id: int):
+    from services import firmware
+    return firmware.get_job_status(device_id)
+
+@router.get("/{device_id}/backups")
+async def device_backups(device_id: int):
+    from services import firmware
+    return firmware.list_backups(device_id)
+
+@router.post("/firmware/upgrade-bulk")
+async def firmware_upgrade_bulk(payload: BulkUpgradeIn, background_tasks: BackgroundTasks):
+    """Queue sequential upgrades of multiple devices in one background task."""
+    from services import firmware
+    background_tasks.add_task(firmware.upgrade_bulk, payload.ids, payload.backup)
+    return {"queued": len(payload.ids), "ids": payload.ids, "backup": payload.backup}
+
+@router.get("/firmware/statuses")
+async def firmware_statuses(ids: str = ""):
+    """Get status of multiple upgrade jobs at once. ids=1,5,7"""
+    from services import firmware
+    id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    return {str(did): firmware.get_job_status(did) for did in id_list}

@@ -86,7 +86,14 @@
                     "localSource":  "Local",
                     "allSources":  "Toutes",
                     "readOnly":  "lecture seule",
-                    "encryptedNoKey":  "Non dechiffres: {{tenants}}"
+                    "encryptedNoKey":  "Non dechiffres: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Mettre a jour firmware sur {{count}} appareils {{backup}}? Redemarres SEQUENTIELLEMENT. Chacun ~2-3 min hors ligne.",
+                    "firmwareUpgradeBtn":  "MAJ firmware ({{count}})",
+                    "firmwareBulkTitle":  "MAJ firmware en masse",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Sauvegarder chaque appareil avant la MAJ? [OK] = oui, [Annuler] = non."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Modèle inconnu",
@@ -103,7 +110,8 @@
                                       "firewall":  "Pare-feu",
                                       "wireless":  "Sans fil",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "Tunnels L2"
+                                      "tunnels":  "Tunnels L2",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Forcer le pull depuis GitHub et redemarrer l agent",
                     "updateQueued":  "en attente",
                     "confirmUpdate":  "Forcer la mise a jour du client {{tenant}}? L agent recuperera la derniere version dans 2 min."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Version",
+                    "updateAppTooltip":  "Mettre a jour MikroManager depuis GitHub",
+                    "updating":  "Mise a jour...",
+                    "updateConfirm":  "Mettre a jour l app? La derniere version sera recuperee de GitHub et l app redemarree (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Verifier les MAJ",
+                     "backup":  "Sauvegarde",
+                     "upgrade":  "Mettre a jour firmware",
+                     "upgradeConfirm":  "ATTENTION: l appareil redemarrera apres le telechargement. Il sera hors ligne ~2-3 min. Continuer?",
+                     "installed":  "Installe",
+                     "latest":  "Disponible",
+                     "channel":  "Canal",
+                     "status":  "Statut",
+                     "jobStatus":  "Tache",
+                     "oldVersion":  "Ancienne version",
+                     "newVersion":  "Nouvelle version",
+                     "backupBeforeUpgrade":  "Sauvegarde avant MAJ",
+                     "upgradeConfirmWithBackup":  "L appareil sera SAUVEGARDE puis firmware mis a jour. Redemarrage, ~2-3 min hors ligne. Continuer?"
+                 }
 }

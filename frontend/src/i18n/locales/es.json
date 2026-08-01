@@ -86,7 +86,14 @@
                     "localSource":  "Local",
                     "allSources":  "Todas",
                     "readOnly":  "solo lectura",
-                    "encryptedNoKey":  "No descifrados: {{tenants}}"
+                    "encryptedNoKey":  "No descifrados: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Actualizar firmware en {{count}} dispositivos {{backup}}? Reiniciados SECUENCIALMENTE. Cada uno offline ~2-3 min.",
+                    "firmwareUpgradeBtn":  "Actualizar firmware ({{count}})",
+                    "firmwareBulkTitle":  "Actualizacion masiva de firmware",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Crear backup en cada dispositivo antes de actualizar? [OK] = si, [Cancelar] = no."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Modelo desconocido",
@@ -103,7 +110,8 @@
                                       "firewall":  "Firewall",
                                       "wireless":  "Inalámbrica",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "Túneles L2"
+                                      "tunnels":  "Túneles L2",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Forzar descarga de nueva version desde GitHub y reiniciar agente",
                     "updateQueued":  "en cola",
                     "confirmUpdate":  "Forzar actualizacion del cliente {{tenant}}? El agent obtendra la ultima version en 2 min."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Version",
+                    "updateAppTooltip":  "Actualizar MikroManager desde GitHub",
+                    "updating":  "Actualizando...",
+                    "updateConfirm":  "Actualizar la app? Se descargara la ultima version desde GitHub y se reiniciara (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Buscar actualizaciones",
+                     "backup":  "Copia de seguridad",
+                     "upgrade":  "Actualizar firmware",
+                     "upgradeConfirm":  "ATENCION: el dispositivo se reiniciara despues de la descarga. Estara offline ~2-3 min. Continuar?",
+                     "installed":  "Instalado",
+                     "latest":  "Disponible",
+                     "channel":  "Canal",
+                     "status":  "Estado",
+                     "jobStatus":  "Tarea",
+                     "oldVersion":  "Version anterior",
+                     "newVersion":  "Nueva version",
+                     "backupBeforeUpgrade":  "Backup antes de actualizar",
+                     "upgradeConfirmWithBackup":  "Se creara BACKUP y luego se actualizara firmware. Reinicio, offline ~2-3 min. Continuar?"
+                 }
 }

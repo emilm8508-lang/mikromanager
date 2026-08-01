@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { devicesApi } from '../lib/api'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle, Download, RefreshCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
 import axios from 'axios'
@@ -21,7 +21,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource'
+type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource' | 'firmware'
 
 function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; emptyLabel: string }) {
   if (!data || data.length === 0) return <p className="text-sm text-slate-500 py-4 text-center">{emptyLabel}</p>
@@ -54,9 +54,115 @@ function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; empt
   )
 }
 
+function FirmwareTab({ deviceId }: { deviceId: number }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [check, setCheck] = useState<any>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [backupBeforeUpgrade, setBackupBeforeUpgrade] = useState(false)
+
+  const { data: status, refetch: refetchStatus } = useQuery({
+    queryKey: ['firmware-status', deviceId],
+    queryFn: () => devicesApi.firmwareStatus(deviceId),
+    refetchInterval: (q) => {
+      const s = (q.state.data as any)?.status
+      return (s === 'backing_up' || s === 'downloading' || s === 'rebooting' || s === 'starting') ? 5000 : false
+    },
+  })
+
+  const doCheck = useMutation({
+    mutationFn: () => devicesApi.firmwareCheck(deviceId),
+    onSuccess: (data: any) => {
+      setCheck(data)
+      setCheckError(data?.error || null)
+    },
+    onError: (err: any) => setCheckError(err?.message ?? String(err)),
+  })
+
+  const doUpgrade = useMutation({
+    mutationFn: () => devicesApi.firmwareUpgrade(deviceId, backupBeforeUpgrade),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firmware-status', deviceId] })
+      refetchStatus()
+    },
+  })
+
+  const doBackup = useMutation({
+    mutationFn: () => devicesApi.firmwareBackup(deviceId),
+  })
+
+  const inProgress = ['starting', 'backing_up', 'downloading', 'rebooting'].includes(status?.status)
+
+  return (
+    <div className="space-y-4 py-2">
+      <div className="flex gap-2 flex-wrap">
+        <Button variant="secondary" onClick={() => doCheck.mutate()} disabled={doCheck.isPending}>
+          <RefreshCw size={13} className={doCheck.isPending ? 'animate-spin' : ''} />
+          {t('firmware.check')}
+        </Button>
+        <Button variant="secondary" onClick={() => doBackup.mutate()} disabled={doBackup.isPending || inProgress}>
+          {t('firmware.backup')}
+        </Button>
+        <Button variant="danger" onClick={() => {
+          const msg = backupBeforeUpgrade
+            ? t('firmware.upgradeConfirmWithBackup') as string
+            : t('firmware.upgradeConfirm') as string
+          if (confirm(msg)) doUpgrade.mutate()
+        }} disabled={doUpgrade.isPending || inProgress}>
+          <Download size={13} />
+          {t('firmware.upgrade')}
+        </Button>
+      </div>
+
+      <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={backupBeforeUpgrade}
+          onChange={e => setBackupBeforeUpgrade(e.target.checked)}
+          className="rounded"
+        />
+        {t('firmware.backupBeforeUpgrade')}
+      </label>
+
+      {check && !checkError && (
+        <div className="bg-slate-100 rounded-lg p-3 text-sm space-y-1">
+          <p><span className="text-slate-500">{t('firmware.installed')}:</span> <span className="font-mono">{check.installed ?? '—'}</span></p>
+          <p><span className="text-slate-500">{t('firmware.latest')}:</span> <span className="font-mono">{check.latest ?? '—'}</span></p>
+          <p><span className="text-slate-500">{t('firmware.channel')}:</span> <span className="font-mono">{check.channel ?? '—'}</span></p>
+          <p><span className="text-slate-500">{t('firmware.status')}:</span> <span>{check.status ?? '—'}</span></p>
+        </div>
+      )}
+      {checkError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          {checkError}
+        </div>
+      )}
+      {doBackup.data && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+          Backup: {(doBackup.data as any).filename ?? '—'}
+        </div>
+      )}
+
+      {status && status.status !== 'no_job' && (
+        <div className="bg-slate-100 rounded-lg p-3 text-sm space-y-1">
+          <p className="font-semibold text-slate-800">{t('firmware.jobStatus')}: {status.status}</p>
+          {status.old_version && <p className="text-xs">{t('firmware.oldVersion')}: <span className="font-mono">{status.old_version}</span></p>}
+          {status.new_version && <p className="text-xs">{t('firmware.newVersion')}: <span className="font-mono">{status.new_version}</span></p>}
+          {status.log && status.log.length > 0 && (
+            <div className="mt-2 max-h-48 overflow-auto bg-slate-900 text-green-300 p-2 rounded text-[10px] font-mono">
+              {status.log.map((l: string, i: number) => <div key={i}>{l}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
   const { t } = useTranslation()
-  const queries: Record<Tab, () => Promise<unknown>> = {
+  if (tab === 'firmware') return <FirmwareTab deviceId={deviceId} />
+  const queries: Record<Exclude<Tab, 'firmware'>, () => Promise<unknown>> = {
     interfaces: () => devicesApi.interfaces(deviceId),
     addresses: () => devicesApi.addresses(deviceId),
     routes: () => devicesApi.routes(deviceId),
@@ -69,7 +175,7 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['device', deviceId, tab],
-    queryFn: queries[tab],
+    queryFn: queries[tab as Exclude<Tab, 'firmware'>],
     retry: false,
   })
 
@@ -152,6 +258,7 @@ export function DeviceDetail() {
     { id: 'wireless', label: t('deviceDetail.tabs.wireless'), icon: Wifi },
     { id: 'dhcp', label: t('deviceDetail.tabs.dhcp'), icon: Server },
     { id: 'tunnels', label: t('deviceDetail.tabs.tunnels'), icon: Network },
+    { id: 'firmware', label: t('deviceDetail.tabs.firmware'), icon: Download },
   ]
 
   if (isLoading) return <div className="p-6 text-slate-500">{t('common.loading')}</div>

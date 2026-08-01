@@ -72,6 +72,21 @@ class ScanRange(Base):
     active = Column(Boolean, default=True)
 
 
+class DeviceBackup(Base):
+    """Record of a backup taken on a Mikrotik device.
+    Content is empty initially — v1 only records that backup exists on device.
+    Later can be filled by downloading via FTP/SFTP."""
+    __tablename__ = "device_backups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    filename = Column(String, nullable=False)
+    trigger = Column(String, default="manual")   # 'manual' | 'pre-upgrade'
+    size_bytes = Column(Integer, default=0)
+    content_b64 = Column(Text, nullable=True)    # base64 of file (filled by future FTP downloader)
+
+
 class DeviceLink(Base):
     """An edge between two devices in the topology — discovered via
     /ip/neighbor (LLDP/CDP/MNDP) or via L2 tunnels (EOIP/GRE/VXLAN).

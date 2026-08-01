@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -99,11 +99,52 @@ export function Devices() {
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [tenantFilter, setTenantFilter] = useState<string>('all')  // 'all' | 'local' | tenant id
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const [bulkStatuses, setBulkStatuses] = useState<Record<string, any>>({})
 
   const remove = useMutation({
     mutationFn: devicesApi.delete,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
   })
+
+  const toggleSelect = (id: number) => {
+    setSelected(prev => {
+      const s = new Set(prev)
+      if (s.has(id)) s.delete(id); else s.add(id)
+      return s
+    })
+  }
+
+  const bulkUpgrade = async (backup: boolean) => {
+    if (selected.size === 0) return
+    const ids = Array.from(selected)
+    setBulkRunning(true)
+    setBulkStatuses({})
+    setBulkOpen(true)
+    try {
+      await devicesApi.firmwareUpgradeBulk(ids, backup)
+      // Poll statuses every 5s until all done/timeout/error
+      const poll = setInterval(async () => {
+        try {
+          const st = await devicesApi.firmwareStatuses(ids)
+          setBulkStatuses(st)
+          const allDone = ids.every(id => {
+            const s = st[String(id)]?.status
+            return s === 'done' || s === 'error' || s === 'timeout' || s === 'no_job'
+          })
+          if (allDone) {
+            clearInterval(poll)
+            setBulkRunning(false)
+            qc.invalidateQueries({ queryKey: ['devices'] })
+          }
+        } catch { /* keep polling */ }
+      }, 5000)
+    } catch (e) {
+      setBulkRunning(false)
+    }
+  }
 
   const credMap = Object.fromEntries(creds.map(c => [c.id, c.name]))
 
@@ -167,9 +208,21 @@ export function Devices() {
           <h1 className="text-xl font-bold text-slate-900">{t('devices.title')}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{t('devices.subtitle', { count: unified.length })}</p>
         </div>
-        <Button variant="primary" onClick={() => setAddOpen(true)}>
-          <Plus size={16} /> {t('common.addManual')}
-        </Button>
+        <div className="flex gap-2">
+          {selected.size > 0 && (
+            <Button variant="secondary" onClick={() => {
+              const withBackup = confirm(t('devices.firmwareUpgradeAskBackup', { count: selected.size }) as string)
+              // Second confirmation with big warning
+              if (!confirm(t('devices.firmwareUpgradeConfirm', { count: selected.size, backup: withBackup ? '+backup' : '' }) as string)) return
+              bulkUpgrade(withBackup)
+            }}>
+              <Download size={16} /> {t('devices.firmwareUpgradeBtn', { count: selected.size })}
+            </Button>
+          )}
+          <Button variant="primary" onClick={() => setAddOpen(true)}>
+            <Plus size={16} /> {t('common.addManual')}
+          </Button>
+        </div>
       </div>
 
       {/* Version-check status banner */}
@@ -246,6 +299,20 @@ export function Devices() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs text-slate-500">
+                <th className="px-3 py-3 text-left w-8">
+                  <input type="checkbox"
+                    checked={filtered.length > 0 && filtered.filter(d => d.source === 'local').every(d => selected.has(d.raw_id!))}
+                    onChange={e => {
+                      const localIds = filtered.filter(d => d.source === 'local').map(d => d.raw_id!)
+                      setSelected(prev => {
+                        const s = new Set(prev)
+                        if (e.target.checked) localIds.forEach(id => s.add(id))
+                        else localIds.forEach(id => s.delete(id))
+                        return s
+                      })
+                    }}
+                    className="rounded" />
+                </th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.client')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.ipIdentity')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.model')}</th>
@@ -262,6 +329,14 @@ export function Devices() {
                 const detailPath = isLocal ? `/devices/${d.raw_id}` : '#'
                 return (
                 <tr key={d.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                  <td className="px-3 py-3">
+                    {isLocal && d.raw_id != null ? (
+                      <input type="checkbox"
+                        checked={selected.has(d.raw_id)}
+                        onChange={() => toggleSelect(d.raw_id!)}
+                        className="rounded" />
+                    ) : null}
+                  </td>
                   <td className="px-5 py-3">
                     {isLocal ? (
                       <Badge variant="gray" className="text-[10px]">{t('devices.localSource')}</Badge>
@@ -348,6 +423,45 @@ export function Devices() {
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title={t('devices.addTitle')}>
         <AddDeviceModal onClose={() => setAddOpen(false)} />
+      </Modal>
+
+      <Modal
+        open={bulkOpen}
+        onClose={() => { if (!bulkRunning) { setBulkOpen(false); setSelected(new Set()) } }}
+        title={t('devices.firmwareBulkTitle')}
+      >
+        <div className="space-y-2 text-sm">
+          {Array.from(selected).map(id => {
+            const dev = localDevices.find(d => d.id === id)
+            const st = bulkStatuses[String(id)] ?? { status: 'queued' }
+            const label = dev ? (dev.identity || dev.name || dev.ip) : `#${id}`
+            const badge =
+              st.status === 'done' ? <Badge variant="green">{t('devices.fw.done', { v: st.new_version ?? '' })}</Badge> :
+              st.status === 'error' || st.status === 'timeout' ? <Badge variant="red">{st.status}</Badge> :
+              st.status === 'no_job' ? <Badge variant="gray">—</Badge> :
+              <Badge variant="yellow">{st.status}</Badge>
+            return (
+              <div key={id} className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                <span className="font-mono text-xs text-slate-700">{label}</span>
+                <div className="flex items-center gap-2">
+                  {badge}
+                  {st.log && st.log.length > 0 && (
+                    <span className="text-[10px] text-slate-400 max-w-[200px] truncate" title={st.log.join('\n')}>
+                      {st.log[st.log.length - 1]}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          {!bulkRunning && (
+            <div className="pt-2 flex justify-end">
+              <Button variant="ghost" onClick={() => { setBulkOpen(false); setSelected(new Set()) }}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   )

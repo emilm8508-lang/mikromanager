@@ -86,7 +86,14 @@
                     "localSource":  "Lokal",
                     "allSources":  "Alle",
                     "readOnly":  "read-only",
-                    "encryptedNoKey":  "Unentschluesselt: {{tenants}}"
+                    "encryptedNoKey":  "Unentschluesselt: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Firmware auf {{count}} Geraeten aktualisieren {{backup}}? Nacheinander neu gestartet. Jedes ~2-3 min offline. Insgesamt ~{{count}}*3 min.",
+                    "firmwareUpgradeBtn":  "Firmware aktualisieren ({{count}})",
+                    "firmwareBulkTitle":  "Bulk-Firmware-Update",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Backup auf jedem Geraet vor dem Update? [OK] = ja, [Abbrechen] = nein (schneller)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unbekanntes Modell",
@@ -103,7 +110,8 @@
                                       "firewall":  "Firewall",
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "L2-Tunnel"
+                                      "tunnels":  "L2-Tunnel",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Neueste Version von GitHub abrufen und Agent neu starten",
                     "updateQueued":  "in Warteschlange",
                     "confirmUpdate":  "Update fuer Kunde {{tenant}} erzwingen? Der Agent laedt die neueste Version innerhalb von 2 Min."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Version",
+                    "updateAppTooltip":  "MikroManager von GitHub aktualisieren",
+                    "updating":  "Aktualisiere...",
+                    "updateConfirm":  "App aktualisieren? Neueste Version von GitHub wird geladen und die App neu gestartet (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Updates pruefen",
+                     "backup":  "Backup",
+                     "upgrade":  "Firmware aktualisieren",
+                     "upgradeConfirm":  "ACHTUNG: Geraet startet nach dem Download neu. ~2-3 min offline. Fortfahren?",
+                     "installed":  "Installiert",
+                     "latest":  "Verfuegbar",
+                     "channel":  "Kanal",
+                     "status":  "Status",
+                     "jobStatus":  "Auftrag",
+                     "oldVersion":  "Alte Version",
+                     "newVersion":  "Neue Version",
+                     "backupBeforeUpgrade":  "Backup vor Update",
+                     "upgradeConfirmWithBackup":  "Geraet wird gesichert und dann Firmware aktualisiert. Neustart, ~2-3 min offline. Fortfahren?"
+                 }
 }

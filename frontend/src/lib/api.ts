@@ -80,6 +80,17 @@ export const devicesApi = {
   dhcpLeases: (id: number) => api.get(`/devices/${id}/dhcp-leases`).then(r => r.data),
   tunnels: (id: number) => api.get(`/devices/${id}/tunnels`).then(r => r.data),
   resource: (id: number) => api.get(`/devices/${id}/resource`).then(r => r.data),
+  // Firmware
+  firmwareCheck: (id: number) => api.post(`/devices/${id}/firmware/check`).then(r => r.data),
+  firmwareUpgrade: (id: number, backup: boolean = false) =>
+    api.post(`/devices/${id}/firmware/upgrade`, null, { params: { backup } }).then(r => r.data),
+  firmwareStatus: (id: number) => api.get(`/devices/${id}/firmware/status`).then(r => r.data),
+  firmwareBackup: (id: number) => api.post(`/devices/${id}/firmware/backup`).then(r => r.data),
+  firmwareUpgradeBulk: (ids: number[], backup: boolean = false) =>
+    api.post('/devices/firmware/upgrade-bulk', { ids, backup }).then(r => r.data),
+  firmwareStatuses: (ids: number[]) =>
+    api.get(`/devices/firmware/statuses`, { params: { ids: ids.join(',') } }).then(r => r.data),
+  backups: (id: number) => api.get(`/devices/${id}/backups`).then(r => r.data),
 }
 
 // ── Scanner ──────────────────────────────────────────────────────────────────

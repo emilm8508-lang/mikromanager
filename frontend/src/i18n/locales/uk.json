@@ -86,7 +86,14 @@
                     "localSource":  "Lokalne",
                     "allSources":  "Vsi",
                     "readOnly":  "read-only",
-                    "encryptedNoKey":  "Nezashyfrovani: {{tenants}}"
+                    "encryptedNoKey":  "Nezashyfrovani: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Onovyty firmware na {{count}} prystroyah {{backup}}? Perezavantazhennya POSLIDOVNO. Kozhen ~2-3 hv offline.",
+                    "firmwareUpgradeBtn":  "Onovyty firmware ({{count}})",
+                    "firmwareBulkTitle":  "Masove onovlennya firmware",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Stvoryty backup na kozhnomu prystroyi pered onovlennyam? [OK] = tak, [Skasuvaty] = ni."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Невідома модель",
@@ -103,7 +110,8 @@
                                       "firewall":  "Файрвол",
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "L2-тунелі"
+                                      "tunnels":  "L2-тунелі",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Prymusovo pidtyagnuty versiyu z GitHub i perezapustyty agenta",
                     "updateQueued":  "v cherzi",
                     "confirmUpdate":  "Prymusyty onovlennya kliyenta {{tenant}}? Agent onovytsya protyagom 2 hvylyn."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Versiya",
+                    "updateAppTooltip":  "Onovyty MikroManager z GitHub",
+                    "updating":  "Onovlennya...",
+                    "updateConfirm":  "Onovyty dodatok? Pidtyagne versiyu z GitHub ta perezavantazhytsya (~2 hv)."
+                },
+    "firmware":  {
+                     "check":  "Pereviryty onovlennya",
+                     "backup":  "Stvoryty backup",
+                     "upgrade":  "Onovyty firmware",
+                     "upgradeConfirm":  "UVAGA: prystriy perezavantazhytsya pislya zavantazhennya. Bude offline ~2-3 hv. Prodovzhyty?",
+                     "installed":  "Vstanovlena",
+                     "latest":  "Dostupna",
+                     "channel":  "Kanal",
+                     "status":  "Status",
+                     "jobStatus":  "Zavdannya",
+                     "oldVersion":  "Stara versiya",
+                     "newVersion":  "Nova versiya",
+                     "backupBeforeUpgrade":  "Backup pered onovlennyam",
+                     "upgradeConfirmWithBackup":  "Stvorymo BACKUP i onovymo firmware. Perezavantazhennya, offline ~2-3 hv. Prodovzhyty?"
+                 }
 }

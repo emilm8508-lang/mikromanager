@@ -86,7 +86,14 @@
                     "localSource":  "Lokalne",
                     "allSources":  "Wszystkie",
                     "readOnly":  "read-only",
-                    "encryptedNoKey":  "Niezdekodowane snapshoty: {{tenants}}"
+                    "encryptedNoKey":  "Niezdekodowane snapshoty: {{tenants}}",
+                    "firmwareUpgradeConfirm":  "Aktualizowac firmware {{count}} urzadzen {{backup}}? Beda restartowane KOLEJNO. Kazde offline ~2-3 min. Zbiorczy czas: ~{{count}}*3 min.",
+                    "firmwareUpgradeBtn":  "Aktualizuj firmware ({{count}})",
+                    "firmwareBulkTitle":  "Zbiorcza aktualizacja firmware",
+                    "fw":  {
+                               "done":  "OK v{{v}}"
+                           },
+                    "firmwareUpgradeAskBackup":  "Zrobic backup na kazdym urzadzeniu przed upgrade? [OK] = tak, [Anuluj] = nie (przyspieszy proces)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Nieznany model",
@@ -103,7 +110,8 @@
                                       "firewall":  "Firewall",
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
-                                      "tunnels":  "Tunele L2"
+                                      "tunnels":  "Tunele L2",
+                                      "firmware":  "Firmware"
                                   }
                      },
     "credentials":  {
@@ -243,5 +251,26 @@
                     "updateTooltip":  "Wymus pobranie nowej wersji z GitHub i restart agenta",
                     "updateQueued":  "w kolejce",
                     "confirmUpdate":  "Wymusic aktualizacje klienta {{tenant}}? Agent za max 2 min pobierze najnowsza wersje z GitHub i zrestartuje sie."
-                }
+                },
+    "sidebar":  {
+                    "versionLabel":  "Wersja",
+                    "updateAppTooltip":  "Zaktualizuj MikroManager z GitHub",
+                    "updating":  "Aktualizacja w toku...",
+                    "updateConfirm":  "Zaktualizowac aplikacje? Aplikacja pobierze najnowsza wersje z GitHub i zrestartuje sie (~2 min)."
+                },
+    "firmware":  {
+                     "check":  "Sprawdz aktualizacje",
+                     "backup":  "Zrob backup",
+                     "upgrade":  "Aktualizuj firmware",
+                     "upgradeConfirm":  "UWAGA: urzadzenie zostanie zrestartowane po pobraniu aktualizacji. Bedzie offline przez ~2-3 min. Kontynuowac?",
+                     "installed":  "Zainstalowana",
+                     "latest":  "Dostepna",
+                     "channel":  "Kanal",
+                     "status":  "Status",
+                     "jobStatus":  "Zadanie",
+                     "oldVersion":  "Poprzednia wersja",
+                     "newVersion":  "Nowa wersja",
+                     "backupBeforeUpgrade":  "Zrob backup przed upgrade",
+                     "upgradeConfirmWithBackup":  "ZaBACKUPUJEMY urzadzenie i potem zaktualizujemy firmware. Urzadzenie zostanie zrestartowane, offline ~2-3 min. Kontynuowac?"
+                 }
 }
