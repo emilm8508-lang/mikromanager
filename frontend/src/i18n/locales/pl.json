@@ -93,7 +93,12 @@
                     "fw":  {
                                "done":  "OK v{{v}}"
                            },
-                    "firmwareUpgradeAskBackup":  "Zrobic backup na kazdym urzadzeniu przed upgrade? [OK] = tak, [Anuluj] = nie (przyspieszy proces)."
+                    "firmwareUpgradeAskBackup":  "Zrobic backup na kazdym urzadzeniu przed upgrade? [OK] = tak, [Anuluj] = nie (przyspieszy proces).",
+                    "fwQueued":  "w kolejce",
+                    "remoteFwBtn":  "Firmware",
+                    "remoteFwTooltip":  "Wymus aktualizacje firmware tego urzadzenia (via central)",
+                    "remoteFwAskBackup":  "Zrobic backup przed upgrade? [OK] = tak, [Anuluj] = nie",
+                    "remoteFwConfirm":  "Aktualizowac firmware urzadzenia {{ip}} u klienta {{tenant}}? Agent klienta odbierze komende w ciagu 2 min i zrestartuje urzadzenie."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Nieznany model",

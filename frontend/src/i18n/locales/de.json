@@ -93,7 +93,12 @@
                     "fw":  {
                                "done":  "OK v{{v}}"
                            },
-                    "firmwareUpgradeAskBackup":  "Backup auf jedem Geraet vor dem Update? [OK] = ja, [Abbrechen] = nein (schneller)."
+                    "firmwareUpgradeAskBackup":  "Backup auf jedem Geraet vor dem Update? [OK] = ja, [Abbrechen] = nein (schneller).",
+                    "fwQueued":  "in Warteschlange",
+                    "remoteFwBtn":  "Firmware",
+                    "remoteFwTooltip":  "Firmware-Update dieses Geraets anfordern (via Zentrale)",
+                    "remoteFwAskBackup":  "Backup vor dem Update? [OK] = ja, [Abbrechen] = nein",
+                    "remoteFwConfirm":  "Firmware auf {{ip}} bei Kunde {{tenant}} aktualisieren? Der Agent uebernimmt in max. 2 min und startet das Geraet neu."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unbekanntes Modell",

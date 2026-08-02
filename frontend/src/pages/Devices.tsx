@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig } from '../lib/api'
+import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig, centralApi } from '../lib/api'
 import { pickUpgradeTarget, cleanVersion } from '../lib/version'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -94,6 +94,21 @@ export function Devices() {
     queryFn: getAllTenantDevices,
     enabled: hasCentral,
     refetchInterval: 60_000,
+  })
+  const { data: pendingFw } = useQuery({
+    queryKey: ['pending-firmware-upgrades'],
+    queryFn: () => centralApi.pendingFirmwareUpgrades(),
+    enabled: hasCentral,
+    refetchInterval: 15_000,
+  })
+  const pendingFwSet = new Set(
+    (pendingFw?.pending ?? []).map(p => `${p.tenant}:${p.device_id}`)
+  )
+
+  const requestRemoteFw = useMutation({
+    mutationFn: ({ tenant, deviceId, backup }: { tenant: string; deviceId: number; backup: boolean }) =>
+      centralApi.requestFirmwareUpgrade(tenant, deviceId, backup),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pending-firmware-upgrades'] }),
   })
 
   const [addOpen, setAddOpen] = useState(false)
@@ -411,7 +426,37 @@ export function Devices() {
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-slate-400">{t('devices.readOnly')}</span>
+                      (() => {
+                        // Remote device: allow requesting firmware upgrade via central relay
+                        if (d.raw_id == null) return <span className="text-[10px] text-slate-400">{t('devices.readOnly')}</span>
+                        const key = `${d.source}:${d.raw_id}`
+                        const queued = pendingFwSet.has(key)
+                        if (queued) {
+                          return (
+                            <Badge variant="yellow" className="text-[10px] inline-flex items-center gap-1">
+                              <Download size={10} /> {t('devices.fwQueued')}
+                            </Badge>
+                          )
+                        }
+                        return (
+                          <button
+                            onClick={() => {
+                              const withBackup = confirm(t('devices.remoteFwAskBackup') as string)
+                              if (!confirm(t('devices.remoteFwConfirm', { ip: d.ip, tenant: d.source }) as string)) return
+                              requestRemoteFw.mutate({
+                                tenant: d.source,
+                                deviceId: d.raw_id!,
+                                backup: withBackup,
+                              })
+                            }}
+                            disabled={requestRemoteFw.isPending || !d.online}
+                            className="text-[10px] text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 disabled:opacity-40"
+                            title={t('devices.remoteFwTooltip') as string}
+                          >
+                            <Download size={11} /> {t('devices.remoteFwBtn')}
+                          </button>
+                        )
+                      })()
                     )}
                   </td>
                 </tr>

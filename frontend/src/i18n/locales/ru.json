@@ -93,7 +93,12 @@
                     "fw":  {
                                "done":  "OK v{{v}}"
                            },
-                    "firmwareUpgradeAskBackup":  "Sozdat backup na kazhdom ustroystve pered obnovleniem? [OK] = da, [Otmena] = net."
+                    "firmwareUpgradeAskBackup":  "Sozdat backup na kazhdom ustroystve pered obnovleniem? [OK] = da, [Otmena] = net.",
+                    "fwQueued":  "v ocheredi",
+                    "remoteFwBtn":  "Firmware",
+                    "remoteFwTooltip":  "Zaprosit obnovlenie firmware (via central)",
+                    "remoteFwAskBackup":  "Backup pered obnovleniem? [OK] = da, [Otmena] = net",
+                    "remoteFwConfirm":  "Obnovit firmware {{ip}} u {{tenant}}? Agent zaberet komandu za 2 min i perezagruzit ustroystvo."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Неизвестная модель",

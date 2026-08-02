@@ -93,7 +93,12 @@
                     "fw":  {
                                "done":  "OK v{{v}}"
                            },
-                    "firmwareUpgradeAskBackup":  "Sauvegarder chaque appareil avant la MAJ? [OK] = oui, [Annuler] = non."
+                    "firmwareUpgradeAskBackup":  "Sauvegarder chaque appareil avant la MAJ? [OK] = oui, [Annuler] = non.",
+                    "fwQueued":  "en attente",
+                    "remoteFwBtn":  "Firmware",
+                    "remoteFwTooltip":  "Demander MAJ firmware de cet appareil (via central)",
+                    "remoteFwAskBackup":  "Sauvegarde avant MAJ? [OK] = oui, [Annuler] = non",
+                    "remoteFwConfirm":  "Mettre a jour firmware de {{ip}} chez {{tenant}}? L agent recupere en max 2 min et redemarre l appareil."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Modèle inconnu",

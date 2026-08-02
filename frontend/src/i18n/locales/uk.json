@@ -93,7 +93,12 @@
                     "fw":  {
                                "done":  "OK v{{v}}"
                            },
-                    "firmwareUpgradeAskBackup":  "Stvoryty backup na kozhnomu prystroyi pered onovlennyam? [OK] = tak, [Skasuvaty] = ni."
+                    "firmwareUpgradeAskBackup":  "Stvoryty backup na kozhnomu prystroyi pered onovlennyam? [OK] = tak, [Skasuvaty] = ni.",
+                    "fwQueued":  "v cherzi",
+                    "remoteFwBtn":  "Firmware",
+                    "remoteFwTooltip":  "Zaprosyty onovlennya firmware (via central)",
+                    "remoteFwAskBackup":  "Backup pered onovlennyam? [OK] = tak, [Skasuvaty] = ni",
+                    "remoteFwConfirm":  "Onovyty firmware {{ip}} u {{tenant}}? Agent zabere komandu za 2 hv i perezavantazhyt prystriy."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Невідома модель",

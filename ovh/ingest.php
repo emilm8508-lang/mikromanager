@@ -231,13 +231,29 @@ try {
     }
 
     // Check for pending commands from the viewer (e.g. "please update")
+    // Commands can be strings ("update") or objects with "type" field.
     $commands = [];
     $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
     $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant_header);
+
+    // 1. Self-update command
     $update_marker = $state_dir . '/update_pending_' . $safe;
     if (is_file($update_marker)) {
         $commands[] = 'update';
-        @unlink($update_marker);  // one-shot; delivered = cleared
+        @unlink($update_marker);
+    }
+
+    // 2. Firmware upgrade commands (may be multiple queued for one tenant)
+    foreach (glob($state_dir . "/fw_upgrade_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^fw_upgrade_.+_(\d+)_([bn])$/', $base, $m)) {
+            $commands[] = [
+                'type' => 'firmware_upgrade',
+                'device_id' => (int)$m[1],
+                'backup' => $m[2] === 'b',
+            ];
+            @unlink($f);
+        }
     }
 
     http_response_code(200);

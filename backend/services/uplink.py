@@ -272,11 +272,31 @@ async def _send_one(snapshot: dict) -> bool:
 
 async def _handle_commands(commands: list) -> None:
     """Execute commands returned by the central server in the ingest response.
-    Currently supported: 'update' — run git pull + build + exit for restart."""
+
+    Supported commands (mixed types in one list):
+      - "update"                                          — self-update the app
+      - {"type":"firmware_upgrade","device_id":N,
+         "backup":bool}                                   — upgrade Mikrotik firmware
+    """
     for cmd in commands:
         if cmd == "update":
             print("[uplink] received UPDATE command from central — starting")
             asyncio.create_task(updater.perform_update(restart_supervisor=True))
+        elif isinstance(cmd, dict):
+            cmd_type = cmd.get("type")
+            if cmd_type == "firmware_upgrade":
+                device_id = cmd.get("device_id")
+                backup = bool(cmd.get("backup", False))
+                if device_id:
+                    print(f"[uplink] received FIRMWARE_UPGRADE for device {device_id} (backup={backup})")
+                    from services import firmware
+                    asyncio.create_task(firmware.upgrade_device(int(device_id), do_backup=backup))
+                else:
+                    print(f"[uplink] firmware_upgrade command missing device_id: {cmd}")
+            else:
+                print(f"[uplink] unknown command type: {cmd_type}")
+        else:
+            print(f"[uplink] unknown command: {cmd!r}")
 
 
 async def send_now() -> dict:

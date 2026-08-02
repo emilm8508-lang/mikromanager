@@ -238,6 +238,50 @@ try {
             ]);
             break;
 
+        case 'request_firmware_upgrade':
+            // Queue a firmware upgrade on a specific device of a specific tenant.
+            // The agent picks it up on next heartbeat and runs firmware.upgrade_device.
+            $tenant = $_GET['tenant'] ?? '';
+            $device_id = (int)($_GET['device_id'] ?? 0);
+            $backup = ($_GET['backup'] ?? 'false') === 'true';
+            if ($tenant === '' || $device_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and device_id required']);
+                break;
+            }
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $b = $backup ? 'b' : 'n';
+            $marker = $state_dir . "/fw_upgrade_{$safe}_{$device_id}_{$b}.pending";
+            file_put_contents($marker, date('c'));
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'device_id' => $device_id,
+                'backup' => $backup, 'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_firmware_upgrades':
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/fw_upgrade_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // fw_upgrade_TENANT_DEVICEID_[b|n]
+                    if (preg_match('/^fw_upgrade_(.+)_(\d+)_([bn])$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'device_id' => (int)$m[2],
+                            'backup' => $m[3] === 'b',
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'pending_updates':
             // Which tenants have update_pending marker set right now.
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';

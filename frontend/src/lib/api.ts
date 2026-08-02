@@ -347,6 +347,13 @@ export const centralApi = {
     centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_update', { tenant }),
   pendingUpdates: () =>
     centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_updates'),
+  requestFirmwareUpgrade: (tenant: string, deviceId: number, backup: boolean) =>
+    centralRequest<{ ok: boolean; tenant: string; device_id: number; backup: boolean; queued_at: string }>(
+      'request_firmware_upgrade',
+      { tenant, device_id: String(deviceId), backup: String(backup) },
+    ),
+  pendingFirmwareUpgrades: () =>
+    centralRequest<{ pending: Array<{ tenant: string; device_id: number; backup: boolean; queued_at: string }> }>('pending_firmware_upgrades'),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })
