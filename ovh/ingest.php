@@ -20,6 +20,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 $config = require __DIR__ . '/config.php';
+require_once __DIR__ . '/notifications.php';
 
 function fail(int $code, string $msg): void {
     http_response_code($code);
@@ -229,6 +230,18 @@ try {
             }
         }
     }
+
+    // Alerts + edge processing (from unencrypted metadata)
+    try {
+        $ae = is_array($public_meta) ? ($public_meta['alert_events'] ?? null) : null;
+        if (is_array($ae) && !empty($ae)) alerts_process($pdo, $tenant_header, $ae);
+    } catch (Throwable $e) { error_log('[mm-alerts] ' . $e->getMessage()); }
+    try {
+        $ei = is_array($public_meta) ? ($public_meta['edge_ips'] ?? null) : null;
+        if (is_array($ei)) edge_sync_from_agent($pdo, $tenant_header, $ei);
+    } catch (Throwable $e) { error_log('[mm-edge-sync] ' . $e->getMessage()); }
+    try { edge_check_due($pdo, 8); }
+    catch (Throwable $e) { error_log('[mm-edge] ' . $e->getMessage()); }
 
     // Check for pending commands from the viewer (e.g. "please update")
     // Commands can be strings ("update") or objects with "type" field.

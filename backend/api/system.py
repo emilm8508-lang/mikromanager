@@ -210,27 +210,31 @@ async def updater_run(restart: bool = True):
 # Proxying through our local backend sidesteps both — the browser only talks
 # to localhost, and Python's aiohttp does clean TLS to OVH.
 
-@router.get("/central-proxy")
-async def central_proxy(request: Request, upstream: str):
-    """Forward viewer's request to OVH api.php. Pass-through Authorization
-    header and query params except 'upstream'."""
+async def _central_proxy_forward(request: Request, upstream: str, method: str):
     if not upstream.startswith("https://"):
         raise HTTPException(400, "upstream must be HTTPS")
 
     import aiohttp
-    # Build query string for upstream — everything except 'upstream' itself
     params = {k: v for k, v in request.query_params.items() if k != "upstream"}
     auth = request.headers.get("authorization", "")
+    body = None
+    headers = {"Authorization": auth}
+    if method in ("POST", "PUT", "PATCH", "DELETE"):
+        body = await request.body()
+        ct = request.headers.get("content-type")
+        if ct:
+            headers["Content-Type"] = ct
 
     try:
         timeout = aiohttp.ClientTimeout(total=20)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(upstream, params=params,
-                                   headers={"Authorization": auth}) as resp:
-                body = await resp.read()
+            async with session.request(
+                method, upstream, params=params, headers=headers, data=body,
+            ) as resp:
+                data = await resp.read()
                 from fastapi.responses import Response
                 return Response(
-                    content=body,
+                    content=data,
                     status_code=resp.status,
                     media_type=resp.content_type or "application/json",
                 )
@@ -238,6 +242,21 @@ async def central_proxy(request: Request, upstream: str):
         raise HTTPException(502, f"Proxy upstream error: {type(e).__name__}: {e}")
     except asyncio.TimeoutError:
         raise HTTPException(504, "Upstream timeout")
+
+
+@router.get("/central-proxy")
+async def central_proxy_get(request: Request, upstream: str):
+    return await _central_proxy_forward(request, upstream, "GET")
+
+
+@router.post("/central-proxy")
+async def central_proxy_post(request: Request, upstream: str):
+    return await _central_proxy_forward(request, upstream, "POST")
+
+
+@router.delete("/central-proxy")
+async def central_proxy_delete(request: Request, upstream: str):
+    return await _central_proxy_forward(request, upstream, "DELETE")
 
 
 @router.post("/uplink/send-now")

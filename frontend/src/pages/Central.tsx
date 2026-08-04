@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
+import { AlertsPanel } from './CentralAlerts'
 
 function formatAge(sec: number | null): string {
   if (sec === null || sec === undefined) return '—'
@@ -711,7 +712,7 @@ function ViewerPanel() {
 
 export function Central() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'agent' | 'viewer'>('viewer')
+  const [tab, setTab] = useState<'agent' | 'viewer' | 'alerts'>('viewer')
 
   return (
     <div className="p-6 space-y-5">
@@ -733,9 +734,17 @@ export function Central() {
           }`}>
           {t('central.tabAgent')}
         </button>
+        <button onClick={() => setTab('alerts')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'alerts' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}>
+          {t('central.tabAlerts')}
+        </button>
       </div>
 
-      {tab === 'viewer' ? <ViewerPanel /> : <UplinkPanel />}
+      {tab === 'viewer' ? <ViewerPanel />
+        : tab === 'agent' ? <UplinkPanel />
+        : <AlertsPanel />}
     </div>
   )
 }

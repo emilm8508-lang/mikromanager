@@ -273,25 +273,144 @@ export const centralConfig = {
   },
 }
 
-async function centralRequest<T>(action: string, params: Record<string, string> = {}): Promise<T> {
+async function centralRequest<T>(
+  action: string,
+  params: Record<string, string> = {},
+  opts: { method?: 'GET' | 'POST' | 'DELETE'; body?: any } = {},
+): Promise<T> {
   const cfg = centralConfig.load()
   if (!cfg) throw new Error('Central not configured')
 
-  // Go through local backend proxy. This avoids:
-  //   - Browser CORS errors (request is now same-origin to localhost:8888)
-  //   - Corporate antivirus TLS interception (Norton/ESET/Kaspersky) that
-  //     mangles cross-origin fetch responses. The backend uses Python's
-  //     own TLS stack which is not affected.
   const url = new URL('/api/system/central-proxy', window.location.origin)
   url.searchParams.set('upstream', cfg.apiUrl)
   url.searchParams.set('action', action)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
-  const resp = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${cfg.password}` },
-  })
+  const method = opts.method ?? 'GET'
+  const headers: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
+  let body: string | undefined
+  if (opts.body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    body = JSON.stringify(opts.body)
+  }
+
+  const resp = await fetch(url.toString(), { method, headers, body })
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`)
   return resp.json()
+}
+
+// ── Alert + edge types ─────────────────────────────────────────────────────
+
+export interface AlertChannel {
+  id: number
+  name: string
+  type: 'telegram' | 'webhook'
+  config: {
+    chat_id?: string
+    bot_token_set?: boolean
+    bot_token_suffix?: string
+    url_set?: boolean
+    url_host?: string
+  }
+  enabled: number
+  created_at: string
+}
+
+export interface AlertChannelInput {
+  name: string
+  type: 'telegram' | 'webhook'
+  config: { bot_token?: string; chat_id?: string; url?: string }
+}
+
+export interface AlertRule {
+  id: number
+  name: string | null
+  tenant: string | null
+  event_type: string
+  min_count: number
+  cooldown_sec: number
+  channel_ids: number[]
+  enabled: number
+  created_at: string
+}
+
+export interface AlertRuleInput {
+  name?: string
+  tenant?: string
+  event_type: string
+  min_count: number
+  cooldown_sec: number
+  channel_ids: number[]
+}
+
+export interface AlertHistoryEntry {
+  id: number
+  triggered_at: string
+  tenant: string
+  event_type: string
+  event_data: {
+    type?: string
+    device_name?: string
+    device_ip?: string
+    count?: number
+    sources?: string[]
+    users?: string[]
+    window_sec?: number
+    threshold?: number
+    detected_at?: string
+  }
+  matched_rule_id: number | null
+  notifications_result: Record<string, { ok: boolean; error?: string; status?: number }>
+}
+
+export interface EdgeDevice {
+  id: number
+  tenant: string
+  name: string
+  ip: string
+  check_port: number | null
+  interval_sec: number
+  channel_ids: number[]
+  enabled: number
+  source: 'auto' | 'manual'
+  source_device_id: number | null
+  source_device_name: string | null
+  source_iface: string | null
+  last_seen_from_agent: string | null
+  last_check: string | null
+  last_status: 'unknown' | 'online' | 'offline'
+  last_state_change: string | null
+  consecutive_fails: number
+  created_at: string
+}
+
+export interface EdgeDeviceUpdate {
+  id: number
+  name?: string
+  check_port?: number | null
+  interval_sec?: number
+  channel_ids?: number[]
+}
+
+export interface EdgeDeviceManualInput {
+  tenant: string
+  name: string
+  ip: string
+  check_port?: number | null
+  interval_sec: number
+  channel_ids: number[]
+}
+
+export interface EdgeEvent {
+  id: number
+  edge_id: number
+  ts: string
+  event_type: 'offline' | 'online'
+  duration_sec: number | null
+  notifications_result: Record<string, { ok: boolean; error?: string; status?: number }>
+  device_name: string
+  device_ip: string
+  tenant: string
 }
 
 // ── E2E decryption (Web Crypto API, runs in-browser only) ────────────────────
@@ -354,6 +473,49 @@ export const centralApi = {
     ),
   pendingFirmwareUpgrades: () =>
     centralRequest<{ pending: Array<{ tenant: string; device_id: number; backup: boolean; queued_at: string }> }>('pending_firmware_upgrades'),
+
+  // Alerts
+  alertChannels: () => centralRequest<{ channels: AlertChannel[] }>('alert_channels'),
+  alertChannelAdd: (data: AlertChannelInput) =>
+    centralRequest<{ ok: boolean; id: number }>('alert_channel_add', {}, { method: 'POST', body: data }),
+  alertChannelDelete: (id: number) =>
+    centralRequest<{ ok: boolean; deleted: number }>('alert_channel_delete', { id: String(id) }, { method: 'DELETE' }),
+  alertChannelToggle: (id: number) =>
+    centralRequest<{ ok: boolean }>('alert_channel_toggle', { id: String(id) }, { method: 'POST' }),
+  alertChannelTest: (id: number) =>
+    centralRequest<{ result: { ok: boolean; error?: string; status?: number } }>('alert_channel_test', { id: String(id) }, { method: 'POST' }),
+  alertRules: () => centralRequest<{ rules: AlertRule[] }>('alert_rules'),
+  alertRuleAdd: (data: AlertRuleInput) =>
+    centralRequest<{ ok: boolean; id: number }>('alert_rule_add', {}, { method: 'POST', body: data }),
+  alertRuleDelete: (id: number) =>
+    centralRequest<{ ok: boolean; deleted: number }>('alert_rule_delete', { id: String(id) }, { method: 'DELETE' }),
+  alertRuleToggle: (id: number) =>
+    centralRequest<{ ok: boolean }>('alert_rule_toggle', { id: String(id) }, { method: 'POST' }),
+  alertHistory: (tenant?: string, limit: number = 50) =>
+    centralRequest<{ history: AlertHistoryEntry[] }>(
+      'alert_history',
+      tenant ? { tenant, limit: String(limit) } : { limit: String(limit) },
+    ),
+
+  // Edge monitoring
+  edgeDevices: () => centralRequest<{ devices: EdgeDevice[] }>('edge_devices'),
+  edgeDeviceUpdate: (data: EdgeDeviceUpdate) =>
+    centralRequest<{ ok: boolean }>('edge_device_update', {}, { method: 'POST', body: data }),
+  edgeDeviceAdd: (data: EdgeDeviceManualInput) =>
+    centralRequest<{ ok: boolean; id: number }>('edge_device_add', {}, { method: 'POST', body: data }),
+  edgeDeviceDelete: (id: number) =>
+    centralRequest<{ ok: boolean; deleted: number }>('edge_device_delete', { id: String(id) }, { method: 'DELETE' }),
+  edgeDeviceToggle: (id: number) =>
+    centralRequest<{ ok: boolean }>('edge_device_toggle', { id: String(id) }, { method: 'POST' }),
+  edgeDeviceCheckNow: (id: number) =>
+    centralRequest<{ ok: boolean; result: { ok: boolean; state_changed: boolean; new_status: string } }>(
+      'edge_device_check_now', { id: String(id) }, { method: 'POST' },
+    ),
+  edgeEvents: (edgeId?: number, limit: number = 100) =>
+    centralRequest<{ events: EdgeEvent[] }>(
+      'edge_events',
+      edgeId ? { edge_id: String(edgeId), limit: String(limit) } : { limit: String(limit) },
+    ),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })

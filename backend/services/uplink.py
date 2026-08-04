@@ -26,6 +26,8 @@ from models.database import SessionLocal, Device, DeviceLink
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from services import updater
+from services import alerts
+from services import edge_discovery
 
 
 # Config — can be overridden via UI/env vars
@@ -169,12 +171,24 @@ async def _build_snapshot() -> dict:
         crit_logs = []
 
     git_info = updater.read_git_info()
+
+    try:
+        alert_events = await alerts.collect_alert_events()
+    except Exception as e:
+        print(f"[uplink] alert detection error: {e}")
+        alert_events = []
+
+    try:
+        edge_ips = await edge_discovery.collect_public_ips()
+    except Exception as e:
+        print(f"[uplink] edge discovery error: {e}")
+        edge_ips = []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.2",
-        # Git identifiers so the viewer can tell how far behind the tenant is
+        "agent_version": "1.3",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -183,6 +197,8 @@ async def _build_snapshot() -> dict:
         "devices": dev_list,
         "links": link_list,
         "critical_logs": crit_logs,
+        "alert_events": alert_events,
+        "edge_ips": edge_ips,
     }
 
 
@@ -211,6 +227,8 @@ def _build_request_body(snapshot: dict) -> tuple:
             "devices_online": snapshot.get("devices_online"),
             "agent_commit": snapshot.get("agent_commit"),
             "agent_commit_time": snapshot.get("agent_commit_time"),
+            "alert_events": snapshot.get("alert_events", []),
+            "edge_ips": snapshot.get("edge_ips", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
