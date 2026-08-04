@@ -303,6 +303,7 @@
                      "ruleNamePlaceholder":  "np. Brute force SSH",
                      "eventType":  "Typ zdarzenia",
                      "eventFailedLogins":  "Nieudane proby logowania",
+                     "eventFirmwareAvailable":  "Nowa wersja RouterOS dostepna",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",

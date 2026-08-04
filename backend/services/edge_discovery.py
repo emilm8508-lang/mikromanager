@@ -16,6 +16,25 @@ from models.database import SessionLocal, Device, Credential
 from services.device_client import build_client
 
 
+import re
+
+# Interface names that are tunnels / VPN — their addresses are not real WAN
+# and should not be pinged from the central server.
+TUNNEL_IFACE_RE = re.compile(
+    r"^("
+    r"eoip|eoipv6|gre|gretap|ipip|ipipv6|"
+    r"pptp-|l2tp-|ovpn-|sstp-|"
+    r"wireguard|wg\d|"
+    r"vxlan|vlan\d+"  # vlans are usually LAN, though some ISPs use them for WAN
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_tunnel_iface(iface: str) -> bool:
+    return bool(iface and TUNNEL_IFACE_RE.match(iface))
+
+
 def _is_public(ip_str: str) -> bool:
     """True only for globally routable IPv4/IPv6 addresses."""
     try:
@@ -67,6 +86,8 @@ async def _scan_device(device_id: int) -> List[dict]:
         if not ip or ip in seen:
             continue
         if not _is_public(ip):
+            continue
+        if _is_tunnel_iface(str(iface)):
             continue
         seen.add(ip)
         out.append({

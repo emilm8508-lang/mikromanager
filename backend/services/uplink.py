@@ -28,6 +28,7 @@ from services.mikrotik_client import MikrotikClient
 from services import updater
 from services import alerts
 from services import edge_discovery
+from services import firmware_status
 
 
 # Config — can be overridden via UI/env vars
@@ -184,6 +185,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] edge discovery error: {e}")
         edge_ips = []
 
+    try:
+        fw_status = await firmware_status.collect_firmware_status()
+    except Exception as e:
+        print(f"[uplink] firmware status error: {e}")
+        fw_status = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -199,6 +206,7 @@ async def _build_snapshot() -> dict:
         "critical_logs": crit_logs,
         "alert_events": alert_events,
         "edge_ips": edge_ips,
+        "firmware_status": fw_status,
     }
 
 
@@ -229,6 +237,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "agent_commit_time": snapshot.get("agent_commit_time"),
             "alert_events": snapshot.get("alert_events", []),
             "edge_ips": snapshot.get("edge_ips", []),
+            "firmware_status": snapshot.get("firmware_status"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

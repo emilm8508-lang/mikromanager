@@ -318,6 +318,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
               <select value={eventType} onChange={e => setEventType(e.target.value)}
                 className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
                 <option value="failed_logins">{t('alerts.eventFailedLogins')}</option>
+                <option value="firmware_available">{t('alerts.eventFirmwareAvailable')}</option>
               </select>
             </label>
             <label className="text-sm">

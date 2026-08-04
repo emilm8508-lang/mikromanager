@@ -431,11 +431,14 @@ function edge_sync_from_agent(PDO $pdo, string $tenant, array $edge_ips): void {
         $iface = (string)($e['iface'] ?? '');
         $default_name = $device_name !== '' ? "{$device_name} ({$iface})" : $ip;
 
+        // Default check_port=8291 (Winbox) for new auto-discovered IPs — most
+        // OVH shared hosting has exec() disabled, so ICMP ping won't work.
+        // Winbox is virtually always open on WAN of MikroTik edge devices.
         $stmt = $pdo->prepare(
             'INSERT INTO edge_devices
-               (tenant, name, ip, source, source_device_id, source_device_name,
+               (tenant, name, ip, check_port, source, source_device_id, source_device_name,
                 source_iface, last_seen_from_agent, channel_ids, enabled)
-             VALUES (?, ?, ?, "auto", ?, ?, ?, ?, "[]", 0)
+             VALUES (?, ?, ?, 8291, "auto", ?, ?, ?, ?, "[]", 0)
              ON DUPLICATE KEY UPDATE
                source_device_id = VALUES(source_device_id),
                source_device_name = VALUES(source_device_name),
@@ -454,4 +457,90 @@ function edge_sync_from_agent(PDO $pdo, string $tenant, array $edge_ips): void {
                 OR last_seen_from_agent < DATE_SUB(NOW(), INTERVAL 7 DAY))"
     );
     $stmt->execute([$tenant]);
+}
+
+
+// ── Firmware availability alerts (v1.6) ────────────────────────────────────
+
+/**
+ * Fire one-off alert per (tenant, latest_stable_version) when:
+ *   - producer released a new RouterOS version, AND
+ *   - tenant has outdated_count > 0
+ *
+ * Dedup: check alert_history — if latest alert for this tenant of type
+ * 'firmware_available' has SAME latest_stable, skip. After all devices are
+ * upgraded (outdated_count=0) we don't clear anything — next producer bump
+ * naturally produces a different latest_stable so a fresh alert fires.
+ */
+function firmware_alerts_process(PDO $pdo, string $tenant, ?array $fw): void {
+    if (!$fw || !is_array($fw)) return;
+    $outdated = (int)($fw['outdated_count'] ?? 0);
+    if ($outdated <= 0) return;
+    $latest = trim((string)($fw['latest_stable'] ?? ''));
+    if ($latest === '') return;
+
+    // Dedup: same version already alerted for this tenant?
+    $stmt = $pdo->prepare(
+        "SELECT event_data FROM alert_history
+         WHERE tenant = ? AND event_type = 'firmware_available'
+         ORDER BY triggered_at DESC LIMIT 1"
+    );
+    $stmt->execute([$tenant]);
+    $last = $stmt->fetchColumn();
+    if ($last) {
+        $last_data = json_decode($last, true);
+        if (is_array($last_data) && ($last_data['latest_stable'] ?? '') === $latest) {
+            return;  // already alerted this exact producer version
+        }
+    }
+
+    // Load rules matching firmware_available
+    $stmt = $pdo->prepare(
+        "SELECT * FROM alert_rules
+         WHERE enabled = 1 AND event_type = 'firmware_available'
+           AND (tenant = ? OR tenant IS NULL OR tenant = '')"
+    );
+    $stmt->execute([$tenant]);
+    $rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($rules)) return;
+
+    $devices_outdated = is_array($fw['devices_outdated'] ?? null) ? $fw['devices_outdated'] : [];
+
+    foreach ($rules as $rule) {
+        $channel_ids = json_decode($rule['channel_ids'] ?? '[]', true);
+        if (!is_array($channel_ids)) $channel_ids = [];
+        $results = [];
+        foreach ($channel_ids as $cid) {
+            $ch = alerts_get_channel($pdo, (int)$cid);
+            if (!$ch) { $results[(string)$cid] = ['ok'=>false,'error'=>'channel not found']; continue; }
+            $msg = firmware_format_message($tenant, $latest, $outdated, $devices_outdated, $rule['name'] ?? '');
+            $results[(string)$cid] = edge_dispatch($ch, $msg);
+        }
+        $event_data = ['type'=>'firmware_available','latest_stable'=>$latest,'outdated_count'=>$outdated,'devices_outdated'=>$devices_outdated];
+        $stmt = $pdo->prepare(
+            'INSERT INTO alert_history (tenant, event_type, event_data, matched_rule_id, notifications_result)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$tenant, 'firmware_available', json_encode($event_data), (int)$rule['id'], json_encode($results)]);
+    }
+}
+
+
+function firmware_format_message(string $tenant, string $latest, int $outdated, array $devices, string $rule_name): string {
+    $prefix = $rule_name !== '' ? "[$rule_name] " : '';
+    $msg = "📦 {$prefix}Nowa wersja RouterOS: {$latest}\n"
+         . "Tenant: {$tenant}\n"
+         . "Do zaktualizowania: {$outdated} urządzeń";
+    if (!empty($devices)) {
+        $names = [];
+        foreach (array_slice($devices, 0, 10) as $d) {
+            if (!is_array($d)) continue;
+            $n = $d['name'] ?? '?';
+            $cur = $d['current'] ?? '?';
+            $names[] = "{$n} ({$cur})";
+        }
+        if (!empty($names)) $msg .= "\n\n" . implode("\n", $names);
+        if (count($devices) > 10) $msg .= "\n... i " . (count($devices) - 10) . " więcej";
+    }
+    return $msg;
 }
