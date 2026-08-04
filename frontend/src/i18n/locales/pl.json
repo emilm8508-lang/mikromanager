@@ -42,6 +42,8 @@
                       "noDevicesYet":  "Brak urządzeń. Uruchom skan sieci.",
                       "goToScanner":  "Przejdź do skanera →",
                       "criticalLogs":  "Logi krytyczne (ostatnie 20)",
+                      "activityLog":  "Dziennik zdarzen",
+                      "noActivity":  "Brak zdarzen",
                       "noCriticalLogs":  "Brak krytycznych logów - wszystko OK",
                       "criticalCols":  {
                                            "device":  "Urządzenie",

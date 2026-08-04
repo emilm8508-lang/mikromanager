@@ -26,6 +26,12 @@ from services.device_client import build_client
 THRESHOLD = int(os.environ.get("MIKROMANAGER_ALERT_FAILED_LOGIN_THRESHOLD", "5"))
 WINDOW_SEC = int(os.environ.get("MIKROMANAGER_ALERT_FAILED_LOGIN_WINDOW", "900"))
 
+# Cache full scan results — uplink runs every 2 min, but scanning every
+# device that often floods their logs with "user X logged in / logged out"
+# entries. Rescan only once per SCAN_TTL_SEC (default 1h).
+SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_ALERT_SCAN_TTL", "3600"))
+_scan_cache = {"data": [], "ts": 0.0}
+
 # Dedup: prevents flooding OVH with duplicate events for the same device.
 _seen: dict = {}
 _SEEN_TTL_SEC = 3600
@@ -108,7 +114,13 @@ async def _scan_device(device_id: int) -> Optional[dict]:
 
 
 async def collect_alert_events() -> List[dict]:
-    """Scan every device with credentials. Concurrency-bounded so we don't hammer."""
+    """Scan every device with credentials. Concurrency-bounded so we don't hammer.
+    Result cached for SCAN_TTL_SEC to avoid re-logging into every device on
+    every uplink cycle."""
+    now = time.time()
+    if (now - _scan_cache["ts"]) < SCAN_TTL_SEC:
+        return _scan_cache["data"]
+
     _prune_seen()
     with SessionLocal() as db:
         ids = [d.id for d in db.execute(
@@ -125,4 +137,7 @@ async def collect_alert_events() -> List[dict]:
                 return None
 
     results = await asyncio.gather(*[_bounded(i) for i in ids])
-    return [r for r in results if r]
+    data = [r for r in results if r]
+    _scan_cache["data"] = data
+    _scan_cache["ts"] = now
+    return data

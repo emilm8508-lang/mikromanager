@@ -248,6 +248,16 @@ try {
         firmware_alerts_process($pdo, $tenant_header, is_array($fw) ? $fw : null);
     } catch (Throwable $e) { error_log('[mm-fw] ' . $e->getMessage()); }
 
+    // Activity log — save agent-reported events + detect agent version changes
+    try {
+        $ae = is_array($public_meta) ? ($public_meta['activity_events'] ?? null) : null;
+        activity_process($pdo, $tenant_header, is_array($ae) ? $ae : null);
+    } catch (Throwable $e) { error_log('[mm-activity] ' . $e->getMessage()); }
+    try {
+        $commit = is_array($public_meta) ? ($public_meta['agent_commit'] ?? null) : null;
+        activity_detect_agent_update($pdo, $tenant_header, is_string($commit) ? $commit : null);
+    } catch (Throwable $e) { error_log('[mm-agent-upd] ' . $e->getMessage()); }
+
     // Check for pending commands from the viewer (e.g. "please update")
     // Commands can be strings ("update") or objects with "type" field.
     $commands = [];

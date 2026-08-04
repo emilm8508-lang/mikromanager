@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS tenants (
     last_seen DATETIME,
     first_seen DATETIME,
     last_payload_bytes INT DEFAULT 0,
-    notes VARCHAR(255) DEFAULT NULL
+    notes VARCHAR(255) DEFAULT NULL,
+    last_seen_commit VARCHAR(64) NULL  -- for detecting agent updates (v1.7)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -79,6 +80,25 @@ CREATE TABLE IF NOT EXISTS edge_devices (
     UNIQUE KEY uniq_tenant_ip (tenant, ip),
     INDEX (tenant), INDEX (enabled, last_check)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Activity log (v1.7) — timeline of interesting events (firmware upgraded,
+-- agent restarted after update, backups, etc.). Purely informational, shown
+-- on the dashboard. NOT tied to notification channels.
+
+CREATE TABLE IF NOT EXISTS activity_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+    tenant VARCHAR(64) NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    message VARCHAR(500) NOT NULL,
+    details MEDIUMTEXT NULL,           -- JSON
+    INDEX (tenant, ts DESC),
+    INDEX (ts DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add column to tenants for agent_commit change detection.
+-- If tenants table already exists, run:
+--   ALTER TABLE tenants ADD COLUMN last_seen_commit VARCHAR(64) NULL;
 
 CREATE TABLE IF NOT EXISTS edge_events (
     id INT AUTO_INCREMENT PRIMARY KEY,

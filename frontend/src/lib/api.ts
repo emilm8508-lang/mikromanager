@@ -401,6 +401,15 @@ export interface EdgeDeviceManualInput {
   channel_ids: number[]
 }
 
+export interface ActivityEntry {
+  id: number
+  ts: string
+  tenant: string
+  event_type: string
+  message: string
+  details: any
+}
+
 export interface EdgeEvent {
   id: number
   edge_id: number
@@ -515,6 +524,13 @@ export const centralApi = {
     centralRequest<{ events: EdgeEvent[] }>(
       'edge_events',
       edgeId ? { edge_id: String(edgeId), limit: String(limit) } : { limit: String(limit) },
+    ),
+
+  // Activity log (dashboard timeline)
+  activityLog: (tenant?: string, limit: number = 50) =>
+    centralRequest<{ activity: ActivityEntry[] }>(
+      'activity_log',
+      tenant ? { tenant, limit: String(limit) } : { limit: String(limit) },
     ),
 
   async snapshot(tenant: string): Promise<any> {

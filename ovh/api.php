@@ -480,6 +480,22 @@ try {
             echo json_encode(['events'=>$rows]);
             break;
 
+        case 'activity_log':
+            $limit = min(200, max(1, (int)($_GET['limit']??50)));
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant !== '') {
+                $stmt = $pdo->prepare('SELECT id,ts,tenant,event_type,message,details FROM activity_log WHERE tenant=? ORDER BY ts DESC LIMIT '.$limit);
+                $stmt->execute([$tenant]);
+            } else {
+                $stmt = $pdo->query('SELECT id,ts,tenant,event_type,message,details FROM activity_log ORDER BY ts DESC LIMIT '.$limit);
+            }
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as &$r) {
+                $r['details'] = $r['details'] ? json_decode($r['details'], true) : null;
+            }
+            echo json_encode(['activity' => $rows]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

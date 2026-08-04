@@ -544,3 +544,83 @@ function firmware_format_message(string $tenant, string $latest, int $outdated, 
     }
     return $msg;
 }
+
+
+// ── Activity log (v1.7) ────────────────────────────────────────────────────
+
+/**
+ * Save incoming activity events (from agent) to activity_log table.
+ * Also detects agent version changes (unencrypted metadata) and records
+ * a synthetic 'agent_updated' event.
+ */
+function activity_process(PDO $pdo, string $tenant, ?array $events): void {
+    if (is_array($events)) {
+        foreach ($events as $e) {
+            if (!is_array($e)) continue;
+            $type = (string)($e['type'] ?? '');
+            if ($type === '') continue;
+            $msg = activity_format_message($type, $e);
+            $stmt = $pdo->prepare(
+                'INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, ?, ?, ?)'
+            );
+            $stmt->execute([$tenant, $type, $msg, json_encode($e)]);
+        }
+    }
+
+    // Cap history: keep 500 newest per tenant.
+    $stmt = $pdo->prepare(
+        'DELETE FROM activity_log
+         WHERE tenant = ?
+           AND id NOT IN (
+             SELECT id FROM (
+               SELECT id FROM activity_log WHERE tenant = ? ORDER BY ts DESC LIMIT 500
+             ) t
+           )'
+    );
+    $stmt->execute([$tenant, $tenant]);
+}
+
+
+/**
+ * Detect if this tenant's agent commit changed since last snapshot.
+ * If yes → record 'agent_updated' activity event.
+ * Called from ingest.php with the current agent_commit from unencrypted metadata.
+ */
+function activity_detect_agent_update(PDO $pdo, string $tenant, ?string $current_commit): void {
+    if (!$current_commit) return;
+    $stmt = $pdo->prepare('SELECT last_seen_commit FROM tenants WHERE id = ?');
+    $stmt->execute([$tenant]);
+    $prev = $stmt->fetchColumn();
+    if ($prev !== false && $prev !== null && $prev !== '' && $prev !== $current_commit) {
+        // Version changed → agent updated
+        $short = substr($current_commit, 0, 8);
+        $prev_short = substr((string)$prev, 0, 8);
+        $msg = "Agent klienta {$tenant} zaktualizowany: {$prev_short} → {$short}";
+        $details = ['type'=>'agent_updated', 'old_commit'=>$prev, 'new_commit'=>$current_commit];
+        $stmt = $pdo->prepare(
+            'INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "agent_updated", ?, ?)'
+        );
+        $stmt->execute([$tenant, $msg, json_encode($details)]);
+    }
+    // Update tenant's last known commit
+    $stmt = $pdo->prepare('UPDATE tenants SET last_seen_commit = ? WHERE id = ?');
+    $stmt->execute([$current_commit, $tenant]);
+}
+
+
+function activity_format_message(string $type, array $e): string {
+    $name = $e['device_name'] ?? $e['device_ip'] ?? '?';
+    switch ($type) {
+        case 'firmware_upgraded':
+            $old = $e['old_version'] ?? '?';
+            $new = $e['new_version'] ?? '?';
+            return "Urządzenie {$name} pomyślnie zaktualizowane {$old} → {$new}";
+        case 'firmware_upgrade_failed':
+            $err = $e['error'] ?? 'unknown error';
+            return "Aktualizacja firmware urządzenia {$name} nie powiodła się: {$err}";
+        case 'backup_completed':
+            return "Backup urządzenia {$name} utworzony";
+        default:
+            return "{$type}: {$name}";
+    }
+}

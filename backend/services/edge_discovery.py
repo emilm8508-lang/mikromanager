@@ -9,11 +9,19 @@ Handles multi-WAN — one device can produce multiple entries.
 """
 import asyncio
 import ipaddress
+import os
+import time
 from typing import List
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, Credential
 from services.device_client import build_client
+
+
+# Cache full scan for SCAN_TTL_SEC — same reason as alerts.py: uplink runs
+# every 2 min but there's no reason to poll every device that often.
+SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_EDGE_SCAN_TTL", "3600"))
+_scan_cache = {"data": [], "ts": 0.0}
 
 
 import re
@@ -100,7 +108,12 @@ async def _scan_device(device_id: int) -> List[dict]:
 
 
 async def collect_public_ips() -> List[dict]:
-    """Walk all devices with credentials, return flat list of public IPs."""
+    """Walk all devices with credentials, return flat list of public IPs.
+    Cached for SCAN_TTL_SEC to prevent flooding device logs."""
+    now = time.time()
+    if (now - _scan_cache["ts"]) < SCAN_TTL_SEC:
+        return _scan_cache["data"]
+
     with SessionLocal() as db:
         ids = [d.id for d in db.execute(
             select(Device).where(Device.credential_id.is_not(None))
@@ -119,4 +132,6 @@ async def collect_public_ips() -> List[dict]:
     flat = []
     for r in results:
         flat.extend(r)
+    _scan_cache["data"] = flat
+    _scan_cache["ts"] = now
     return flat

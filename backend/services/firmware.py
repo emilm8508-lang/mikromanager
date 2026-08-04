@@ -212,6 +212,18 @@ async def upgrade_device(device_id: int, do_backup: bool = True) -> dict:
                         d.online = True
                         d.last_seen = datetime.utcnow()
                         db.commit()
+                try:
+                    from services import activity
+                    activity.record(
+                        "firmware_upgraded",
+                        device_id=device_id,
+                        device_name=_jobs[device_id].get("identity"),
+                        device_ip=_jobs[device_id].get("ip"),
+                        old_version=_jobs[device_id].get("old_version"),
+                        new_version=new_version,
+                    )
+                except Exception as e:
+                    print(f"[firmware] activity record error: {e}")
                 return {"ok": True, "old": _jobs[device_id]["old_version"], "new": new_version}
         except Exception:
             pass
@@ -219,6 +231,18 @@ async def upgrade_device(device_id: int, do_backup: bool = True) -> dict:
 
     _jobs[device_id]["status"] = "timeout"
     _jobs[device_id]["log"].append("Timeout — device did not come back within 5 min")
+    try:
+        from services import activity
+        activity.record(
+            "firmware_upgrade_failed",
+            device_id=device_id,
+            device_name=_jobs[device_id].get("identity"),
+            device_ip=_jobs[device_id].get("ip"),
+            old_version=_jobs[device_id].get("old_version"),
+            error="timeout after 5 min",
+        )
+    except Exception as e:
+        print(f"[firmware] activity record error: {e}")
     return {"error": "timeout waiting for device"}
 
 

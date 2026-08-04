@@ -29,6 +29,7 @@ from services import updater
 from services import alerts
 from services import edge_discovery
 from services import firmware_status
+from services import activity
 
 
 # Config — can be overridden via UI/env vars
@@ -191,6 +192,13 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] firmware status error: {e}")
         fw_status = None
 
+    # Drain any queued activity events (firmware upgrades, backups, etc.)
+    try:
+        activity_events = activity.drain()
+    except Exception as e:
+        print(f"[uplink] activity drain error: {e}")
+        activity_events = []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -207,6 +215,7 @@ async def _build_snapshot() -> dict:
         "alert_events": alert_events,
         "edge_ips": edge_ips,
         "firmware_status": fw_status,
+        "activity_events": activity_events,
     }
 
 
@@ -238,6 +247,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "alert_events": snapshot.get("alert_events", []),
             "edge_ips": snapshot.get("edge_ips", []),
             "firmware_status": snapshot.get("firmware_status"),
+            "activity_events": snapshot.get("activity_events", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

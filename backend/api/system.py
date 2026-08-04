@@ -3,6 +3,7 @@ System endpoints — refresher status, manual trigger, topology, version checks,
 critical-logs aggregator.
 """
 import asyncio
+import os
 import time
 from fastapi import APIRouter, HTTPException, Request
 from services import refresher
@@ -88,7 +89,12 @@ async def force_refresh_versions():
 # ── Critical log aggregator ──────────────────────────────────────────────────
 # Live view — never stored. Cached in-memory 60s to avoid flooding devices.
 _crit_cache: dict = {"data": [], "fetched_at": 0}
-_CRIT_TTL = 60
+# TTL long enough that uplink cycles (every 2 min) don't refetch — otherwise
+# every heartbeat generates login/logout entries in every device's log.
+# Manual refresh from viewer's Dashboard still bypasses via the refresh button
+# (it invalidates the query but hits the same cache; devices only get polled
+# when this window elapses).
+_CRIT_TTL = int(os.environ.get("MIKROMANAGER_CRIT_LOGS_TTL", "3600"))
 
 
 @router.get("/critical-logs")

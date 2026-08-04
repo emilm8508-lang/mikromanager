@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { devicesApi, systemApi } from '../lib/api'
+import { devicesApi, systemApi, centralApi, centralConfig, type ActivityEntry } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import { Server, Wifi, CheckCircle2, XCircle, AlertOctagon, RefreshCw } from 'lucide-react'
+import { Server, Wifi, CheckCircle2, XCircle, AlertOctagon, RefreshCw, Activity } from 'lucide-react'
 import { formatDate } from '../lib/utils'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +27,63 @@ function topicColor(topics?: string) {
   if (t.includes('critical')) return 'text-red-700 bg-red-50 border-red-200'
   if (t.includes('error')) return 'text-red-600 bg-red-50 border-red-100'
   return 'text-amber-700 bg-amber-50 border-amber-200'
+}
+
+function activityIcon(type: string): string {
+  switch (type) {
+    case 'firmware_upgraded': return '✅'
+    case 'firmware_upgrade_failed': return '❌'
+    case 'agent_updated': return '🔄'
+    case 'backup_completed': return '💾'
+    default: return '•'
+  }
+}
+
+function ActivityLogCard() {
+  const { t } = useTranslation()
+  const enabled = !!centralConfig.load()
+  const { data, isLoading } = useQuery({
+    queryKey: ['central-activity'],
+    queryFn: () => centralApi.activityLog(undefined, 30),
+    refetchInterval: 30_000,
+    enabled,
+  })
+  if (!enabled) return null
+  const items: ActivityEntry[] = data?.activity ?? []
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Activity size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('dashboard.activityLog')}</h2>
+          {items.length > 0 && <Badge variant="gray">{items.length}</Badge>}
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading && items.length === 0 ? (
+          <p className="px-5 py-8 text-center text-slate-500 text-sm">{t('common.loading')}</p>
+        ) : items.length === 0 ? (
+          <p className="px-5 py-8 text-center text-slate-500 text-sm">{t('dashboard.noActivity')}</p>
+        ) : (
+          <ul className="divide-y divide-slate-200">
+            {items.map(a => (
+              <li key={a.id} className="px-5 py-2.5 flex items-start gap-3 hover:bg-slate-50">
+                <span className="text-lg leading-none pt-0.5">{activityIcon(a.event_type)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-800">{a.message}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    <span className="font-medium text-indigo-600">{a.tenant}</span>
+                    {' · '}
+                    <span className="font-mono">{new Date(a.ts).toLocaleString()}</span>
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 export function Dashboard() {
@@ -58,6 +115,8 @@ export function Dashboard() {
         <StatCard label={t('common.offline')} value={offline} icon={XCircle} color="bg-red-50 text-red-600" />
         <StatCard label={t('dashboard.noCredentials')} value={devices.filter(d => !d.credential_id).length} icon={Wifi} color="bg-amber-50 text-amber-600" />
       </div>
+
+      <ActivityLogCard />
 
       {/* Critical logs */}
       <Card>
