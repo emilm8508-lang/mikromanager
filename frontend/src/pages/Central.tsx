@@ -235,6 +235,24 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['central-pending-restarts'] }) },
   })
 
+  // Two-click confirm — browser confirm() gets blocked after N dialogs
+  // (Firefox "prevent additional dialogs" checkbox), so we do it inline.
+  const [confirmMode, setConfirmMode] = useState<'update' | 'restart' | null>(null)
+  useEffect(() => {
+    if (!confirmMode) return
+    const to = setTimeout(() => setConfirmMode(null), 5000)
+    return () => clearTimeout(to)
+  }, [confirmMode])
+
+  const handleUpdate = () => {
+    if (confirmMode === 'update') { trigger.mutate(); setConfirmMode(null) }
+    else setConfirmMode('update')
+  }
+  const handleRestart = () => {
+    if (confirmMode === 'restart') { triggerRestart.mutate(); setConfirmMode(null) }
+    else setConfirmMode('restart')
+  }
+
   // Determine version status
   let versionBadge: React.ReactNode = null
   if (tenant.agent_commit) {
@@ -298,32 +316,32 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
       </Badge>
       {canUpdate && behindTarget && !pendingUpdate && (
         <button
-          onClick={() => {
-            if (confirm(t('central.confirmUpdate', { tenant: tenant.id }) as string)) {
-              trigger.mutate()
-            }
-          }}
+          onClick={handleUpdate}
           disabled={trigger.isPending || !tenant.online}
-          className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded border border-indigo-200 disabled:opacity-40 inline-flex items-center gap-1"
+          className={`text-xs px-2.5 py-1 rounded border disabled:opacity-40 inline-flex items-center gap-1 ${
+            confirmMode === 'update'
+              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
+              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+          }`}
           title={t('central.updateTooltip') as string}
         >
           <Download size={11} />
-          {t('central.updateBtn')}
+          {confirmMode === 'update' ? t('central.confirmClick') : t('central.updateBtn')}
         </button>
       )}
       {!pendingRestart && !pendingUpdate && (
         <button
-          onClick={() => {
-            if (confirm(t('central.confirmRestart', { tenant: tenant.id }) as string)) {
-              triggerRestart.mutate()
-            }
-          }}
+          onClick={handleRestart}
           disabled={triggerRestart.isPending || !tenant.online}
-          className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
+          className={`text-xs px-2.5 py-1 rounded border disabled:opacity-40 inline-flex items-center gap-1 ${
+            confirmMode === 'restart'
+              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+          }`}
           title={t('central.restartTooltip') as string}
         >
           <RefreshCw size={11} />
-          {t('central.restartBtn')}
+          {confirmMode === 'restart' ? t('central.confirmClick') : t('central.restartBtn')}
         </button>
       )}
     </div>
