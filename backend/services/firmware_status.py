@@ -10,7 +10,7 @@ from typing import Optional
 
 from models.database import SessionLocal, Device
 from sqlalchemy import select
-from services import version_service as ver_svc
+from services import versions as ver_svc
 
 
 async def collect_firmware_status() -> Optional[dict]:
