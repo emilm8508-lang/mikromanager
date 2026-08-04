@@ -475,6 +475,10 @@ export const centralApi = {
     centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_update', { tenant }),
   pendingUpdates: () =>
     centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_updates'),
+  requestRestart: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_restart', { tenant }),
+  pendingRestarts: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_restarts'),
   requestFirmwareUpgrade: (tenant: string, deviceId: number, backup: boolean) =>
     centralRequest<{ ok: boolean; tenant: string; device_id: number; backup: boolean; queued_at: string }>(
       'request_firmware_upgrade',

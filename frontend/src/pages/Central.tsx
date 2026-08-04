@@ -213,11 +213,12 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
-function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate }: {
+function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pendingRestart }: {
   tenant: CentralTenant
   viewerCommit: string | null
   viewerCommitTime: number | null
   pendingUpdate: boolean
+  pendingRestart: boolean
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -226,9 +227,12 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate }: {
 
   const trigger = useMutation({
     mutationFn: () => centralApi.requestUpdate(tenant.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['central-pending-updates'] })
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['central-pending-updates'] }) },
+  })
+
+  const triggerRestart = useMutation({
+    mutationFn: () => centralApi.requestRestart(tenant.id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['central-pending-restarts'] }) },
   })
 
   // Determine version status
@@ -268,6 +272,11 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate }: {
               <Download size={9} /> {t('central.updateQueued')}
             </Badge>
           )}
+          {pendingRestart && (
+            <Badge variant="yellow" className="text-[10px] inline-flex items-center gap-1">
+              <RefreshCw size={9} /> {t('central.restartQueued')}
+            </Badge>
+          )}
         </div>
         <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
           <span>{tenant.last_seen ?? '—'}</span>
@@ -300,6 +309,21 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate }: {
         >
           <Download size={11} />
           {t('central.updateBtn')}
+        </button>
+      )}
+      {!pendingRestart && !pendingUpdate && (
+        <button
+          onClick={() => {
+            if (confirm(t('central.confirmRestart', { tenant: tenant.id }) as string)) {
+              triggerRestart.mutate()
+            }
+          }}
+          disabled={triggerRestart.isPending || !tenant.online}
+          className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
+          title={t('central.restartTooltip') as string}
+        >
+          <RefreshCw size={11} />
+          {t('central.restartBtn')}
         </button>
       )}
     </div>
@@ -620,6 +644,14 @@ function ViewerPanel() {
   })
   const pendingSet = new Set((pendingData?.pending ?? []).map(p => p.tenant))
 
+  const { data: pendingRestartData } = useQuery({
+    queryKey: ['central-pending-restarts'],
+    queryFn: centralApi.pendingRestarts,
+    enabled: configured,
+    refetchInterval: 15_000,
+  })
+  const pendingRestartSet = new Set((pendingRestartData?.pending ?? []).map(p => p.tenant))
+
   if (!configured) {
     return (
       <Card>
@@ -695,6 +727,7 @@ function ViewerPanel() {
                 viewerCommit={selfVer?.commit ?? null}
                 viewerCommitTime={selfVer?.commit_time ?? null}
                 pendingUpdate={pendingSet.has(tnt.id)}
+                pendingRestart={pendingRestartSet.has(tnt.id)}
               />
             ))
           )}

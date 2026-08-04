@@ -307,6 +307,20 @@ async def _send_one(snapshot: dict) -> bool:
         return False
 
 
+async def _perform_restart() -> None:
+    """Requested by central. Record activity event, flush one snapshot so the
+    event reaches OVH, then exit cleanly — supervisor (NSSM/systemd) restarts us."""
+    try:
+        activity.record("agent_restart", reason="remote_request")
+        snap = await _build_snapshot()
+        await _send_one(snap)
+    except Exception as e:
+        print(f"[uplink] restart pre-flush error: {e}")
+    await asyncio.sleep(1)
+    print("[uplink] exiting for supervisor restart")
+    os._exit(0)
+
+
 async def _handle_commands(commands: list) -> None:
     """Execute commands returned by the central server in the ingest response.
 
@@ -319,6 +333,9 @@ async def _handle_commands(commands: list) -> None:
         if cmd == "update":
             print("[uplink] received UPDATE command from central — starting")
             asyncio.create_task(updater.perform_update(restart_supervisor=True))
+        elif cmd == "restart":
+            print("[uplink] received RESTART command from central — restarting")
+            asyncio.create_task(_perform_restart())
         elif isinstance(cmd, dict):
             cmd_type = cmd.get("type")
             if cmd_type == "firmware_upgrade":

@@ -219,24 +219,40 @@ try {
             break;
 
         case 'request_update':
-            // Creates a one-shot marker consumed by ingest.php on next heartbeat.
             $tenant = $_GET['tenant'] ?? '';
-            if ($tenant === '') {
-                http_response_code(400);
-                echo json_encode(['error' => 'tenant required']);
-                break;
-            }
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
             $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
-            $marker = $state_dir . '/update_pending_' . $safe;
-            file_put_contents($marker, date('c'));
-            echo json_encode([
-                'ok' => true,
-                'tenant' => $tenant,
-                'queued_at' => date('c'),
-                'note' => 'Delivered on next heartbeat (max 2 min)',
-            ]);
+            file_put_contents($state_dir . '/update_pending_' . $safe, date('c'));
+            // Log to activity timeline
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "update_queued", ?, ?)')
+                ->execute([$tenant, "Aktualizacja zakolejkowana dla {$tenant}", json_encode(['queued_at'=>date('c')])]);
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'request_restart':
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . '/restart_pending_' . $safe, date('c'));
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "restart_queued", ?, ?)')
+                ->execute([$tenant, "Restart zakolejkowany dla {$tenant}", json_encode(['queued_at'=>date('c')])]);
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'pending_restarts':
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/restart_pending_*') as $f) {
+                    $tn = substr(basename($f), strlen('restart_pending_'));
+                    $pending[] = ['tenant' => $tn, 'queued_at' => date('c', filemtime($f))];
+                }
+            }
+            echo json_encode(['pending' => $pending]);
             break;
 
         case 'request_firmware_upgrade':

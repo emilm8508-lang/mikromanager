@@ -258,7 +258,11 @@
                     "updateBtn":  "Aktualizuj",
                     "updateTooltip":  "Wymus pobranie nowej wersji z GitHub i restart agenta",
                     "updateQueued":  "w kolejce",
-                    "confirmUpdate":  "Wymusic aktualizacje klienta {{tenant}}? Agent za max 2 min pobierze najnowsza wersje z GitHub i zrestartuje sie."
+                    "confirmUpdate":  "Wymusic aktualizacje klienta {{tenant}}? Agent za max 2 min pobierze najnowsza wersje z GitHub i zrestartuje sie.",
+                    "restartBtn":  "Restart",
+                    "restartTooltip":  "Zrestartuj agenta klienta (max 2 min opoznienia)",
+                    "restartQueued":  "restart w kolejce",
+                    "confirmRestart":  "Zrestartowac agenta klienta {{tenant}}? Za max 2 min agent otrzyma komende i wykona os._exit(0) — supervisor go zrestartuje."
                 },
     "sidebar":  {
                     "versionLabel":  "Wersja",

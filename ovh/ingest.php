@@ -269,9 +269,24 @@ try {
     if (is_file($update_marker)) {
         $commands[] = 'update';
         @unlink($update_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "update_delivered", ?, ?)')
+                ->execute([$tenant_header, "Aktualizacja dostarczona do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
     }
 
-    // 2. Firmware upgrade commands (may be multiple queued for one tenant)
+    // 2. Restart command
+    $restart_marker = $state_dir . '/restart_pending_' . $safe;
+    if (is_file($restart_marker)) {
+        $commands[] = 'restart';
+        @unlink($restart_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "restart_delivered", ?, ?)')
+                ->execute([$tenant_header, "Restart dostarczony do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
+    }
+
+    // 3. Firmware upgrade commands (may be multiple queued for one tenant)
     foreach (glob($state_dir . "/fw_upgrade_{$safe}_*.pending") as $f) {
         $base = basename($f, '.pending');
         if (preg_match('/^fw_upgrade_.+_(\d+)_([bn])$/', $base, $m)) {
