@@ -321,6 +321,7 @@
         "reuseSecretToggle": "Quiero usar la misma cuenta en otro agente (avanzado)",
         "hideAdvanced": "Ocultar opciones avanzadas",
         "reuseSecretLabel": "Secreto TOTP existente",
-        "reuseSecretHint": "Pega el secreto mostrado durante la configuración de MFA en otro agente — así la misma entrada del autenticador funcionará para ambos."
+        "reuseSecretHint": "Pega el secreto mostrado durante la configuración de MFA en otro agente — así la misma entrada del autenticador funcionará para ambos.",
+        "mfaSecretExportHint": "Puedes pegar este mismo secreto (escanea el QR o escríbelo manualmente) en el campo \"Secreto TOTP existente\" al configurar otro agente."
     }
 }

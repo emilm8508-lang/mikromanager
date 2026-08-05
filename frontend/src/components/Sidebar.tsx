@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '../lib/utils'
 import { SUPPORTED_LANGS } from '../i18n'
-import { api, systemApi } from '../lib/api'
+import { api, systemApi, authApi, MfaSetupInfo } from '../lib/api'
 import { useAuth } from '../pages/Login'
+import { Modal } from './ui/Modal'
 
 function RefresherStatus() {
   const { t, i18n } = useTranslation()
@@ -98,19 +99,64 @@ function LanguageSwitcher() {
   )
 }
 
+function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [info, setInfo] = useState<MfaSetupInfo | null>(null)
+  const [error, setError] = useState('')
+
+  const fetchSecret = useMutation({
+    mutationFn: authApi.totpSecret,
+    onSuccess: setInfo,
+    onError: () => setError(t('auth.genericError') as string),
+  })
+
+  useEffect(() => {
+    if (open && !info && !error) fetchSecret.mutate()
+  }, [open])
+
+  return (
+    <Modal open={open} onClose={() => { onClose(); setInfo(null); setError('') }} title={t('auth.reuseSecretLabel') as string}>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {!info && !error && <p className="text-sm text-slate-500">{t('common.loading')}</p>}
+      {info && (
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">{t('auth.mfaSecretExportHint')}</p>
+          <div className="flex justify-center bg-white border border-slate-200 rounded-lg p-3">
+            <img src={info.qr_svg_data_uri} alt="TOTP QR code" className="w-40 h-40" />
+          </div>
+          <p className="font-mono text-xs text-slate-700 break-all bg-slate-100 rounded px-2 py-1">
+            {info.secret}
+          </p>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 function AccountPanel() {
   const { t } = useTranslation()
   const { username, logout } = useAuth()
+  const [showSecret, setShowSecret] = useState(false)
   return (
     <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
       <span className="text-xs text-slate-600 truncate" title={username}>{username}</span>
-      <button
-        onClick={logout}
-        title={t('auth.logout') as string}
-        className="text-slate-500 hover:text-red-600 shrink-0"
-      >
-        <LogOut size={14} />
-      </button>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => setShowSecret(true)}
+          title={t('auth.reuseSecretLabel') as string}
+          className="text-slate-500 hover:text-indigo-600"
+        >
+          <KeyRound size={14} />
+        </button>
+        <button
+          onClick={logout}
+          title={t('auth.logout') as string}
+          className="text-slate-500 hover:text-red-600"
+        >
+          <LogOut size={14} />
+        </button>
+      </div>
+      <ShowSecretModal open={showSecret} onClose={() => setShowSecret(false)} />
     </div>
   )
 }

@@ -390,6 +390,7 @@
         "reuseSecretToggle": "Chcę użyć tego samego konta na innym agencie (zaawansowane)",
         "hideAdvanced": "Ukryj opcje zaawansowane",
         "reuseSecretLabel": "Istniejący sekret TOTP",
-        "reuseSecretHint": "Wklej sekret pokazany podczas konfiguracji MFA na innym agencie — dzięki temu to samo konto w aplikacji uwierzytelniającej zadziała na obu."
+        "reuseSecretHint": "Wklej sekret pokazany podczas konfiguracji MFA na innym agencie — dzięki temu to samo konto w aplikacji uwierzytelniającej zadziała na obu.",
+        "mfaSecretExportHint": "Ten sam sekret (zeskanuj QR lub wpisz ręcznie) możesz wkleić w polu „Istniejący sekret TOTP” podczas zakładania konta na innym agencie."
     }
 }

@@ -36,6 +36,7 @@ export const authApi = {
     api.post('/auth/login', { username, password, totp_code }).then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),
   me: () => api.get<{ username: string }>('/auth/me').then(r => r.data),
+  totpSecret: () => api.get<MfaSetupInfo>('/auth/totp-secret').then(r => r.data),
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
