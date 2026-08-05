@@ -12,3 +12,4 @@ pydantic-settings>=2.7.0
 pyotp>=2.9.0
 qrcode>=7.4.2
 pywinrm>=0.4.3
+vulners>=4.0.0

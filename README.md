@@ -37,6 +37,19 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
 4. **Mapa sieci** → ułóż topologię przeciągając węzły
 5. **Logi** → wybierz urządzenie i kliknij "Start live"
 
+## Skaner podatności (CVE)
+
+Pasywny, cotygodniowy skan całej sieci (bez logowania/exploitów) — wykrywa
+otwarte usługi i sprawdza ich wersje w publicznych bazach CVE. Dwa źródła CVE,
+oba opcjonalnie przyspieszane kluczem API:
+
+- **NVD** (nvd.nist.gov) — zawsze aktywne, klucz opcjonalny (podnosi limit
+  zapytań): `MIKROTIK_NVD_API_KEY`.
+- **vulners.com** — opcjonalne, dokładniejsze dopasowanie CVE (przez CPE, nie
+  samo wyszukiwanie tekstowe); wymaga darmowej rejestracji na vulners.com i
+  klucza API: `MIKROTIK_VULNERS_API_KEY` (puste = pominięte, skan działa
+  wyłącznie na NVD).
+
 ## Struktura projektu
 
 ```

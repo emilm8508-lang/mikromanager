@@ -6,27 +6,36 @@ unknown hosts. For every live host found in the configured CIDR ranges
 (services.scanner / ScanRange — same ranges the device scanner uses), this
 just:
 
-  1. Probes a broad set of common ports (connect only).
-  2. For a handful of protocols that announce themselves on connect (SSH,
-     FTP, SMTP, POP3, IMAP, Telnet, HTTP/S, MySQL), reads the banner/greeting
-     and parses a product+version out of it with a regex. Ports without a
-     banner-grab implemented here (SMB/RDP/MSSQL/VNC/PPTP) are just recorded
-     as "open" — no version, no CVE lookup for those in this MVP.
+  1. Probes a broad set of common ports (connect only) — general services,
+     web/admin ports, databases, Windows/SMB, legacy r-services, etc.
+  2. For protocols that announce themselves on connect or reply to a
+     harmless plaintext query (SSH, FTP, SMTP, POP3, IMAP, Telnet, HTTP/S,
+     MySQL, Redis, Memcached), reads the banner/greeting/reply and parses a
+     product+version out of it with a regex. Ports without a banner-grab
+     implemented here (SMB/RDP/MSSQL/Oracle/Postgres/MongoDB/VNC/PPTP/NFS/
+     etc.) are just recorded as "open" — no version, no CVE lookup for those
+     in this MVP.
   3. Known Mikrotik/Cisco devices already have an accurate, authenticated
      version (services.refresher's daily enrichment) — that's fed into the
      same CVE pipeline directly, no need to re-probe.
   4. Optional, opt-in per host: if a host has a Credential assigned
      (VulnHost.credential_id — the SAME Credential model used for Mikrotik
-     devices) and SSH (22) is open, log in and run two read-only commands
-     (`cat /etc/os-release`, `uname -a`) to get a precise Linux distro/version
-     instead of relying on the bare SSH banner. Still read-only, still no
-     package audit — just a more accurate OS identifier for hosts the user
-     explicitly trusted with credentials.
+     devices), log in over SSH (Linux) or WinRM (Windows, domain or local)
+     and read OS/version info (`cat /etc/os-release`/`uname -a`, or
+     `systeminfo`) instead of relying on the bare service banner. Still
+     read-only, still no package audit — just a more accurate OS identifier
+     for hosts the user explicitly trusted with credentials.
   5. Every unique (product, version) found anywhere in the scan is looked up
-     ONCE against the public NVD CVE API (deduped — a LAN with 20 identical
-     Ubuntu boxes only costs one NVD query, not 20), cached in the DB for
-     NVD_CACHE_DAYS so a weekly re-scan doesn't re-query versions we already
-     know about.
+     ONCE (deduped — a LAN with 20 identical Ubuntu boxes only costs one
+     query per source, not 20) against the public NVD CVE API (keyword
+     search, always on, no key required) and, if MIKROTIK_VULNERS_API_KEY is
+     configured, also against vulners.com via the official `vulners` pip
+     package — a proper CPE-based match, more accurate than NVD's keyword
+     search alone. Both sources' CVEs land in the same VulnFinding table
+     (deduped by cve_id) and are cached for NVD_CACHE_DAYS so a weekly
+     re-scan doesn't re-query versions already known about. No external
+     binary (e.g. nmap) is used anywhere in this file — everything here is
+     plain Python sockets/aiohttp/paramiko/pywinrm/vulners.
 
 Runs on a weekly schedule (default Sunday 02:00 local time) plus a manual
 trigger, mirroring the start()/stop() pattern in services/refresher.py.
@@ -55,6 +64,14 @@ NVD_CACHE_DAYS = int(os.environ.get("MIKROTIK_NVD_CACHE_DAYS", "7"))
 # Free-tier NVD: ~5 requests / 30s without a key, ~50 / 30s with one.
 NVD_MIN_INTERVAL = 1.2 if NVD_API_KEY else 6.5
 
+# Optional second CVE source — vulners.com via the official `vulners` pip
+# package (no external binary). Does proper CPE-based matching (more
+# accurate than NVD's keywordSearch) but needs a free API key from
+# vulners.com, so it's opt-in: blank key = skip this source entirely, NVD
+# alone still covers the baseline.
+VULNERS_API_KEY = os.environ.get("MIKROTIK_VULNERS_API_KEY", "")
+VULNERS_MIN_INTERVAL = float(os.environ.get("MIKROTIK_VULNERS_MIN_INTERVAL", "1.5"))
+
 CONNECT_TIMEOUT = 1.0
 BANNER_TIMEOUT = 2.0
 SCAN_CONCURRENCY = int(os.environ.get("MIKROTIK_VULN_SCAN_CONCURRENCY", "40"))
@@ -63,13 +80,24 @@ SCAN_CONCURRENCY = int(os.environ.get("MIKROTIK_VULN_SCAN_CONCURRENCY", "40"))
 BANNER_PORTS = {
     21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp",
     80: "http", 110: "pop3", 143: "imap", 443: "https",
-    993: "imaps", 995: "pop3s", 3306: "mysql",
-    8080: "http", 8443: "https",
+    465: "smtps", 587: "smtp", 990: "ftps", 993: "imaps", 995: "pop3s",
+    3306: "mysql", 6379: "redis", 11211: "memcached",
+    # Common alternate/dev HTTP ports and HTTP-based admin panels/APIs —
+    # these all go through the same Server-header grab as 80/443.
+    3000: "http", 5000: "http", 5601: "http", 5984: "http",
+    8000: "http", 8006: "http", 8008: "http", 8080: "http", 8081: "http",
+    8086: "http", 8443: "https", 8888: "http", 9000: "http", 9090: "http",
+    9200: "http", 9443: "https", 10000: "http", 15672: "http",
 }
 # Ports we just record as open (no reliable pre-auth version available here).
 FLAG_ONLY_PORTS = {
     135: "msrpc", 139: "netbios", 445: "smb",
-    1433: "mssql", 1723: "pptp", 3389: "rdp", 5900: "vnc",
+    1433: "mssql", 1521: "oracle", 1723: "pptp",
+    3389: "rdp", 5900: "vnc", 5901: "vnc",
+    5432: "postgres", 27017: "mongodb", 2181: "zookeeper",
+    111: "rpcbind", 2049: "nfs", 9100: "printer",
+    6000: "x11", 512: "rexec", 513: "rlogin", 514: "rsh",
+    2375: "docker", 2376: "docker-tls", 5672: "amqp", 61616: "activemq",
 }
 # WinRM — used for the optional, credentialed Windows identity check (like
 # SSH for Linux, see _winrm_identity below). Not banner-grabbed pre-auth.
@@ -93,6 +121,7 @@ _hosts_scanned = 0
 _findings_count = 0
 _task: Optional[asyncio.Task] = None
 _nvd_last_call = 0.0
+_vulners_last_call = 0.0
 
 
 def status() -> dict:
@@ -250,12 +279,42 @@ async def _grab_mysql(ip: str, port: int) -> tuple:
     return data[:80], product, version
 
 
+async def _grab_redis(ip: str, port: int) -> tuple:
+    """Redis accepts simple inline commands — `INFO` (pre-auth, works on any
+    instance without `requirepass`/protected-mode auth) replies with a
+    plaintext key:value dump including `redis_version`. If auth blocks it we
+    just get an error reply and no version — still recorded as open."""
+    data = await _read_greeting(ip, port, send=b"INFO\r\n", size=4096)
+    if not data:
+        return None, None, None
+    m = re.search(r"redis_version:(\S+)", data)
+    if not m:
+        return data[:80], None, None
+    return data[:80], "Redis", m.group(1)
+
+
+async def _grab_memcached(ip: str, port: int) -> tuple:
+    """Memcached's classic text protocol has no built-in auth — `version`
+    replies with `VERSION x.y.z` pre-auth."""
+    data = await _read_greeting(ip, port, send=b"version\r\n", size=256)
+    if not data:
+        return None, None, None
+    m = re.search(r"VERSION\s+(\S+)", data)
+    if not m:
+        return data[:80], None, None
+    return data[:80], "Memcached", m.group(1)
+
+
 async def _grab_service(ip: str, port: int, kind: str) -> tuple:
     """Dispatch to the right passive grabber. Returns (banner_raw, product, version)."""
     if kind in ("http", "https"):
         return await _grab_http(ip, port)
     if kind == "mysql":
         return await _grab_mysql(ip, port)
+    if kind == "redis":
+        return await _grab_redis(ip, port)
+    if kind == "memcached":
+        return await _grab_memcached(ip, port)
     # SSH/FTP/SMTP/POP3/IMAP/Telnet all announce themselves unprompted on connect.
     banner = await _read_greeting(ip, port)
     if not banner:
@@ -475,9 +534,109 @@ async def _nvd_query_live(product: str, version: str) -> list:
     return findings
 
 
+def _cvss_to_severity(score) -> Optional[str]:
+    """vulners bulletins don't always carry a categorical severity label —
+    derive one from the numeric CVSS score using the standard NVD bands."""
+    if score is None:
+        return None
+    try:
+        score = float(score)
+    except (TypeError, ValueError):
+        return None
+    if score >= 9.0:
+        return "CRITICAL"
+    if score >= 7.0:
+        return "HIGH"
+    if score >= 4.0:
+        return "MEDIUM"
+    if score > 0:
+        return "LOW"
+    return None
+
+
+def _vulners_query_sync(product: str, version: str) -> list:
+    """Blocking — run via loop.run_in_executor (the `vulners` package's HTTP
+    client is synchronous, same convention as _ssh_identity_sync/
+    _winrm_identity_sync above).
+
+    Uses VulnersApi().audit.software(["product version"], match="partial") —
+    confirmed (by reading the installed `vulners` 4.x package's own source,
+    since this sandbox has no outbound network access to test a live call,
+    see module docstring) to be the current, non-deprecated endpoint for
+    exactly this "given a product+version, what CVEs affect it" lookup; the
+    package's bundled MCP tool docstring documents it as accepting a plain
+    "product version" string and returning one result per matched product
+    with "a capped list of affecting vulnerabilities". That vulnerability
+    list is described in the package's own code as "provider-shaped" (i.e.
+    not a fixed, typed schema), so the field names below are best-effort
+    guesses across the common ones seen elsewhere in this same package
+    (id/cvss/description/href) — every item is parsed in its own try/except
+    so one unexpected shape just drops that entry rather than breaking the
+    whole source. MUST be confirmed against a real API key + live response
+    on the user's actual agent before relying on it."""
+    import vulners
+    api = vulners.VulnersApi(api_key=VULNERS_API_KEY)
+    try:
+        results = api.audit.software([f"{product} {version}"], match="partial") or []
+    except Exception:
+        return []
+
+    findings = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        vulns = (result.get("vulnerabilities") or result.get("cves")
+                 or result.get("bulletins") or [])
+        for v in vulns:
+            if not isinstance(v, dict):
+                continue
+            try:
+                cve_id = v.get("id") or v.get("cve_id") or v.get("cveId")
+                if not cve_id:
+                    continue
+                cvss = v.get("cvss") or v.get("cvss3") or v.get("cvss2") or {}
+                score = cvss.get("score") if isinstance(cvss, dict) else None
+                if score is None:
+                    score = v.get("cvss_score") or v.get("score")
+                severity = (cvss.get("severity") if isinstance(cvss, dict) else None) \
+                    or _cvss_to_severity(score)
+                findings.append({
+                    "cve_id": cve_id, "cvss_score": score, "severity": severity,
+                    "summary": (v.get("description") or v.get("summary") or v.get("title") or "")[:1000],
+                    "published": v.get("published"),
+                    "ref_url": v.get("href") or v.get("url") or v.get("ref_url"),
+                })
+            except Exception:
+                continue
+    return findings
+
+
+async def _vulners_query(product: str, version: str) -> list:
+    """Live vulners.com lookup — proper CPE-based CVE matching, more accurate
+    than NVD's keywordSearch alone. Opt-in (skipped entirely if no API key is
+    configured) and never raises: a failure here just means this source
+    contributes nothing, NVD's results (or an empty list) still apply."""
+    if not VULNERS_API_KEY:
+        return []
+    global _vulners_last_call
+    wait = VULNERS_MIN_INTERVAL - (time.time() - _vulners_last_call)
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _vulners_last_call = time.time()
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, _vulners_query_sync, product, version)
+    except Exception as e:
+        print(f"[vuln_scan] vulners query failed for {product} {version}: {e}")
+        return []
+
+
 async def _get_findings_for(db, product: str, version: str) -> list:
-    """DB-cached NVD lookup — re-queries only if the cache entry is missing
-    or older than NVD_CACHE_DAYS."""
+    """DB-cached CVE lookup — re-queries only if the cache entry is missing
+    or older than NVD_CACHE_DAYS. Merges NVD (always-on baseline) with
+    vulners.com (optional, only when MIKROTIK_VULNERS_API_KEY is set) — the
+    same CVE surfacing from both sources collapses into one row via the
+    (product, version, cve_id) unique constraint."""
     cutoff = datetime.utcnow() - timedelta(days=NVD_CACHE_DAYS)
     cached = db.execute(
         select(VulnFinding)
@@ -488,6 +647,12 @@ async def _get_findings_for(db, product: str, version: str) -> list:
         return cached
 
     live = await _nvd_query_live(product, version)
+    if VULNERS_API_KEY:
+        try:
+            live = live + await _vulners_query(product, version)
+        except Exception as e:
+            print(f"[vuln_scan] vulners lookup error for {product} {version}: {e}")
+
     # Clear stale rows for this pair, insert fresh ones (even if empty —
     # an empty result is itself worth caching so we don't re-query a clean
     # version every week).
@@ -495,7 +660,11 @@ async def _get_findings_for(db, product: str, version: str) -> list:
         VulnFinding.product == product, VulnFinding.version == version))
     now = datetime.utcnow()
     rows = []
+    seen_cve_ids = set()
     for f in live:
+        if f["cve_id"] in seen_cve_ids:
+            continue
+        seen_cve_ids.add(f["cve_id"])
         row = VulnFinding(
             product=product, version=version, queried_at=now,
             cve_id=f["cve_id"], cvss_score=f["cvss_score"], severity=f["severity"],
