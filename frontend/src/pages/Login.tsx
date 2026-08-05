@@ -291,7 +291,9 @@ function MfaConfirmForm({ info, onConfirmed }: { info: MfaSetupInfo; onConfirmed
           <Input label={t('auth.mfaCodeLabel') as string} value={code}
             onChange={e => setCode(e.target.value)}
             placeholder={t('auth.mfaCodePlaceholder') as string}
-            inputMode="numeric" maxLength={6} required autoFocus />
+            inputMode="numeric" maxLength={6} required autoFocus
+            autoComplete="one-time-code" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+            data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" />
           {error && <p className="text-xs text-red-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
             {t('auth.confirmButton')}
@@ -349,7 +351,9 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
           <Input label={t('auth.totpCode') as string} value={totpCode}
             onChange={e => setTotpCode(e.target.value)}
             placeholder={t('auth.mfaCodePlaceholder') as string}
-            inputMode="numeric" maxLength={6} required />
+            inputMode="numeric" maxLength={6} required
+            autoComplete="one-time-code" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+            data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" />
           {error && <p className="text-xs text-red-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
             {t('auth.loginButton')}
