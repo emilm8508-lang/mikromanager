@@ -42,7 +42,12 @@ async def get_topology():
 
 @router.post("/topology/discover")
 async def trigger_topology_discover():
-    """Re-discover topology now (independently of full refresh)."""
+    """Re-discover topology now (independently of full refresh).
+    409 if a discovery pass (this one, or the one the scheduled refresher
+    runs automatically) is already in progress — prevents doubled-up REST
+    call bursts against the same device."""
+    if topo_svc._in_progress:
+        raise HTTPException(409, "Wykrywanie topologii jest już w toku")
     result = await topo_svc.discover_all()
     return result
 

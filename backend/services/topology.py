@@ -153,26 +153,45 @@ async def discover_for_device(device_id: int, ip_map: Optional[dict] = None) -> 
     return inserts
 
 
+_in_progress = False
+
+
 async def discover_all() -> dict:
     """Re-discover topology for every device with credentials.
-    Returns summary {checked, links_total}."""
-    ip_map = _build_ip_map()
-    with SessionLocal() as db:
-        ids = [d.id for d in db.execute(
-            select(Device).where(Device.credential_id.is_not(None))
-        ).scalars().all()]
+    Returns summary {checked, links_total}.
 
-    checked = 0
-    for did in ids:
-        try:
-            await discover_for_device(did, ip_map)
-            checked += 1
-        except Exception:
-            pass
+    Guarded against overlapping runs: this is called both by the periodic
+    refresher (after every refresh_all_devices, every INTERVAL_MIN) and by
+    the manual "Przeskanuj teraz" button on the network map. Without a
+    guard, both could fire close together and each device would get hit
+    with a doubled-up burst of REST calls (get_neighbors + 4x
+    get_vpn_tunnels) — visible on the router as a pile of near-simultaneous
+    login/logout log lines for the same admin session.
+    """
+    global _in_progress
+    if _in_progress:
+        return {"devices_checked": 0, "links_total": 0, "skipped": "already in progress"}
+    _in_progress = True
+    try:
+        ip_map = _build_ip_map()
+        with SessionLocal() as db:
+            ids = [d.id for d in db.execute(
+                select(Device).where(Device.credential_id.is_not(None))
+            ).scalars().all()]
 
-    with SessionLocal() as db:
-        total = db.execute(select(DeviceLink)).scalars().all()
-        return {"devices_checked": checked, "links_total": len(total)}
+        checked = 0
+        for did in ids:
+            try:
+                await discover_for_device(did, ip_map)
+                checked += 1
+            except Exception:
+                pass
+
+        with SessionLocal() as db:
+            total = db.execute(select(DeviceLink)).scalars().all()
+            return {"devices_checked": checked, "links_total": len(total)}
+    finally:
+        _in_progress = False
 
 
 def get_topology() -> dict:
