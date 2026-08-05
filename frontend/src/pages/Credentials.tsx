@@ -20,6 +20,7 @@ function CredentialForm({ initial, onSave, onCancel }: {
     username: initial?.username ?? '',
     password: '',
     emptyPassword: false,  // intentional empty password (e.g. default Mikrotik admin)
+    domain: initial?.domain ?? '',
     snmp_community: '',
     description: initial?.description ?? '',
   })
@@ -42,6 +43,7 @@ function CredentialForm({ initial, onSave, onCancel }: {
       name: form.name,
       username: form.username,
       password,
+      domain: form.domain || undefined,
       description: form.description || undefined,
       snmp_community: form.snmp_community || undefined,
     }
@@ -65,6 +67,16 @@ function CredentialForm({ initial, onSave, onCancel }: {
         />
         <span>{t('credentials.emptyPasswordCheckbox')}</span>
       </label>
+
+      <div>
+        <Input
+          label={t('credentials.domainLabel')}
+          value={form.domain}
+          onChange={set('domain')}
+          placeholder={t('credentials.domainPlaceholder') as string}
+        />
+        <p className="text-[11px] text-slate-500 mt-1">{t('credentials.domainHint')}</p>
+      </div>
 
       <div className="border-t border-slate-200 pt-4">
         <Input

@@ -71,7 +71,18 @@ FLAG_ONLY_PORTS = {
     135: "msrpc", 139: "netbios", 445: "smb",
     1433: "mssql", 1723: "pptp", 3389: "rdp", 5900: "vnc",
 }
-ALL_PORTS = sorted(set(BANNER_PORTS) | set(FLAG_ONLY_PORTS) | {8291, 8728, 8729})
+# WinRM — used for the optional, credentialed Windows identity check (like
+# SSH for Linux, see _winrm_identity below). Not banner-grabbed pre-auth.
+WINRM_PORTS = {5985: "winrm", 5986: "winrm-ssl"}
+ALL_PORTS = sorted(set(BANNER_PORTS) | set(FLAG_ONLY_PORTS) | set(WINRM_PORTS) | {8291, 8728, 8729})
+
+# Credential auth attempts are capped at one try per (host, credential) per
+# scan — never retried in a loop — specifically to avoid ever contributing to
+# an Active Directory account lockout policy. A credential that fails is
+# simply not tried again until the NEXT scheduled scan (a week later by
+# default), which is far outside any realistic lockout window.
+_failed_combo_cache: dict = {}  # (ip, credential_id) -> last_failed_at
+FAILED_COMBO_RETRY_DAYS = int(os.environ.get("MIKROTIK_VULN_CRED_RETRY_DAYS", "30"))
 
 
 # ── State (read by /api/vuln endpoints) ──────────────────────────────────────
@@ -302,6 +313,109 @@ async def _ssh_identity(ip: str, port: int, username: str, password: str) -> tup
     return None, None
 
 
+# ── Optional authenticated Windows identity check (SSH's counterpart) ───────
+
+def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
+                         domain: Optional[str]) -> Optional[dict]:
+    """Blocking — run via loop.run_in_executor. Read-only: only ever runs
+    `systeminfo`, nothing that changes device state. `domain` set → domain
+    account (DOMAIN\\user via NTLM); left blank → local Windows account."""
+    import winrm
+    user = f"{domain}\\{username}" if domain else username
+    scheme = "https" if port == 5986 else "http"
+    try:
+        session = winrm.Session(
+            f"{scheme}://{ip}:{port}/wsman",
+            auth=(user, password),
+            transport="ntlm",
+            server_cert_validation="ignore",
+            read_timeout_sec=10, operation_timeout_sec=8,
+        )
+        result = session.run_cmd("systeminfo")
+        if result.status_code != 0:
+            return None
+        return {"output": result.std_out.decode("utf-8", errors="ignore")}
+    except Exception:
+        return None
+
+
+async def _winrm_identity(ip: str, port: int, username: str, password: str,
+                          domain: Optional[str]) -> tuple:
+    """Returns (product, version) parsed from `systeminfo` output, or (None, None)."""
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, _winrm_identity_sync, ip, port, username, password, domain)
+    if not result:
+        return None, None
+    output = result["output"]
+    name_m = re.search(r"OS Name:\s*(.+)", output)
+    ver_m = re.search(r"OS Version:\s*([\d.]+)", output)
+    if name_m and ver_m:
+        return name_m.group(1).strip(), ver_m.group(1).strip()
+    return None, None
+
+
+# ── Credential auto-detection (SSH + WinRM) ──────────────────────────────────
+# Same idea as MikrotikClient remembering which access method works: try
+# every configured credential ONCE per host per scan (see FAILED_COMBO_RETRY_
+# DAYS at the top of this file for why never more than once), remember
+# whichever one succeeds so the next scan goes straight to it.
+
+async def _auth_augment(ip: str, ports_found: dict, version_pairs: dict,
+                        remembered_cred_id: Optional[int], all_creds: list) -> Optional[int]:
+    """Returns the id of the credential that worked, or None. Does not touch
+    the DB itself — the caller applies the result once the VulnHost row is
+    guaranteed to exist (see _apply_credentials)."""
+    has_ssh = 22 in ports_found
+    winrm_port = 5985 if 5985 in ports_found else (5986 if 5986 in ports_found else None)
+    if not has_ssh and winrm_port is None:
+        return None
+
+    candidates = [c for c in all_creds if c.password_enc]
+    if remembered_cred_id:
+        candidates.sort(key=lambda c: 0 if c.id == remembered_cred_id else 1)
+
+    now = datetime.utcnow()
+    for cred in candidates:
+        combo_key = (ip, cred.id)
+        last_failed = _failed_combo_cache.get(combo_key)
+        if last_failed and (now - last_failed).days < FAILED_COMBO_RETRY_DAYS:
+            continue
+
+        try:
+            password = decrypt(cred.password_enc)
+        except Exception:
+            continue
+
+        product = version = None
+        if has_ssh:
+            product, version = await _ssh_identity(ip, 22, cred.username, password)
+        if not (product and version) and winrm_port:
+            product, version = await _winrm_identity(ip, winrm_port, cred.username, password, cred.domain)
+
+        if product and version:
+            version_pairs.setdefault((product, version), []).append(
+                (ip, 22 if has_ssh else winrm_port, "auth"))
+            _failed_combo_cache.pop(combo_key, None)
+            return cred.id
+        _failed_combo_cache[combo_key] = now
+
+    return None
+
+
+async def _apply_credentials(auth_results: dict) -> None:
+    """Persist auto-detected credential_id onto each host — called after
+    _persist_services so the VulnHost rows are guaranteed to already exist."""
+    if not auth_results:
+        return
+    with SessionLocal() as db:
+        for ip, cred_id in auth_results.items():
+            host = db.execute(select(VulnHost).where(VulnHost.ip == ip)).scalar_one_or_none()
+            if host and host.credential_id != cred_id:
+                host.credential_id = cred_id
+        db.commit()
+
+
 # ── NVD CVE lookup (deduped + cached) ────────────────────────────────────────
 
 _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, None: 4}
@@ -441,22 +555,6 @@ def _device_version_pair(d) -> Optional[tuple]:
     return product, d.ros_version
 
 
-async def _ssh_augment(ip: str, ports_found: dict, version_pairs: dict) -> None:
-    """If this host has an assigned credential (opt-in, set via the UI after
-    a first passive discovery) and SSH is open, fold in the authenticated
-    identity check result."""
-    with SessionLocal() as db:
-        host = db.execute(select(VulnHost).where(VulnHost.ip == ip)).scalar_one_or_none()
-        cred = db.get(Credential, host.credential_id) if host and host.credential_id else None
-    if not cred or 22 not in ports_found:
-        return
-    try:
-        password = decrypt(cred.password_enc)
-        product, version = await _ssh_identity(ip, 22, cred.username, password)
-        if product and version:
-            version_pairs.setdefault((product, version), []).append((ip, 22, "ssh-auth"))
-    except Exception as e:
-        print(f"[vuln_scan] SSH identity check failed for {ip}: {e}")
 
 
 async def _persist_services(alive_ips: list, results: list) -> dict:
@@ -535,6 +633,8 @@ async def run_scan() -> dict:
 
         with SessionLocal() as db:
             ranges = db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all()
+            all_creds = db.execute(select(Credential)).scalars().all()
+            existing_cred_by_ip = {h.ip: h.credential_id for h in db.execute(select(VulnHost)).scalars().all()}
 
         import ipaddress
         all_ips_set: set = set()
@@ -550,6 +650,7 @@ async def run_scan() -> dict:
         results = await asyncio.gather(*[_probe_host(ip, sem) for ip in all_ips])
 
         alive_ips, alive_results = [], []
+        auth_results: dict = {}  # ip -> credential_id that worked
         for ip, ports_found in zip(all_ips, results):
             if not ports_found:
                 continue
@@ -558,9 +659,13 @@ async def run_scan() -> dict:
             for port, (kind, banner, product, version) in ports_found.items():
                 if product and version:
                     version_pairs.setdefault((product, version), []).append((ip, port, "banner"))
-            await _ssh_augment(ip, ports_found, version_pairs)
+            cred_id = await _auth_augment(ip, ports_found, version_pairs,
+                                          existing_cred_by_ip.get(ip), all_creds)
+            if cred_id:
+                auth_results[ip] = cred_id
 
         await _persist_services(alive_ips, alive_results)
+        await _apply_credentials(auth_results)
         await _prune_dead_hosts(all_ips, set(alive_ips))
         findings_count = await _lookup_findings(version_pairs)
 
@@ -588,14 +693,19 @@ async def scan_one_host(ip: str) -> dict:
             pair = _device_version_pair(device)
             if pair:
                 version_pairs.setdefault(pair, []).append((ip, None, "device"))
+        all_creds = db.execute(select(Credential)).scalars().all()
+        existing_host = db.execute(select(VulnHost).where(VulnHost.ip == ip)).scalar_one_or_none()
+        remembered_cred_id = existing_host.credential_id if existing_host else None
 
     for port, (kind, banner, product, version) in ports_found.items():
         if product and version:
             version_pairs.setdefault((product, version), []).append((ip, port, "banner"))
 
     if ports_found:
-        await _ssh_augment(ip, ports_found, version_pairs)
+        cred_id = await _auth_augment(ip, ports_found, version_pairs, remembered_cred_id, all_creds)
         await _persist_services([ip], [ports_found])
+        if cred_id:
+            await _apply_credentials({ip: cred_id})
     else:
         await _prune_dead_hosts([ip], set())
 

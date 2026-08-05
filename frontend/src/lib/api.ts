@@ -45,6 +45,7 @@ export interface Credential {
   id: number
   name: string
   username: string
+  domain?: string | null
   description?: string
   has_snmp: boolean
 }
@@ -88,6 +89,7 @@ export interface CredentialInput {
   name: string
   username: string
   password: string
+  domain?: string
   snmp_community?: string
   description?: string
 }

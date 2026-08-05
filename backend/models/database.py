@@ -59,6 +59,10 @@ class Credential(Base):
     password_enc = Column(Text, nullable=False)
     snmp_community_enc = Column(Text, nullable=True)  # encrypted; v2c community string
     description = Column(String, nullable=True)
+    # Windows domain (NetBIOS name, e.g. "CORP") for domain accounts used by
+    # the vuln scanner's WinRM identity check. Leave blank for a local
+    # Windows account or for Linux/Mikrotik credentials — unused there.
+    domain = Column(String, nullable=True)
 
     devices = relationship("Device", back_populates="credential")
 
@@ -184,6 +188,8 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "snmp_community_enc" not in cred_cols:
                 conn.execute(text("ALTER TABLE credentials ADD COLUMN snmp_community_enc TEXT"))
+            if "domain" not in cred_cols:
+                conn.execute(text("ALTER TABLE credentials ADD COLUMN domain TEXT"))
 
     if "devices" in inspector.get_table_names():
         dev_cols = {c["name"] for c in inspector.get_columns("devices")}

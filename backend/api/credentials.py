@@ -15,12 +15,17 @@ class CredentialCreate(BaseModel):
     password: str = ""  # empty allowed — RouterOS default 'admin' has no password
     snmp_community: Optional[str] = None
     description: Optional[str] = None
+    # Windows domain (NetBIOS name, e.g. "CORP") — only relevant for the vuln
+    # scanner's WinRM identity check on Windows hosts. Leave blank for a
+    # local Windows account, Linux (SSH), or Mikrotik/Cisco credentials.
+    domain: Optional[str] = None
 
 
 class CredentialOut(BaseModel):
     id: int
     name: str
     username: str
+    domain: Optional[str] = None
     description: Optional[str]
     has_snmp: bool  # whether community is set (we don't expose actual value)
 
@@ -33,6 +38,7 @@ def _to_out(cred: Credential) -> dict:
         "id": cred.id,
         "name": cred.name,
         "username": cred.username,
+        "domain": cred.domain,
         "description": cred.description,
         "has_snmp": bool(cred.snmp_community_enc),
     }
@@ -55,6 +61,7 @@ async def create_credential(data: CredentialCreate, db: Session = Depends(get_db
         password_enc=encrypt(pw),
         snmp_community_enc=encrypt(data.snmp_community) if data.snmp_community else None,
         description=data.description,
+        domain=data.domain or None,
     )
     db.add(cred)
     db.commit()
@@ -69,6 +76,7 @@ async def update_credential(cred_id: int, data: CredentialCreate, db: Session = 
         raise HTTPException(404, "Not found")
     cred.name = data.name
     cred.username = data.username
+    cred.domain = data.domain or None
     # For edits: empty password = "keep existing" (so user doesn't have to retype).
     # To intentionally set EMPTY password use the explicit checkbox 'allow_empty_password'
     # (sent as password="<empty>" sentinel from UI).
