@@ -1,6 +1,42 @@
 import axios from 'axios'
 
-export const api = axios.create({ baseURL: '/api' })
+export const api = axios.create({ baseURL: '/api', withCredentials: true })
+
+api.interceptors.response.use(
+  r => r,
+  err => {
+    if (err?.response?.status === 401 && !err.config?.url?.startsWith('/auth/')) {
+      window.location.reload()
+    }
+    return Promise.reject(err)
+  },
+)
+
+// ── Auth types ───────────────────────────────────────────────────────────────
+
+export interface AuthStatus {
+  configured: boolean
+  mfa_setup_pending: boolean
+}
+
+export interface MfaSetupInfo {
+  secret: string
+  otpauth_uri: string
+  qr_svg_data_uri: string
+}
+
+export const authApi = {
+  status: () => api.get<AuthStatus>('/auth/status').then(r => r.data),
+  setup: (username: string, password: string, totpSecret?: string) =>
+    api.post<MfaSetupInfo>('/auth/setup', { username, password, totp_secret: totpSecret || undefined }).then(r => r.data),
+  setupResume: (username: string, password: string) =>
+    api.post<MfaSetupInfo>('/auth/setup/resume', { username, password }).then(r => r.data),
+  mfaConfirm: (code: string) => api.post('/auth/mfa/confirm', { code }).then(r => r.data),
+  login: (username: string, password: string, totp_code: string) =>
+    api.post('/auth/login', { username, password, totp_code }).then(r => r.data),
+  logout: () => api.post('/auth/logout').then(r => r.data),
+  me: () => api.get<{ username: string }>('/auth/me').then(r => r.data),
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -410,6 +446,15 @@ export interface ActivityEntry {
   details: any
 }
 
+export interface DeviceLogFetchResult {
+  device_id: number
+  device_label?: string
+  requested_limit: number
+  logs?: Array<{ time?: string; topics?: string; message?: string }>
+  error?: string
+  fetched_at: string
+}
+
 export interface EdgeEvent {
   id: number
   edge_id: number
@@ -486,6 +531,13 @@ export const centralApi = {
     ),
   pendingFirmwareUpgrades: () =>
     centralRequest<{ pending: Array<{ tenant: string; device_id: number; backup: boolean; queued_at: string }> }>('pending_firmware_upgrades'),
+  requestDeviceLogs: (tenant: string, deviceId: number, limit: number = 100) =>
+    centralRequest<{ ok: boolean; tenant: string; device_id: number; limit: number; queued_at: string; note: string }>(
+      'request_device_logs',
+      { tenant, device_id: String(deviceId), limit: String(limit) },
+    ),
+  pendingDeviceLogRequests: () =>
+    centralRequest<{ pending: Array<{ tenant: string; device_id: number; limit: number; queued_at: string }> }>('pending_device_log_requests'),
 
   // Alerts
   alertChannels: () => centralRequest<{ channels: AlertChannel[] }>('alert_channels'),

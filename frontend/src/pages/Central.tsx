@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, generateEncKey } from '../lib/api'
+import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, DeviceLogFetchResult, generateEncKey } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
-  HardDrive, Trash2, GitCommit, Download,
+  HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
@@ -352,6 +352,7 @@ function TenantSnapshot({ tenantId }: { tenantId: string }) {
   const { t } = useTranslation()
   const [newKey, setNewKey] = useState('')
   const [keyVersion, setKeyVersion] = useState(0)  // bumps to force refetch after key save
+  const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['central-snapshot', tenantId, keyVersion],
@@ -447,21 +448,46 @@ function TenantSnapshot({ tenantId }: { tenantId: string }) {
                   <th className="px-5 py-2.5 text-left">{t('dashboard.cols.model')}</th>
                   <th className="px-5 py-2.5 text-left">ROS</th>
                   <th className="px-5 py-2.5 text-left">{t('dashboard.cols.status')}</th>
+                  <th className="px-5 py-2.5 text-left">{t('central.logsCol')}</th>
                 </tr>
               </thead>
               <tbody>
                 {devices.map((d: any) => (
-                  <tr key={d.id} className="border-b border-slate-200">
-                    <td className="px-5 py-2 font-mono text-xs text-slate-700">{d.ip}</td>
-                    <td className="px-5 py-2 text-slate-700">{d.identity || d.name || '—'}</td>
-                    <td className="px-5 py-2 text-slate-600">{d.model || '—'}</td>
-                    <td className="px-5 py-2 font-mono text-xs text-slate-600">{d.ros_version || '—'}</td>
-                    <td className="px-5 py-2">
-                      <Badge variant={d.online ? 'green' : 'red'}>
-                        {d.online ? t('common.online') : t('common.offline')}
-                      </Badge>
-                    </td>
-                  </tr>
+                  <Fragment key={d.id}>
+                    <tr className="border-b border-slate-200">
+                      <td className="px-5 py-2 font-mono text-xs text-slate-700">{d.ip}</td>
+                      <td className="px-5 py-2 text-slate-700">{d.identity || d.name || '—'}</td>
+                      <td className="px-5 py-2 text-slate-600">{d.model || '—'}</td>
+                      <td className="px-5 py-2 font-mono text-xs text-slate-600">{d.ros_version || '—'}</td>
+                      <td className="px-5 py-2">
+                        <Badge variant={d.online ? 'green' : 'red'}>
+                          {d.online ? t('common.online') : t('common.offline')}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-2">
+                        <button
+                          onClick={() => setExpandedDeviceId(id => id === d.id ? null : d.id)}
+                          className="text-xs text-indigo-600 hover:text-indigo-500 inline-flex items-center gap-1"
+                        >
+                          <FileText size={12} />
+                          {t('central.viewLogs')}
+                          {expandedDeviceId === d.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedDeviceId === d.id && (
+                      <tr className="border-b border-slate-200">
+                        <td colSpan={6} className="px-5 py-3 bg-slate-50">
+                          <DeviceLogsPanel
+                            tenantId={tenantId}
+                            deviceId={d.id}
+                            deviceLabel={d.identity || d.name || d.ip}
+                            result={(data.log_fetch_results ?? []).find((r: any) => r.device_id === d.id)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -495,6 +521,74 @@ function TenantSnapshot({ tenantId }: { tenantId: string }) {
             </table>
           </CardContent>
         </Card>
+      )}
+    </div>
+  )
+}
+
+function DeviceLogsPanel({ tenantId, deviceId, deviceLabel, result }: {
+  tenantId: string
+  deviceId: number
+  deviceLabel: string
+  result?: DeviceLogFetchResult
+}) {
+  const { t } = useTranslation()
+  const [requestedAt, setRequestedAt] = useState<number | null>(null)
+
+  const request = useMutation({
+    mutationFn: () => centralApi.requestDeviceLogs(tenantId, deviceId, 100),
+    onSuccess: () => setRequestedAt(Date.now()),
+  })
+
+  const resultIsFresh = result && (!requestedAt || new Date(result.fetched_at).getTime() >= requestedAt)
+  const waiting = requestedAt && !resultIsFresh
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-slate-600">
+          {t('central.logsFor', { name: deviceLabel })}
+        </p>
+        <Button size="sm" variant="secondary" onClick={() => request.mutate()} disabled={request.isPending}>
+          <RefreshCw size={12} className={request.isPending ? 'animate-spin' : ''} />
+          {resultIsFresh ? t('central.refreshLogs') : t('central.fetchLogs')}
+        </Button>
+      </div>
+
+      {waiting && (
+        <p className="text-xs text-amber-700">{t('central.logsQueued')}</p>
+      )}
+
+      {resultIsFresh && result && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-slate-500">
+            {t('central.logsFetchedAt')}: <span className="font-mono">{result.fetched_at}</span>
+          </p>
+          {result.error ? (
+            <p className="text-xs text-red-600">{result.error}</p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg">
+              <table className="w-full text-xs">
+                <tbody>
+                  {(result.logs ?? []).map((l, i) => (
+                    <tr key={i} className="border-b border-slate-100 last:border-0">
+                      <td className="px-3 py-1 font-mono text-slate-500 whitespace-nowrap align-top">{l.time}</td>
+                      <td className="px-3 py-1 text-slate-400 whitespace-nowrap align-top">{l.topics}</td>
+                      <td className="px-3 py-1 text-slate-700 break-all">{l.message}</td>
+                    </tr>
+                  ))}
+                  {(result.logs ?? []).length === 0 && (
+                    <tr><td className="px-3 py-2 text-slate-400">{t('central.noLogs')}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!resultIsFresh && !waiting && (
+        <p className="text-xs text-slate-400">{t('central.logsNotFetchedYet')}</p>
       )}
     </div>
   )

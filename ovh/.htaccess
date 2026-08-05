@@ -17,9 +17,11 @@
     SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 </IfModule>
 
-# Block direct access to config.php, .sql, .md files
+# Block direct access to config.php, .sql, .md files, and any leftover
+# debug/diagnostic scripts (e.g. debug-db.php) — block by naming convention
+# so a future temporary script doesn't need a matching .htaccess edit to be safe.
 # Use both Apache 2.2 (Order/Deny) and 2.4 (Require) syntax for compatibility.
-<FilesMatch "\.(sql|md)$">
+<FilesMatch "(\.(sql|md)$|^debug-.*\.php$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

@@ -103,15 +103,22 @@ def _child_env() -> dict:
     return env
 
 
-def _run(cmd, log, cwd, timeout=300) -> int:
-    """Run a subprocess capturing stdout/stderr into log list. Returns exit code."""
+async def _run(cmd, log, cwd, timeout=300) -> int:
+    """Run a subprocess capturing stdout/stderr into log list. Returns exit code.
+    Runs the blocking subprocess.run() in a worker thread so it doesn't freeze
+    the whole backend event loop during the multi-minute update."""
     label = " ".join(cmd)
     log.append(f"$ {label}")
-    try:
-        r = subprocess.run(
+
+    def _blocking_run():
+        return subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
             env=_child_env(),
         )
+
+    try:
+        loop = asyncio.get_event_loop()
+        r = await loop.run_in_executor(None, _blocking_run)
         if r.stdout:
             log.append(r.stdout.strip())
         if r.stderr:
@@ -138,12 +145,12 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
 
     try:
         # 1. git fetch
-        if _run(["git", "fetch", "origin"], log, cwd=REPO_ROOT) != 0:
+        if await _run(["git", "fetch", "origin"], log, cwd=REPO_ROOT) != 0:
             _state["last_error"] = "git fetch failed"
             return False, log
 
         # 2. git reset to origin/master (blows away local drift)
-        if _run(["git", "reset", "--hard", "origin/master"], log, cwd=REPO_ROOT) != 0:
+        if await _run(["git", "reset", "--hard", "origin/master"], log, cwd=REPO_ROOT) != 0:
             _state["last_error"] = "git reset failed"
             return False, log
 
@@ -151,16 +158,16 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
         # Use current interpreter (works with venv too)
         req_path = os.path.join(REPO_ROOT, "backend", "requirements.txt")
         if os.path.exists(req_path):
-            _run([sys.executable, "-m", "pip", "install",
-                  "-r", req_path, "--quiet"], log, cwd=REPO_ROOT, timeout=600)
+            await _run([sys.executable, "-m", "pip", "install",
+                        "-r", req_path, "--quiet"], log, cwd=REPO_ROOT, timeout=600)
 
         # 4. npm install + build
         frontend = os.path.join(REPO_ROOT, "frontend")
         npm = _npm_cmd()
-        if _run([npm, "install", "--no-audit", "--no-fund"], log, cwd=frontend, timeout=600) != 0:
+        if await _run([npm, "install", "--no-audit", "--no-fund"], log, cwd=frontend, timeout=600) != 0:
             _state["last_error"] = "npm install failed"
             return False, log
-        if _run([npm, "run", "build"], log, cwd=frontend, timeout=600) != 0:
+        if await _run([npm, "run", "build"], log, cwd=frontend, timeout=600) != 0:
             _state["last_error"] = "npm build failed"
             return False, log
 

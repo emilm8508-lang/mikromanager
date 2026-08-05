@@ -105,6 +105,21 @@ class DeviceLink(Base):
     last_seen = Column(DateTime, default=datetime.utcnow)
 
 
+class AppAccount(Base):
+    """The single local admin account for this MikroManager instance.
+    Password + mandatory TOTP MFA, both verified entirely locally — login
+    keeps working even if the OVH central server/DB is unreachable, since
+    it never depends on them."""
+    __tablename__ = "app_account"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False, unique=True)
+    password_hash = Column(String, nullable=False)
+    totp_secret_enc = Column(Text, nullable=True)  # encrypted; set at setup time
+    mfa_enabled = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

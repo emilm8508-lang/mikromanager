@@ -28,6 +28,26 @@ function fail(int $code, string $msg): void {
     exit;
 }
 
+// Deterministic string form of the commands list, used to HMAC-sign the
+// response so the agent can verify commands weren't injected/tampered with
+// downstream of this script. Must match services/uplink.py's
+// _canonical_commands() exactly, token for token.
+function canonical_commands(array $commands): string {
+    $parts = [];
+    foreach ($commands as $c) {
+        if (is_string($c)) {
+            $parts[] = $c;
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'firmware_upgrade') {
+            $parts[] = 'firmware_upgrade:' . (int)($c['device_id'] ?? 0) . ':' . (!empty($c['backup']) ? '1' : '0');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'fetch_logs') {
+            $parts[] = 'fetch_logs:' . (int)($c['device_id'] ?? 0) . ':' . (int)($c['limit'] ?? 0);
+        } else {
+            $parts[] = 'unknown';
+        }
+    }
+    return implode(',', $parts);
+}
+
 // ── Method check ─────────────────────────────────────────────────────────────
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     fail(405, 'POST required');
@@ -299,6 +319,27 @@ try {
         }
     }
 
+    // 4. On-demand device log fetch requests (viewer clicked "fetch logs" for
+    // a specific device). Result rides along on the agent's NEXT snapshot.
+    foreach (glob($state_dir . "/logs_request_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^logs_request_.+_(\d+)_(\d+)$/', $base, $m)) {
+            $commands[] = [
+                'type' => 'fetch_logs',
+                'device_id' => (int)$m[1],
+                'limit' => (int)$m[2],
+            ];
+            @unlink($f);
+        }
+    }
+
+    // Sign the commands so the agent can verify they really came from someone
+    // holding this tenant's api_key (not just "arrived over this TLS connection").
+    // Canonical form is built manually (not json_encode) so PHP and the Python
+    // agent are guaranteed to produce byte-identical strings to sign/verify.
+    $commands_ts = (string)time();
+    $commands_sig = hash_hmac('sha256', $commands_ts . '|' . canonical_commands($commands), $expected_key);
+
     http_response_code(200);
     echo json_encode([
         'ok'           => true,
@@ -308,6 +349,8 @@ try {
         'devices_count' => $devices_count,
         'received_at'  => date('c'),
         'commands'     => $commands,
+        'commands_ts'  => $commands_ts,
+        'commands_sig' => $commands_sig,
     ]);
 } catch (Throwable $e) {
     error_log('[mm-ingest] ' . $e->getMessage());

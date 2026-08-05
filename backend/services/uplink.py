@@ -22,9 +22,10 @@ import aiohttp
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 
-from models.database import SessionLocal, Device, DeviceLink
+from models.database import SessionLocal, Device, DeviceLink, Credential
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
+from services.device_client import build_client
 from services import updater
 from services import alerts
 from services import edge_discovery
@@ -54,6 +55,7 @@ _state = {
 }
 _buffer = []
 _task: Optional[asyncio.Task] = None
+_log_fetch_results: list = []
 
 
 def is_configured() -> bool:
@@ -125,7 +127,7 @@ def _load():
     try:
         with open(_CONFIG_PATH) as f:
             saved = json.load(f)
-        for k in ("url", "tenant", "api_key", "interval_sec"):
+        for k in ("url", "tenant", "api_key", "interval_sec", "enc_key"):
             if k in saved:
                 _config[k] = saved[k]
     except Exception as e:
@@ -199,6 +201,9 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] activity drain error: {e}")
         activity_events = []
 
+    global _log_fetch_results
+    log_fetch_results, _log_fetch_results = _log_fetch_results, []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -216,6 +221,7 @@ async def _build_snapshot() -> dict:
         "edge_ips": edge_ips,
         "firmware_status": fw_status,
         "activity_events": activity_events,
+        "log_fetch_results": log_fetch_results,
     }
 
 
@@ -289,7 +295,10 @@ async def _send_one(snapshot: dict) -> bool:
                     # Server may include commands for us to run
                     try:
                         resp_json = await resp.json(content_type=None)
-                        await _handle_commands(resp_json.get("commands") or [])
+                        if _verify_commands_signature(resp_json):
+                            await _handle_commands(resp_json.get("commands") or [])
+                        elif resp_json.get("commands"):
+                            print("[uplink] REJECTED commands: invalid/missing signature")
                     except Exception:
                         pass
                     return True
@@ -305,6 +314,72 @@ async def _send_one(snapshot: dict) -> bool:
         _state["last_error"] = f"{type(e).__name__}: {e}"
         _state["total_failed"] += 1
         return False
+
+
+def _canonical_commands(commands: list) -> str:
+    """Must match ovh/ingest.php's canonical_commands() exactly, token for token."""
+    parts = []
+    for c in commands:
+        if isinstance(c, str):
+            parts.append(c)
+        elif isinstance(c, dict) and c.get("type") == "firmware_upgrade":
+            device_id = int(c.get("device_id") or 0)
+            backup = "1" if c.get("backup") else "0"
+            parts.append(f"firmware_upgrade:{device_id}:{backup}")
+        elif isinstance(c, dict) and c.get("type") == "fetch_logs":
+            device_id = int(c.get("device_id") or 0)
+            limit = int(c.get("limit") or 0)
+            parts.append(f"fetch_logs:{device_id}:{limit}")
+        else:
+            parts.append("unknown")
+    return ",".join(parts)
+
+
+def _verify_commands_signature(resp_json: dict) -> bool:
+    """Verify central signed the commands list with our api_key. Empty/absent
+    commands need no signature (nothing to execute)."""
+    commands = resp_json.get("commands") or []
+    if not commands:
+        return True
+    ts = resp_json.get("commands_ts")
+    sig = resp_json.get("commands_sig")
+    if not ts or not sig:
+        return False
+    expected = hmac.new(
+        _config["api_key"].encode(), f"{ts}|{_canonical_commands(commands)}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, sig)
+
+
+async def _fetch_device_logs(device_id: int, limit: int) -> None:
+    """Fetch the last `limit` log lines from one device and queue the result
+    to ride along on the NEXT snapshot."""
+    entry = {
+        "device_id": device_id,
+        "requested_limit": limit,
+        "fetched_at": datetime.utcnow().isoformat(),
+    }
+    with SessionLocal() as db:
+        row = db.execute(
+            select(Device, Credential)
+            .join(Credential, Device.credential_id == Credential.id)
+            .where(Device.id == device_id)
+        ).one_or_none()
+    if not row:
+        entry["error"] = "device or credential not found"
+        _log_fetch_results.append(entry)
+        return
+
+    device, cred = row
+    entry["device_label"] = device.identity or device.name or device.ip
+    try:
+        client = build_client(device, cred)
+        logs = await asyncio.wait_for(client.get_logs(limit=limit), timeout=10)
+        entry["logs"] = logs[-limit:] if isinstance(logs, list) else []
+    except Exception as e:
+        entry["error"] = f"{type(e).__name__}: {e}"
+    _log_fetch_results.append(entry)
 
 
 async def _perform_restart() -> None:
@@ -328,6 +403,8 @@ async def _handle_commands(commands: list) -> None:
       - "update"                                          — self-update the app
       - {"type":"firmware_upgrade","device_id":N,
          "backup":bool}                                   — upgrade Mikrotik firmware
+      - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
+        lines from a device, delivered in the next snapshot
     """
     for cmd in commands:
         if cmd == "update":
@@ -347,6 +424,14 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(firmware.upgrade_device(int(device_id), do_backup=backup))
                 else:
                     print(f"[uplink] firmware_upgrade command missing device_id: {cmd}")
+            elif cmd_type == "fetch_logs":
+                device_id = cmd.get("device_id")
+                limit = min(int(cmd.get("limit") or 100), 500)
+                if device_id:
+                    print(f"[uplink] received FETCH_LOGS for device {device_id} (limit={limit})")
+                    asyncio.create_task(_fetch_device_logs(int(device_id), limit))
+                else:
+                    print(f"[uplink] fetch_logs command missing device_id: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

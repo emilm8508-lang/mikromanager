@@ -48,6 +48,10 @@ def open_browser(url: str, delay: float = 2.0):
     threading.Thread(target=_open, daemon=True).start()
 
 
+_MAX_RESTARTS_IN_WINDOW = 5
+_RESTART_WINDOW_SEC = 60
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dev", action="store_true",
@@ -60,27 +64,50 @@ def main():
                         help="Do not open a browser tab on startup")
     args = parser.parse_args()
 
-    procs = []
-    try:
-        print(f"Starting Mikrotik Manager backend on {args.host}:{args.port}...")
-        procs.append(run_backend(port=args.port, host=args.host, dev=args.dev))
+    frontend_proc = None
+    browser_opened = False
+    restart_times = []
 
-        url = f"http://localhost:{args.port if not args.dev else 5173}"
+    try:
         if args.dev:
             print("Starting Vite dev server...")
-            procs.append(run_frontend_dev())
-            open_browser("http://localhost:5173", delay=3.0)
-        elif not args.no_browser:
-            open_browser(f"http://localhost:{args.port}", delay=2.5)
-        print(f"Opening {url}")
+            frontend_proc = run_frontend_dev()
 
-        print("Press Ctrl+C to stop.\n")
-        for p in procs:
-            p.wait()
+        while True:
+            print(f"Starting Mikrotik Manager backend on {args.host}:{args.port}...")
+            backend_proc = run_backend(port=args.port, host=args.host, dev=args.dev)
+
+            if not browser_opened:
+                url = f"http://localhost:{args.port if not args.dev else 5173}"
+                if args.dev:
+                    open_browser("http://localhost:5173", delay=3.0)
+                elif not args.no_browser:
+                    open_browser(f"http://localhost:{args.port}", delay=2.5)
+                print(f"Opening {url}")
+                print("Press Ctrl+C to stop.\n")
+                browser_opened = True
+
+            exit_code = backend_proc.wait()
+
+            now = time.time()
+            restart_times.append(now)
+            del restart_times[:-_MAX_RESTARTS_IN_WINDOW - 1]
+            if len(restart_times) > _MAX_RESTARTS_IN_WINDOW and \
+                    now - restart_times[0] < _RESTART_WINDOW_SEC:
+                print(f"Backend exited {len(restart_times)}x in under "
+                      f"{_RESTART_WINDOW_SEC}s (last exit code {exit_code}) — "
+                      "giving up to avoid a crash loop. Check the logs.")
+                break
+
+            print(f"Backend exited (code {exit_code}) — restarting in 2s "
+                  "(self-update or remote restart)...")
+            time.sleep(2)
     except KeyboardInterrupt:
         print("\nStopping...")
-        for p in procs:
-            p.terminate()
+        backend_proc.terminate()
+    finally:
+        if frontend_proc:
+            frontend_proc.terminate()
 
 
 if __name__ == "__main__":

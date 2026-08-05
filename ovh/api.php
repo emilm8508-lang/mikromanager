@@ -299,6 +299,51 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_device_logs':
+            // Ask the agent to fetch the last N raw log lines from one of its
+            // devices. Delivered on next heartbeat; result rides along on the
+            // agent's NEXT snapshot after that (so ~2 heartbeats of delay —
+            // shown to the user explicitly via fetched_at in the snapshot).
+            $tenant = $_GET['tenant'] ?? '';
+            $device_id = (int)($_GET['device_id'] ?? 0);
+            $limit = max(1, min(500, (int)($_GET['limit'] ?? 100)));
+            if ($tenant === '' || $device_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and device_id required']);
+                break;
+            }
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/logs_request_{$safe}_{$device_id}_{$limit}.pending";
+            file_put_contents($marker, date('c'));
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'device_id' => $device_id, 'limit' => $limit,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min); result appears in the snapshot after that.',
+            ]);
+            break;
+
+        case 'pending_device_log_requests':
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/logs_request_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // logs_request_TENANT_DEVICEID_LIMIT
+                    if (preg_match('/^logs_request_(.+)_(\d+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'device_id' => (int)$m[2],
+                            'limit' => (int)$m[3],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'pending_updates':
             // Which tenants have update_pending marker set right now.
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';

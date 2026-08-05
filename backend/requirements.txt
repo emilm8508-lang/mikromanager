@@ -9,3 +9,5 @@ aiohttp>=3.11.10
 python-multipart>=0.0.18
 pydantic>=2.10.3
 pydantic-settings>=2.7.0
+pyotp>=2.9.0
+qrcode>=7.4.2

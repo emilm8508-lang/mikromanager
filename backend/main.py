@@ -14,14 +14,15 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system
+from api import devices, credentials, logs, scanner, system, auth
+from api.auth import require_login
 from services import refresher
 from services import uplink
 
@@ -55,13 +56,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(devices.router)
-app.include_router(credentials.router)
-app.include_router(logs.router)
-app.include_router(scanner.router)
-app.include_router(system.router)
+app.include_router(auth.router)  # public: login must work before a session exists
 
-# Serve built frontend if available
+_protected = [Depends(require_login)]
+app.include_router(devices.router, dependencies=_protected)
+app.include_router(credentials.router, dependencies=_protected)
+app.include_router(logs.router, dependencies=_protected)
+app.include_router(scanner.router, dependencies=_protected)
+app.include_router(system.router, dependencies=_protected)
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
+# Serve built frontend if available. Registered LAST — its catch-all route
+# would otherwise shadow every /api/* route defined after it.
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(FRONTEND_DIST):
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
@@ -70,8 +81,3 @@ if os.path.isdir(FRONTEND_DIST):
     async def spa_fallback(full_path: str):
         index = os.path.join(FRONTEND_DIST, "index.html")
         return FileResponse(index)
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok"}

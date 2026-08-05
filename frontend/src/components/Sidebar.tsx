@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { cn } from '../lib/utils'
 import { SUPPORTED_LANGS } from '../i18n'
-import { systemApi } from '../lib/api'
-import axios from 'axios'
+import { api, systemApi } from '../lib/api'
+import { useAuth } from '../pages/Login'
 
 function RefresherStatus() {
   const { t, i18n } = useTranslation()
@@ -98,6 +98,23 @@ function LanguageSwitcher() {
   )
 }
 
+function AccountPanel() {
+  const { t } = useTranslation()
+  const { username, logout } = useAuth()
+  return (
+    <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+      <span className="text-xs text-slate-600 truncate" title={username}>{username}</span>
+      <button
+        onClick={logout}
+        title={t('auth.logout') as string}
+        className="text-slate-500 hover:text-red-600 shrink-0"
+      >
+        <LogOut size={14} />
+      </button>
+    </div>
+  )
+}
+
 export function Sidebar() {
   const { t } = useTranslation()
 
@@ -151,6 +168,7 @@ export function Sidebar() {
       <RefresherStatus />
       <SelfUpdatePanel />
       <LanguageSwitcher />
+      <AccountPanel />
 
       <div className="px-5 py-3 border-t border-slate-200">
         <p className="text-[10px] text-slate-400">MikroManager v1.3</p>
@@ -169,12 +187,12 @@ function SelfUpdatePanel() {
   })
   const { data: updaterStatus } = useQuery({
     queryKey: ['updater-status'],
-    queryFn: () => axios.get('/api/system/updater/status').then(r => r.data),
+    queryFn: () => api.get('/system/updater/status').then(r => r.data),
     refetchInterval: 5_000,
   })
 
   const trigger = useMutation({
-    mutationFn: () => axios.post('/api/system/updater/run').then(r => r.data),
+    mutationFn: () => api.post('/system/updater/run').then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['updater-status'] }),
   })
 

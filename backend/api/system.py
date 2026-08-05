@@ -216,9 +216,75 @@ async def updater_run(restart: bool = True):
 # Proxying through our local backend sidesteps both — the browser only talks
 # to localhost, and Python's aiohttp does clean TLS to OVH.
 
+_CENTRAL_PROXY_CONFIG_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "central_proxy.json"
+)
+
+
+def _load_allowed_host() -> str:
+    import json
+    if not os.path.exists(_CENTRAL_PROXY_CONFIG_PATH):
+        return ""
+    try:
+        with open(_CENTRAL_PROXY_CONFIG_PATH) as f:
+            return (json.load(f) or {}).get("allowed_host", "")
+    except Exception:
+        return ""
+
+
+def _save_allowed_host(host: str) -> None:
+    import json
+    os.makedirs(os.path.dirname(_CENTRAL_PROXY_CONFIG_PATH), exist_ok=True)
+    with open(_CENTRAL_PROXY_CONFIG_PATH, "w") as f:
+        json.dump({"allowed_host": host}, f)
+
+
+@router.get("/central-proxy/allowed-host")
+async def central_proxy_get_allowed_host():
+    return {"allowed_host": _load_allowed_host()}
+
+
+class AllowedHostIn(BaseModel):
+    host: str
+
+
+@router.post("/central-proxy/allowed-host")
+async def central_proxy_set_allowed_host(data: AllowedHostIn):
+    """Explicitly (re)pin the central proxy to a hostname — used when
+    switching to a different central server."""
+    host = data.host.strip().lower()
+    if not host or "/" in host or ":" in host:
+        raise HTTPException(400, "host must be a bare hostname (no scheme/port/path)")
+    _save_allowed_host(host)
+    return {"allowed_host": host}
+
+
+@router.delete("/central-proxy/allowed-host")
+async def central_proxy_clear_allowed_host():
+    """Clear the pin — next proxied request re-pins via trust-on-first-use."""
+    _save_allowed_host("")
+    return {"allowed_host": ""}
+
+
 async def _central_proxy_forward(request: Request, upstream: str, method: str):
     if not upstream.startswith("https://"):
         raise HTTPException(400, "upstream must be HTTPS")
+
+    from urllib.parse import urlparse
+    hostname = (urlparse(upstream).hostname or "").lower()
+    if not hostname:
+        raise HTTPException(400, "upstream must include a hostname")
+
+    allowed_host = _load_allowed_host()
+    if not allowed_host:
+        _save_allowed_host(hostname)
+    elif hostname != allowed_host:
+        raise HTTPException(
+            403,
+            f"upstream host '{hostname}' is not the pinned central host "
+            f"('{allowed_host}') — clear it via DELETE /api/system/central-proxy/allowed-host "
+            "if you intentionally switched central servers",
+        )
 
     import aiohttp
     params = {k: v for k, v in request.query_params.items() if k != "upstream"}
