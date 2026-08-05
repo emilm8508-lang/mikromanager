@@ -6,6 +6,7 @@
                 "scanner":  "Skaner",
                 "credentials":  "Poświadczenia",
                 "logs":  "Logi",
+                "vulnerabilities":  "Podatności",
                 "central":  "Centralny"
             },
     "common":  {
@@ -399,5 +400,26 @@
         "reuseSecretLabel": "Istniejący sekret TOTP",
         "reuseSecretHint": "Wklej sekret pokazany podczas konfiguracji MFA na innym agencie — dzięki temu to samo konto w aplikacji uwierzytelniającej zadziała na obu.",
         "mfaSecretExportHint": "Ten sam sekret (zeskanuj QR lub wpisz ręcznie) możesz wkleić w polu „Istniejący sekret TOTP” podczas zakładania konta na innym agencie."
+    },
+    "vuln": {
+        "title": "Skaner podatności",
+        "subtitle": "Pasywne wykrywanie znanych podatności (CVE) w całej sieci — bez prób ataku ani logowania.",
+        "disclaimer": "To wykrywanie na podstawie banerów usług, nie pełny audyt z poświadczeniami — nie sprawdzi poziomu łatek systemu bez logowania. Wykrywa realnie eksponowane, podatne wersje usług sieciowych.",
+        "statusTitle": "Status skanera",
+        "scanNow": "Skanuj teraz",
+        "scanning": "Skanowanie...",
+        "lastScan": "Ostatni skan",
+        "nextScan": "Następny skan",
+        "never": "Nigdy",
+        "hostsScanned": "Przeskanowane hosty",
+        "findingsCount": "Znalezione podatności",
+        "all": "Wszystkie",
+        "viewCve": "Zobacz w NVD",
+        "clean": "Czysto",
+        "findingsN": "{{count}} podatności",
+        "credentialHint": "Przypisz poświadczenia dla dokładniejszej identyfikacji przez SSH",
+        "noCredential": "— brak —",
+        "rescanHost": "Sprawdź ponownie",
+        "noHosts": "Brak hostów pasujących do filtra. Uruchom skan albo zmień filtr."
     }
 }

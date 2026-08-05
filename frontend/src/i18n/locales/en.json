@@ -6,6 +6,7 @@
                 "scanner":  "Scanner",
                 "credentials":  "Credentials",
                 "logs":  "Logs",
+                "vulnerabilities":  "Vulnerabilities",
                 "central":  "Central"
             },
     "common":  {
@@ -330,5 +331,26 @@
         "reuseSecretLabel": "Existing TOTP secret",
         "reuseSecretHint": "Paste the secret shown during MFA setup on another agent — this makes the same authenticator entry work for both.",
         "mfaSecretExportHint": "You can paste this same secret (scan the QR or type it manually) into the \"Existing TOTP secret\" field when setting up another agent."
+    },
+    "vuln": {
+        "title": "Vulnerability Scanner",
+        "subtitle": "Passive detection of known vulnerabilities (CVE) across the whole network — no exploitation, no login attempts.",
+        "disclaimer": "This detects based on service banners, not a full credentialed audit — it won't check OS patch level without logging in. It finds real, exposed, vulnerable network service versions.",
+        "statusTitle": "Scanner status",
+        "scanNow": "Scan now",
+        "scanning": "Scanning...",
+        "lastScan": "Last scan",
+        "nextScan": "Next scan",
+        "never": "Never",
+        "hostsScanned": "Hosts scanned",
+        "findingsCount": "Findings",
+        "all": "All",
+        "viewCve": "View on NVD",
+        "clean": "Clean",
+        "findingsN": "{{count}} findings",
+        "credentialHint": "Assign credentials for a deeper SSH-based identity check",
+        "noCredential": "— none —",
+        "rescanHost": "Check again",
+        "noHosts": "No hosts match this filter. Run a scan or change the filter."
     }
 }

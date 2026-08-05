@@ -21,10 +21,11 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth
+from api import devices, credentials, logs, scanner, system, auth, vuln_scan as vuln_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
+from services import vuln_scan
 
 
 @asynccontextmanager
@@ -32,11 +33,13 @@ async def lifespan(app: FastAPI):
     init_db()
     refresher.start()
     uplink.start()
+    vuln_scan.start()
     try:
         yield
     finally:
         refresher.stop()
         uplink.stop()
+        vuln_scan.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
@@ -64,6 +67,7 @@ app.include_router(credentials.router, dependencies=_protected)
 app.include_router(logs.router, dependencies=_protected)
 app.include_router(scanner.router, dependencies=_protected)
 app.include_router(system.router, dependencies=_protected)
+app.include_router(vuln_api.router, dependencies=_protected)
 
 
 @app.get("/api/health")

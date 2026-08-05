@@ -6,6 +6,7 @@
                 "scanner":  "Scanner",
                 "credentials":  "Zugangsdaten",
                 "logs":  "Protokolle",
+                "vulnerabilities":  "Schwachstellen",
                 "central":  "Zentral"
             },
     "common":  {
@@ -330,5 +331,26 @@
         "reuseSecretLabel": "Vorhandenes TOTP-Secret",
         "reuseSecretHint": "Fügen Sie das bei der MFA-Einrichtung auf einem anderen Agenten angezeigte Secret ein — so funktioniert derselbe Authenticator-Eintrag für beide.",
         "mfaSecretExportHint": "Sie können dasselbe Secret (QR scannen oder manuell eingeben) beim Einrichten eines anderen Agenten in das Feld „Vorhandenes TOTP-Secret“ einfügen."
+    },
+    "vuln": {
+        "title": "Schwachstellen-Scanner",
+        "subtitle": "Passive Erkennung bekannter Schwachstellen (CVE) im gesamten Netzwerk — keine Exploits, keine Login-Versuche.",
+        "disclaimer": "Erkennung basiert auf Service-Bannern, kein vollständiges Audit mit Anmeldedaten — prüft den Patch-Stand des Betriebssystems nicht ohne Login. Findet real exponierte, verwundbare Netzwerkdienst-Versionen.",
+        "statusTitle": "Scanner-Status",
+        "scanNow": "Jetzt scannen",
+        "scanning": "Scanne...",
+        "lastScan": "Letzter Scan",
+        "nextScan": "Nächster Scan",
+        "never": "Nie",
+        "hostsScanned": "Gescannte Hosts",
+        "findingsCount": "Funde",
+        "all": "Alle",
+        "viewCve": "In NVD ansehen",
+        "clean": "Sauber",
+        "findingsN": "{{count}} Funde",
+        "credentialHint": "Zugangsdaten zuweisen für eine tiefere SSH-Identitätsprüfung",
+        "noCredential": "— keine —",
+        "rescanHost": "Erneut prüfen",
+        "noHosts": "Keine Hosts entsprechen diesem Filter. Scan starten oder Filter ändern."
     }
 }

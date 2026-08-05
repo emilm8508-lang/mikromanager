@@ -8,6 +8,7 @@ import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
+import { Vulnerabilities } from './pages/Vulnerabilities'
 import { AuthGate } from './pages/Login'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/scanner" element={<Scanner />} />
             <Route path="/credentials" element={<Credentials />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/vulnerabilities" element={<Vulnerabilities />} />
             <Route path="/central" element={<Central />} />
           </Routes>
         </main>

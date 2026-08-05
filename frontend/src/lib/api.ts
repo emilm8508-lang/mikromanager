@@ -259,6 +259,74 @@ export const systemApi = {
   uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
 }
 
+// ── Passive vulnerability scanner ─────────────────────────────────────────────
+
+export interface VulnStatus {
+  in_progress: boolean
+  last_run: string | null
+  last_duration_sec: number | null
+  hosts_scanned_last: number
+  findings_count_last: number
+  scan_day: number    // 0=Mon..6=Sun
+  scan_hour: number
+  next_run_estimated: number  // epoch seconds
+}
+
+export interface VulnHostService {
+  port: number
+  service_name: string | null
+  product: string | null
+  version: string | null
+  banner_raw: string | null
+  last_seen: string | null
+}
+
+export interface VulnHostOut {
+  id: number
+  ip: string
+  device_id: number | null
+  device_name: string | null
+  credential_id: number | null
+  credential_name: string | null
+  last_scan_at: string | null
+  services: VulnHostService[]
+}
+
+export interface VulnFindingAffected {
+  kind: 'host' | 'device'
+  ip: string
+  port: number | null
+  device_id?: number
+  device_name?: string | null
+}
+
+export interface VulnFindingOut {
+  id: number
+  product: string
+  version: string
+  cve_id: string
+  cvss_score: number | null
+  severity: string | null
+  summary: string | null
+  published: string | null
+  ref_url: string | null
+  affected: VulnFindingAffected[]
+}
+
+export const vulnApi = {
+  status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
+  run: () => api.post('/vuln/run').then(r => r.data),
+  hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),
+  findings: (severity?: string) =>
+    api.get<VulnFindingOut[]>('/vuln/findings', { params: severity ? { severity } : {} }).then(r => r.data),
+  setHostCredential: (hostId: number, credentialId: number | null) =>
+    api.put(`/vuln/hosts/${hostId}/credential`, { credential_id: credentialId }).then(r => r.data),
+  rescanHost: (hostId: number) =>
+    api.post<{ ip: string; alive: boolean; unique_versions: number; findings_count: number }>(
+      `/vuln/hosts/${hostId}/rescan`,
+    ).then(r => r.data),
+}
+
 // ── Central (viewer querying OVH directly) ───────────────────────────────────
 
 export interface CentralTenant {

@@ -6,6 +6,7 @@
                 "scanner":  "Escáner",
                 "credentials":  "Credenciales",
                 "logs":  "Registros",
+                "vulnerabilities":  "Vulnerabilidades",
                 "central":  "Central"
             },
     "common":  {
@@ -330,5 +331,26 @@
         "reuseSecretLabel": "Secreto TOTP existente",
         "reuseSecretHint": "Pega el secreto mostrado durante la configuración de MFA en otro agente — así la misma entrada del autenticador funcionará para ambos.",
         "mfaSecretExportHint": "Puedes pegar este mismo secreto (escanea el QR o escríbelo manualmente) en el campo \"Secreto TOTP existente\" al configurar otro agente."
+    },
+    "vuln": {
+        "title": "Escáner de vulnerabilidades",
+        "subtitle": "Detección pasiva de vulnerabilidades conocidas (CVE) en toda la red — sin explotación, sin intentos de inicio de sesión.",
+        "disclaimer": "Esta detección se basa en banners de servicio, no es una auditoría completa con credenciales — no comprueba el nivel de parches del sistema sin iniciar sesión. Detecta versiones de servicios de red realmente expuestas y vulnerables.",
+        "statusTitle": "Estado del escáner",
+        "scanNow": "Escanear ahora",
+        "scanning": "Escaneando...",
+        "lastScan": "Último escaneo",
+        "nextScan": "Próximo escaneo",
+        "never": "Nunca",
+        "hostsScanned": "Hosts escaneados",
+        "findingsCount": "Hallazgos",
+        "all": "Todos",
+        "viewCve": "Ver en NVD",
+        "clean": "Limpio",
+        "findingsN": "{{count}} hallazgos",
+        "credentialHint": "Asigna credenciales para una identificación más precisa por SSH",
+        "noCredential": "— ninguna —",
+        "rescanHost": "Comprobar de nuevo",
+        "noHosts": "Ningún host coincide con este filtro. Ejecuta un escaneo o cambia el filtro."
     }
 }

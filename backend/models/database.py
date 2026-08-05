@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float,
-    create_engine, inspect, text,
+    UniqueConstraint, create_engine, inspect, text,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
@@ -118,6 +118,60 @@ class AppAccount(Base):
     totp_secret_enc = Column(Text, nullable=True)  # encrypted; set at setup time
     mfa_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class VulnHost(Base):
+    """A host discovered by the passive vulnerability scanner (services/vuln_scan.py).
+    May or may not correspond to a known Device — the vuln scanner covers the
+    whole network (Windows/Linux servers included), not just Mikrotik/Cisco gear."""
+    __tablename__ = "vuln_hosts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False, unique=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=True)
+    # Optional: attach existing credentials (same Credential model used for
+    # Mikrotik devices) to enable a deeper, authenticated SSH identity check
+    # (os-release/uname) for this specific host on top of the passive banner
+    # grab. Opt-in per host — most hosts have none and stay purely passive.
+    credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    last_scan_at = Column(DateTime, default=datetime.utcnow)
+
+
+class VulnService(Base):
+    """One open, fingerprinted service on a VulnHost (e.g. port 22 -> OpenSSH 8.2)."""
+    __tablename__ = "vuln_services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("vuln_hosts.id"), nullable=False, index=True)
+    port = Column(Integer, nullable=False)
+    proto = Column(String, default="tcp")
+    service_name = Column(String, nullable=True)   # "ssh", "http", "smb", ...
+    product = Column(String, nullable=True)         # parsed product, e.g. "OpenSSH"
+    version = Column(String, nullable=True)         # parsed version, e.g. "8.2"
+    banner_raw = Column(Text, nullable=True)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("host_id", "port", name="uq_vuln_service_host_port"),)
+
+
+class VulnFinding(Base):
+    """A CVE match for a (product, version) pair, cached from NVD so a weekly
+    re-scan doesn't re-query the same version repeatedly (see queried_at TTL
+    check in services/vuln_scan.py)."""
+    __tablename__ = "vuln_findings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product = Column(String, nullable=False, index=True)
+    version = Column(String, nullable=False)
+    cve_id = Column(String, nullable=False)
+    cvss_score = Column(Float, nullable=True)
+    severity = Column(String, nullable=True)  # CRITICAL | HIGH | MEDIUM | LOW
+    summary = Column(Text, nullable=True)
+    published = Column(String, nullable=True)
+    ref_url = Column(String, nullable=True)
+    queried_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_finding"),)
 
 
 def _migrate_add_columns():
