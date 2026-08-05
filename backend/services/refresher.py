@@ -1,9 +1,20 @@
 """
-Periodic device refresher — polls all known devices on a fixed interval
-to update online status and metadata (identity, model, ROS version).
+Periodic device checks — split into two independent cadences:
 
-Runs as a single asyncio task started from FastAPI lifespan. State is held
-in module-level globals so /api/system endpoints can report progress.
+  1. Lightweight liveness ping (PING_INTERVAL_MIN, default 5) — a bare TCP
+     connect probe against the device's own configured ports. No
+     authentication involved, so it never shows up in the device's own
+     admin log (RouterOS only logs authenticated login/logout, not a raw
+     TCP SYN probe). Keeps online/offline status fresh with zero log noise.
+
+  2. Full enrichment (INTERVAL_MIN, default 1440 = once a day) —
+     authenticated REST/API/SNMP calls to update identity/model/ROS
+     version, plus topology rediscovery. This is what actually logs
+     in/out on the device, so it deliberately runs far less often than
+     the ping.
+
+Both run as asyncio tasks started from FastAPI lifespan. State is held in
+module-level globals so /api/system endpoints can report progress.
 """
 import asyncio
 import os
@@ -23,16 +34,26 @@ _last_duration_sec: Optional[float] = None
 _in_progress: bool = False
 _devices_checked: int = 0
 _devices_updated: int = 0
-_task: Optional[asyncio.Task] = None
+_full_task: Optional[asyncio.Task] = None
 
-INTERVAL_MIN = int(os.environ.get("MIKROTIK_REFRESH_MIN", "30"))
+_last_ping: Optional[datetime] = None
+_ping_task: Optional[asyncio.Task] = None
+
+# Full, authenticated enrichment — identity/model/ROS version + topology.
+# Defaults to once a day; the lightweight ping (below) keeps online/offline
+# fresh in between without touching the device's own auth log.
+INTERVAL_MIN = int(os.environ.get("MIKROTIK_REFRESH_MIN", "1440"))
+# Bare TCP-connect liveness probe — cheap, unauthenticated, no log entries.
+PING_INTERVAL_MIN = int(os.environ.get("MIKROTIK_PING_MIN", "5"))
 
 
 def status() -> dict:
     return {
         "interval_min": INTERVAL_MIN,
+        "ping_interval_min": PING_INTERVAL_MIN,
         "in_progress": _in_progress,
         "last_run": _last_run.isoformat() if _last_run else None,
+        "last_ping": _last_ping.isoformat() if _last_ping else None,
         "last_duration_sec": round(_last_duration_sec, 1) if _last_duration_sec else None,
         "devices_checked_last": _devices_checked,
         "devices_updated_last": _devices_updated,
@@ -41,6 +62,54 @@ def status() -> dict:
         ),
     }
 
+
+# ── 1. Lightweight liveness ping (no auth, no device-side log entry) ────────
+
+async def _ping_one(dev_id: int) -> None:
+    with SessionLocal() as db:
+        device = db.execute(select(Device).where(Device.id == dev_id)).scalar_one_or_none()
+        if not device:
+            return
+        ip = device.ip
+        ports = [p for p in (device.api_port, device.web_port, device.ssh_port) if p]
+
+    online_now = False
+    for port in ports or (8728, 80, 22, 443):
+        if await scan_svc._tcp_open(ip, port):
+            online_now = True
+            break
+
+    with SessionLocal() as db:
+        device = db.execute(select(Device).where(Device.id == dev_id)).scalar_one_or_none()
+        if not device:
+            return
+        device.online = online_now
+        device.last_seen = datetime.utcnow()
+        db.commit()
+
+
+async def ping_all_devices() -> None:
+    """Bare liveness probe across every device. Cheap enough to run at a
+    much tighter interval than the full authenticated enrichment."""
+    global _last_ping
+
+    with SessionLocal() as db:
+        ids = [d.id for d in db.execute(select(Device.id)).all()]
+
+    sem = asyncio.Semaphore(20)
+
+    async def _bounded(did):
+        async with sem:
+            try:
+                await _ping_one(did)
+            except Exception:
+                pass
+
+    await asyncio.gather(*(_bounded(i) for i in ids))
+    _last_ping = datetime.utcnow()
+
+
+# ── 2. Full, authenticated enrichment (identity/model/version + topology) ──
 
 async def _refresh_one(dev_id: int) -> bool:
     """Refresh single device. Returns True if anything was updated."""
@@ -175,8 +244,21 @@ async def refresh_all_devices() -> None:
         _in_progress = False
 
 
-async def _loop():
-    """Background loop. Waits one interval before first run so app startup is fast."""
+async def _ping_loop():
+    """Frequent, unauthenticated liveness loop."""
+    while True:
+        try:
+            await asyncio.sleep(PING_INTERVAL_MIN * 60)
+            await ping_all_devices()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[refresher] ping error: {e}")
+
+
+async def _full_loop():
+    """Infrequent, authenticated full-enrichment loop. Waits one interval
+    before first run so app startup is fast."""
     while True:
         try:
             await asyncio.sleep(INTERVAL_MIN * 60)
@@ -188,14 +270,19 @@ async def _loop():
 
 
 def start():
-    global _task
-    if _task is None or _task.done():
-        loop = asyncio.get_event_loop()
-        _task = loop.create_task(_loop())
+    global _full_task, _ping_task
+    loop = asyncio.get_event_loop()
+    if _full_task is None or _full_task.done():
+        _full_task = loop.create_task(_full_loop())
+    if _ping_task is None or _ping_task.done():
+        _ping_task = loop.create_task(_ping_loop())
 
 
 def stop():
-    global _task
-    if _task and not _task.done():
-        _task.cancel()
-        _task = None
+    global _full_task, _ping_task
+    if _full_task and not _full_task.done():
+        _full_task.cancel()
+        _full_task = None
+    if _ping_task and not _ping_task.done():
+        _ping_task.cancel()
+        _ping_task = None

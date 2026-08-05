@@ -11,9 +11,35 @@ If all three fail (or aren't configured), raises with the last error.
 import asyncio
 import aiohttp
 import ssl
+import time
 from typing import Any, Optional
 import librouteros
 from services.snmp_client import SnmpClient
+
+
+# Remembers, per (device IP, REST path), whether REST is known to fail on
+# that device — so repeated polling doesn't keep paying for a doomed REST
+# auth roundtrip (each one is a login+logout in the device's own system
+# log) before falling back to the binary API every single time. Keyed by
+# IP rather than held on the client instance since a fresh MikrotikClient
+# is constructed for nearly every call site. Re-probed after
+# _REST_BROKEN_TTL in case the underlying cause (cert, disabled www
+# service, RouterOS upgrade) gets fixed.
+_rest_broken: dict = {}
+_REST_BROKEN_TTL = 3600
+
+
+def _rest_is_broken(key: tuple) -> bool:
+    ts = _rest_broken.get(key)
+    return ts is not None and (time.time() - ts) < _REST_BROKEN_TTL
+
+
+def _mark_rest_broken(key: tuple) -> None:
+    _rest_broken[key] = time.time()
+
+
+def _mark_rest_ok(key: tuple) -> None:
+    _rest_broken.pop(key, None)
 
 
 class MikrotikClient:
@@ -84,17 +110,41 @@ class MikrotikClient:
 
     # ── Fallback orchestrator ─────────────────────────────────────────────────
 
+    async def _rest_or_api(self, rest_path: str, api_path: str, single_object: bool = False):
+        """Try REST, falling back to binary API — but skip the REST attempt
+        entirely once it's known to be broken for this device+path (see
+        _rest_broken above), instead of re-paying for a doomed auth
+        roundtrip (and the login/logout log line it costs on the device)
+        on every single poll."""
+        key = (self.ip, rest_path)
+        if not _rest_is_broken(key):
+            try:
+                result = await self.rest_get(rest_path)
+                _mark_rest_ok(key)
+                return result
+            except Exception:
+                _mark_rest_broken(key)
+
+        result = await self.api_command(api_path)
+        if single_object and isinstance(result, list):
+            return result[0] if result else {}
+        return result
+
     async def _try_methods(self, rest_path: str, api_path: str,
                            snmp_fn=None, single_object: bool = False):
         """Try REST → API → SNMP in order. Returns first successful result."""
         errors = []
+        key = (self.ip, rest_path)
 
-        # 1. REST
-        try:
-            result = await self.rest_get(rest_path)
-            return result
-        except Exception as e:
-            errors.append(f"REST: {type(e).__name__}: {e}")
+        # 1. REST (skipped if known broken for this device+path)
+        if not _rest_is_broken(key):
+            try:
+                result = await self.rest_get(rest_path)
+                _mark_rest_ok(key)
+                return result
+            except Exception as e:
+                _mark_rest_broken(key)
+                errors.append(f"REST: {type(e).__name__}: {e}")
 
         # 2. Binary API
         try:
@@ -133,12 +183,7 @@ class MikrotikClient:
 
     async def get_routerboard(self) -> dict:
         try:
-            return await self.rest_get("system/routerboard")
-        except Exception:
-            pass
-        try:
-            res = await self.api_command("/system/routerboard")
-            return res[0] if res else {}
+            return await self._rest_or_api("system/routerboard", "/system/routerboard", single_object=True)
         except Exception:
             return {}
 
@@ -155,31 +200,20 @@ class MikrotikClient:
 
     async def get_neighbors(self) -> list:
         try:
-            return await self.rest_get("ip/neighbor")
-        except Exception:
-            pass
-        try:
-            return await self.api_command("/ip/neighbor")
+            return await self._rest_or_api("ip/neighbor", "/ip/neighbor")
         except Exception:
             return []
 
     async def get_logs(self, limit: int = 100) -> list:
         """System log — REST or API only (not exposed via SNMP)."""
-        try:
-            return await self.rest_get("log")
-        except Exception:
-            pass
-        return await self.api_command("/log")
+        return await self._rest_or_api("log", "/log")
 
     async def get_firewall_rules(self) -> dict:
         async def _get_one(rest_path, api_path):
             try:
-                return await self.rest_get(rest_path)
+                return await self._rest_or_api(rest_path, api_path)
             except Exception:
-                try:
-                    return await self.api_command(api_path)
-                except Exception:
-                    return []
+                return []
         return {
             "filter": await _get_one("ip/firewall/filter", "/ip/firewall/filter"),
             "nat": await _get_one("ip/firewall/nat", "/ip/firewall/nat"),
@@ -187,21 +221,13 @@ class MikrotikClient:
 
     async def get_wireless(self) -> list:
         try:
-            return await self.rest_get("interface/wireless")
-        except Exception:
-            pass
-        try:
-            return await self.api_command("/interface/wireless")
+            return await self._rest_or_api("interface/wireless", "/interface/wireless")
         except Exception:
             return []
 
     async def get_dhcp_leases(self) -> list:
         try:
-            return await self.rest_get("ip/dhcp-server/lease")
-        except Exception:
-            pass
-        try:
-            return await self.api_command("/ip/dhcp-server/lease")
+            return await self._rest_or_api("ip/dhcp-server/lease", "/ip/dhcp-server/lease")
         except Exception:
             return []
 
@@ -214,12 +240,9 @@ class MikrotikClient:
             ("interface/ipip", "/interface/ipip", "ipip"),
         ]:
             try:
-                result[key] = await self.rest_get(rest_path)
+                result[key] = await self._rest_or_api(rest_path, api_path)
             except Exception:
-                try:
-                    result[key] = await self.api_command(api_path)
-                except Exception:
-                    result[key] = []
+                result[key] = []
         return result
 
     async def set_identity(self, name: str) -> None:

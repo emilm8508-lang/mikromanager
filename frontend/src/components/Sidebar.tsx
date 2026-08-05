@@ -9,6 +9,12 @@ import { api, systemApi, authApi, MfaSetupInfo } from '../lib/api'
 import { useAuth } from '../pages/Login'
 import { Modal } from './ui/Modal'
 
+function formatMinutes(min: number): string {
+  if (min < 60) return `${min} min`
+  if (min < 1440) return `${Math.round(min / 60)} h`
+  return `${Math.round(min / 1440)} d`
+}
+
 function RefresherStatus() {
   const { t, i18n } = useTranslation()
   const qc = useQueryClient()
@@ -55,11 +61,14 @@ function RefresherStatus() {
         <>
           <p className="text-slate-600 truncate">{t('refresher.lastRun', { when: whenStr })}</p>
           {nextInMin !== null && (
-            <p className="text-slate-400">{t('refresher.nextRun', { min: nextInMin })}</p>
+            <p className="text-slate-400">{t('refresher.nextRun', { min: formatMinutes(nextInMin) })}</p>
           )}
         </>
       )}
-      <p className="text-slate-400">{t('refresher.intervalEvery', { min: data.interval_min })}</p>
+      <p className="text-slate-400">{t('refresher.intervalEvery', { min: formatMinutes(data.interval_min) })}</p>
+      {data.ping_interval_min != null && (
+        <p className="text-slate-400">{t('refresher.pingEvery', { min: formatMinutes(data.ping_interval_min) })}</p>
+      )}
     </div>
   )
 }

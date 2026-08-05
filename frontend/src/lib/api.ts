@@ -143,6 +143,8 @@ export const scannerApi = {
 
 export interface RefreshStatus {
   interval_min: number
+  ping_interval_min?: number
+  last_ping?: string | null
   in_progress: boolean
   last_run: string | null
   last_duration_sec: number | null
