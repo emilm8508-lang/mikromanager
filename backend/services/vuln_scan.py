@@ -395,6 +395,22 @@ async def _get_findings_for(db, product: str, version: str) -> list:
 
 # ── Orchestration ────────────────────────────────────────────────────────────
 
+async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:
+    """Remove VulnHost (+ its VulnService rows) for any host that was part of
+    this scan's target set but didn't answer this time. The report should
+    only ever reflect devices currently active on the network — a host that
+    went away shouldn't linger in the list from a previous scan."""
+    dead_ips = [ip for ip in candidate_ips if ip not in alive_ips]
+    if not dead_ips:
+        return
+    with SessionLocal() as db:
+        dead_hosts = db.execute(select(VulnHost).where(VulnHost.ip.in_(dead_ips))).scalars().all()
+        for h in dead_hosts:
+            db.execute(delete(VulnService).where(VulnService.host_id == h.id))
+            db.delete(h)
+        db.commit()
+
+
 async def _probe_host(ip: str, sem: asyncio.Semaphore) -> dict:
     """Returns {port: (service_name, banner, product, version)} for every
     open port found on this host."""
@@ -545,6 +561,7 @@ async def run_scan() -> dict:
             await _ssh_augment(ip, ports_found, version_pairs)
 
         await _persist_services(alive_ips, alive_results)
+        await _prune_dead_hosts(all_ips, set(alive_ips))
         findings_count = await _lookup_findings(version_pairs)
 
         _hosts_scanned = len(alive_ips)
@@ -579,6 +596,8 @@ async def scan_one_host(ip: str) -> dict:
     if ports_found:
         await _ssh_augment(ip, ports_found, version_pairs)
         await _persist_services([ip], [ports_found])
+    else:
+        await _prune_dead_hosts([ip], set())
 
     findings_count = await _lookup_findings(version_pairs)
     return {"ip": ip, "alive": bool(ports_found), "unique_versions": len(version_pairs),
