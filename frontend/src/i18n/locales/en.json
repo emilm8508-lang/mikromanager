@@ -264,7 +264,13 @@
                     "logsQueued": "Queued — will arrive with the agent's next heartbeat (up to ~4 min).",
                     "logsFetchedAt": "Fetched",
                     "noLogs": "No log entries",
-                    "logsNotFetchedYet": "Not fetched yet — click \"Fetch logs\"."
+                    "logsNotFetchedYet": "Not fetched yet — click \"Fetch logs\".",
+                    "exportKeys": "Export keys",
+                    "importKeys": "Import keys",
+                    "exportKeysHint": "Copy the text below and paste it into the import dialog on another browser/device. Keys are never sent to any server — this is a purely local copy.",
+                    "importKeysHint": "Paste the text exported from another browser/device.",
+                    "importKeysBtn": "Import",
+                    "keysImported": "Imported {{count}} keys."
                 },
     "sidebar":  {
                     "versionLabel":  "Version",

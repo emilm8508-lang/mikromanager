@@ -272,7 +272,13 @@
                     "logsQueued": "Zakolejkowano — dotrą z kolejnym heartbeatem agenta (do ok. 4 min).",
                     "logsFetchedAt": "Pobrano",
                     "noLogs": "Brak wpisów w logu",
-                    "logsNotFetchedYet": "Jeszcze nie pobrano — kliknij „Pobierz logi”."
+                    "logsNotFetchedYet": "Jeszcze nie pobrano — kliknij „Pobierz logi”.",
+                    "exportKeys": "Eksportuj klucze",
+                    "importKeys": "Importuj klucze",
+                    "exportKeysHint": "Skopiuj poniższy tekst i wklej go w oknie importu na innej przeglądarce/urządzeniu. Klucze nigdy nie są wysyłane na żaden serwer — to czysto lokalna kopia.",
+                    "importKeysHint": "Wklej tekst wyeksportowany z innej przeglądarki/urządzenia.",
+                    "importKeysBtn": "Importuj",
+                    "keysImported": "Zaimportowano {{count}} kluczy."
                 },
     "sidebar":  {
                     "versionLabel":  "Wersja",

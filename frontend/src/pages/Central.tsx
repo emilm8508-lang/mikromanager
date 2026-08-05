@@ -8,11 +8,12 @@ import { Badge } from '../components/ui/Badge'
 import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
-  HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp,
+  HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp, Upload,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
 import { AlertsPanel } from './CentralAlerts'
+import { Modal } from '../components/ui/Modal'
 
 function formatAge(sec: number | null): string {
   if (sec === null || sec === undefined) return '—'
@@ -670,6 +671,70 @@ function UsageBar() {
   )
 }
 
+function KeyBackupPanel() {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<'none' | 'export' | 'import'>('none')
+  const [importText, setImportText] = useState('')
+  const [importResult, setImportResult] = useState<string | null>(null)
+  const [importError, setImportError] = useState('')
+
+  const doImport = () => {
+    setImportError('')
+    setImportResult(null)
+    try {
+      const count = centralConfig.importTenantKeys(importText)
+      setImportResult(t('central.keysImported', { count }))
+      setImportText('')
+    } catch (e) {
+      setImportError((e as Error).message)
+    }
+  }
+
+  const close = () => {
+    setMode('none')
+    setImportText('')
+    setImportResult(null)
+    setImportError('')
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Button size="sm" variant="ghost" onClick={() => setMode('export')}>
+        <Download size={12} /> {t('central.exportKeys')}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => setMode('import')}>
+        <Upload size={12} /> {t('central.importKeys')}
+      </Button>
+
+      <Modal open={mode === 'export'} onClose={close} title={t('central.exportKeys') as string}>
+        <p className="text-xs text-slate-500 mb-2">{t('central.exportKeysHint')}</p>
+        <textarea
+          readOnly
+          value={centralConfig.exportTenantKeys()}
+          onClick={e => (e.target as HTMLTextAreaElement).select()}
+          className="w-full h-40 font-mono text-xs bg-slate-100 border border-slate-200 rounded-lg p-2"
+        />
+      </Modal>
+
+      <Modal open={mode === 'import'} onClose={close} title={t('central.importKeys') as string}>
+        <p className="text-xs text-slate-500 mb-2">{t('central.importKeysHint')}</p>
+        <textarea
+          value={importText}
+          onChange={e => setImportText(e.target.value)}
+          placeholder={'{"aluplasti": "..."}'}
+          className="w-full h-40 font-mono text-xs border border-slate-300 rounded-lg p-2"
+        />
+        {importError && <p className="text-xs text-red-600 mt-1">{importError}</p>}
+        {importResult && <p className="text-xs text-green-700 mt-1">{importResult}</p>}
+        <Button variant="primary" size="sm" className="mt-2 w-full justify-center"
+          onClick={doImport} disabled={!importText.trim()}>
+          {t('central.importKeysBtn')}
+        </Button>
+      </Modal>
+    </div>
+  )
+}
+
 function EncryptedTenantsPanel() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -799,6 +864,8 @@ function ViewerPanel() {
       )}
 
       <UsageBar />
+
+      <KeyBackupPanel />
 
       <EncryptedTenantsPanel />
 

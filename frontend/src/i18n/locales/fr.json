@@ -264,7 +264,13 @@
                     "logsQueued": "En file d attente — arrivera avec le prochain heartbeat de l agent (jusqu a ~4 min).",
                     "logsFetchedAt": "Recupere",
                     "noLogs": "Aucune entree de log",
-                    "logsNotFetchedYet": "Pas encore recupere — cliquez sur \"Recuperer les logs\"."
+                    "logsNotFetchedYet": "Pas encore recupere — cliquez sur \"Recuperer les logs\".",
+                    "exportKeys": "Exporter les clés",
+                    "importKeys": "Importer les clés",
+                    "exportKeysHint": "Copiez le texte ci-dessous et collez-le dans la boîte de dialogue d'importation sur un autre navigateur/appareil. Les clés ne sont jamais envoyées à un serveur — c'est une copie purement locale.",
+                    "importKeysHint": "Collez le texte exporté depuis un autre navigateur/appareil.",
+                    "importKeysBtn": "Importer",
+                    "keysImported": "{{count}} clés importées."
                 },
     "sidebar":  {
                     "versionLabel":  "Version",

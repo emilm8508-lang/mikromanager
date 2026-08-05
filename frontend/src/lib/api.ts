@@ -308,6 +308,32 @@ export const centralConfig = {
   clear() {
     localStorage.removeItem(CENTRAL_LS)
   },
+  // Decryption keys never leave the browser except via this deliberate,
+  // user-initiated copy/paste — there is no server-side transfer. Keeps the
+  // E2E model intact (OVH never has the keys) while letting you move to a
+  // different browser/device without retyping every 32-byte key by hand.
+  exportTenantKeys(): string {
+    const cfg = centralConfig.load()
+    return JSON.stringify(cfg?.tenantKeys ?? {}, null, 2)
+  },
+  importTenantKeys(json: string): number {
+    const cfg = centralConfig.load()
+    if (!cfg) throw new Error('viewer not configured yet — set up API URL/password first')
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(json)
+    } catch {
+      throw new Error('invalid JSON')
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('expected a JSON object of {tenant: key}')
+    }
+    const entries = Object.entries(parsed as Record<string, unknown>)
+      .filter((e): e is [string, string] => typeof e[1] === 'string')
+    cfg.tenantKeys = { ...(cfg.tenantKeys ?? {}), ...Object.fromEntries(entries) }
+    centralConfig.save(cfg)
+    return entries.length
+  },
 }
 
 async function centralRequest<T>(

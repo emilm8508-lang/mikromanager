@@ -264,7 +264,13 @@
                     "logsQueued": "En cola — llegara con el proximo heartbeat del agente (hasta ~4 min).",
                     "logsFetchedAt": "Obtenido",
                     "noLogs": "Sin entradas de log",
-                    "logsNotFetchedYet": "Aun no obtenido — haz clic en \"Obtener logs\"."
+                    "logsNotFetchedYet": "Aun no obtenido — haz clic en \"Obtener logs\".",
+                    "exportKeys": "Exportar claves",
+                    "importKeys": "Importar claves",
+                    "exportKeysHint": "Copia el texto de abajo y pégalo en el diálogo de importación en otro navegador/dispositivo. Las claves nunca se envían a ningún servidor — es una copia puramente local.",
+                    "importKeysHint": "Pega el texto exportado desde otro navegador/dispositivo.",
+                    "importKeysBtn": "Importar",
+                    "keysImported": "{{count}} claves importadas."
                 },
     "sidebar":  {
                     "versionLabel":  "Version",

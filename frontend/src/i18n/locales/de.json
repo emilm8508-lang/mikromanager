@@ -264,7 +264,13 @@
                     "logsQueued": "In Warteschlange — kommt mit dem naechsten Heartbeat des Agenten (bis zu ~4 Min).",
                     "logsFetchedAt": "Abgerufen",
                     "noLogs": "Keine Logeintraege",
-                    "logsNotFetchedYet": "Noch nicht abgerufen — auf \"Logs abrufen\" klicken."
+                    "logsNotFetchedYet": "Noch nicht abgerufen — auf \"Logs abrufen\" klicken.",
+                    "exportKeys": "Schlüssel exportieren",
+                    "importKeys": "Schlüssel importieren",
+                    "exportKeysHint": "Kopieren Sie den Text unten und fügen Sie ihn im Import-Dialog auf einem anderen Browser/Gerät ein. Schlüssel werden nie an einen Server gesendet — das ist eine rein lokale Kopie.",
+                    "importKeysHint": "Fügen Sie den aus einem anderen Browser/Gerät exportierten Text ein.",
+                    "importKeysBtn": "Importieren",
+                    "keysImported": "{{count}} Schlüssel importiert."
                 },
     "sidebar":  {
                     "versionLabel":  "Version",
