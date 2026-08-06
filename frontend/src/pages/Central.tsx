@@ -110,16 +110,27 @@ function UplinkPanel() {
               <Input label={t('central.encKey')} type="password"
                 placeholder={status?.has_enc_key ? t('central.encKeyKeep') as string : 'base64 32 bytes'}
                 value={form.enc_key} onChange={e => setForm(f => ({ ...f, enc_key: e.target.value }))} />
-              <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center justify-between mt-2 gap-2">
                 <p className="text-[11px] text-slate-500">{t('central.e2eHint')}</p>
-                <button type="button" onClick={async () => {
-                  const k = await systemApi.uplinkGenerateEncKey()
-                  setForm(f => ({ ...f, enc_key: k.enc_key }))
-                  setShowGeneratedKey(k.enc_key)
-                }}
-                  className="text-xs text-indigo-600 hover:underline shrink-0 ml-2">
-                  {t('central.generateKey')}
-                </button>
+                <div className="flex gap-2 shrink-0 ml-2">
+                  {status?.has_enc_key && (
+                    <button type="button" onClick={async () => {
+                      const k = await systemApi.uplinkGetEncKey()
+                      setShowGeneratedKey(k.enc_key)
+                    }}
+                      className="text-xs text-indigo-600 hover:underline">
+                      {t('central.showCurrentKey')}
+                    </button>
+                  )}
+                  <button type="button" onClick={async () => {
+                    const k = await systemApi.uplinkGenerateEncKey()
+                    setForm(f => ({ ...f, enc_key: k.enc_key }))
+                    setShowGeneratedKey(k.enc_key)
+                  }}
+                    className="text-xs text-indigo-600 hover:underline">
+                    {t('central.generateKey')}
+                  </button>
+                </div>
               </div>
               {showGeneratedKey && (
                 <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-[11px]">

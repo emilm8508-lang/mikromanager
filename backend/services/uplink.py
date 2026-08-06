@@ -108,6 +108,14 @@ def generate_enc_key() -> str:
     return base64.b64encode(secrets.token_bytes(32)).decode()
 
 
+def get_enc_key() -> str:
+    """The agent always holds its own enc_key in plaintext (it has to, to
+    encrypt outgoing snapshots) — this just exposes it back to an already-
+    authenticated admin who forgot to save it when it was generated. OVH
+    itself never gets this value; that zero-knowledge property is unaffected."""
+    return _config["enc_key"]
+
+
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "uplink.json")
 
 

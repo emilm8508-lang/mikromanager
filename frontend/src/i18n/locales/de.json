@@ -242,6 +242,7 @@
                     "encKeyKeep":  "(leer = unverändert)",
                     "e2eHint":  "Wenn leer, sieht OVH-Server den Klartext. Empfohlen: Schlüssel generieren.",
                     "generateKey":  "Schlüssel generieren",
+                    "showCurrentKey":  "Aktuellen Schlüssel anzeigen",
                     "saveKeyWarn":  "SPEICHERN SIE DIESEN SCHLÜSSEL JETZT! Ohne ihn kann der Viewer nicht entschlüsseln.",
                     "snapshotEncrypted":  "Snapshot verschlüsselt",
                     "keyNeeded":  "Entschlüsselungsschlüssel eingeben. Schlüssel vom Agent-Admin.",

@@ -242,6 +242,7 @@
                     "encKeyKeep":  "(vacío = sin cambios)",
                     "e2eHint":  "Si vacío, OVH ve el snapshot en texto plano. Recomendado: generar clave.",
                     "generateKey":  "Generar clave",
+                    "showCurrentKey":  "Mostrar clave actual",
                     "saveKeyWarn":  "GUARDA ESTA CLAVE AHORA! Sin ella el viewer no puede descifrar.",
                     "snapshotEncrypted":  "Snapshot cifrado",
                     "keyNeeded":  "Introduce clave de descifrado. La clave viene del admin del agent.",

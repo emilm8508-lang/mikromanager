@@ -259,6 +259,7 @@ export const systemApi = {
     api.post<UplinkStatus>('/system/uplink/config', data).then(r => r.data),
   uplinkSendNow: () => api.post<{ success: boolean; status: UplinkStatus }>('/system/uplink/send-now').then(r => r.data),
   uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
+  uplinkGetEncKey: () => api.get<{ enc_key: string }>('/system/uplink/enc-key').then(r => r.data),
 }
 
 // ── Passive vulnerability scanner ─────────────────────────────────────────────

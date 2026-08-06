@@ -191,6 +191,15 @@ async def uplink_generate_enc_key():
     return {"enc_key": uplink_svc.generate_enc_key()}
 
 
+@router.get("/uplink/enc-key")
+async def uplink_get_enc_key():
+    """Recover the currently-configured enc_key — e.g. the user generated
+    one, forgot to save it, and now needs it for a viewer/phone setup.
+    Gated by the same require_login as the rest of this router; OVH never
+    sees this value regardless."""
+    return {"enc_key": uplink_svc.get_enc_key()}
+
+
 # ── Self-version + self-updater ──────────────────────────────────────────────
 
 @router.get("/self-version")
