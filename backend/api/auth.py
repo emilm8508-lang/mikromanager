@@ -113,14 +113,59 @@ async def setup_resume(data: SetupResumeIn, db: Session = Depends(get_db)):
         raise HTTPException(404, "no account configured — call /setup first")
     if account.mfa_enabled:
         raise HTTPException(400, "MFA already enabled — use /login")
+
+    throttle_key = f"resume:{account.username.lower()}"
+    locked_for = auth_svc.check_throttle(throttle_key)
+    if locked_for is not None:
+        raise HTTPException(429, f"too many failed attempts — try again in {locked_for}s")
     if (
         data.username.strip().lower() != account.username.lower()
         or not auth_svc.verify_password(data.password, account.password_hash)
     ):
+        auth_svc.record_failure(throttle_key)
         raise HTTPException(401, "invalid username or password")
+    auth_svc.record_success(throttle_key)
 
     from services.crypto import decrypt
     secret = decrypt(account.totp_secret_enc)
+    uri = auth_svc.totp_provisioning_uri(secret, account.username)
+    return {
+        "secret": secret,
+        "otpauth_uri": uri,
+        "qr_svg_data_uri": auth_svc.totp_qr_svg_data_uri(uri),
+    }
+
+
+@router.post("/setup/regenerate")
+async def setup_regenerate(data: SetupResumeIn, db: Session = Depends(get_db)):
+    """Like /setup/resume, but throws away the current (never-confirmed)
+    secret and issues a brand new one — for when the QR/secret shown during
+    the original /setup was scanned wrong (or a custom 'reuse this secret'
+    value was mistyped) and simply re-showing it via /setup/resume would
+    just repeat the same problem. Same password check + throttle as resume."""
+    account = _get_account(db)
+    if account is None:
+        raise HTTPException(404, "no account configured — call /setup first")
+    if account.mfa_enabled:
+        raise HTTPException(400, "MFA already enabled — use /totp-secret/regenerate instead")
+
+    throttle_key = f"resume:{account.username.lower()}"
+    locked_for = auth_svc.check_throttle(throttle_key)
+    if locked_for is not None:
+        raise HTTPException(429, f"too many failed attempts — try again in {locked_for}s")
+    if (
+        data.username.strip().lower() != account.username.lower()
+        or not auth_svc.verify_password(data.password, account.password_hash)
+    ):
+        auth_svc.record_failure(throttle_key)
+        raise HTTPException(401, "invalid username or password")
+    auth_svc.record_success(throttle_key)
+
+    from services.crypto import encrypt
+    secret = auth_svc.generate_totp_secret()
+    account.totp_secret_enc = encrypt(secret)
+    db.commit()
+
     uri = auth_svc.totp_provisioning_uri(secret, account.username)
     return {
         "secret": secret,
@@ -219,6 +264,31 @@ async def get_totp_secret(account_id: int = Depends(require_login), db: Session 
 
     from services.crypto import decrypt
     secret = decrypt(account.totp_secret_enc)
+    uri = auth_svc.totp_provisioning_uri(secret, account.username)
+    return {
+        "secret": secret,
+        "otpauth_uri": uri,
+        "qr_svg_data_uri": auth_svc.totp_qr_svg_data_uri(uri),
+    }
+
+
+@router.post("/totp-secret/regenerate")
+async def regenerate_totp_secret(account_id: int = Depends(require_login), db: Session = Depends(get_db)):
+    """Replace the current TOTP secret with a fresh one — for changing
+    authenticator apps, or recovering from having scanned/typed it wrong the
+    first time. Takes effect immediately (this is an authenticated action,
+    same trust level as GET /totp-secret above); the old authenticator
+    entry stops working the moment this returns, so the frontend must show
+    the new QR right away and make clear the old one is now dead."""
+    account = db.get(AppAccount, account_id)
+    if account is None:
+        raise HTTPException(401, "not authenticated")
+
+    from services.crypto import encrypt
+    secret = auth_svc.generate_totp_secret()
+    account.totp_secret_enc = encrypt(secret)
+    db.commit()
+
     uri = auth_svc.totp_provisioning_uri(secret, account.username)
     return {
         "secret": secret,

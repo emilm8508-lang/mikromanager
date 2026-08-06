@@ -31,12 +31,15 @@ export const authApi = {
     api.post<MfaSetupInfo>('/auth/setup', { username, password, totp_secret: totpSecret || undefined }).then(r => r.data),
   setupResume: (username: string, password: string) =>
     api.post<MfaSetupInfo>('/auth/setup/resume', { username, password }).then(r => r.data),
+  setupRegenerate: (username: string, password: string) =>
+    api.post<MfaSetupInfo>('/auth/setup/regenerate', { username, password }).then(r => r.data),
   mfaConfirm: (code: string) => api.post('/auth/mfa/confirm', { code }).then(r => r.data),
   login: (username: string, password: string, totp_code: string) =>
     api.post('/auth/login', { username, password, totp_code }).then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),
   me: () => api.get<{ username: string }>('/auth/me').then(r => r.data),
   totpSecret: () => api.get<MfaSetupInfo>('/auth/totp-secret').then(r => r.data),
+  totpSecretRegenerate: () => api.post<MfaSetupInfo>('/auth/totp-secret/regenerate').then(r => r.data),
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────

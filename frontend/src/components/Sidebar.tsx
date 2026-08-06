@@ -112,10 +112,17 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
   const { t } = useTranslation()
   const [info, setInfo] = useState<MfaSetupInfo | null>(null)
   const [error, setError] = useState('')
+  const [justRegenerated, setJustRegenerated] = useState(false)
 
   const fetchSecret = useMutation({
     mutationFn: authApi.totpSecret,
     onSuccess: setInfo,
+    onError: () => setError(t('auth.genericError') as string),
+  })
+
+  const regenerate = useMutation({
+    mutationFn: authApi.totpSecretRegenerate,
+    onSuccess: (data) => { setInfo(data); setJustRegenerated(true) },
     onError: () => setError(t('auth.genericError') as string),
   })
 
@@ -124,18 +131,30 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
   }, [open])
 
   return (
-    <Modal open={open} onClose={() => { onClose(); setInfo(null); setError('') }} title={t('auth.reuseSecretLabel') as string}>
+    <Modal open={open} onClose={() => { onClose(); setInfo(null); setError(''); setJustRegenerated(false) }} title={t('auth.reuseSecretLabel') as string}>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!info && !error && <p className="text-sm text-slate-500">{t('common.loading')}</p>}
       {info && (
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">{t('auth.mfaSecretExportHint')}</p>
+          <p className="text-xs text-slate-500">
+            {justRegenerated ? t('auth.mfaRegeneratedHint') : t('auth.mfaSecretExportHint')}
+          </p>
           <div className="flex justify-center bg-white border border-slate-200 rounded-lg p-3">
             <img src={info.qr_svg_data_uri} alt="TOTP QR code" className="w-40 h-40" />
           </div>
           <p className="font-mono text-xs text-slate-700 break-all bg-slate-100 rounded px-2 py-1">
             {info.secret}
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm(t('auth.mfaRegenerateConfirm') as string)) regenerate.mutate()
+            }}
+            disabled={regenerate.isPending}
+            className="text-xs text-red-600 hover:underline"
+          >
+            {t('auth.mfaRegenerateButton')}
+          </button>
         </div>
       )}
     </Modal>

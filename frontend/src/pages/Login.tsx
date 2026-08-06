@@ -204,6 +204,7 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [regenerate, setRegenerate] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -212,7 +213,9 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
     setError('')
     setBusy(true)
     try {
-      const info = await authApi.setupResume(username, password)
+      const info = regenerate
+        ? await authApi.setupRegenerate(username, password)
+        : await authApi.setupResume(username, password)
       onDone(username, info)
     } catch (err) {
       setError(errorMessage(err, t('auth.genericError') as string))
@@ -236,6 +239,11 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
             onChange={e => setUsername(e.target.value)} required autoFocus />
           <Input label={t('auth.password') as string} type="password" value={password}
             onChange={e => setPassword(e.target.value)} required />
+          <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={regenerate}
+              onChange={e => setRegenerate(e.target.checked)} className="mt-0.5" />
+            <span>{t('auth.resumeRegenerateLabel')}</span>
+          </label>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
             {t('auth.continueButton')}
