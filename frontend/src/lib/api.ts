@@ -359,6 +359,41 @@ export interface CentralConfig {
   // Per-tenant E2E decryption keys (base64). Map tenant id → key.
   // The server never has these. Without it, encrypted snapshots cannot be read.
   tenantKeys?: Record<string, string>
+  // Optional second factor for the shared viewer login (ovh/totp.php on the
+  // server side) — ONE secret for the whole central server, unlike
+  // tenantKeys which are per-tenant. Base32, same format pyotp uses locally.
+  totpSecret?: string
+}
+
+// TOTP code generation (RFC 6238) via native WebCrypto — mirrors
+// ovh/totp.php's algorithm exactly (SHA1, 6 digits, 30s step) so a code
+// computed here verifies against that PHP implementation.
+function base32Decode(b32: string): Uint8Array {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  const clean = b32.toUpperCase().replace(/[^A-Z2-7]/g, '')
+  let bits = ''
+  for (const ch of clean) bits += alphabet.indexOf(ch).toString(2).padStart(5, '0')
+  const bytes = new Uint8Array(Math.floor(bits.length / 8))
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2)
+  return bytes
+}
+
+export async function totpCode(secretB32: string, atMs: number = Date.now()): Promise<string> {
+  const step = Math.floor(atMs / 1000 / 30)
+  const keyBytes = base32Decode(secretB32)
+  const counter = new ArrayBuffer(8)
+  new DataView(counter).setUint32(4, step) // low 32 bits; high 32 bits stay 0
+  const key = await crypto.subtle.importKey(
+    'raw', keyBytes as BufferSource, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign'])
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, counter))
+  const offset = sig[sig.length - 1] & 0x0f
+  const code = (
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff)
+  ) % 1000000
+  return String(code).padStart(6, '0')
 }
 
 export const centralConfig = {
@@ -423,6 +458,7 @@ async function centralRequest<T>(
 
   const method = opts.method ?? 'GET'
   const headers: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
+  if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret)
   let body: string | undefined
   if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json'

@@ -193,11 +193,13 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
   const [form, setForm] = useState<CentralConfig>({
     apiUrl: existing?.apiUrl || '',
     password: existing?.password || '',
+    tenantKeys: existing?.tenantKeys,
+    totpSecret: existing?.totpSecret || '',
   })
 
   const save = (e: React.FormEvent) => {
     e.preventDefault()
-    centralConfig.save(form)
+    centralConfig.save({ ...form, totpSecret: form.totpSecret || undefined })
     onSaved()
   }
 
@@ -207,6 +209,9 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
         value={form.apiUrl} onChange={e => setForm(f => ({ ...f, apiUrl: e.target.value }))} required />
       <Input label={t('central.viewerPassword')} type="password"
         value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required />
+      <Input label={t('central.totpSecretLabel')} type="password" placeholder={t('central.totpSecretPlaceholder') as string}
+        value={form.totpSecret || ''} onChange={e => setForm(f => ({ ...f, totpSecret: e.target.value }))} />
+      <p className="text-xs text-slate-500">{t('central.totpSecretHint')}</p>
       <div className="flex gap-2 justify-end">
         <Button type="submit" variant="primary">{t('common.save')}</Button>
       </div>

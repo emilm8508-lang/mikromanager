@@ -296,6 +296,9 @@ async def _central_proxy_forward(request: Request, upstream: str, method: str):
     auth = request.headers.get("authorization", "")
     body = None
     headers = {"Authorization": auth}
+    totp = request.headers.get("x-totp")
+    if totp:
+        headers["X-Totp"] = totp
     if method in ("POST", "PUT", "PATCH", "DELETE"):
         body = await request.body()
         ct = request.headers.get("content-type")

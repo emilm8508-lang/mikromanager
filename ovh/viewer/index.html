@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MikroManager — Widok</title>
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MM Widok">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a; color: #e2e8f0; padding: 12px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 0 0 8px; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .between { justify-content: space-between; }
+  .muted { color: #64748b; font-size: 12px; }
+  .card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  button {
+    background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 14px; cursor: pointer;
+  }
+  button.ghost { background: transparent; border: 1px solid #334155; color: #cbd5e1; }
+  button.danger { background: #7f1d1d; }
+  button:disabled { opacity: .5; }
+  input, textarea {
+    width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+    color: #e2e8f0; padding: 9px 10px; font-size: 14px; margin-top: 4px;
+  }
+  label { font-size: 12px; color: #94a3b8; display: block; margin-top: 10px; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 999px;
+    font-weight: 600;
+  }
+  .badge.online { background: #14532d; color: #86efac; }
+  .badge.offline { background: #450a0a; color: #fca5a5; }
+  .badge.crit { background: #450a0a; color: #fca5a5; }
+  .badge.high { background: #7c2d12; color: #fdba74; }
+  .badge.medium { background: #713f12; color: #fde047; }
+  .badge.low { background: #1e3a5f; color: #93c5fd; }
+  .dev-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; border-top: 1px solid #263548; }
+  .dev-row:first-child { border-top: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.on { background: #4ade80; }
+  .dot.off { background: #64748b; }
+  .finding { padding: 6px 0; border-top: 1px solid #263548; font-size: 13px; }
+  .finding:first-child { border-top: none; }
+  .finding a { color: #7dd3fc; }
+  .log-line { font-size: 12px; padding: 3px 0; border-top: 1px solid #263548; }
+  .log-line:first-child { border-top: none; }
+  .section-title { display: flex; align-items: center; gap: 8px; }
+  #app { max-width: 640px; margin: 0 auto; }
+  #login-screen { max-width: 420px; margin: 40px auto; }
+  details > summary { cursor: pointer; font-size: 13px; color: #94a3b8; }
+  .hidden { display: none !important; }
+  .error-text { color: #fca5a5; font-size: 13px; }
+  .empty { color: #64748b; font-size: 13px; font-style: italic; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="login-screen" class="hidden">
+    <h1>MikroManager — Widok</h1>
+    <p class="muted">Podgląd alertów, urządzeń i podatności ze wszystkich klientów — niezależny od włączonego komputera agenta.</p>
+    <div class="card">
+      <label for="cfg-url">URL API (api.php)</label>
+      <input id="cfg-url" placeholder="https://twojadomena.pl/mm/api.php" autocapitalize="off" autocorrect="off">
+      <label for="cfg-pass">Hasło viewera</label>
+      <input id="cfg-pass" type="password" autocomplete="off">
+      <label for="cfg-totp">Sekret TOTP (opcjonalnie)</label>
+      <input id="cfg-totp" type="password" placeholder="np. JBSWY3DPEHPK3PXP" autocapitalize="off" autocorrect="off" data-lpignore="true">
+      <p class="muted">Drugi czynnik logowania — wypełnij tylko, jeśli ustawiłeś <code>viewer_totp_secret</code> w config.php na OVH. Ten sam sekret co w desktopowym widoku "Centralny".</p>
+      <div class="row" style="margin-top:12px;">
+        <button id="btn-login" style="flex:1;">Zapisz i połącz</button>
+      </div>
+      <p id="login-error" class="error-text hidden"></p>
+    </div>
+  </div>
+
+  <div id="main-screen" class="hidden">
+    <div class="row between">
+      <div>
+        <h1>MikroManager — Widok</h1>
+        <p id="status-line" class="muted">—</p>
+      </div>
+      <div class="row">
+        <button id="btn-refresh" class="ghost">Odśwież</button>
+      </div>
+    </div>
+
+    <details class="card">
+      <summary>Ustawienia i klucze deszyfrujące</summary>
+      <div style="margin-top:10px;">
+        <p class="muted" id="settings-url"></p>
+        <label for="import-keys">Import kluczy klientów (wklej JSON wyeksportowany z desktopowego widoku "Centralny")</label>
+        <textarea id="import-keys" rows="4" placeholder='{"tenant-id": "base64klucz..."}'></textarea>
+        <div class="row" style="margin-top:6px;">
+          <button id="btn-import-keys" class="ghost">Importuj</button>
+          <button id="btn-export-keys" class="ghost">Eksportuj</button>
+        </div>
+        <p id="keys-msg" class="muted hidden"></p>
+        <div class="row" style="margin-top:14px;">
+          <button id="btn-logout" class="danger">Wyloguj / wyczyść konfigurację</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="section-title"><h2>Alerty (wszyscy klienci)</h2></div>
+    <div id="alerts-container" class="card"><p class="empty">Ładowanie…</p></div>
+
+    <div id="tenants-container"></div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── Config storage — SAME localStorage key + shape as the desktop app's
+// central viewer (frontend/src/lib/api.ts: CentralConfig / centralConfig),
+// so a key export from desktop pastes in here unchanged, and vice versa.
+const CFG_KEY = 'mikromanager_central';
+const REFRESH_MS = 15 * 60 * 1000; // 15 min, per the agreed "doesn't need to be faster" cadence
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY)); } catch { return null; }
+}
+function saveConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function clearConfig() { localStorage.removeItem(CFG_KEY); }
+
+// ── TOTP (RFC 6238) — mirrors ovh/totp.php exactly (SHA1, 6 digits, 30s step)
+function base32Decode(b32) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = (b32 || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+  let bits = '';
+  for (const ch of clean) bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
+  const bytes = new Uint8Array(Math.floor(bits.length / 8));
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  return bytes;
+}
+
+async function totpCode(secretB32, atMs) {
+  const step = Math.floor((atMs ?? Date.now()) / 1000 / 30);
+  const keyBytes = base32Decode(secretB32);
+  const counter = new ArrayBuffer(8);
+  new DataView(counter).setUint32(4, step);
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, counter));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const code = (
+    ((sig[offset] & 0x7f) << 24) | ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) | (sig[offset + 3] & 0xff)
+  ) % 1000000;
+  return String(code).padStart(6, '0');
+}
+
+// ── E2E decryption (WebCrypto AES-GCM) — exact port of
+// frontend/src/lib/api.ts's decryptEnvelope()/b64ToBuffer().
+function b64ToBuffer(s) {
+  const bin = atob(s);
+  const buf = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return buf;
+}
+
+async function decryptEnvelope(envelope, keyB64) {
+  if (envelope?.v !== 2 || envelope?.alg !== 'aes-256-gcm') {
+    throw new Error(`unsupported envelope: v=${envelope?.v} alg=${envelope?.alg}`);
+  }
+  const rawKey = b64ToBuffer(keyB64);
+  if (rawKey.byteLength !== 32) throw new Error('decryption key must be 32 bytes');
+  const nonce = b64ToBuffer(envelope.nonce);
+  const ct = b64ToBuffer(envelope.ciphertext);
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+// ── API — direct fetch to api.php (this page is hosted on the same OVH
+// server, so no local-agent proxy is needed or used).
+async function apiRequest(action, params, opts) {
+  const cfg = loadConfig();
+  if (!cfg) throw new Error('not configured');
+  const url = new URL(cfg.apiUrl);
+  url.searchParams.set('action', action);
+  for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v);
+
+  const headers = { Authorization: `Bearer ${cfg.password}` };
+  if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret);
+  const method = (opts && opts.method) || 'GET';
+  let body;
+  if (opts && opts.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(opts.body);
+  }
+  const resp = await fetch(url.toString(), { method, headers, body });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  return resp.json();
+}
+
+async function fetchSnapshot(tenant) {
+  const cfg = loadConfig();
+  const data = await apiRequest('snapshot', { tenant });
+  if (!data) return null;
+  if (data.v === 2 && data.ciphertext) {
+    const key = cfg.tenantKeys && cfg.tenantKeys[tenant];
+    if (!key) {
+      return { _error: 'missing_key', tenant, devices_count: data.devices_count,
+        devices_online: data.devices_online, received_at: data.received_at, age_sec: data.age_sec };
+    }
+    try {
+      const decrypted = await decryptEnvelope(data, key);
+      return { ...decrypted, received_at: data.received_at, age_sec: data.age_sec, tenant };
+    } catch (e) {
+      return { _error: 'decrypt_failed: ' + e.message, tenant, received_at: data.received_at, age_sec: data.age_sec };
+    }
+  }
+  return { ...data, tenant };
+}
+
+// ── Rendering helpers ────────────────────────────────────────────────────
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function ageLabel(ageSec) {
+  if (ageSec === null || ageSec === undefined) return 'brak danych';
+  const m = Math.floor(ageSec / 60);
+  if (m < 1) return 'przed chwilą';
+  if (m < 60) return `${m} min temu`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h} godz. temu`;
+  return `${Math.floor(h / 24)} dni temu`;
+}
+
+function safeUrl(u) {
+  // CVE reference URLs come from NVD/vulners lookups — esc() alone stops
+  // markup injection but not a javascript:-scheme value being clickable, so
+  // restrict to http(s) explicitly before ever using this in an href.
+  try {
+    const parsed = new URL(u, location.href);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : '#';
+  } catch { return '#'; }
+}
+
+function severityBadge(sev) {
+  const cls = { CRITICAL: 'crit', HIGH: 'high', MEDIUM: 'medium', LOW: 'low' }[sev] || 'medium';
+  return `<span class="badge ${cls}">${esc(sev || '?')}</span>`;
+}
+
+function setStatus(text) {
+  document.getElementById('status-line').textContent = text;
+}
+
+function renderAlerts(history) {
+  const el = document.getElementById('alerts-container');
+  if (!history.length) { el.innerHTML = '<p class="empty">Brak alertów.</p>'; return; }
+  el.innerHTML = history.slice(0, 30).map(a => `
+    <div class="log-line">
+      <strong>${esc(a.tenant)}</strong> — ${esc(a.event_type)}
+      <span class="muted">(${esc((a.triggered_at || '').replace('T', ' ').slice(0, 16))})</span>
+    </div>
+  `).join('');
+}
+
+function renderTenantCard(tenantMeta, snapshot) {
+  const online = tenantMeta.online;
+  const header = `
+    <div class="row between">
+      <div class="row"><strong>${esc(tenantMeta.id)}</strong>
+        <span class="badge ${online ? 'online' : 'offline'}">${online ? 'online' : 'offline'}</span>
+      </div>
+      <span class="muted">${esc(ageLabel(tenantMeta.age_sec))}</span>
+    </div>`;
+
+  if (!snapshot || snapshot._error === 'missing_key') {
+    return `<div class="card">${header}<p class="empty" style="margin-top:8px;">Brak klucza deszyfrującego dla tego klienta — zaimportuj go w Ustawieniach.</p></div>`;
+  }
+  if (snapshot._error) {
+    return `<div class="card">${header}<p class="error-text" style="margin-top:8px;">${esc(snapshot._error)}</p></div>`;
+  }
+
+  const devices = snapshot.devices || [];
+  const devicesHtml = devices.length
+    ? devices.map(d => `
+        <div class="dev-row">
+          <span class="dot ${d.online ? 'on' : 'off'}"></span>
+          <span>${esc(d.identity || d.name || d.ip)}</span>
+          <span class="muted">${esc(d.ip)}</span>
+        </div>`).join('')
+    : '<p class="empty">Brak urządzeń.</p>';
+
+  const logs = (snapshot.critical_logs || []).slice(0, 10);
+  const logsHtml = logs.length
+    ? logs.map(l => `<div class="log-line"><strong>${esc(l.device_label)}</strong> — ${esc(l.message)} <span class="muted">${esc(l.time || '')}</span></div>`).join('')
+    : '<p class="empty">Brak krytycznych logów.</p>';
+
+  const vulnHosts = (snapshot.vuln_findings_summary || []);
+  const vulnHtml = vulnHosts.length
+    ? vulnHosts.map(h => `
+        <div class="finding">
+          <div><strong>${esc(h.device_name || h.ip)}</strong> <span class="muted">${esc(h.ip)}</span></div>
+          ${h.findings.map(f => `
+            <div style="margin-top:3px;">
+              ${severityBadge(f.severity)}
+              <a href="${esc(safeUrl(f.ref_url || '#'))}" target="_blank" rel="noopener">${esc(f.cve_id)}</a>
+              ${f.cvss_score ? `<span class="muted">CVSS ${esc(f.cvss_score)}</span>` : ''}
+            </div>`).join('')}
+        </div>`).join('')
+    : '<p class="empty">Brak wykrytych podatności.</p>';
+
+  return `
+    <div class="card">
+      ${header}
+      <details style="margin-top:8px;" open>
+        <summary>Urządzenia (${devices.length})</summary>
+        <div style="margin-top:6px;">${devicesHtml}</div>
+      </details>
+      <details style="margin-top:8px;">
+        <summary>Logi krytyczne</summary>
+        <div style="margin-top:6px;">${logsHtml}</div>
+      </details>
+      <details style="margin-top:8px;" ${vulnHosts.length ? 'open' : ''}>
+        <summary>Podatności ${vulnHosts.length ? `(${vulnHosts.length})` : ''}</summary>
+        <div style="margin-top:6px;">${vulnHtml}</div>
+      </details>
+    </div>`;
+}
+
+// ── Main refresh loop ────────────────────────────────────────────────────
+let refreshing = false;
+
+let lastRefreshAt = 0;
+
+async function refreshAll() {
+  if (refreshing) return;
+  refreshing = true;
+  lastRefreshAt = Date.now();
+  document.getElementById('btn-refresh').disabled = true;
+  setStatus('Odświeżanie…');
+  try {
+    const [tenantsResp, alertsResp] = await Promise.all([
+      apiRequest('tenants'),
+      apiRequest('alert_history', { limit: '50' }),
+    ]);
+    renderAlerts(alertsResp.history || []);
+
+    const tenants = tenantsResp.tenants || [];
+    const snapshots = await Promise.all(
+      tenants.map(t => fetchSnapshot(t.id).catch(e => ({ _error: e.message, tenant: t.id })))
+    );
+    const container = document.getElementById('tenants-container');
+    container.innerHTML = tenants.length
+      ? tenants.map((t, i) => renderTenantCard(t, snapshots[i])).join('')
+      : '<p class="empty">Brak klientów.</p>';
+
+    setStatus('Zaktualizowano ' + new Date().toLocaleTimeString('pl-PL'));
+  } catch (e) {
+    setStatus('Błąd odświeżania: ' + e.message);
+  } finally {
+    refreshing = false;
+    document.getElementById('btn-refresh').disabled = false;
+  }
+}
+
+// ── Screens / wiring ─────────────────────────────────────────────────────
+function showScreen() {
+  const cfg = loadConfig();
+  document.getElementById('login-screen').classList.toggle('hidden', !!cfg);
+  document.getElementById('main-screen').classList.toggle('hidden', !cfg);
+  if (cfg) {
+    document.getElementById('settings-url').textContent = cfg.apiUrl;
+    refreshAll();
+  }
+}
+
+document.getElementById('btn-login').addEventListener('click', () => {
+  const apiUrl = document.getElementById('cfg-url').value.trim();
+  const password = document.getElementById('cfg-pass').value;
+  const totpSecret = document.getElementById('cfg-totp').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  if (!apiUrl || !password) {
+    errEl.textContent = 'Podaj URL i hasło.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const existing = loadConfig() || {};
+  saveConfig({ ...existing, apiUrl, password, totpSecret: totpSecret || undefined });
+  showScreen();
+});
+
+document.getElementById('btn-refresh').addEventListener('click', refreshAll);
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  if (confirm('Usunąć konfigurację i klucze z tego urządzenia?')) {
+    clearConfig();
+    showScreen();
+  }
+});
+
+document.getElementById('btn-export-keys').addEventListener('click', () => {
+  const cfg = loadConfig();
+  const json = JSON.stringify((cfg && cfg.tenantKeys) || {}, null, 2);
+  document.getElementById('import-keys').value = json;
+  const msg = document.getElementById('keys-msg');
+  msg.textContent = 'Klucze wyeksportowane poniżej — skopiuj.';
+  msg.classList.remove('hidden');
+});
+
+document.getElementById('btn-import-keys').addEventListener('click', () => {
+  const msg = document.getElementById('keys-msg');
+  msg.classList.remove('hidden');
+  try {
+    const parsed = JSON.parse(document.getElementById('import-keys').value);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('oczekiwano obiektu JSON {tenant: klucz}');
+    const cfg = loadConfig();
+    if (!cfg) throw new Error('najpierw skonfiguruj URL/hasło');
+    cfg.tenantKeys = { ...(cfg.tenantKeys || {}), ...parsed };
+    saveConfig(cfg);
+    msg.textContent = `Zaimportowano ${Object.keys(parsed).length} kluczy.`;
+    refreshAll();
+  } catch (e) {
+    msg.textContent = 'Błąd: ' + e.message;
+  }
+});
+
+// Refresh automatically every 15 min, and also when the tab/app becomes
+// visible again after being backgrounded for a while (typical phone usage:
+// app reopened after sitting in the background for hours).
+setInterval(refreshAll, REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - lastRefreshAt > 5 * 60 * 1000) {
+    refreshAll();
+  }
+});
+
+showScreen();
+</script>
+</body>
+</html>

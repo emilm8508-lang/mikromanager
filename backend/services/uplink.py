@@ -204,6 +204,13 @@ async def _build_snapshot() -> dict:
     global _log_fetch_results
     log_fetch_results, _log_fetch_results = _log_fetch_results, []
 
+    try:
+        from services import vuln_scan
+        vuln_findings_summary = await vuln_scan.hosts_with_findings()
+    except Exception as e:
+        print(f"[uplink] vuln findings summary error: {e}")
+        vuln_findings_summary = []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -222,6 +229,7 @@ async def _build_snapshot() -> dict:
         "firmware_status": fw_status,
         "activity_events": activity_events,
         "log_fetch_results": log_fetch_results,
+        "vuln_findings_summary": vuln_findings_summary,
     }
 
 

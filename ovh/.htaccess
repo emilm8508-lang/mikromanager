@@ -44,6 +44,6 @@
 # CORS — viewer (laptop) needs these to fetch the API cross-origin.
 <IfModule mod_headers.c>
     Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant, X-Timestamp, X-Signature, X-Encrypted"
+    Header set Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant, X-Timestamp, X-Signature, X-Encrypted, X-Totp"
     Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
 </IfModule>

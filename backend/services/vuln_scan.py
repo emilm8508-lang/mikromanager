@@ -676,6 +676,67 @@ async def _get_findings_for(db, product: str, version: str) -> list:
     return rows
 
 
+def _finding_brief(f: VulnFinding) -> dict:
+    return {"cve_id": f.cve_id, "severity": f.severity, "cvss_score": f.cvss_score,
+            "summary": f.summary, "ref_url": f.ref_url}
+
+
+async def hosts_with_findings() -> list:
+    """Compact, phone/central-viewer-friendly summary: only hosts or known
+    devices that CURRENTLY have at least one matching CVE finding, grouped
+    by ip with the finding list beneath — hosts with zero matches are
+    omitted entirely (unlike /api/vuln/findings, which lists every finding
+    regardless of grouping). Reuses the exact same (product, version)
+    match-against-current-state logic as GET /api/vuln/findings in
+    api/vuln_scan.py, just grouped by host instead of by finding."""
+    with SessionLocal() as db:
+        findings = db.execute(select(VulnFinding)).scalars().all()
+        services = db.execute(select(VulnService)).scalars().all()
+        hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
+        devices = db.execute(select(Device)).scalars().all()
+
+        findings_by_pv: dict = {}
+        for f in findings:
+            findings_by_pv.setdefault((f.product, f.version), []).append(f)
+
+        by_ip: dict = {}
+        for s in services:
+            if not (s.product and s.version):
+                continue
+            host = hosts.get(s.host_id)
+            if not host:
+                continue
+            matches = findings_by_pv.get((s.product, s.version))
+            if not matches:
+                continue
+            entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
+            entry["findings"].extend(_finding_brief(f) for f in matches)
+
+        for d in devices:
+            if not d.ros_version:
+                continue
+            product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
+            matches = findings_by_pv.get((product, d.ros_version))
+            if not matches:
+                continue
+            entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
+            entry["findings"].extend(_finding_brief(f) for f in matches)
+
+        out = list(by_ip.values())
+        for entry in out:
+            seen_cve_ids = set()
+            deduped = []
+            for fnd in entry["findings"]:
+                if fnd["cve_id"] in seen_cve_ids:
+                    continue
+                seen_cve_ids.add(fnd["cve_id"])
+                deduped.append(fnd)
+            deduped.sort(key=lambda x: (_SEVERITY_ORDER.get(x["severity"], 4), -(x["cvss_score"] or 0)))
+            entry["findings"] = deduped
+        out.sort(key=lambda e: [int(p) for p in e["ip"].split(".")])
+        return out
+
+
 # ── Orchestration ────────────────────────────────────────────────────────────
 
 async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:

@@ -15,7 +15,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Authorization, Content-Type');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Totp');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
@@ -25,6 +25,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/totp.php';
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 // Apache + PHP-FPM on shared hosting often strips Authorization. Check fallbacks.
@@ -45,18 +46,76 @@ function get_auth_header(): string {
     return '';
 }
 
+function get_totp_header(): string {
+    if (!empty($_SERVER['HTTP_X_TOTP'])) return $_SERVER['HTTP_X_TOTP'];
+    if (function_exists('getallheaders')) {
+        foreach (getallheaders() as $k => $v) {
+            if (strcasecmp($k, 'X-Totp') === 0) return $v;
+        }
+    }
+    return '';
+}
+
+// Login lockout — file-based (one JSON file per client IP in state_dir,
+// same convention as the ingest.php rate limiter), since PHP has no
+// persistent process to hold this in memory like the local agent's login
+// throttle (backend/services/auth.py) does. Escalating: 5 fails → 60s,
+// 10 → 5 min, 15+ → 30 min. Applies regardless of whether TOTP is
+// configured — it's the universal protection for the shared password.
+function _login_lockout_path(array $config, string $ip): string {
+    $dir = $config['state_dir'];
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    return $dir . '/login_fail_' . preg_replace('/[^a-zA-Z0-9_.:]/', '_', $ip) . '.json';
+}
+
+function login_lockout_check(array $config, string $ip): void {
+    $path = _login_lockout_path($config, $ip);
+    if (!is_file($path)) return;
+    $data = json_decode((string)file_get_contents($path), true);
+    $locked_until = is_array($data) ? (int)($data['locked_until'] ?? 0) : 0;
+    if ($locked_until > time()) {
+        http_response_code(429);
+        echo json_encode(['error' => 'too many failed attempts', 'retry_after_sec' => $locked_until - time()]);
+        exit;
+    }
+}
+
+function login_lockout_record(array $config, string $ip, bool $success): void {
+    $path = _login_lockout_path($config, $ip);
+    if ($success) {
+        @unlink($path);
+        return;
+    }
+    $data = is_file($path) ? json_decode((string)file_get_contents($path), true) : null;
+    $count = (is_array($data) ? (int)($data['count'] ?? 0) : 0) + 1;
+    $lockout_sec = $count >= 15 ? 1800 : ($count >= 10 ? 300 : ($count >= 5 ? 60 : 0));
+    $next = ['count' => $count, 'locked_until' => $lockout_sec ? time() + $lockout_sec : 0];
+    file_put_contents($path, json_encode($next), LOCK_EX);
+}
+
+$client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+login_lockout_check($config, $client_ip);
+
 $auth_header = get_auth_header();
 if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
+    login_lockout_record($config, $client_ip, false);
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
 }
 $provided = trim($m[1]);
-if (!hash_equals($config['viewer_password'], $provided)) {
+$password_ok = hash_equals($config['viewer_password'], $provided);
+$totp_ok = true;
+if ($password_ok && !empty($config['viewer_totp_secret'])) {
+    $totp_ok = totp_verify($config['viewer_totp_secret'], get_totp_header());
+}
+if (!$password_ok || !$totp_ok) {
+    login_lockout_record($config, $client_ip, false);
     http_response_code(401);
-    echo json_encode(['error' => 'invalid password']);
+    echo json_encode(['error' => $password_ok ? 'invalid or missing TOTP code' : 'invalid password']);
     exit;
 }
+login_lockout_record($config, $client_ip, true);
 
 // ── Routing ──────────────────────────────────────────────────────────────────
 $action = $_GET['action'] ?? 'tenants';
