@@ -421,10 +421,24 @@ async def _winrm_identity(ip: str, port: int, username: str, password: str,
 # whichever one succeeds so the next scan goes straight to it.
 
 async def _auth_augment(ip: str, ports_found: dict, version_pairs: dict,
-                        remembered_cred_id: Optional[int], all_creds: list) -> Optional[int]:
+                        remembered_cred_id: Optional[int], all_creds: list,
+                        known_device_ips: frozenset = frozenset()) -> Optional[int]:
     """Returns the id of the credential that worked, or None. Does not touch
     the DB itself — the caller applies the result once the VulnHost row is
-    guaranteed to exist (see _apply_credentials)."""
+    guaranteed to exist (see _apply_credentials).
+
+    Skips entirely for any ip already in `known_device_ips` (a Mikrotik/Cisco
+    Device row, per services/scanner.py's vendor detection — network
+    appliances, not general-purpose servers): those already have an accurate,
+    authenticated version via refresher.py's daily enrichment
+    (_device_version_pair below), so this generic Linux-flavored SSH probe
+    (`cat /etc/os-release`) would only ever produce noise there — RouterOS's
+    CLI doesn't understand it ("bad command name cat"), and cycling through
+    every saved credential against it generates spurious failed-login
+    entries in the device's own log for zero benefit."""
+    if ip in known_device_ips:
+        return None
+
     has_ssh = 22 in ports_found
     winrm_port = 5985 if 5985 in ports_found else (5986 if 5986 in ports_found else None)
     if not has_ssh and winrm_port is None:
@@ -855,8 +869,11 @@ async def run_scan() -> dict:
 
     try:
         version_pairs: dict = {}  # (product, version) -> list of (ip, port, source)
+        known_device_ips: frozenset = frozenset()
         with SessionLocal() as db:
-            for d in db.execute(select(Device)).scalars().all():
+            all_devices = db.execute(select(Device)).scalars().all()
+            known_device_ips = frozenset(d.ip for d in all_devices)
+            for d in all_devices:
                 pair = _device_version_pair(d)
                 if pair:
                     version_pairs.setdefault(pair, []).append((d.ip, None, "device"))
@@ -890,7 +907,7 @@ async def run_scan() -> dict:
                 if product and version:
                     version_pairs.setdefault((product, version), []).append((ip, port, "banner"))
             cred_id = await _auth_augment(ip, ports_found, version_pairs,
-                                          existing_cred_by_ip.get(ip), all_creds)
+                                          existing_cred_by_ip.get(ip), all_creds, known_device_ips)
             if cred_id:
                 auth_results[ip] = cred_id
 
@@ -931,8 +948,9 @@ async def scan_one_host(ip: str) -> dict:
         if product and version:
             version_pairs.setdefault((product, version), []).append((ip, port, "banner"))
 
+    known_device_ips = frozenset([ip]) if device else frozenset()
     if ports_found:
-        cred_id = await _auth_augment(ip, ports_found, version_pairs, remembered_cred_id, all_creds)
+        cred_id = await _auth_augment(ip, ports_found, version_pairs, remembered_cred_id, all_creds, known_device_ips)
         await _persist_services([ip], [ports_found])
         if cred_id:
             await _apply_credentials({ip: cred_id})
