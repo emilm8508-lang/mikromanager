@@ -8,6 +8,7 @@ import { SUPPORTED_LANGS } from '../i18n'
 import { api, systemApi, authApi, MfaSetupInfo } from '../lib/api'
 import { useAuth } from '../pages/Login'
 import { Modal } from './ui/Modal'
+import { Input } from './ui/Input'
 
 function formatMinutes(min: number): string {
   if (min < 60) return `${min} min`
@@ -113,6 +114,8 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
   const [info, setInfo] = useState<MfaSetupInfo | null>(null)
   const [error, setError] = useState('')
   const [justRegenerated, setJustRegenerated] = useState(false)
+  const [showRetype, setShowRetype] = useState(false)
+  const [retypeSecret, setRetypeSecret] = useState('')
 
   const fetchSecret = useMutation({
     mutationFn: authApi.totpSecret,
@@ -121,8 +124,8 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
   })
 
   const regenerate = useMutation({
-    mutationFn: authApi.totpSecretRegenerate,
-    onSuccess: (data) => { setInfo(data); setJustRegenerated(true) },
+    mutationFn: () => authApi.totpSecretRegenerate(retypeSecret || undefined),
+    onSuccess: (data) => { setInfo(data); setJustRegenerated(true); setShowRetype(false); setRetypeSecret('') },
     onError: () => setError(t('auth.genericError') as string),
   })
 
@@ -131,7 +134,7 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
   }, [open])
 
   return (
-    <Modal open={open} onClose={() => { onClose(); setInfo(null); setError(''); setJustRegenerated(false) }} title={t('auth.reuseSecretLabel') as string}>
+    <Modal open={open} onClose={() => { onClose(); setInfo(null); setError(''); setJustRegenerated(false); setShowRetype(false); setRetypeSecret('') }} title={t('auth.reuseSecretLabel') as string}>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!info && !error && <p className="text-sm text-slate-500">{t('common.loading')}</p>}
       {info && (
@@ -145,16 +148,38 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
           <p className="font-mono text-xs text-slate-700 break-all bg-slate-100 rounded px-2 py-1">
             {info.secret}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm(t('auth.mfaRegenerateConfirm') as string)) regenerate.mutate()
-            }}
-            disabled={regenerate.isPending}
-            className="text-xs text-red-600 hover:underline"
-          >
-            {t('auth.mfaRegenerateButton')}
-          </button>
+          {!showRetype ? (
+            <button
+              type="button"
+              onClick={() => setShowRetype(true)}
+              className="text-xs text-red-600 hover:underline"
+            >
+              {t('auth.mfaRegenerateButton')}
+            </button>
+          ) : (
+            <div className="space-y-1">
+              <Input label={t('auth.reuseSecretLabel') as string} value={retypeSecret}
+                onChange={e => setRetypeSecret(e.target.value)}
+                placeholder="RC63HTOZD75QBACER6JWVUPFFANYUXFJ" />
+              <p className="text-[11px] text-slate-500">{t('auth.resumeRetypeHint')}</p>
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => { setShowRetype(false); setRetypeSecret('') }}
+                  className="text-xs text-slate-500 hover:underline">
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(t('auth.mfaRegenerateConfirm') as string)) regenerate.mutate()
+                  }}
+                  disabled={regenerate.isPending}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  {t('auth.mfaRegenerateButton')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Modal>

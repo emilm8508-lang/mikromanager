@@ -204,7 +204,8 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [regenerate, setRegenerate] = useState(false)
+  const [showRetype, setShowRetype] = useState(false)
+  const [totpSecret, setTotpSecret] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -213,8 +214,8 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
     setError('')
     setBusy(true)
     try {
-      const info = regenerate
-        ? await authApi.setupRegenerate(username, password)
+      const info = showRetype
+        ? await authApi.setupRegenerate(username, password, totpSecret)
         : await authApi.setupResume(username, password)
       onDone(username, info)
     } catch (err) {
@@ -239,11 +240,21 @@ function ResumeMfaForm({ onDone }: { onDone: (username: string, info: MfaSetupIn
             onChange={e => setUsername(e.target.value)} required autoFocus />
           <Input label={t('auth.password') as string} type="password" value={password}
             onChange={e => setPassword(e.target.value)} required />
-          <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={regenerate}
-              onChange={e => setRegenerate(e.target.checked)} className="mt-0.5" />
-            <span>{t('auth.resumeRegenerateLabel')}</span>
-          </label>
+          <button
+            type="button"
+            onClick={() => setShowRetype(s => !s)}
+            className="text-xs text-indigo-600 hover:text-indigo-500"
+          >
+            {showRetype ? t('auth.hideAdvanced') : t('auth.resumeRetypeToggle')}
+          </button>
+          {showRetype && (
+            <div className="space-y-1">
+              <Input label={t('auth.reuseSecretLabel') as string} value={totpSecret}
+                onChange={e => setTotpSecret(e.target.value)}
+                placeholder="RC63HTOZD75QBACER6JWVUPFFANYUXFJ" />
+              <p className="text-[11px] text-slate-500">{t('auth.resumeRetypeHint')}</p>
+            </div>
+          )}
           {error && <p className="text-xs text-red-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
             {t('auth.continueButton')}

@@ -136,13 +136,26 @@ async def setup_resume(data: SetupResumeIn, db: Session = Depends(get_db)):
     }
 
 
+class SetupRegenerateIn(BaseModel):
+    username: str
+    password: str
+    # Optional: set the secret to this EXACT value instead of generating a
+    # random one — for re-entering the correct secret when it was mistyped
+    # the first time (e.g. the same shared secret used across other agents
+    # via /setup's 'reuse existing secret' field — a random new one here
+    # would fix login on this agent but break the "same account everywhere"
+    # reuse, since it'd no longer match what's on the other agents).
+    # Leave empty to fall back to a fresh random secret.
+    totp_secret: Optional[str] = None
+
+
 @router.post("/setup/regenerate")
-async def setup_regenerate(data: SetupResumeIn, db: Session = Depends(get_db)):
-    """Like /setup/resume, but throws away the current (never-confirmed)
-    secret and issues a brand new one — for when the QR/secret shown during
-    the original /setup was scanned wrong (or a custom 'reuse this secret'
-    value was mistyped) and simply re-showing it via /setup/resume would
-    just repeat the same problem. Same password check + throttle as resume."""
+async def setup_regenerate(data: SetupRegenerateIn, db: Session = Depends(get_db)):
+    """Like /setup/resume, but REPLACES the current (never-confirmed) secret
+    instead of just re-showing it — either with a specific value you provide
+    (typically: the correct secret, re-typed, after the first attempt had a
+    typo) or, if none is given, a fresh random one. Same password check +
+    throttle as resume."""
     account = _get_account(db)
     if account is None:
         raise HTTPException(404, "no account configured — call /setup first")
@@ -161,8 +174,14 @@ async def setup_regenerate(data: SetupResumeIn, db: Session = Depends(get_db)):
         raise HTTPException(401, "invalid username or password")
     auth_svc.record_success(throttle_key)
 
+    if data.totp_secret:
+        secret = data.totp_secret.strip().upper()
+        if not auth_svc.is_valid_totp_secret(secret):
+            raise HTTPException(400, "invalid TOTP secret — must be a valid base32 key")
+    else:
+        secret = auth_svc.generate_totp_secret()
+
     from services.crypto import encrypt
-    secret = auth_svc.generate_totp_secret()
     account.totp_secret_enc = encrypt(secret)
     db.commit()
 
@@ -272,20 +291,34 @@ async def get_totp_secret(account_id: int = Depends(require_login), db: Session 
     }
 
 
+class TotpRegenerateIn(BaseModel):
+    # Optional: set the secret to this EXACT value (e.g. re-typing the
+    # shared secret used on your other agents) instead of a random one.
+    totp_secret: Optional[str] = None
+
+
 @router.post("/totp-secret/regenerate")
-async def regenerate_totp_secret(account_id: int = Depends(require_login), db: Session = Depends(get_db)):
-    """Replace the current TOTP secret with a fresh one — for changing
-    authenticator apps, or recovering from having scanned/typed it wrong the
-    first time. Takes effect immediately (this is an authenticated action,
-    same trust level as GET /totp-secret above); the old authenticator
-    entry stops working the moment this returns, so the frontend must show
-    the new QR right away and make clear the old one is now dead."""
+async def regenerate_totp_secret(data: TotpRegenerateIn = TotpRegenerateIn(),
+                                 account_id: int = Depends(require_login), db: Session = Depends(get_db)):
+    """Replace the current TOTP secret — with a specific value you provide,
+    or (if none given) a fresh random one. For changing authenticator apps,
+    or recovering from having scanned/typed it wrong the first time. Takes
+    effect immediately (this is an authenticated action, same trust level as
+    GET /totp-secret above); the old authenticator entry stops working the
+    moment this returns, so the frontend must show the new QR right away and
+    make clear the old one is now dead."""
     account = db.get(AppAccount, account_id)
     if account is None:
         raise HTTPException(401, "not authenticated")
 
+    if data.totp_secret:
+        secret = data.totp_secret.strip().upper()
+        if not auth_svc.is_valid_totp_secret(secret):
+            raise HTTPException(400, "invalid TOTP secret — must be a valid base32 key")
+    else:
+        secret = auth_svc.generate_totp_secret()
+
     from services.crypto import encrypt
-    secret = auth_svc.generate_totp_secret()
     account.totp_secret_enc = encrypt(secret)
     db.commit()
 
