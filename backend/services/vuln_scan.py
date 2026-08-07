@@ -23,8 +23,15 @@ just:
      devices), log in over SSH (Linux) or WinRM (Windows, domain or local)
      and read OS/version info (`cat /etc/os-release`/`uname -a`, or
      `systeminfo`) instead of relying on the bare service banner. Still
-     read-only, still no package audit — just a more accurate OS identifier
-     for hosts the user explicitly trusted with credentials.
+     read-only. If MIKROTIK_VULNERS_API_KEY is configured, goes one step
+     deeper (throttled to once every MIKROTIK_VULN_PACKAGE_AUDIT_DAYS per
+     host, not every scan): pulls the FULL installed-package list
+     (dpkg-query/rpm -qa) or Windows KB+software inventory (Get-HotFix +
+     registry read) and submits it to vulners.com's audit endpoints — this
+     catches vulnerabilities in specific outdated libraries on that host,
+     not just "this is Ubuntu 22.04". Every command here is still
+     read-only — no package installed/removed, no MSI side effects (Win32_
+     Product is deliberately avoided for that reason).
   5. Every unique (product, version) found anywhere in the scan is looked up
      ONCE (deduped — a LAN with 20 identical Ubuntu boxes only costs one
      query per source, not 20) against the public NVD CVE API (keyword
@@ -47,12 +54,11 @@ import re
 import time
 from datetime import datetime, timedelta
 from typing import Optional
-from urllib.parse import quote
 
 import aiohttp
 from sqlalchemy import select, delete
 
-from models.database import SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnFinding
+from models.database import SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnPackage, VulnFinding
 from services.crypto import decrypt
 from services import scanner as scan_svc
 
@@ -358,18 +364,23 @@ def _ssh_identity_sync(ip: str, port: int, username: str, password: str) -> Opti
 
 
 async def _ssh_identity(ip: str, port: int, username: str, password: str) -> tuple:
-    """Returns (product, version) parsed from /etc/os-release, or (None, None)."""
+    """Returns (product, version, distro_id) parsed from /etc/os-release, or
+    (None, None, None). distro_id is the raw /etc/os-release ID (e.g.
+    "ubuntu"), kept alongside the human-readable product name so callers can
+    pick a package manager (see _PACKAGE_MANAGER_BY_DISTRO below) without
+    re-deriving it from the display name."""
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, _ssh_identity_sync, ip, port, username, password)
     if not result:
-        return None, None
+        return None, None, None
     output = result["output"]
     id_m = _OS_RELEASE_RE.search(output)
     ver_m = _VERSION_ID_RE.search(output)
     if id_m and ver_m:
-        product = _LINUX_DISTRO_NAMES.get(id_m.group(1).lower(), id_m.group(1))
-        return product, ver_m.group(1)
-    return None, None
+        distro_id = id_m.group(1).lower()
+        product = _LINUX_DISTRO_NAMES.get(distro_id, distro_id)
+        return product, ver_m.group(1), distro_id
+    return None, None, None
 
 
 # ── Optional authenticated Windows identity check (SSH's counterpart) ───────
@@ -414,6 +425,135 @@ async def _winrm_identity(ip: str, port: int, username: str, password: str,
     return None, None
 
 
+# ── Full package/software inventory (credentialed hosts only) ───────────────
+# Only ever called for a host where a Credential has ALREADY been confirmed
+# working via _auth_augment — this is strictly deeper identification for
+# hosts the user explicitly trusted, never a new attack surface. Every
+# command here is read-only, same guarantee as the identity checks above.
+
+_PACKAGE_MANAGER_BY_DISTRO = {
+    "ubuntu": "dpkg", "debian": "dpkg",
+    "centos": "rpm", "rhel": "rpm", "fedora": "rpm",
+    "rocky": "rpm", "almalinux": "rpm", "opensuse": "rpm",
+}
+
+
+_RPM_LINE_RE = re.compile(r'^(.+)-([^-]+)-([^-]+)\.(\w+)$')
+
+
+def _ssh_list_packages_sync(ip: str, port: int, username: str, password: str,
+                            distro_id: Optional[str]) -> Optional[list]:
+    """Blocking — run via loop.run_in_executor. dpkg-query/rpm -qa only ever
+    list already-installed packages, nothing changes on the host. Returns a
+    list of (raw_line, name, version) — the raw line matches vulners'
+    linux_audit() docstring examples exactly ("openssl 1.1.1d-0+deb10u3
+    amd64" / "openssl-1.0.2k-19.el7.x86_64") and goes to vulners verbatim;
+    name/version are parsed out separately for our own VulnPackage
+    inventory (verified the rpm regex against vulners' own examples,
+    including a package name that itself contains a dash like
+    "bash-completion-2.1-6.el7.noarch")."""
+    pkg_mgr = _PACKAGE_MANAGER_BY_DISTRO.get((distro_id or "").lower())
+    if not pkg_mgr:
+        return None
+    cmd = ("dpkg-query -W -f='${Package} ${Version} ${Architecture}\\n'" if pkg_mgr == "dpkg"
+           else "rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\\n'")
+    import paramiko
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(ip, port=port, username=username, password=password,
+                        timeout=8, banner_timeout=8, auth_timeout=8,
+                        look_for_keys=False, allow_agent=False)
+        _, stdout, _ = client.exec_command(cmd, timeout=20)
+        output = stdout.read().decode("utf-8", errors="ignore")
+        lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+        entries = []
+        for line in lines:
+            if pkg_mgr == "dpkg":
+                parts = line.split()
+                if len(parts) >= 2:
+                    entries.append((line, parts[0], parts[1]))
+            else:
+                m = _RPM_LINE_RE.match(line)
+                if m:
+                    entries.append((line, m.group(1), m.group(2)))
+        return entries or None
+    except Exception:
+        return None
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+async def _ssh_list_packages(ip: str, port: int, username: str, password: str,
+                             distro_id: Optional[str]) -> Optional[list]:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, _ssh_list_packages_sync, ip, port, username, password, distro_id)
+
+
+_WINRM_INVENTORY_SCRIPT = (
+    "$ErrorActionPreference='SilentlyContinue'; "
+    "(Get-HotFix | Select-Object -Expand HotFixID) -join '|'; "
+    "Write-Output '---SOFTWARE---'; "
+    "Get-ItemProperty "
+    "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*,"
+    "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* "
+    "| Where-Object { $_.DisplayName -and $_.DisplayVersion } "
+    "| ForEach-Object { \"$($_.DisplayName)|$($_.DisplayVersion)\" }"
+)
+
+
+def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
+                               domain: Optional[str]) -> Optional[dict]:
+    """Blocking — run via loop.run_in_executor. Read-only: Get-HotFix (list
+    installed KBs) plus a registry read of the standard Uninstall keys (list
+    installed software) — the same technique Programs & Features itself
+    uses. Deliberately NOT using WMI's Win32_Product (a common alternative)
+    — it's documented to trigger MSI package reconfiguration as a side
+    effect just from enumerating it, which would violate the read-only
+    guarantee the rest of this scanner holds to."""
+    import winrm
+    user = f"{domain}\\{username}" if domain else username
+    scheme = "https" if port == 5986 else "http"
+    try:
+        session = winrm.Session(
+            f"{scheme}://{ip}:{port}/wsman",
+            auth=(user, password), transport="ntlm",
+            server_cert_validation="ignore",
+            read_timeout_sec=30, operation_timeout_sec=25,
+        )
+        result = session.run_ps(_WINRM_INVENTORY_SCRIPT)
+        if result.status_code != 0:
+            return None
+        output = result.std_out.decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+
+    if "---SOFTWARE---" not in output:
+        return None
+    kb_part, _, sw_part = output.partition("---SOFTWARE---")
+    kbs = [k.strip() for k in kb_part.strip().split("|") if k.strip()]
+    software = []
+    for line in sw_part.splitlines():
+        line = line.strip()
+        if not line or "|" not in line:
+            continue
+        name, _, ver = line.partition("|")
+        if name.strip() and ver.strip():
+            software.append({"software": name.strip(), "version": ver.strip()})
+    return {"kbs": kbs, "software": software}
+
+
+async def _winrm_list_inventory(ip: str, port: int, username: str, password: str,
+                                domain: Optional[str]) -> Optional[dict]:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, _winrm_list_inventory_sync, ip, port, username, password, domain)
+
+
 # ── Credential auto-detection (SSH + WinRM) ──────────────────────────────────
 # Same idea as MikrotikClient remembering which access method works: try
 # every configured credential ONCE per host per scan (see FAILED_COMBO_RETRY_
@@ -422,10 +562,14 @@ async def _winrm_identity(ip: str, port: int, username: str, password: str,
 
 async def _auth_augment(ip: str, ports_found: dict, version_pairs: dict,
                         remembered_cred_id: Optional[int], all_creds: list,
-                        known_device_ips: frozenset = frozenset()) -> Optional[int]:
-    """Returns the id of the credential that worked, or None. Does not touch
-    the DB itself — the caller applies the result once the VulnHost row is
-    guaranteed to exist (see _apply_credentials).
+                        known_device_ips: frozenset = frozenset()) -> Optional[dict]:
+    """Returns details of the credential that worked, or None:
+    {"cred_id", "product", "version", "distro_id" (SSH only, else None),
+    "via_ssh", "winrm_port"} — used both to persist the winning credential
+    (_apply_credentials) and, for hosts where it worked, to drive the
+    deeper package/software audit afterward (_package_audit). Does not
+    touch the DB itself — the caller applies results once the VulnHost row
+    is guaranteed to exist (see _apply_credentials).
 
     Skips entirely for any ip already in `known_device_ips` (a Mikrotik/Cisco
     Device row, per services/scanner.py's vendor detection — network
@@ -460,17 +604,25 @@ async def _auth_augment(ip: str, ports_found: dict, version_pairs: dict,
         except Exception:
             continue
 
-        product = version = None
+        product = version = distro_id = None
+        via_ssh = False
         if has_ssh:
-            product, version = await _ssh_identity(ip, 22, cred.username, password)
+            product, version, distro_id = await _ssh_identity(ip, 22, cred.username, password)
+            via_ssh = bool(product and version)
         if not (product and version) and winrm_port:
             product, version = await _winrm_identity(ip, winrm_port, cred.username, password, cred.domain)
+            distro_id = None
+            via_ssh = False
 
         if product and version:
             version_pairs.setdefault((product, version), []).append(
-                (ip, 22 if has_ssh else winrm_port, "auth"))
+                (ip, 22 if via_ssh else winrm_port, "auth"))
             _failed_combo_cache.pop(combo_key, None)
-            return cred.id
+            return {
+                "cred_id": cred.id, "product": product, "version": version,
+                "distro_id": distro_id if via_ssh else None,
+                "via_ssh": via_ssh, "winrm_port": None if via_ssh else winrm_port,
+            }
         _failed_combo_cache[combo_key] = now
 
     return None
@@ -489,63 +641,356 @@ async def _apply_credentials(auth_results: dict) -> None:
         db.commit()
 
 
+# ── Full package/software audit via vulners (credentialed hosts only) ───────
+# Runs AFTER a credential is confirmed working (_auth_augment) and the
+# lightweight OS-version identification already succeeded — this goes one
+# level deeper: submits the ACTUAL installed package/software list, so we
+# catch vulnerabilities in specific outdated libraries, not just "this is
+# Ubuntu 22.04". Requires MIKROTIK_VULNERS_API_KEY (NVD has no equivalent
+# audit-by-package-list endpoint) — skipped entirely without a key, same as
+# the passive vulners.com CVE source elsewhere in this file. Gated per-host
+# by PACKAGE_AUDIT_DAYS since a single call here can submit thousands of
+# packages — much "heavier" than the weekly scan's usual per-(product,
+# version) lookups, so it runs far less often.
+
+PACKAGE_AUDIT_DAYS = int(os.environ.get("MIKROTIK_VULN_PACKAGE_AUDIT_DAYS", "7"))
+_VULNERS_MAX_PACKAGES = 2500  # vulners' own documented limit per audit call
+
+
+def _audit_entries_to_findings(entries: list) -> list:
+    """Shared defensive parsing for one (package_name, raw_vuln_dict) entry
+    list, used by both _vulners_linux_audit_sync and _vulners_win_audit_sync.
+    Same philosophy as _vulners_query_sync above: the exact response shape
+    of vulners' audit endpoints is "provider-shaped" (not a fixed schema
+    per the package's own code) and wasn't verified against a live call
+    from this dev sandbox — try several plausible field names, skip a
+    malformed entry rather than fail the whole audit."""
+    findings = []
+    for pkg_name, v in entries:
+        if not isinstance(v, dict) or not pkg_name:
+            continue
+        try:
+            cve_id = v.get("id") or v.get("cve_id") or v.get("cveId")
+            if not cve_id:
+                continue
+            pkg_version = v.get("packageVersion") or v.get("version") or v.get("installedVersion")
+            cvss = v.get("cvss") or v.get("cvss3") or v.get("cvss2") or {}
+            score = cvss.get("score") if isinstance(cvss, dict) else None
+            if score is None:
+                score = v.get("cvss_score") or v.get("score")
+            severity = (cvss.get("severity") if isinstance(cvss, dict) else None) \
+                or _cvss_to_severity(score)
+            findings.append({
+                "package": pkg_name, "package_version": pkg_version,
+                "cve_id": cve_id, "cvss_score": score, "severity": severity,
+                "summary": (v.get("description") or v.get("summary") or v.get("title") or "")[:1000],
+                "published": v.get("published"),
+                "ref_url": v.get("href") or v.get("url") or v.get("ref_url"),
+            })
+        except Exception:
+            continue
+    return findings
+
+
+def _vulners_linux_audit_sync(os_name: str, os_version: str, package_lines: list) -> list:
+    """Blocking — run via loop.run_in_executor (vulners' HTTP client is
+    synchronous). `package_lines` are the raw dpkg-query/rpm -qa lines from
+    _ssh_list_packages — vulners' own docstring gives those exact formats
+    as expected input, no reformatting needed."""
+    import vulners
+    api = vulners.VulnersApi(api_key=VULNERS_API_KEY)
+    try:
+        result = api.audit.linux_audit(os_name, os_version, package_lines) or {}
+    except Exception:
+        return []
+
+    entries = []
+    if isinstance(result, dict):
+        packages = result.get("packages")
+        if isinstance(packages, dict):
+            for pkg_name, pkg_data in packages.items():
+                if isinstance(pkg_data, dict):
+                    for v in (pkg_data.get("vulnerabilities") or []):
+                        entries.append((pkg_name, v))
+        for v in (result.get("vulnerabilities") or []):
+            if isinstance(v, dict):
+                entries.append((v.get("package") or v.get("pkg"), v))
+    return _audit_entries_to_findings(entries)
+
+
+async def _vulners_linux_audit(os_name: str, os_version: str, package_lines: list) -> list:
+    if not VULNERS_API_KEY or not package_lines:
+        return []
+    global _vulners_last_call
+    wait = VULNERS_MIN_INTERVAL - (time.time() - _vulners_last_call)
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _vulners_last_call = time.time()
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, _vulners_linux_audit_sync, os_name, os_version, package_lines)
+    except Exception as e:
+        print(f"[vuln_scan] vulners linux_audit failed for {os_name} {os_version}: {e}")
+        return []
+
+
+def _vulners_win_audit_sync(os_name: str, os_version: str, kbs: list, software: list) -> list:
+    """Blocking — run via loop.run_in_executor. `software` is already the
+    [{"software":..,"version":..}] shape vulners' WinAuditItem expects
+    (built by _winrm_list_inventory), `kbs` a list of "KB..." strings."""
+    import vulners
+    api = vulners.VulnersApi(api_key=VULNERS_API_KEY)
+    try:
+        result = api.audit.win_audit(os_name, os_version, kbs, software) or {}
+    except Exception:
+        return []
+
+    entries = []
+    if isinstance(result, dict):
+        for key in ("vulnerabilities", "software"):
+            items = result.get(key)
+            if isinstance(items, list):
+                for v in items:
+                    if isinstance(v, dict):
+                        entries.append((v.get("software") or v.get("package") or v.get("name"), v))
+    return _audit_entries_to_findings(entries)
+
+
+async def _vulners_win_audit(os_name: str, os_version: str, kbs: list, software: list) -> list:
+    if not VULNERS_API_KEY or (not kbs and not software):
+        return []
+    global _vulners_last_call
+    wait = VULNERS_MIN_INTERVAL - (time.time() - _vulners_last_call)
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _vulners_last_call = time.time()
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, _vulners_win_audit_sync, os_name, os_version, kbs, software)
+    except Exception as e:
+        print(f"[vuln_scan] vulners win_audit failed for {os_name} {os_version}: {e}")
+        return []
+
+
+async def _persist_packages(host_id: int, packages: list) -> None:
+    """Upsert VulnPackage rows for one host (`packages` a list of
+    (name, version) tuples), then drop any package no longer in the current
+    list (upgraded away or uninstalled) so a fixed vulnerability doesn't
+    linger as a false positive — unlike VulnService, which only ever
+    upserts and never prunes individual stale ports, this cleans up
+    per-package since a full audit gives us the complete current set to
+    diff against, not just a handful of newly-observed ports."""
+    if not packages:
+        return
+    current_names = {name for name, _ in packages}
+    with SessionLocal() as db:
+        for name, version in packages:
+            row = db.execute(
+                select(VulnPackage).where(VulnPackage.host_id == host_id, VulnPackage.name == name)
+            ).scalar_one_or_none()
+            if row:
+                row.version = version
+                row.last_seen = datetime.utcnow()
+            else:
+                db.add(VulnPackage(host_id=host_id, name=name, version=version))
+        db.commit()
+
+        stale = db.execute(select(VulnPackage).where(VulnPackage.host_id == host_id)).scalars().all()
+        removed = False
+        for row in stale:
+            if row.name not in current_names:
+                db.delete(row)
+                removed = True
+        if removed:
+            db.commit()
+
+
+async def _package_audit(ip: str, cred, auth_info: dict, host_id: int,
+                         last_audit_at: Optional[datetime]) -> None:
+    """The deeper, opt-in step for a host where credentials already work:
+    pulls the full installed-package/software inventory and submits it to
+    vulners.com, instead of relying only on the OS name+version
+    _auth_augment already established. Every command run here (dpkg-query/
+    rpm -qa/Get-HotFix/registry read) is read-only — same guarantee as the
+    rest of this scanner."""
+    if not VULNERS_API_KEY:
+        return
+    if last_audit_at and (datetime.utcnow() - last_audit_at).days < PACKAGE_AUDIT_DAYS:
+        return
+
+    try:
+        password = decrypt(cred.password_enc)
+    except Exception:
+        return
+
+    findings_raw: list = []
+    packages: list = []
+
+    if auth_info["via_ssh"]:
+        entries = await _ssh_list_packages(ip, 22, cred.username, password, auth_info["distro_id"])
+        if not entries:
+            return
+        if len(entries) > _VULNERS_MAX_PACKAGES:
+            print(f"[vuln_scan] {ip}: {len(entries)} packages exceeds vulners' "
+                  f"{_VULNERS_MAX_PACKAGES}-package limit, submitting the first {_VULNERS_MAX_PACKAGES}")
+            entries = entries[:_VULNERS_MAX_PACKAGES]
+        package_lines = [e[0] for e in entries]
+        packages = [(e[1], e[2]) for e in entries]
+        findings_raw = await _vulners_linux_audit(auth_info["distro_id"], auth_info["version"], package_lines)
+    elif auth_info["winrm_port"]:
+        inv = await _winrm_list_inventory(ip, auth_info["winrm_port"], cred.username, password, cred.domain)
+        if not inv:
+            return
+        findings_raw = await _vulners_win_audit(
+            auth_info["product"], auth_info["version"], inv["kbs"], inv["software"])
+        packages = [(s["software"], s["version"]) for s in inv["software"]]
+    else:
+        return
+
+    if packages:
+        await _persist_packages(host_id, packages)
+
+    # Prefer the version WE submitted (we know it exactly) over whatever
+    # vulners echoes back per finding — its audit response shape is
+    # unverified from this sandbox, and if it simply doesn't include a
+    # per-vulnerability version field at all, relying solely on that would
+    # silently drop every finding. Package names are matched case-
+    # sensitively as submitted; a mismatch just falls back to whatever
+    # vulners itself provided (if anything).
+    known_versions = {name: version for name, version in packages}
+
+    now = datetime.utcnow()
+    if findings_raw:
+        with SessionLocal() as db:
+            for f in findings_raw:
+                pkg_name, cve_id = f.get("package"), f.get("cve_id")
+                pkg_version = known_versions.get(pkg_name) or f.get("package_version")
+                if not (pkg_name and pkg_version and cve_id):
+                    continue
+                existing = db.execute(
+                    select(VulnFinding).where(
+                        VulnFinding.product == pkg_name, VulnFinding.version == pkg_version,
+                        VulnFinding.cve_id == cve_id)
+                ).scalar_one_or_none()
+                if existing:
+                    continue
+                db.add(VulnFinding(
+                    product=pkg_name, version=pkg_version, queried_at=now, cve_id=cve_id,
+                    cvss_score=f.get("cvss_score"), severity=f.get("severity"),
+                    summary=f.get("summary"), published=f.get("published"), ref_url=f.get("ref_url"),
+                ))
+            db.commit()
+
+    with SessionLocal() as db:
+        host = db.get(VulnHost, host_id)
+        if host:
+            host.last_package_audit_at = now
+            db.commit()
+
+
 # ── NVD CVE lookup (deduped + cached) ────────────────────────────────────────
 
 _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, None: 4}
 
 
+def _cve_to_finding(cve) -> Optional[dict]:
+    """Convert an nvdlib CVE object (already has getvars() applied by
+    nvdlib itself) into our finding-dict shape. Wrapped defensively per-CVE
+    by the caller — nvdlib's own getvars() call can itself raise (observed:
+    IndexError on an empty `configurations` list, AttributeError if a CVSS
+    entry is missing an expected sub-field) for individual malformed CVE
+    entries in NVD's dataset, so treat every attribute access as fallible."""
+    cve_id = getattr(cve, "id", None)
+    if not cve_id:
+        return None
+    score = severity = None
+    for score_attr, sev_attr in (("v31score", "v31severity"), ("v30score", "v30severity"), ("v2score", "v2severity")):
+        if hasattr(cve, score_attr):
+            score = getattr(cve, score_attr, None)
+            severity = getattr(cve, sev_attr, None)
+            break
+    summary = ""
+    try:
+        summary = next((d.value for d in cve.descriptions if getattr(d, "lang", "") == "en"), "")
+    except Exception:
+        pass
+    return {
+        "cve_id": cve_id,
+        "cvss_score": score,
+        "severity": (severity or "").upper() or None,
+        "summary": (summary or "")[:1000],
+        "published": getattr(cve, "published", None),
+        "ref_url": getattr(cve, "url", None),
+    }
+
+
+def _nvd_query_live_sync(product: str, version: str) -> list:
+    """Blocking — run via loop.run_in_executor (nvdlib's HTTP client is
+    synchronous, same convention as the SSH/WinRM identity checks in this
+    file). Proper CPE-based matching: look up the official CPE for
+    `product` via NVD's own CPE dictionary, then query CVEs against that
+    CPE — much more accurate than a raw keyword search over CVE
+    descriptions (misses CVEs whose description text doesn't happen to
+    contain the product/version string verbatim). Falls back to a keyword
+    search (the old behavior) only if no CPE could be found, so coverage
+    never gets worse than before, only better."""
+    import nvdlib
+    key = NVD_API_KEY or None
+
+    try:
+        candidates = nvdlib.searchCPE(keywordSearch=f"{product} {version}", key=key, limit=20) or []
+    except Exception:
+        candidates = []
+
+    cpe_name = None
+    for c in candidates:
+        name = getattr(c, "cpeName", "") or ""
+        if version and version.lower() in name.lower():
+            cpe_name = name
+            break
+    if not cpe_name and candidates:
+        cpe_name = getattr(candidates[0], "cpeName", None)
+
+    cves = []
+    if cpe_name:
+        try:
+            cves = nvdlib.searchCVE(cpeName=cpe_name, key=key, limit=50) or []
+        except Exception:
+            cves = []
+
+    if not cves:
+        try:
+            cves = nvdlib.searchCVE(keywordSearch=f"{product} {version}", key=key, limit=20) or []
+        except Exception:
+            cves = []
+
+    findings = []
+    for cve in cves:
+        try:
+            f = _cve_to_finding(cve)
+        except Exception:
+            continue
+        if f:
+            findings.append(f)
+    return findings
+
+
 async def _nvd_query_live(product: str, version: str) -> list:
-    """Live NVD API call. Never raises — any failure just yields no findings
-    for this (product, version), the rest of the scan continues normally."""
+    """Live NVD lookup via nvdlib, rate-limited by NVD_MIN_INTERVAL. Never
+    raises — any failure just yields no findings for this (product,
+    version), the rest of the scan continues normally."""
     global _nvd_last_call
     wait = NVD_MIN_INTERVAL - (time.time() - _nvd_last_call)
     if wait > 0:
         await asyncio.sleep(wait)
     _nvd_last_call = time.time()
 
-    keyword = quote(f"{product} {version}")
-    url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={keyword}&resultsPerPage=20"
-    headers = {"apiKey": NVD_API_KEY} if NVD_API_KEY else {}
-
+    loop = asyncio.get_event_loop()
     try:
-        timeout = aiohttp.ClientTimeout(total=20)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, headers=headers) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
+        return await loop.run_in_executor(None, _nvd_query_live_sync, product, version)
     except Exception as e:
         print(f"[vuln_scan] NVD query failed for {product} {version}: {e}")
         return []
-
-    findings = []
-    for item in data.get("vulnerabilities", []):
-        cve = item.get("cve", {})
-        cve_id = cve.get("id")
-        if not cve_id:
-            continue
-        descriptions = cve.get("descriptions", [])
-        summary = next((d.get("value") for d in descriptions if d.get("lang") == "en"), "")
-        metrics = cve.get("metrics", {})
-        score, severity = None, None
-        for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
-            entries = metrics.get(key)
-            if entries:
-                cvss_data = entries[0].get("cvssData", {})
-                score = cvss_data.get("baseScore")
-                severity = entries[0].get("baseSeverity") or cvss_data.get("baseSeverity")
-                break
-        refs = cve.get("references", [])
-        ref_url = refs[0].get("url") if refs else None
-        findings.append({
-            "cve_id": cve_id,
-            "cvss_score": score,
-            "severity": (severity or "").upper() or None,
-            "summary": (summary or "")[:1000],
-            "published": cve.get("published"),
-            "ref_url": ref_url,
-        })
-    return findings
 
 
 def _cvss_to_severity(score) -> Optional[str]:
@@ -706,6 +1151,7 @@ async def hosts_with_findings() -> list:
     with SessionLocal() as db:
         findings = db.execute(select(VulnFinding)).scalars().all()
         services = db.execute(select(VulnService)).scalars().all()
+        packages = db.execute(select(VulnPackage)).scalars().all()
         hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
         devices = db.execute(select(Device)).scalars().all()
 
@@ -721,6 +1167,16 @@ async def hosts_with_findings() -> list:
             if not host:
                 continue
             matches = findings_by_pv.get((s.product, s.version))
+            if not matches:
+                continue
+            entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
+            entry["findings"].extend(_finding_brief(f) for f in matches)
+
+        for p in packages:
+            host = hosts.get(p.host_id)
+            if not host:
+                continue
+            matches = findings_by_pv.get((p.name, p.version))
             if not matches:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
@@ -881,7 +1337,10 @@ async def run_scan() -> dict:
         with SessionLocal() as db:
             ranges = db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all()
             all_creds = db.execute(select(Credential)).scalars().all()
-            existing_cred_by_ip = {h.ip: h.credential_id for h in db.execute(select(VulnHost)).scalars().all()}
+            existing_hosts = db.execute(select(VulnHost)).scalars().all()
+            existing_cred_by_ip = {h.ip: h.credential_id for h in existing_hosts}
+            existing_pkg_audit_by_ip = {h.ip: h.last_package_audit_at for h in existing_hosts}
+        creds_by_id = {c.id: c for c in all_creds}
 
         import ipaddress
         all_ips_set: set = set()
@@ -897,7 +1356,7 @@ async def run_scan() -> dict:
         results = await asyncio.gather(*[_probe_host(ip, sem) for ip in all_ips])
 
         alive_ips, alive_results = [], []
-        auth_results: dict = {}  # ip -> credential_id that worked
+        auth_by_ip: dict = {}  # ip -> auth_info dict from _auth_augment
         for ip, ports_found in zip(all_ips, results):
             if not ports_found:
                 continue
@@ -906,14 +1365,28 @@ async def run_scan() -> dict:
             for port, (kind, banner, product, version) in ports_found.items():
                 if product and version:
                     version_pairs.setdefault((product, version), []).append((ip, port, "banner"))
-            cred_id = await _auth_augment(ip, ports_found, version_pairs,
-                                          existing_cred_by_ip.get(ip), all_creds, known_device_ips)
-            if cred_id:
-                auth_results[ip] = cred_id
+            auth_info = await _auth_augment(ip, ports_found, version_pairs,
+                                            existing_cred_by_ip.get(ip), all_creds, known_device_ips)
+            if auth_info:
+                auth_by_ip[ip] = auth_info
 
-        await _persist_services(alive_ips, alive_results)
-        await _apply_credentials(auth_results)
+        host_ids = await _persist_services(alive_ips, alive_results)
+        await _apply_credentials({ip: info["cred_id"] for ip, info in auth_by_ip.items()})
         await _prune_dead_hosts(all_ips, set(alive_ips))
+
+        # Deeper, opt-in full package/software audit — only for hosts where
+        # a credential just worked, gated per-host by PACKAGE_AUDIT_DAYS
+        # inside _package_audit itself (see that function's docstring).
+        for ip, auth_info in auth_by_ip.items():
+            host_id = host_ids.get(ip)
+            cred = creds_by_id.get(auth_info["cred_id"])
+            if not (host_id and cred):
+                continue
+            try:
+                await _package_audit(ip, cred, auth_info, host_id, existing_pkg_audit_by_ip.get(ip))
+            except Exception as e:
+                print(f"[vuln_scan] package audit error for {ip}: {e}")
+
         findings_count = await _lookup_findings(version_pairs)
 
         _hosts_scanned = len(alive_ips)
@@ -943,6 +1416,7 @@ async def scan_one_host(ip: str) -> dict:
         all_creds = db.execute(select(Credential)).scalars().all()
         existing_host = db.execute(select(VulnHost).where(VulnHost.ip == ip)).scalar_one_or_none()
         remembered_cred_id = existing_host.credential_id if existing_host else None
+        last_pkg_audit_at = existing_host.last_package_audit_at if existing_host else None
 
     for port, (kind, banner, product, version) in ports_found.items():
         if product and version:
@@ -950,10 +1424,17 @@ async def scan_one_host(ip: str) -> dict:
 
     known_device_ips = frozenset([ip]) if device else frozenset()
     if ports_found:
-        cred_id = await _auth_augment(ip, ports_found, version_pairs, remembered_cred_id, all_creds, known_device_ips)
-        await _persist_services([ip], [ports_found])
-        if cred_id:
-            await _apply_credentials({ip: cred_id})
+        auth_info = await _auth_augment(ip, ports_found, version_pairs, remembered_cred_id, all_creds, known_device_ips)
+        host_ids = await _persist_services([ip], [ports_found])
+        if auth_info:
+            await _apply_credentials({ip: auth_info["cred_id"]})
+            host_id = host_ids.get(ip)
+            cred = next((c for c in all_creds if c.id == auth_info["cred_id"]), None)
+            if host_id and cred:
+                try:
+                    await _package_audit(ip, cred, auth_info, host_id, last_pkg_audit_at)
+                except Exception as e:
+                    print(f"[vuln_scan] package audit error for {ip}: {e}")
     else:
         await _prune_dead_hosts([ip], set())
 

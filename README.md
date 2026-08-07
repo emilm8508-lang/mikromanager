@@ -50,6 +50,14 @@ oba opcjonalnie przyspieszane kluczem API:
   klucza API: `MIKROTIK_VULNERS_API_KEY` (puste = pominięte, skan działa
   wyłącznie na NVD).
 
+Dla hostów, gdzie już działają zapisane poświadczenia (SSH/WinRM), skaner
+opcjonalnie idzie głębiej niż sama wersja systemu — pełny audyt
+zainstalowanych pakietów/oprogramowania przez `vulners.com` (wymaga
+`MIKROTIK_VULNERS_API_KEY`, jak wyżej). Rzadziej niż zwykły cotygodniowy
+skan, bo to "cięższa" operacja (potencjalnie tysiące pakietów na raz):
+domyślnie raz na 7 dni per host, zmienialne przez
+`MIKROTIK_VULN_PACKAGE_AUDIT_DAYS`.
+
 ## Struktura projektu
 
 ```

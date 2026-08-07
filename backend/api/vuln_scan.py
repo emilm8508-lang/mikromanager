@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from models.database import SessionLocal, VulnHost, VulnService, VulnFinding, Device, Credential
+from models.database import SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, Device, Credential
 from services import vuln_scan
 
 router = APIRouter(prefix="/api/vuln", tags=["vuln"])
@@ -100,13 +100,15 @@ async def set_host_credential(host_id: int, data: HostCredentialIn):
 @router.get("/findings")
 async def list_findings(severity: Optional[str] = None):
     """Every cached CVE finding, joined against whatever currently has that
-    (product, version) — live-scanned hosts (VulnService) and/or already-
+    (product, version) — live-scanned hosts (VulnService), installed
+    packages/software on credentialed hosts (VulnPackage), and/or already-
     known Mikrotik/Cisco devices (Device.ros_version). Findings whose
     version nothing currently matches (e.g. the host disappeared) are
     omitted — this reflects current exposure, not historical trivia."""
     with SessionLocal() as db:
         findings = db.execute(select(VulnFinding)).scalars().all()
         services = db.execute(select(VulnService)).scalars().all()
+        packages = db.execute(select(VulnPackage)).scalars().all()
         hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
         devices = db.execute(select(Device)).scalars().all()
 
@@ -119,6 +121,12 @@ async def list_findings(severity: Optional[str] = None):
                 continue
             affected_by_pv.setdefault((s.product, s.version), []).append(
                 {"kind": "host", "ip": host.ip, "port": s.port})
+        for p in packages:
+            host = hosts.get(p.host_id)
+            if not host:
+                continue
+            affected_by_pv.setdefault((p.name, p.version), []).append(
+                {"kind": "package", "ip": host.ip, "port": None})
         for d in devices:
             if not d.ros_version:
                 continue

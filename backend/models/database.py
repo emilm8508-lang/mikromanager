@@ -139,6 +139,11 @@ class VulnHost(Base):
     # grab. Opt-in per host — most hosts have none and stay purely passive.
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
     last_scan_at = Column(DateTime, default=datetime.utcnow)
+    # Separate, longer-cadence TTL from last_scan_at — a full installed-
+    # package audit (services/vuln_scan.py's _package_audit) can submit
+    # thousands of packages in one vulners.com call, so it only runs once
+    # per MIKROTIK_VULN_PACKAGE_AUDIT_DAYS, not on every weekly scan.
+    last_package_audit_at = Column(DateTime, nullable=True)
 
 
 class VulnService(Base):
@@ -156,6 +161,23 @@ class VulnService(Base):
     last_seen = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("host_id", "port", name="uq_vuln_service_host_port"),)
+
+
+class VulnPackage(Base):
+    """One installed package/software entry on a VulnHost, from a full
+    credentialed audit (dpkg/rpm listing over SSH, or KB+installed-software
+    over WinRM) — as opposed to VulnService, which is network-exposed ports,
+    this is the host's local software inventory. Only populated for hosts
+    where credentials already work (see _package_audit in vuln_scan.py)."""
+    __tablename__ = "vuln_packages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("vuln_hosts.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    version = Column(String, nullable=False)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("host_id", "name", name="uq_vuln_package_host_name"),)
 
 
 class VulnFinding(Base):
@@ -200,6 +222,12 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN snmp_port INTEGER DEFAULT 161"))
             if "vendor" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN vendor VARCHAR(32) DEFAULT 'mikrotik'"))
+
+    if "vuln_hosts" in inspector.get_table_names():
+        vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}
+        with engine.begin() as conn:
+            if "last_package_audit_at" not in vh_cols:
+                conn.execute(text("ALTER TABLE vuln_hosts ADD COLUMN last_package_audit_at DATETIME"))
 
 
 def init_db():
