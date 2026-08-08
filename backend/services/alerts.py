@@ -32,16 +32,16 @@ WINDOW_SEC = int(os.environ.get("MIKROMANAGER_ALERT_FAILED_LOGIN_WINDOW", "900")
 SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_ALERT_SCAN_TTL", "3600"))
 _scan_cache = {"data": [], "ts": 0.0}
 
-# Dedup: prevents flooding OVH with duplicate events for the same device.
-_seen: dict = {}
-_SEEN_TTL_SEC = 3600
-
-
-def _prune_seen():
-    now = time.time()
-    for k in list(_seen.keys()):
-        if now - _seen[k] > _SEEN_TTL_SEC:
-            del _seen[k]
+# Dedup: per device, the set of individual failed-login entries (content
+# fingerprints, not just a count) already included in an alert we've
+# already sent — prevents re-firing on the SAME stale log entries forever.
+# RouterOS keeps a bounded log buffer; if a device is quiet, entries from a
+# past incident can sit in that buffer for a long time without rotating
+# out. Fingerprinting by (message, time) rather than relying on RouterOS's
+# own "time" field as an orderable watermark, since that field's format is
+# ambiguous across a day boundary ("HH:MM:SS" for today vs "MMM/DD
+# HH:MM:SS" for older entries) and can't be reliably compared.
+_alerted_fingerprints: dict = {}
 
 
 FAILED_LOGIN_HINT_RE = re.compile(
@@ -82,19 +82,23 @@ async def _scan_device(device_id: int) -> Optional[dict]:
         user = m.group(1) if m else None
         failed.append({
             "user": user, "source_ip": source_ip,
-            "time": entry.get("time"),
+            "time": entry.get("time"), "message": msg,
         })
 
     if len(failed) < THRESHOLD:
         return None
 
-    # Bucket into groups of 5 so we don't fire an alert on every single new entry.
-    bucket = len(failed) // 5
-    key = (device_id, "failed_logins", bucket)
-    now = time.time()
-    if key in _seen and (now - _seen[key]) < WINDOW_SEC:
+    # Only re-alert if at least one of the currently-matching entries wasn't
+    # already part of a previous alert for this device — otherwise the SAME
+    # stale entries sitting in the router's log buffer (nothing new has
+    # actually happened) would re-fire every scan forever, since the old
+    # bucket-of-5/15-min-window dedup only tracked a rolling suppression
+    # timer, not which specific entries had already been reported.
+    fingerprints = {(f["message"], f["time"]) for f in failed}
+    already_alerted = _alerted_fingerprints.get(device_id, set())
+    if not (fingerprints - already_alerted):
         return None
-    _seen[key] = now
+    _alerted_fingerprints[device_id] = fingerprints
 
     sources = sorted(set(f["source_ip"] for f in failed if f["source_ip"]))[:10]
     users = sorted(set(f["user"] for f in failed if f["user"]))[:10]
@@ -121,7 +125,6 @@ async def collect_alert_events() -> List[dict]:
     if (now - _scan_cache["ts"]) < SCAN_TTL_SEC:
         return _scan_cache["data"]
 
-    _prune_seen()
     with SessionLocal() as db:
         ids = [d.id for d in db.execute(
             select(Device).where(Device.credential_id.is_not(None))
