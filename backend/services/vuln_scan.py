@@ -1140,14 +1140,20 @@ def _finding_brief(f: VulnFinding) -> dict:
             "summary": f.summary, "ref_url": f.ref_url}
 
 
-async def hosts_with_findings() -> list:
+async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
     """Compact, phone/central-viewer-friendly summary: only hosts or known
     devices that CURRENTLY have at least one matching CVE finding, grouped
     by ip with the finding list beneath — hosts with zero matches are
     omitted entirely (unlike /api/vuln/findings, which lists every finding
     regardless of grouping). Reuses the exact same (product, version)
     match-against-current-state logic as GET /api/vuln/findings in
-    api/vuln_scan.py, just grouped by host instead of by finding."""
+    api/vuln_scan.py, just grouped by host instead of by finding.
+
+    `severities`, if given, restricts findings (and therefore which hosts
+    even show up at all) to that set — e.g. services/uplink.py passes
+    {"CRITICAL","HIGH","MEDIUM"} so LOW-severity findings never leave the
+    agent (still fully visible in the local UI, which doesn't call this
+    function at all — see api/vuln_scan.py's own /findings endpoint)."""
     with SessionLocal() as db:
         findings = db.execute(select(VulnFinding)).scalars().all()
         services = db.execute(select(VulnService)).scalars().all()
@@ -1192,17 +1198,22 @@ async def hosts_with_findings() -> list:
             entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
             entry["findings"].extend(_finding_brief(f) for f in matches)
 
-        out = list(by_ip.values())
-        for entry in out:
+        out = []
+        for entry in by_ip.values():
             seen_cve_ids = set()
             deduped = []
             for fnd in entry["findings"]:
+                if severities is not None and fnd["severity"] not in severities:
+                    continue
                 if fnd["cve_id"] in seen_cve_ids:
                     continue
                 seen_cve_ids.add(fnd["cve_id"])
                 deduped.append(fnd)
+            if not deduped:
+                continue  # everything for this host got filtered out — drop it, not just an empty list
             deduped.sort(key=lambda x: (_SEVERITY_ORDER.get(x["severity"], 4), -(x["cvss_score"] or 0)))
             entry["findings"] = deduped
+            out.append(entry)
         out.sort(key=lambda e: [int(p) for p in e["ip"].split(".")])
         return out
 

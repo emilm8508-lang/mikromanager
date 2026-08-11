@@ -214,7 +214,12 @@ async def _build_snapshot() -> dict:
 
     try:
         from services import vuln_scan
-        vuln_findings_summary = await vuln_scan.hosts_with_findings()
+        # Only CRITICAL/HIGH/MEDIUM leave the agent — LOW-severity findings
+        # stay purely local (still fully visible in the agent's own
+        # Vulnerabilities page, which reads straight from the DB and
+        # doesn't go through this function at all).
+        vuln_findings_summary = await vuln_scan.hosts_with_findings(
+            severities=frozenset({"CRITICAL", "HIGH", "MEDIUM"}))
     except Exception as e:
         print(f"[uplink] vuln findings summary error: {e}")
         vuln_findings_summary = []
