@@ -320,6 +320,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="failed_logins">{t('alerts.eventFailedLogins')}</option>
                 <option value="firmware_available">{t('alerts.eventFirmwareAvailable')}</option>
                 <option value="board_firmware_available">{t('alerts.eventBoardFirmwareAvailable')}</option>
+                <option value="device_rebooted">{t('alerts.eventDeviceRebooted')}</option>
               </select>
             </label>
             <label className="text-sm">

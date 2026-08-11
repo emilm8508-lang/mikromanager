@@ -1,10 +1,10 @@
 """
 Alert detection on the agent side.
 
-Scans device logs for suspicious patterns (failed logins) and produces
-alert_event objects that are attached (unencrypted) to the next uplink
-snapshot envelope. Central OVH server then matches events against
-configured rules and dispatches Telegram / webhook notifications.
+Scans device logs for suspicious patterns (failed logins, device reboots)
+and produces alert_event objects that are attached (unencrypted) to the
+next uplink snapshot envelope. Central OVH server then matches events
+against configured rules and dispatches Telegram / webhook notifications.
 
 Dedup cache prevents the same event being reported repeatedly.
 """
@@ -32,7 +32,7 @@ WINDOW_SEC = int(os.environ.get("MIKROMANAGER_ALERT_FAILED_LOGIN_WINDOW", "900")
 SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_ALERT_SCAN_TTL", "3600"))
 _scan_cache = {"data": [], "ts": 0.0}
 
-# Dedup: per device, the set of individual failed-login entries (content
+# Dedup: per device, the set of individual log entries (content
 # fingerprints, not just a count) already included in an alert we've
 # already sent — prevents re-firing on the SAME stale log entries forever.
 # RouterOS keeps a bounded log buffer; if a device is quiet, entries from a
@@ -40,8 +40,11 @@ _scan_cache = {"data": [], "ts": 0.0}
 # out. Fingerprinting by (message, time) rather than relying on RouterOS's
 # own "time" field as an orderable watermark, since that field's format is
 # ambiguous across a day boundary ("HH:MM:SS" for today vs "MMM/DD
-# HH:MM:SS" for older entries) and can't be reliably compared.
+# HH:MM:SS" for older entries) and can't be reliably compared. Separate
+# dicts per alert type so a device tripping both detectors in the same
+# scan doesn't have one type's fingerprints clobber the other's.
 _alerted_fingerprints: dict = {}
+_alerted_reboot_fingerprints: dict = {}
 
 
 FAILED_LOGIN_HINT_RE = re.compile(
@@ -53,9 +56,21 @@ FAILED_LOGIN_DETAIL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# RouterOS's exact reboot-notice wording varies (clean vs unclean shutdown,
+# version differences) — matched broadly rather than pinned to one exact
+# phrase, since a live router to confirm the precise string against isn't
+# available in this dev environment. Covers the common variants: "router
+# was rebooted [without proper shutdown]", "router rebooted", "system
+# started"/"system rebooted".
+REBOOT_HINT_RE = re.compile(
+    r"router\s+(?:was\s+)?rebooted|system\s+(?:started|rebooted)",
+    re.IGNORECASE,
+)
 
-async def _scan_device(device_id: int) -> Optional[dict]:
-    """Scan one device's recent logs. Returns alert dict if threshold exceeded."""
+
+async def _scan_device(device_id: int) -> List[dict]:
+    """Scan one device's recent logs. Returns a list of alert dicts — zero,
+    one, or more (a device can trip more than one detector in a single scan)."""
     with SessionLocal() as db:
         row = db.execute(
             select(Device, Credential)
@@ -63,15 +78,19 @@ async def _scan_device(device_id: int) -> Optional[dict]:
             .where(Device.id == device_id)
         ).one_or_none()
         if not row:
-            return None
+            return []
         device, cred = row
 
     client = build_client(device, cred)
     try:
         logs = await asyncio.wait_for(client.get_logs(limit=300), timeout=8)
     except Exception:
-        return None
+        return []
 
+    events: List[dict] = []
+    device_name = device.identity or device.name or device.ip
+
+    # ── Failed logins ────────────────────────────────────────────────────
     failed = []
     for entry in logs:
         msg = str(entry.get("message") or "")
@@ -85,36 +104,58 @@ async def _scan_device(device_id: int) -> Optional[dict]:
             "time": entry.get("time"), "message": msg,
         })
 
-    if len(failed) < THRESHOLD:
-        return None
+    if len(failed) >= THRESHOLD:
+        # Only re-alert if at least one currently-matching entry wasn't
+        # already part of a previous alert for this device — otherwise the
+        # SAME stale entries sitting in the router's log buffer (nothing
+        # new has actually happened) would re-fire every scan forever.
+        fingerprints = {(f["message"], f["time"]) for f in failed}
+        already_alerted = _alerted_fingerprints.get(device_id, set())
+        if fingerprints - already_alerted:
+            _alerted_fingerprints[device_id] = fingerprints
+            sources = sorted(set(f["source_ip"] for f in failed if f["source_ip"]))[:10]
+            users = sorted(set(f["user"] for f in failed if f["user"]))[:10]
+            events.append({
+                "type": "failed_logins",
+                "device_id": device_id,
+                "device_ip": device.ip,
+                "device_name": device_name,
+                "count": len(failed),
+                "sources": sources,
+                "users": users,
+                "window_sec": WINDOW_SEC,
+                "threshold": THRESHOLD,
+                "detected_at": datetime.utcnow().isoformat(),
+            })
 
-    # Only re-alert if at least one of the currently-matching entries wasn't
-    # already part of a previous alert for this device — otherwise the SAME
-    # stale entries sitting in the router's log buffer (nothing new has
-    # actually happened) would re-fire every scan forever, since the old
-    # bucket-of-5/15-min-window dedup only tracked a rolling suppression
-    # timer, not which specific entries had already been reported.
-    fingerprints = {(f["message"], f["time"]) for f in failed}
-    already_alerted = _alerted_fingerprints.get(device_id, set())
-    if not (fingerprints - already_alerted):
-        return None
-    _alerted_fingerprints[device_id] = fingerprints
+    # ── Device reboot ────────────────────────────────────────────────────
+    reboots = []
+    for entry in logs:
+        msg = str(entry.get("message") or "")
+        if REBOOT_HINT_RE.search(msg):
+            reboots.append({"time": entry.get("time"), "message": msg})
 
-    sources = sorted(set(f["source_ip"] for f in failed if f["source_ip"]))[:10]
-    users = sorted(set(f["user"] for f in failed if f["user"]))[:10]
+    if reboots:
+        fingerprints = {(r["message"], r["time"]) for r in reboots}
+        already_alerted = _alerted_reboot_fingerprints.get(device_id, set())
+        if fingerprints - already_alerted:
+            _alerted_reboot_fingerprints[device_id] = fingerprints
+            # Prefer today's "HH:MM:SS" entries (sort higher lexicographically
+            # among themselves) as the most recent — same best-effort
+            # ordering caveat as elsewhere for RouterOS's ambiguous time format.
+            latest = max(reboots, key=lambda r: r["time"] or "")
+            events.append({
+                "type": "device_rebooted",
+                "device_id": device_id,
+                "device_ip": device.ip,
+                "device_name": device_name,
+                "count": 1,  # discrete event, not a threshold count — always 1 so a default min_count=1 rule fires
+                "log_message": latest["message"],
+                "log_time": latest["time"],
+                "detected_at": datetime.utcnow().isoformat(),
+            })
 
-    return {
-        "type": "failed_logins",
-        "device_id": device_id,
-        "device_ip": device.ip,
-        "device_name": device.identity or device.name or device.ip,
-        "count": len(failed),
-        "sources": sources,
-        "users": users,
-        "window_sec": WINDOW_SEC,
-        "threshold": THRESHOLD,
-        "detected_at": datetime.utcnow().isoformat(),
-    }
+    return events
 
 
 async def collect_alert_events() -> List[dict]:
@@ -137,10 +178,10 @@ async def collect_alert_events() -> List[dict]:
             try:
                 return await _scan_device(did)
             except Exception:
-                return None
+                return []
 
     results = await asyncio.gather(*[_bounded(i) for i in ids])
-    data = [r for r in results if r]
+    data = [event for device_events in results for event in device_events]
     _scan_cache["data"] = data
     _scan_cache["ts"] = now
     return data

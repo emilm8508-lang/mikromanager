@@ -144,6 +144,15 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             if ($sources !== '') $msg .= "\nŹródła IP: {$sources}";
             if ($users !== '') $msg .= "\nUżytkownicy: {$users}";
             return $msg;
+        case 'device_rebooted':
+            $log_time = $event['log_time'] ?? '';
+            $log_msg = $event['log_message'] ?? '';
+            $msg = "🔄 {$prefix}Urządzenie zostało zrestartowane\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}";
+            if ($log_time !== '') $msg .= "\nCzas (wg logu urządzenia): {$log_time}";
+            if ($log_msg !== '') $msg .= "\nWpis w logu: {$log_msg}";
+            return $msg;
         default:
             return "⚠️ {$prefix}[{$tenant}] Alert {$type} na {$device}";
     }

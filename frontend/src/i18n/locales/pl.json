@@ -336,6 +336,7 @@
                      "eventFailedLogins":  "Nieudane proby logowania",
                      "eventFirmwareAvailable":  "Nowa wersja RouterOS dostepna",
                     "eventBoardFirmwareAvailable":  "Aktualizacja firmware plyty (RouterBOARD)",
+                    "eventDeviceRebooted":  "Urzadzenie zrestartowane",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",
