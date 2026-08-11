@@ -546,6 +546,99 @@ function firmware_format_message(string $tenant, string $latest, int $outdated, 
 }
 
 
+// ── RouterBOARD firmware alerts ─────────────────────────────────────────────
+// Deliberately SEPARATE from firmware_alerts_process() above — that one is
+// about the RouterOS package version; this one is about the RouterBOARD
+// bootloader firmware (current-firmware vs upgrade-firmware from
+// /system/routerboard), which is what RouterOS's own admin UI actually
+// calls "firmware". Conflating the two under one alert was the original
+// bug report this was added to fix.
+//
+// Dedup: unlike the RouterOS-version alert (one producer-wide "latest_
+// stable" string to compare), there's no single version figure here — dedup
+// by the exact SET of currently firmware-outdated devices instead. Only
+// re-alerts when that set actually changes (a device gets fixed, or a new
+// one becomes outdated) — same "don't re-fire on stale, unchanged state"
+// principle as the agent-side failed-login dedup fix.
+function board_firmware_alerts_process(PDO $pdo, string $tenant, ?array $fw): void {
+    if (!$fw || !is_array($fw)) return;
+    $outdated = (int)($fw['firmware_outdated_count'] ?? 0);
+    if ($outdated <= 0) return;
+    $devices = is_array($fw['devices_firmware_outdated'] ?? null) ? $fw['devices_firmware_outdated'] : [];
+    if (empty($devices)) return;
+
+    $signature_parts = [];
+    foreach ($devices as $d) {
+        if (!is_array($d)) continue;
+        $signature_parts[] = ($d['name'] ?? '?') . ':' . ($d['current'] ?? '?') . '->' . ($d['target'] ?? '?');
+    }
+    sort($signature_parts);
+    $signature = implode('|', $signature_parts);
+    if ($signature === '') return;
+
+    // Dedup: same exact set of outdated devices already alerted?
+    $stmt = $pdo->prepare(
+        "SELECT event_data FROM alert_history
+         WHERE tenant = ? AND event_type = 'board_firmware_available'
+         ORDER BY triggered_at DESC LIMIT 1"
+    );
+    $stmt->execute([$tenant]);
+    $last = $stmt->fetchColumn();
+    if ($last) {
+        $last_data = json_decode($last, true);
+        if (is_array($last_data) && ($last_data['signature'] ?? '') === $signature) {
+            return;  // nothing changed since the last alert
+        }
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT * FROM alert_rules
+         WHERE enabled = 1 AND event_type = 'board_firmware_available'
+           AND (tenant = ? OR tenant IS NULL OR tenant = '')"
+    );
+    $stmt->execute([$tenant]);
+    $rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($rules)) return;
+
+    foreach ($rules as $rule) {
+        $channel_ids = json_decode($rule['channel_ids'] ?? '[]', true);
+        if (!is_array($channel_ids)) $channel_ids = [];
+        $results = [];
+        foreach ($channel_ids as $cid) {
+            $ch = alerts_get_channel($pdo, (int)$cid);
+            if (!$ch) { $results[(string)$cid] = ['ok'=>false,'error'=>'channel not found']; continue; }
+            $msg = board_firmware_format_message($tenant, $outdated, $devices, $rule['name'] ?? '');
+            $results[(string)$cid] = edge_dispatch($ch, $msg);
+        }
+        $event_data = ['type'=>'board_firmware_available','signature'=>$signature,'outdated_count'=>$outdated,'devices'=>$devices];
+        $stmt = $pdo->prepare(
+            'INSERT INTO alert_history (tenant, event_type, event_data, matched_rule_id, notifications_result)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$tenant, 'board_firmware_available', json_encode($event_data), (int)$rule['id'], json_encode($results)]);
+    }
+}
+
+
+function board_firmware_format_message(string $tenant, int $outdated, array $devices, string $rule_name): string {
+    $prefix = $rule_name !== '' ? "[$rule_name] " : '';
+    $msg = "🔧 {$prefix}Dostępna aktualizacja firmware płyty (RouterBOARD)\n"
+         . "Tenant: {$tenant}\n"
+         . "Do zaktualizowania: {$outdated} urządzeń";
+    $names = [];
+    foreach (array_slice($devices, 0, 10) as $d) {
+        if (!is_array($d)) continue;
+        $n = $d['name'] ?? '?';
+        $cur = $d['current'] ?? '?';
+        $tgt = $d['target'] ?? '?';
+        $names[] = "{$n} ({$cur} → {$tgt})";
+    }
+    if (!empty($names)) $msg .= "\n\n" . implode("\n", $names);
+    if (count($devices) > 10) $msg .= "\n... i " . (count($devices) - 10) . " więcej";
+    return $msg;
+}
+
+
 // ── Activity log (v1.7) ────────────────────────────────────────────────────
 
 /**

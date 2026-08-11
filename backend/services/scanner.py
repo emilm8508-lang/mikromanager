@@ -369,7 +369,22 @@ async def enrich_device(ip: str, username: str, password: str,
         pass
     try:
         rb = await client.get_routerboard()
-        info["board_name"] = rb.get("board", "")
+        # Real RouterOS field is "board-name" (confirmed against Mikrotik's
+        # own docs) — "board" doesn't exist in the actual response, so this
+        # was silently always empty before.
+        info["board_name"] = rb.get("board-name", "")
+        # RouterBOARD firmware (RouterBOOT bootloader) — a DIFFERENT thing
+        # from the RouterOS package version above. Same /system/routerboard
+        # call already made, just reading two more fields from it.
+        info["current_firmware"] = rb.get("current-firmware", "")
+        info["upgrade_firmware"] = rb.get("upgrade-firmware", "")
+    except Exception:
+        pass
+    try:
+        pkg = await client.get_package_update_status()
+        if pkg:
+            info["latest_ros_version"] = pkg.get("latest") or ""
+            info["ros_update_status"] = pkg.get("status") or ""
     except Exception:
         pass
     return info

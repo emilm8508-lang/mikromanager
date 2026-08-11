@@ -177,6 +177,19 @@ async def _refresh_one(dev_id: int) -> bool:
                     new_fields["model"] = info["model"]
                 if info.get("ros_version"):
                     new_fields["ros_version"] = info["ros_version"]
+                if info.get("board_name"):
+                    new_fields["board_name"] = info["board_name"]
+                # These can legitimately be "" (e.g. upgrade_firmware empty
+                # when already current) so persist whenever the key is
+                # present at all, not just when truthy like the fields above.
+                if "current_firmware" in info:
+                    new_fields["current_firmware"] = info["current_firmware"]
+                if "upgrade_firmware" in info:
+                    new_fields["upgrade_firmware"] = info["upgrade_firmware"]
+                if "latest_ros_version" in info:
+                    new_fields["latest_ros_version"] = info["latest_ros_version"]
+                if "ros_update_status" in info:
+                    new_fields["ros_update_status"] = info["ros_update_status"]
         except Exception:
             online_now = False
     else:

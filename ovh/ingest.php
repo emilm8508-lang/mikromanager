@@ -266,6 +266,7 @@ try {
     try {
         $fw = is_array($public_meta) ? ($public_meta['firmware_status'] ?? null) : null;
         firmware_alerts_process($pdo, $tenant_header, is_array($fw) ? $fw : null);
+        board_firmware_alerts_process($pdo, $tenant_header, is_array($fw) ? $fw : null);
     } catch (Throwable $e) { error_log('[mm-fw] ' . $e->getMessage()); }
 
     // Activity log — save agent-reported events + detect agent version changes

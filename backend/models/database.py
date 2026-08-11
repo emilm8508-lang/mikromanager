@@ -29,6 +29,18 @@ class Device(Base):
     ros_version = Column(String, nullable=True)
     board_name = Column(String, nullable=True)
     identity = Column(String, nullable=True)
+    # RouterBOARD firmware (RouterBOOT bootloader) — a SEPARATE thing from
+    # ros_version above. Only actionable if upgrade_firmware differs from
+    # current_firmware; applying it requires an explicit /system/routerboard
+    # upgrade + reboot, RouterOS never does this automatically.
+    current_firmware = Column(String, nullable=True)
+    upgrade_firmware = Column(String, nullable=True)
+    # Per-device, model/architecture/channel-aware update check (from the
+    # device's own /system/package/update, not a single global "latest"
+    # guessed from a static file) — the authoritative answer to "does THIS
+    # specific model actually have a newer RouterOS available to it".
+    latest_ros_version = Column(String, nullable=True)
+    ros_update_status = Column(String, nullable=True)
     api_port = Column(Integer, default=8728)
     ssh_port = Column(Integer, default=22)
     web_port = Column(Integer, default=80)
@@ -222,6 +234,14 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN snmp_port INTEGER DEFAULT 161"))
             if "vendor" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN vendor VARCHAR(32) DEFAULT 'mikrotik'"))
+            if "current_firmware" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN current_firmware TEXT"))
+            if "upgrade_firmware" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN upgrade_firmware TEXT"))
+            if "latest_ros_version" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN latest_ros_version TEXT"))
+            if "ros_update_status" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN ros_update_status TEXT"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

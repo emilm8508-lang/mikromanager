@@ -319,6 +319,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
                 <option value="failed_logins">{t('alerts.eventFailedLogins')}</option>
                 <option value="firmware_available">{t('alerts.eventFirmwareAvailable')}</option>
+                <option value="board_firmware_available">{t('alerts.eventBoardFirmwareAvailable')}</option>
               </select>
             </label>
             <label className="text-sm">

@@ -54,31 +54,10 @@ async def check_updates(device_id: int) -> dict:
     if not isinstance(client, MikrotikClient):
         return {"error": "firmware upgrade only supported for Mikrotik devices"}
 
-    # Trigger check via REST first, fall back to binary API
-    try:
-        await client.rest_get("system/package/update/check-for-updates")
-    except Exception:
-        try:
-            await client.api_command("/system/package/update/check-for-updates")
-        except Exception as e:
-            return {"error": f"check failed: {type(e).__name__}: {e}"}
-
-    # Read result
-    try:
-        info = await client.rest_get("system/package/update")
-    except Exception:
-        try:
-            res = await client.api_command("/system/package/update")
-            info = res[0] if res else {}
-        except Exception as e:
-            return {"error": f"read failed: {type(e).__name__}: {e}"}
-
-    return {
-        "installed": info.get("installed-version"),
-        "latest": info.get("latest-version"),
-        "status": info.get("status"),
-        "channel": info.get("channel", "stable"),
-    }
+    result = await client.get_package_update_status()
+    if not result:
+        return {"error": "check failed or timed out"}
+    return result
 
 
 async def backup_device(device_id: int, trigger: str = "manual") -> dict:

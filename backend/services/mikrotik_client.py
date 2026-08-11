@@ -187,6 +187,44 @@ class MikrotikClient:
         except Exception:
             return {}
 
+    async def get_package_update_status(self) -> dict:
+        """Trigger a live 'check for updates' and read the result — this
+        asks the DEVICE ITSELF (aware of its own architecture and update
+        channel), not a single global "latest" version guessed from a
+        static file, so it's the only way to know accurately whether THIS
+        specific model actually has a newer RouterOS available to it (some
+        older/smaller boards stop receiving new major versions).
+
+        RouterOS runs the check asynchronously — /system/package/update/
+        check-for-updates returns immediately while the device contacts
+        Mikrotik's servers in the background, so reading the result right
+        away risks racing an unfinished check (community scripts commonly
+        insert a ~3s delay for exactly this reason). Returns {} on any
+        failure — caller treats that as "unknown", not "up to date"."""
+        try:
+            try:
+                await self.rest_get("system/package/update/check-for-updates")
+            except Exception:
+                await self.api_command("/system/package/update/check-for-updates")
+        except Exception:
+            return {}
+
+        await asyncio.sleep(3)
+
+        try:
+            info = await self._rest_or_api(
+                "system/package/update", "/system/package/update", single_object=True)
+        except Exception:
+            return {}
+        if not info:
+            return {}
+        return {
+            "installed": info.get("installed-version"),
+            "latest": info.get("latest-version"),
+            "status": info.get("status"),
+            "channel": info.get("channel", "stable"),
+        }
+
     async def get_interfaces(self) -> list:
         snmp_fn = self._snmp.get_interfaces if self._snmp else None
         return await self._try_methods("interface", "/interface", snmp_fn=snmp_fn)
