@@ -7,7 +7,7 @@ import {
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { LogIn, Trash2, KeyRound, ShieldCheck } from 'lucide-react'
+import { LogIn, Trash2, KeyRound, ShieldCheck, UserPlus } from 'lucide-react'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -45,13 +45,16 @@ export function UsersPanel() {
   return <UsersManagePanel session={session} onLogout={() => { centralSession.clear(); setSessionState(null) }} />
 }
 
-function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: NonNullable<ReturnType<typeof centralSession.load>>) => void }) {
+type SessionValue = NonNullable<ReturnType<typeof centralSession.load>>
+
+function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: SessionValue) => void }) {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [bootstrap, setBootstrap] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,10 +70,21 @@ function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: NonNullable<ReturnType
       centralSession.save(session)
       onLoggedIn(session)
     } catch (e) {
-      setError((e as Error).message || (t('centralUsers.loginFailed') as string))
+      const msg = (e as Error).message || ''
+      if (msg.includes('not_provisioned')) {
+        // No OVH accounts exist yet at all — offer to create the first
+        // (global admin) one instead of just showing "login failed".
+        setBootstrap(true)
+      } else {
+        setError(msg || (t('centralUsers.loginFailed') as string))
+      }
     } finally {
       setBusy(false)
     }
+  }
+
+  if (bootstrap) {
+    return <BootstrapAdminForm onDone={onLoggedIn} onBack={() => setBootstrap(false)} />
   }
 
   return (
@@ -91,6 +105,68 @@ function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: NonNullable<ReturnType
         {error && <p className="text-xs text-red-600">{error}</p>}
         <Button type="submit" variant="primary" disabled={busy}>{t('auth.loginButton')}</Button>
       </form>
+      <button type="button" onClick={() => setBootstrap(true)}
+        className="text-xs text-indigo-600 hover:text-indigo-500">
+        {t('centralUsers.bootstrapLink')}
+      </button>
+    </div>
+  )
+}
+
+// First-ever OVH account — only succeeds server-side while the `users`
+// table is genuinely empty (see ovh/api.php's user_add bootstrap branch).
+// Always created as a global admin, regardless of anything else, so
+// there's no ambiguity about whether it can manage the rest.
+function BootstrapAdminForm({ onDone, onBack }: { onDone: (s: SessionValue) => void; onBack: () => void }) {
+  const { t } = useTranslation()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (password.length < 8) { setError(t('auth.passwordTooShort') as string); return }
+    if (password !== confirm) { setError(t('auth.passwordMismatch') as string); return }
+    setBusy(true)
+    try {
+      await centralUsersApi.add({ username: username.trim(), password, role: 'admin', allowed_tenants: null })
+      const r = await centralAuthApi.login(username.trim(), password)
+      const session = {
+        token: r.token, username: r.username, role: r.role,
+        allowedTenants: r.allowed_tenants, expiresAt: r.expires_at,
+      }
+      centralSession.save(session)
+      onDone(session)
+    } catch (e) {
+      setError((e as Error).message || (t('centralUsers.loginFailed') as string))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3 max-w-sm">
+      <div className="flex items-center gap-2">
+        <UserPlus size={15} className="text-indigo-600" />
+        <h3 className="font-semibold text-slate-900 text-sm">{t('centralUsers.bootstrapTitle')}</h3>
+      </div>
+      <p className="text-xs text-slate-500">{t('centralUsers.bootstrapSubtitle')}</p>
+      <form onSubmit={submit} className="space-y-3">
+        <Input label={t('auth.username') as string} value={username}
+          onChange={e => setUsername(e.target.value)} required autoFocus />
+        <Input label={t('auth.password') as string} type="password" value={password}
+          onChange={e => setPassword(e.target.value)} required minLength={8} />
+        <Input label={t('auth.confirmPassword') as string} type="password" value={confirm}
+          onChange={e => setConfirm(e.target.value)} required />
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        <Button type="submit" variant="primary" disabled={busy}>{t('centralUsers.bootstrapButton')}</Button>
+      </form>
+      <button type="button" onClick={onBack} className="text-xs text-slate-500 hover:text-indigo-600">
+        {t('auth.loginLocalBack')}
+      </button>
     </div>
   )
 }

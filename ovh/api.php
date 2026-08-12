@@ -357,13 +357,26 @@ try {
                 break;
 
             case 'user_add':
-                require_admin_session($pdo, bearer_token());
+                // Bootstrap: while the users table is completely empty, allow
+                // creating the FIRST account without an existing session —
+                // otherwise this is unreachable (user_add needs an admin
+                // session, but no session can exist until a user exists).
+                // Mirrors the local agent's own POST /auth/setup, which is
+                // likewise open exactly until the first (and only) local
+                // account is created. The bootstrap account is always forced
+                // to global admin, regardless of what role/allowed_tenants
+                // were submitted — no ambiguity about whether the very first
+                // account can manage the rest.
+                $is_bootstrap = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
+                if (!$is_bootstrap) {
+                    require_admin_session($pdo, bearer_token());
+                }
                 $data = json_decode((string)file_get_contents('php://input'), true);
                 if (!is_array($data)) $data = [];
                 $username = trim((string)($data['username'] ?? ''));
                 $password = (string)($data['password'] ?? '');
-                $role = (string)($data['role'] ?? 'viewer');
-                $allowed = array_key_exists('allowed_tenants', $data) ? $data['allowed_tenants'] : null;
+                $role = $is_bootstrap ? 'admin' : (string)($data['role'] ?? 'viewer');
+                $allowed = $is_bootstrap ? null : (array_key_exists('allowed_tenants', $data) ? $data['allowed_tenants'] : null);
                 if ($username === '' || strlen($password) < 8 || !in_array($role, ['admin', 'viewer'], true)) {
                     http_response_code(400);
                     echo json_encode(['error' => 'username, password (>=8 chars) and a valid role are required']);
