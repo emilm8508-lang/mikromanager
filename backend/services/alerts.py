@@ -12,7 +12,7 @@ import asyncio
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from sqlalchemy import select
 
@@ -67,6 +67,45 @@ REBOOT_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 
+_BARE_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+
+
+def _entry_is_recent(entry_time: Optional[str], window_sec: int, now: Optional[datetime] = None) -> bool:
+    """Best-effort recency check for a RouterOS log entry's ambiguous "time"
+    field, so WINDOW_SEC actually means something: without this, the
+    failed-login THRESHOLD counted every matching entry anywhere in the last
+    300 log lines, so old entries sitting in the router's log buffer (e.g.
+    from probing days ago that hasn't rotated out yet) could combine with a
+    single genuinely new attempt to cross the threshold and fire an alert
+    that looked, to a human reading only the recent lines, like it came out
+    of nowhere.
+
+    RouterOS's own convention: a bare "HH:MM:SS" means today; anything from
+    an earlier day gets a date prefix instead (format varies by version —
+    "mmm/dd/yyyy HH:MM:SS", "mmm/dd HH:MM:SS", etc). So any entry WITH a
+    date prefix is definitely older than any WINDOW_SEC we'd configure
+    (minutes, not days) and is excluded outright — no need to parse the
+    date itself. A bare time is parsed as today's wall-clock time and
+    compared to `now` (the agent host's local clock — assumes the agent
+    runs in the router's timezone, true for the single-site deployments
+    this alerts on)."""
+    if not entry_time:
+        return False
+    entry_time = entry_time.strip()
+    if not _BARE_TIME_RE.match(entry_time):
+        return False
+    now = now or datetime.now()
+    try:
+        hour, minute, second = (int(x) for x in entry_time.split(":"))
+    except ValueError:
+        return False
+    entry_dt = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
+    if entry_dt > now + timedelta(seconds=5):
+        # A "future" time today means the log was fetched just after
+        # midnight and this entry is really from just before — yesterday.
+        entry_dt -= timedelta(days=1)
+    return 0 <= (now - entry_dt).total_seconds() <= window_sec
+
 
 async def _scan_device(device_id: int) -> List[dict]:
     """Scan one device's recent logs. Returns a list of alert dicts — zero,
@@ -96,12 +135,19 @@ async def _scan_device(device_id: int) -> List[dict]:
         msg = str(entry.get("message") or "")
         if not FAILED_LOGIN_HINT_RE.search(msg):
             continue
+        entry_time = entry.get("time")
+        if not _entry_is_recent(entry_time, WINDOW_SEC):
+            # Matches the pattern but is outside the window (old, still
+            # sitting in the router's log buffer) — never counts toward the
+            # threshold, so it can't combine with new attempts to fire an
+            # alert that looks unmotivated when only the recent lines are visible.
+            continue
         m = FAILED_LOGIN_DETAIL_RE.search(msg)
         source_ip = m.group(2) if m else None
         user = m.group(1) if m else None
         failed.append({
             "user": user, "source_ip": source_ip,
-            "time": entry.get("time"), "message": msg,
+            "time": entry_time, "message": msg,
         })
 
     if len(failed) >= THRESHOLD:
