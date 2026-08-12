@@ -137,8 +137,11 @@ function user_login_lockout_record(array $config, string $username, bool $succes
 }
 
 /** Occasionally sweep expired sessions — same 1% probabilistic pattern as
- * ingest.php's rate-limit file pruning, avoids a cron dependency. */
-function session_gc(PDO $pdo): void {
+ * ingest.php's rate-limit file pruning, avoids a cron dependency. Named
+ * mm_ (not session_gc) — session_gc() collides with PHP's OWN built-in
+ * function of that name (session extension) and causes a fatal
+ * "Cannot redeclare" error that kills the entire script. */
+function mm_session_gc(PDO $pdo): void {
     if (mt_rand(1, 100) === 1) {
         try { $pdo->exec('DELETE FROM sessions WHERE expires_at < NOW()'); } catch (Throwable $e) {}
     }
@@ -242,7 +245,7 @@ try {
         PDO::ATTR_ERRMODE          => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
-    session_gc($pdo);
+    mm_session_gc($pdo);
 
     if (in_array($action, $user_auth_actions, true)) {
         // ── New: per-user login/account-management actions. Own auth
@@ -579,7 +582,7 @@ try {
                 unset($r['_latest_payload']);
             }
             unset($r);
-            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['id'])));
+            $rows = array_values(array_filter($rows, function ($r) use ($identity) { return tenant_allowed($identity, $r['id']); }));
             echo json_encode([
                 'tenants'              => $rows,
                 'offline_threshold_sec' => $threshold,
@@ -923,7 +926,7 @@ try {
             // Global rules (tenant NULL) apply to everyone and stay visible
             // to tenant-scoped users too — only rule ADD/DELETE/TOGGLE of a
             // global rule needs a global identity.
-            $rows = array_values(array_filter($rows, fn($r) => $r['tenant'] === null || tenant_allowed($identity, $r['tenant'])));
+            $rows = array_values(array_filter($rows, function ($r) use ($identity) { return $r['tenant'] === null || tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['rules'=>$rows]);
             break;
 
@@ -1006,7 +1009,7 @@ try {
                 $r['consecutive_fails']=(int)$r['consecutive_fails'];
             }
             unset($r);
-            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['tenant'])));
+            $rows = array_values(array_filter($rows, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['devices'=>$rows]);
             break;
 
@@ -1096,7 +1099,7 @@ try {
                 $r['duration_sec'] = $r['duration_sec']!==null ? (int)$r['duration_sec'] : null;
             }
             unset($r);
-            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['tenant'])));
+            $rows = array_values(array_filter($rows, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['events'=>$rows]);
             break;
 
