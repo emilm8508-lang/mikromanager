@@ -2,11 +2,18 @@
 /**
  * MikroManager central — viewer API.
  *
- * Auth via:
- *   Authorization: Bearer <viewer_password>
+ * Auth (two paths, tried in this order on every request except
+ * `login`/`logout` which are unauthenticated/self-authenticated):
+ *   1. Authorization: Bearer <per-user session token> — issued by
+ *      ?action=login (see `users`/`sessions` tables); the identity carries
+ *      a role (admin/viewer) and an allowed_tenants scope (null = all).
+ *   2. Authorization: Bearer <viewer_password> (+ optional X-Totp) — the
+ *      original single shared secret, kept working as a full-access
+ *      legacy fallback so existing deployments don't break.
  *
  * Endpoints (selected by ?action=):
- *   ?action=tenants            → list all tenants + online status
+ *   ?action=login              → POST {username,password,totp_code?,tenant?}, returns a session token
+ *   ?action=tenants            → list tenants the caller may see + online status
  *   ?action=snapshot&tenant=X  → latest snapshot for tenant X
  *   ?action=history&tenant=X   → list of recent received_at timestamps (last 50)
  */
@@ -93,33 +100,137 @@ function login_lockout_record(array $config, string $ip, bool $success): void {
     file_put_contents($path, json_encode($next), LOCK_EX);
 }
 
-$client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-login_lockout_check($config, $client_ip);
+// ── Per-user accounts (multi-user, OVH-primary auth) ───────────────────────
+// Same file-based lockout convention as above, keyed by username instead of
+// IP (this is now a real login form, not just "do you know the shared
+// password") — PHP-FPM has no persistent process, hence files not memory,
+// same reasoning as the local agent's in-memory throttle can't be reused here.
+function _user_login_lockout_path(array $config, string $username): string {
+    $dir = $config['state_dir'];
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    return $dir . '/user_login_fail_' . preg_replace('/[^a-zA-Z0-9_.-]/', '_', strtolower($username)) . '.json';
+}
 
-$auth_header = get_auth_header();
-if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
-    login_lockout_record($config, $client_ip, false);
-    http_response_code(401);
-    echo json_encode(['error' => 'unauthorized']);
-    exit;
+function user_login_lockout_check(array $config, string $username): void {
+    $path = _user_login_lockout_path($config, $username);
+    if (!is_file($path)) return;
+    $data = json_decode((string)file_get_contents($path), true);
+    $locked_until = is_array($data) ? (int)($data['locked_until'] ?? 0) : 0;
+    if ($locked_until > time()) {
+        http_response_code(429);
+        echo json_encode(['error' => 'too_many_attempts', 'retry_after_sec' => $locked_until - time()]);
+        exit;
+    }
 }
-$provided = trim($m[1]);
-$password_ok = hash_equals($config['viewer_password'], $provided);
-$totp_ok = true;
-if ($password_ok && !empty($config['viewer_totp_secret'])) {
-    $totp_ok = totp_verify($config['viewer_totp_secret'], get_totp_header());
+
+function user_login_lockout_record(array $config, string $username, bool $success): void {
+    $path = _user_login_lockout_path($config, $username);
+    if ($success) {
+        @unlink($path);
+        return;
+    }
+    $data = is_file($path) ? json_decode((string)file_get_contents($path), true) : null;
+    $count = (is_array($data) ? (int)($data['count'] ?? 0) : 0) + 1;
+    $lockout_sec = $count >= 15 ? 1800 : ($count >= 10 ? 300 : ($count >= 5 ? 60 : 0));
+    $next = ['count' => $count, 'locked_until' => $lockout_sec ? time() + $lockout_sec : 0];
+    file_put_contents($path, json_encode($next), LOCK_EX);
 }
-if (!$password_ok || !$totp_ok) {
-    login_lockout_record($config, $client_ip, false);
-    http_response_code(401);
-    echo json_encode(['error' => $password_ok ? 'invalid or missing TOTP code' : 'invalid password']);
-    exit;
+
+/** Occasionally sweep expired sessions — same 1% probabilistic pattern as
+ * ingest.php's rate-limit file pruning, avoids a cron dependency. */
+function session_gc(PDO $pdo): void {
+    if (mt_rand(1, 100) === 1) {
+        try { $pdo->exec('DELETE FROM sessions WHERE expires_at < NOW()'); } catch (Throwable $e) {}
+    }
 }
-login_lockout_record($config, $client_ip, true);
+
+function bearer_token(): string {
+    return trim((string)preg_replace('/Bearer\s+/i', '', get_auth_header(), 1));
+}
+
+/** Resolve a bearer token as a live per-user session. Returns
+ * {id, username, role, allowed_tenants} (allowed_tenants: array or null =
+ * all tenants) or null if the token doesn't match any live, active-user
+ * session — NOT an error by itself, callers decide (session vs legacy path). */
+function resolve_user_session(PDO $pdo, string $token): ?array {
+    if ($token === '') return null;
+    $hash = hash('sha256', $token);
+    $stmt = $pdo->prepare(
+        'SELECT u.id, u.username, u.role, u.allowed_tenants, u.is_active, s.id AS session_id
+         FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ? AND s.expires_at > NOW()'
+    );
+    $stmt->execute([$hash]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || !(int)$row['is_active']) return null;
+    $pdo->prepare('UPDATE sessions SET last_seen_at = NOW() WHERE id = ?')->execute([$row['session_id']]);
+    $allowed = $row['allowed_tenants'] !== null ? (json_decode($row['allowed_tenants'], true) ?: []) : null;
+    return ['id' => (int)$row['id'], 'username' => $row['username'], 'role' => $row['role'], 'allowed_tenants' => $allowed];
+}
+
+function require_user_session(PDO $pdo, string $token): array {
+    $u = resolve_user_session($pdo, $token);
+    if (!$u) {
+        http_response_code(401);
+        echo json_encode(['error' => 'invalid_or_expired_session']);
+        exit;
+    }
+    return $u;
+}
+
+/** Only a GLOBAL admin (role=admin AND allowed_tenants=NULL) may manage
+ * accounts — a tenant-scoped admin can run their own tenant's devices/
+ * rules, but must not be able to create/escalate other users. */
+function require_admin_session(PDO $pdo, string $token): array {
+    $u = require_user_session($pdo, $token);
+    if ($u['role'] !== 'admin' || $u['allowed_tenants'] !== null) {
+        http_response_code(403);
+        echo json_encode(['error' => 'global_admin_required']);
+        exit;
+    }
+    return $u;
+}
+
+/** True if $identity may see/act on $tenant. allowed_tenants=NULL (legacy
+ * shared-password identity, or a global per-user account) means "all". */
+function tenant_allowed(array $identity, string $tenant): bool {
+    if ($identity['allowed_tenants'] === null) return true;
+    return in_array($tenant, $identity['allowed_tenants'], true);
+}
+
+function require_tenant(array $identity, string $tenant): void {
+    if (!tenant_allowed($identity, $tenant)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'tenant_not_allowed']);
+        exit;
+    }
+}
+
+/** For actions that are inherently cross-tenant (global config, storage
+ * usage, account management) — only a global-scoped identity may use them;
+ * a tenant-scoped admin manages their own tenant's data, not the server. */
+function require_global(array $identity): void {
+    if ($identity['allowed_tenants'] !== null) {
+        http_response_code(403);
+        echo json_encode(['error' => 'global_scope_required']);
+        exit;
+    }
+}
+
+function require_write(array $identity): void {
+    if ($identity['role'] !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'admin_role_required']);
+        exit;
+    }
+}
+
+$client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
 // ── Routing ──────────────────────────────────────────────────────────────────
 $action = $_GET['action'] ?? 'tenants';
 $threshold = (int)($config['offline_threshold_sec'] ?? 300);
+$user_auth_actions = ['login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset'];
 
 try {
     $dsn = sprintf(
@@ -131,6 +242,297 @@ try {
         PDO::ATTR_ERRMODE          => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+    session_gc($pdo);
+
+    if (in_array($action, $user_auth_actions, true)) {
+        // ── New: per-user login/account-management actions. Own auth
+        // (a session token, or none at all for `login` itself) — these
+        // deliberately bypass the legacy viewer_password gate below.
+        switch ($action) {
+
+            case 'login':
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $username = trim((string)($data['username'] ?? ''));
+                $password = (string)($data['password'] ?? '');
+                $totp_code = (string)($data['totp_code'] ?? '');
+                $req_tenant = trim((string)($data['tenant'] ?? ''));
+                if ($username === '' || $password === '') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'username and password required']);
+                    break;
+                }
+                user_login_lockout_check($config, $username);
+                $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? AND is_active = 1');
+                $stmt->execute([$username]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    // Distinguish "nobody has been provisioned yet" (agent
+                    // may auto-fallback to its local emergency account) from
+                    // a genuine bad username (must NOT auto-fallback).
+                    $total = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+                    if ($total === 0) {
+                        http_response_code(404);
+                        echo json_encode(['error' => 'not_provisioned']);
+                        break;
+                    }
+                    user_login_lockout_record($config, $username, false);
+                    http_response_code(401);
+                    echo json_encode(['error' => 'invalid_credentials']);
+                    break;
+                }
+                $ok = password_verify($password, (string)$row['password_hash']);
+                if ($ok && (int)$row['totp_enabled'] === 1) {
+                    $ok = totp_verify((string)$row['totp_secret'], $totp_code);
+                }
+                if (!$ok) {
+                    user_login_lockout_record($config, $username, false);
+                    http_response_code(401);
+                    echo json_encode(['error' => 'invalid_credentials']);
+                    break;
+                }
+                $allowed = $row['allowed_tenants'] !== null ? (json_decode($row['allowed_tenants'], true) ?: []) : null;
+                if ($req_tenant !== '' && $allowed !== null && !in_array($req_tenant, $allowed, true)) {
+                    // Valid credentials, but this account isn't scoped to the
+                    // agent that's asking — reject distinctly, no fallback
+                    // (the operator can still deliberately use the local
+                    // emergency account, which needs its own credentials anyway).
+                    // Not a lockout-counted failure: the password/TOTP were
+                    // correct, this is a scope mismatch, not a guessing attempt.
+                    http_response_code(403);
+                    echo json_encode(['error' => 'tenant_not_allowed']);
+                    break;
+                }
+                user_login_lockout_record($config, $username, true);
+                $token = bin2hex(random_bytes(32));
+                $ttl = (int)($config['user_session_ttl_sec'] ?? 7 * 24 * 3600);
+                $pdo->prepare('INSERT INTO sessions (user_id, token_hash, expires_at, ip) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)')
+                    ->execute([(int)$row['id'], hash('sha256', $token), $ttl, $client_ip]);
+                $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([(int)$row['id']]);
+                echo json_encode([
+                    'token' => $token, 'username' => $row['username'], 'role' => $row['role'],
+                    'allowed_tenants' => $allowed, 'expires_at' => date('c', time() + $ttl),
+                ]);
+                break;
+
+            case 'logout':
+                $tok = bearer_token();
+                if ($tok !== '') {
+                    $pdo->prepare('DELETE FROM sessions WHERE token_hash = ?')->execute([hash('sha256', $tok)]);
+                }
+                echo json_encode(['ok' => true]);
+                break;
+
+            case 'me':
+                $u = require_user_session($pdo, bearer_token());
+                echo json_encode($u);
+                break;
+
+            case 'me_totp_confirm':
+                $u = require_user_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $code = (string)($data['code'] ?? '');
+                $stmt = $pdo->prepare('SELECT totp_secret FROM users WHERE id = ?');
+                $stmt->execute([$u['id']]);
+                $secret = (string)$stmt->fetchColumn();
+                if ($secret === '' || !totp_verify($secret, $code)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'invalid_code']);
+                    break;
+                }
+                $pdo->prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?')->execute([$u['id']]);
+                echo json_encode(['ok' => true]);
+                break;
+
+            case 'users_list':
+                require_admin_session($pdo, bearer_token());
+                $rows = $pdo->query('SELECT id, username, role, allowed_tenants, totp_enabled, is_active, created_at, last_login_at FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($rows as &$r) {
+                    $r['allowed_tenants'] = $r['allowed_tenants'] !== null ? (json_decode($r['allowed_tenants'], true) ?: []) : null;
+                    $r['totp_enabled'] = (int)$r['totp_enabled'];
+                    $r['is_active'] = (int)$r['is_active'];
+                }
+                echo json_encode(['users' => $rows]);
+                break;
+
+            case 'user_add':
+                require_admin_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $username = trim((string)($data['username'] ?? ''));
+                $password = (string)($data['password'] ?? '');
+                $role = (string)($data['role'] ?? 'viewer');
+                $allowed = array_key_exists('allowed_tenants', $data) ? $data['allowed_tenants'] : null;
+                if ($username === '' || strlen($password) < 8 || !in_array($role, ['admin', 'viewer'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'username, password (>=8 chars) and a valid role are required']);
+                    break;
+                }
+                if ($allowed !== null && !is_array($allowed)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'allowed_tenants must be an array or null']);
+                    break;
+                }
+                try {
+                    $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, role, allowed_tenants, totp_enabled) VALUES (?, ?, ?, ?, 0)');
+                    $stmt->execute([
+                        $username,
+                        password_hash($password, PASSWORD_DEFAULT),
+                        $role,
+                        $allowed !== null ? json_encode(array_values(array_map('strval', $allowed))) : null,
+                    ]);
+                } catch (PDOException $e) {
+                    http_response_code(409);
+                    echo json_encode(['error' => 'username already exists']);
+                    break;
+                }
+                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
+                break;
+
+            case 'user_update':
+                require_admin_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $id = (int)($data['id'] ?? 0);
+                if ($id <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id required']);
+                    break;
+                }
+                $demoting = array_key_exists('role', $data) && $data['role'] !== 'admin';
+                $deactivating = array_key_exists('is_active', $data) && !$data['is_active'];
+                $rescoping = array_key_exists('allowed_tenants', $data) && $data['allowed_tenants'] !== null;
+                if ($demoting || $deactivating || $rescoping) {
+                    $stmt2 = $pdo->prepare('SELECT role, allowed_tenants, is_active FROM users WHERE id = ?');
+                    $stmt2->execute([$id]);
+                    $target = $stmt2->fetch(PDO::FETCH_ASSOC);
+                    $target_is_last_admin = $target && $target['role'] === 'admin' && $target['allowed_tenants'] === null && (int)$target['is_active'] === 1;
+                    if ($target_is_last_admin) {
+                        $stmt3 = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role='admin' AND allowed_tenants IS NULL AND is_active=1 AND id<>?");
+                        $stmt3->execute([$id]);
+                        if ((int)$stmt3->fetchColumn() === 0) {
+                            http_response_code(400);
+                            echo json_encode(['error' => 'cannot demote, rescope, or deactivate the last global admin']);
+                            break;
+                        }
+                    }
+                }
+                $sets = []; $vals = [];
+                if (array_key_exists('role', $data)) {
+                    if (!in_array($data['role'], ['admin', 'viewer'], true)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'invalid role']);
+                        break;
+                    }
+                    $sets[] = 'role=?'; $vals[] = $data['role'];
+                }
+                if (array_key_exists('allowed_tenants', $data)) {
+                    $a = $data['allowed_tenants'];
+                    if ($a !== null && !is_array($a)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'allowed_tenants must be an array or null']);
+                        break;
+                    }
+                    $sets[] = 'allowed_tenants=?'; $vals[] = $a !== null ? json_encode(array_values(array_map('strval', $a))) : null;
+                }
+                if (array_key_exists('is_active', $data)) { $sets[] = 'is_active=?'; $vals[] = $data['is_active'] ? 1 : 0; }
+                if (array_key_exists('password', $data) && $data['password'] !== '') {
+                    if (strlen((string)$data['password']) < 8) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'password too short']);
+                        break;
+                    }
+                    $sets[] = 'password_hash=?'; $vals[] = password_hash((string)$data['password'], PASSWORD_DEFAULT);
+                }
+                if (empty($sets)) { echo json_encode(['ok' => true, 'no_changes' => true]); break; }
+                $vals[] = $id;
+                $pdo->prepare('UPDATE users SET ' . implode(',', $sets) . ' WHERE id=?')->execute($vals);
+                if ($deactivating) {
+                    $pdo->prepare('DELETE FROM sessions WHERE user_id = ?')->execute([$id]);
+                }
+                echo json_encode(['ok' => true]);
+                break;
+
+            case 'user_delete':
+                require_admin_session($pdo, bearer_token());
+                $id = (int)($_GET['id'] ?? 0);
+                if ($id <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id required']);
+                    break;
+                }
+                $stmt2 = $pdo->prepare('SELECT role, allowed_tenants FROM users WHERE id = ? AND is_active = 1');
+                $stmt2->execute([$id]);
+                $target = $stmt2->fetch(PDO::FETCH_ASSOC);
+                if ($target && $target['role'] === 'admin' && $target['allowed_tenants'] === null) {
+                    $stmt3 = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role='admin' AND allowed_tenants IS NULL AND is_active=1 AND id<>?");
+                    $stmt3->execute([$id]);
+                    if ((int)$stmt3->fetchColumn() === 0) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'cannot delete the last global admin']);
+                        break;
+                    }
+                }
+                $pdo->prepare('DELETE FROM sessions WHERE user_id = ?')->execute([$id]);
+                $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
+                $stmt->execute([$id]);
+                echo json_encode(['ok' => true, 'deleted' => $stmt->rowCount()]);
+                break;
+
+            case 'user_totp_reset':
+                require_admin_session($pdo, bearer_token());
+                $id = (int)($_GET['id'] ?? 0);
+                if ($id <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id required']);
+                    break;
+                }
+                $stmt = $pdo->prepare('SELECT username FROM users WHERE id = ?');
+                $stmt->execute([$id]);
+                $username = $stmt->fetchColumn();
+                if (!$username) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'not found']);
+                    break;
+                }
+                $secret = totp_generate_secret();
+                $pdo->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')->execute([$secret, $id]);
+                echo json_encode(['secret' => $secret, 'otpauth_uri' => totp_provisioning_uri($secret, (string)$username)]);
+                break;
+        }
+    } else {
+    // ── Legacy actions — session token OR the shared viewer_password ───────
+    $identity = null;
+    $auth_header = get_auth_header();
+    if (preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
+        $identity = resolve_user_session($pdo, trim($m[1]));
+    }
+    if ($identity === null) {
+        login_lockout_check($config, $client_ip);
+        if (!preg_match('/Bearer\s+(.+)/i', $auth_header, $m)) {
+            login_lockout_record($config, $client_ip, false);
+            http_response_code(401);
+            echo json_encode(['error' => 'unauthorized']);
+            exit;
+        }
+        $provided = trim($m[1]);
+        $password_ok = hash_equals($config['viewer_password'], $provided);
+        $totp_ok = true;
+        if ($password_ok && !empty($config['viewer_totp_secret'])) {
+            $totp_ok = totp_verify($config['viewer_totp_secret'], get_totp_header());
+        }
+        if (!$password_ok || !$totp_ok) {
+            login_lockout_record($config, $client_ip, false);
+            http_response_code(401);
+            echo json_encode(['error' => $password_ok ? 'invalid or missing TOTP code' : 'invalid password']);
+            exit;
+        }
+        login_lockout_record($config, $client_ip, true);
+        // Legacy shared password = full, global admin — unchanged behavior
+        // for every deployment that hasn't migrated to per-user accounts yet.
+        $identity = ['id' => null, 'username' => null, 'role' => 'admin', 'allowed_tenants' => null];
+    }
 
     switch ($action) {
 
@@ -163,6 +565,8 @@ try {
                 }
                 unset($r['_latest_payload']);
             }
+            unset($r);
+            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['id'])));
             echo json_encode([
                 'tenants'              => $rows,
                 'offline_threshold_sec' => $threshold,
@@ -177,6 +581,7 @@ try {
                 echo json_encode(['error' => 'tenant query param required']);
                 break;
             }
+            require_tenant($identity, $tenant);
             $stmt = $pdo->prepare(
                 'SELECT payload, received_at,
                         TIMESTAMPDIFF(SECOND, received_at, NOW()) AS age_sec
@@ -206,6 +611,7 @@ try {
                 echo json_encode(['error' => 'tenant query param required']);
                 break;
             }
+            require_tenant($identity, $tenant);
             $stmt = $pdo->prepare(
                 'SELECT id, received_at, LENGTH(payload) AS bytes
                  FROM snapshots
@@ -218,6 +624,7 @@ try {
             break;
 
         case 'usage':
+            require_global($identity);
             // Total + per-tenant payload size, plus configured cap.
             $stmt = $pdo->query(
                 'SELECT
@@ -257,6 +664,8 @@ try {
             break;
 
         case 'cleanup':
+            require_global($identity);
+            require_write($identity);
             // Manual: keep only N latest per tenant. Optional ?keep=20
             $keep = max(1, (int)($_GET['keep'] ?? 20));
             $deleted = 0;
@@ -280,6 +689,8 @@ try {
         case 'request_update':
             $tenant = $_GET['tenant'] ?? '';
             if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
             $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
@@ -293,6 +704,8 @@ try {
         case 'request_restart':
             $tenant = $_GET['tenant'] ?? '';
             if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
             $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
@@ -303,6 +716,7 @@ try {
             break;
 
         case 'pending_restarts':
+            require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             $pending = [];
             if (is_dir($state_dir)) {
@@ -325,6 +739,8 @@ try {
                 echo json_encode(['error' => 'tenant and device_id required']);
                 break;
             }
+            require_tenant($identity, $tenant);
+            require_write($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
             $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
@@ -339,6 +755,7 @@ try {
             break;
 
         case 'pending_firmware_upgrades':
+            require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             $pending = [];
             if (is_dir($state_dir)) {
@@ -371,6 +788,8 @@ try {
                 echo json_encode(['error' => 'tenant and device_id required']);
                 break;
             }
+            require_tenant($identity, $tenant);
+            require_write($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
             $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
@@ -384,6 +803,7 @@ try {
             break;
 
         case 'pending_device_log_requests':
+            require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             $pending = [];
             if (is_dir($state_dir)) {
@@ -404,6 +824,7 @@ try {
             break;
 
         case 'pending_updates':
+            require_global($identity);
             // Which tenants have update_pending marker set right now.
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
             $pending = [];
@@ -419,8 +840,11 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
-        // Alerts
+        // Alerts — channels are cross-tenant infrastructure (a channel isn't
+        // owned by one tenant, rules from multiple tenants can share one),
+        // so channel management stays global-admin-only.
         case 'alert_channels':
+            require_global($identity);
             $rows = $pdo->query('SELECT id, name, type, config, enabled, created_at FROM notification_channels ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) {
                 $cfg = json_decode($r['config'] ?? '{}', true) ?: [];
@@ -437,6 +861,8 @@ try {
             break;
 
         case 'alert_channel_add':
+            require_global($identity);
+            require_write($identity);
             $data = json_decode(file_get_contents('php://input'), true);
             if (!is_array($data)) { http_response_code(400); echo json_encode(['error'=>'invalid body']); break; }
             $name = trim((string)($data['name']??'')); $type = (string)($data['type']??''); $cfg = $data['config'] ?? [];
@@ -449,18 +875,23 @@ try {
             break;
 
         case 'alert_channel_delete':
+            require_global($identity);
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
             $stmt = $pdo->prepare('DELETE FROM notification_channels WHERE id=?'); $stmt->execute([$id]);
             echo json_encode(['ok'=>true,'deleted'=>$stmt->rowCount()]);
             break;
 
         case 'alert_channel_toggle':
+            require_global($identity);
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
             $pdo->prepare('UPDATE notification_channels SET enabled=1-enabled WHERE id=?')->execute([$id]);
             echo json_encode(['ok'=>true]);
             break;
 
         case 'alert_channel_test':
+            require_global($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
             $stmt = $pdo->prepare('SELECT * FROM notification_channels WHERE id=?'); $stmt->execute([$id]);
             $ch = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -475,18 +906,30 @@ try {
                 $r['channel_ids'] = json_decode($r['channel_ids']??'[]',true)?:[];
                 $r['enabled']=(int)$r['enabled']; $r['min_count']=(int)$r['min_count']; $r['cooldown_sec']=(int)$r['cooldown_sec'];
             }
+            unset($r);
+            // Global rules (tenant NULL) apply to everyone and stay visible
+            // to tenant-scoped users too — only rule ADD/DELETE/TOGGLE of a
+            // global rule needs a global identity.
+            $rows = array_values(array_filter($rows, fn($r) => $r['tenant'] === null || tenant_allowed($identity, $r['tenant'])));
             echo json_encode(['rules'=>$rows]);
             break;
 
         case 'alert_rule_add':
+            require_write($identity);
             $data = json_decode(file_get_contents('php://input'), true);
             if (!is_array($data)) { http_response_code(400); echo json_encode(['error'=>'invalid body']); break; }
             $ev = (string)($data['event_type']??''); $chs = $data['channel_ids'] ?? [];
             if ($ev==='' || !is_array($chs) || empty($chs)) { http_response_code(400); echo json_encode(['error'=>'event_type and channel_ids required']); break; }
+            $rule_tenant = trim((string)($data['tenant']??''))?:null;
+            if ($rule_tenant === null) {
+                require_global($identity); // only a global admin may add a rule that applies to every tenant
+            } else {
+                require_tenant($identity, $rule_tenant);
+            }
             $stmt = $pdo->prepare('INSERT INTO alert_rules (name,tenant,event_type,min_count,cooldown_sec,channel_ids,enabled) VALUES (?,?,?,?,?,?,1)');
             $stmt->execute([
                 trim((string)($data['name']??''))?:null,
-                trim((string)($data['tenant']??''))?:null,
+                $rule_tenant,
                 $ev, max(1,(int)($data['min_count']??1)), max(0,(int)($data['cooldown_sec']??3600)),
                 json_encode(array_values(array_map('intval',$chs))),
             ]);
@@ -494,13 +937,23 @@ try {
             break;
 
         case 'alert_rule_delete':
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $rt = $pdo->prepare('SELECT tenant FROM alert_rules WHERE id=?'); $rt->execute([$id]);
+            $rule_tenant = $rt->fetchColumn();
+            if ($rule_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            if ($rule_tenant === null) { require_global($identity); } else { require_tenant($identity, $rule_tenant); }
             $stmt = $pdo->prepare('DELETE FROM alert_rules WHERE id=?'); $stmt->execute([$id]);
             echo json_encode(['ok'=>true,'deleted'=>$stmt->rowCount()]);
             break;
 
         case 'alert_rule_toggle':
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $rt = $pdo->prepare('SELECT tenant FROM alert_rules WHERE id=?'); $rt->execute([$id]);
+            $rule_tenant = $rt->fetchColumn();
+            if ($rule_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            if ($rule_tenant === null) { require_global($identity); } else { require_tenant($identity, $rule_tenant); }
             $pdo->prepare('UPDATE alert_rules SET enabled=1-enabled WHERE id=?')->execute([$id]);
             echo json_encode(['ok'=>true]);
             break;
@@ -509,10 +962,18 @@ try {
             $limit = min(200, max(1, (int)($_GET['limit']??50)));
             $tenant = $_GET['tenant'] ?? '';
             if ($tenant !== '') {
+                require_tenant($identity, $tenant);
                 $stmt = $pdo->prepare('SELECT id,triggered_at,tenant,event_type,event_data,matched_rule_id,notifications_result FROM alert_history WHERE tenant=? ORDER BY triggered_at DESC LIMIT '.$limit);
                 $stmt->execute([$tenant]);
-            } else {
+            } elseif ($identity['allowed_tenants'] === null) {
                 $stmt = $pdo->query('SELECT id,triggered_at,tenant,event_type,event_data,matched_rule_id,notifications_result FROM alert_history ORDER BY triggered_at DESC LIMIT '.$limit);
+            } elseif (empty($identity['allowed_tenants'])) {
+                echo json_encode(['history'=>[]]);
+                break;
+            } else {
+                $ph = implode(',', array_fill(0, count($identity['allowed_tenants']), '?'));
+                $stmt = $pdo->prepare("SELECT id,triggered_at,tenant,event_type,event_data,matched_rule_id,notifications_result FROM alert_history WHERE tenant IN ($ph) ORDER BY triggered_at DESC LIMIT ".$limit);
+                $stmt->execute($identity['allowed_tenants']);
             }
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) {
@@ -531,13 +992,20 @@ try {
                 $r['check_port'] = $r['check_port']!==null ? (int)$r['check_port'] : null;
                 $r['consecutive_fails']=(int)$r['consecutive_fails'];
             }
+            unset($r);
+            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['tenant'])));
             echo json_encode(['devices'=>$rows]);
             break;
 
         case 'edge_device_update':
+            require_write($identity);
             $data = json_decode(file_get_contents('php://input'), true);
             if (!is_array($data)) { http_response_code(400); echo json_encode(['error'=>'invalid body']); break; }
             $id = (int)($data['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $owt = $pdo->prepare('SELECT tenant FROM edge_devices WHERE id=?'); $owt->execute([$id]);
+            $owner_tenant = $owt->fetchColumn();
+            if ($owner_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            require_tenant($identity, $owner_tenant);
             $sets = []; $vals = [];
             if (array_key_exists('name',$data)) { $sets[]='name=?'; $vals[]=trim((string)$data['name']); }
             if (array_key_exists('check_port',$data)) { $sets[]='check_port=?'; $vals[] = ($data['check_port']===null||$data['check_port']==='') ? null : (int)$data['check_port']; }
@@ -550,10 +1018,12 @@ try {
             break;
 
         case 'edge_device_add':
+            require_write($identity);
             $data = json_decode(file_get_contents('php://input'), true);
             if (!is_array($data)) { http_response_code(400); echo json_encode(['error'=>'invalid body']); break; }
             $tenant_f = trim((string)($data['tenant']??'')); $name = trim((string)($data['name']??'')); $ip = trim((string)($data['ip']??''));
             if ($tenant_f===''||$name===''||$ip==='') { http_response_code(400); echo json_encode(['error'=>'tenant, name, ip required']); break; }
+            require_tenant($identity, $tenant_f);
             $port = isset($data['check_port'])&&$data['check_port']!=='' ? (int)$data['check_port'] : null;
             $chs = is_array($data['channel_ids']??null)?$data['channel_ids']:[];
             $stmt = $pdo->prepare('INSERT INTO edge_devices (tenant,name,ip,check_port,interval_sec,channel_ids,enabled,source) VALUES (?,?,?,?,?,?,1,"manual") ON DUPLICATE KEY UPDATE name=VALUES(name),check_port=VALUES(check_port),interval_sec=VALUES(interval_sec),channel_ids=VALUES(channel_ids),enabled=1');
@@ -562,23 +1032,35 @@ try {
             break;
 
         case 'edge_device_delete':
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $owt = $pdo->prepare('SELECT tenant FROM edge_devices WHERE id=?'); $owt->execute([$id]);
+            $owner_tenant = $owt->fetchColumn();
+            if ($owner_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            require_tenant($identity, $owner_tenant);
             $pdo->prepare('DELETE FROM edge_events WHERE edge_id=?')->execute([$id]);
             $stmt = $pdo->prepare('DELETE FROM edge_devices WHERE id=?'); $stmt->execute([$id]);
             echo json_encode(['ok'=>true,'deleted'=>$stmt->rowCount()]);
             break;
 
         case 'edge_device_toggle':
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $owt = $pdo->prepare('SELECT tenant FROM edge_devices WHERE id=?'); $owt->execute([$id]);
+            $owner_tenant = $owt->fetchColumn();
+            if ($owner_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            require_tenant($identity, $owner_tenant);
             $pdo->prepare('UPDATE edge_devices SET enabled=1-enabled WHERE id=?')->execute([$id]);
             echo json_encode(['ok'=>true]);
             break;
 
         case 'edge_device_check_now':
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
             $stmt = $pdo->prepare('SELECT * FROM edge_devices WHERE id=?'); $stmt->execute([$id]);
             $d = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$d) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            require_tenant($identity, $d['tenant']);
             $res = edge_check_one($pdo,$d);
             echo json_encode(['ok'=>true,'result'=>$res]);
             break;
@@ -587,6 +1069,9 @@ try {
             $limit = min(200, max(1, (int)($_GET['limit']??100)));
             $edge_id = (int)($_GET['edge_id']??0);
             if ($edge_id>0) {
+                $owt = $pdo->prepare('SELECT tenant FROM edge_devices WHERE id=?'); $owt->execute([$edge_id]);
+                $owner_tenant = $owt->fetchColumn();
+                if ($owner_tenant !== false) { require_tenant($identity, $owner_tenant); }
                 $stmt = $pdo->prepare('SELECT e.id,e.edge_id,e.ts,e.event_type,e.duration_sec,e.notifications_result,d.name AS device_name,d.ip AS device_ip,d.tenant FROM edge_events e JOIN edge_devices d ON d.id=e.edge_id WHERE e.edge_id=? ORDER BY e.ts DESC LIMIT '.$limit);
                 $stmt->execute([$edge_id]);
             } else {
@@ -597,6 +1082,8 @@ try {
                 $r['notifications_result'] = json_decode($r['notifications_result']??'{}',true);
                 $r['duration_sec'] = $r['duration_sec']!==null ? (int)$r['duration_sec'] : null;
             }
+            unset($r);
+            $rows = array_values(array_filter($rows, fn($r) => tenant_allowed($identity, $r['tenant'])));
             echo json_encode(['events'=>$rows]);
             break;
 
@@ -604,10 +1091,18 @@ try {
             $limit = min(200, max(1, (int)($_GET['limit']??50)));
             $tenant = $_GET['tenant'] ?? '';
             if ($tenant !== '') {
+                require_tenant($identity, $tenant);
                 $stmt = $pdo->prepare('SELECT id,ts,tenant,event_type,message,details FROM activity_log WHERE tenant=? ORDER BY ts DESC LIMIT '.$limit);
                 $stmt->execute([$tenant]);
-            } else {
+            } elseif ($identity['allowed_tenants'] === null) {
                 $stmt = $pdo->query('SELECT id,ts,tenant,event_type,message,details FROM activity_log ORDER BY ts DESC LIMIT '.$limit);
+            } elseif (empty($identity['allowed_tenants'])) {
+                echo json_encode(['activity' => []]);
+                break;
+            } else {
+                $ph = implode(',', array_fill(0, count($identity['allowed_tenants']), '?'));
+                $stmt = $pdo->prepare("SELECT id,ts,tenant,event_type,message,details FROM activity_log WHERE tenant IN ($ph) ORDER BY ts DESC LIMIT ".$limit);
+                $stmt->execute($identity['allowed_tenants']);
             }
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) {
@@ -619,6 +1114,7 @@ try {
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);
+    }
     }
 } catch (Throwable $e) {
     error_log('[mm-api] ' . $e->getMessage());

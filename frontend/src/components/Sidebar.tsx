@@ -188,28 +188,43 @@ function ShowSecretModal({ open, onClose }: { open: boolean; onClose: () => void
 
 function AccountPanel() {
   const { t } = useTranslation()
-  const { username, logout } = useAuth()
+  const { username, role, source, logout } = useAuth()
   const [showSecret, setShowSecret] = useState(false)
   return (
-    <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
-      <span className="text-xs text-slate-600 truncate" title={username}>{username}</span>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={() => setShowSecret(true)}
-          title={t('auth.reuseSecretLabel') as string}
-          className="text-slate-500 hover:text-indigo-600"
+    <div className="border-t border-slate-200">
+      {source === 'local' && (
+        <div
+          className="px-4 py-1.5 flex items-center gap-1.5 bg-amber-50 text-amber-700 text-[10px] font-medium"
+          title={t('auth.loginLocalBanner') as string}
         >
-          <KeyRound size={14} />
-        </button>
-        <button
-          onClick={logout}
-          title={t('auth.logout') as string}
-          className="text-slate-500 hover:text-red-600"
-        >
-          <LogOut size={14} />
-        </button>
+          <ShieldAlert size={12} className="shrink-0" />
+          <span className="truncate">{t('auth.loginLocalBanner')}</span>
+        </div>
+      )}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <span className="text-xs text-slate-600 truncate" title={`${username} · ${t(`auth.role${role === 'admin' ? 'Admin' : 'Viewer'}`)}`}>
+          {username}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {source === 'local' && (
+            <button
+              onClick={() => setShowSecret(true)}
+              title={t('auth.reuseSecretLabel') as string}
+              className="text-slate-500 hover:text-indigo-600"
+            >
+              <KeyRound size={14} />
+            </button>
+          )}
+          <button
+            onClick={logout}
+            title={t('auth.logout') as string}
+            className="text-slate-500 hover:text-red-600"
+          >
+            <LogOut size={14} />
+          </button>
+        </div>
+        <ShowSecretModal open={showSecret} onClose={() => setShowSecret(false)} />
       </div>
-      <ShowSecretModal open={showSecret} onClose={() => setShowSecret(false)} />
     </div>
   )
 }

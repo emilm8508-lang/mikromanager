@@ -62,6 +62,19 @@ def is_configured() -> bool:
     return bool(_config["url"] and _config["tenant"] and _config["api_key"])
 
 
+def api_url() -> str:
+    """URL of ovh/api.php, derived from the configured ingest.php URL — both
+    files are always deployed side by side (see ovh/README.md). Used for the
+    per-user OVH login (services/ovh_auth.py), which is a completely
+    different endpoint/credential space than the snapshot uplink itself."""
+    url = _config["url"]
+    if not url:
+        return ""
+    if "ingest.php" in url:
+        return url.replace("ingest.php", "api.php")
+    return url.rstrip("/") + "/api.php"
+
+
 def status() -> dict:
     return {
         "enabled": is_configured(),

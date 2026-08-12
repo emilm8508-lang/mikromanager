@@ -109,3 +109,36 @@ CREATE TABLE IF NOT EXISTS edge_events (
     notifications_result MEDIUMTEXT,
     INDEX (edge_id, ts DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Multi-user accounts (v1.x) — OVH is the primary login source for both
+-- individual agents and the "Central" viewer; each agent's local single
+-- account remains an emergency fallback for when OVH is unreachable.
+-- role/allowed_tenants are orthogonal: role = what a user may DO (admin
+-- can write, viewer is read-only), allowed_tenants = WHICH tenants a user
+-- may see/act on at all (NULL = all tenants, i.e. a "global" user).
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL DEFAULT 'viewer',
+    allowed_tenants TEXT NULL,          -- JSON array of tenant slugs; NULL = all tenants
+    totp_secret VARCHAR(64) NULL,
+    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL,       -- sha256 hex of the bearer token; the raw token is never stored
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    last_seen_at DATETIME NULL,
+    ip VARCHAR(64) NULL,
+    UNIQUE KEY uniq_token_hash (token_hash),
+    INDEX idx_user (user_id),
+    INDEX idx_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

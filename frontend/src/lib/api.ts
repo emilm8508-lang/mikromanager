@@ -25,6 +25,23 @@ export interface MfaSetupInfo {
   qr_svg_data_uri: string
 }
 
+export type AuthSource = 'ovh' | 'local'
+export type AuthRole = 'admin' | 'viewer'
+
+export interface LoginResult {
+  ok: boolean
+  source: AuthSource
+  username: string
+  role: AuthRole
+  allowed_tenants?: string[] | null
+}
+
+export interface MeResult {
+  username: string
+  role: AuthRole
+  source: AuthSource
+}
+
 export const authApi = {
   status: () => api.get<AuthStatus>('/auth/status').then(r => r.data),
   setup: (username: string, password: string, totpSecret?: string) =>
@@ -34,10 +51,16 @@ export const authApi = {
   setupRegenerate: (username: string, password: string, totpSecret?: string) =>
     api.post<MfaSetupInfo>('/auth/setup/regenerate', { username, password, totp_secret: totpSecret || undefined }).then(r => r.data),
   mfaConfirm: (code: string) => api.post('/auth/mfa/confirm', { code }).then(r => r.data),
+  // OVH-primary: tries the central account first, silently falls back to the
+  // local emergency account only when OVH is unreachable/not provisioned.
   login: (username: string, password: string, totp_code: string) =>
-    api.post('/auth/login', { username, password, totp_code }).then(r => r.data),
+    api.post<LoginResult>('/auth/login', { username, password, totp_code }).then(r => r.data),
+  // Deliberate, explicit use of the local emergency account (bypasses OVH
+  // on purpose — e.g. the operator's central account was deactivated).
+  loginLocal: (username: string, password: string, totp_code: string) =>
+    api.post<LoginResult>('/auth/login/local', { username, password, totp_code }).then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),
-  me: () => api.get<{ username: string }>('/auth/me').then(r => r.data),
+  me: () => api.get<MeResult>('/auth/me').then(r => r.data),
   totpSecret: () => api.get<MfaSetupInfo>('/auth/totp-secret').then(r => r.data),
   totpSecretRegenerate: (totpSecret?: string) =>
     api.post<MfaSetupInfo>('/auth/totp-secret/regenerate', { totp_secret: totpSecret || undefined }).then(r => r.data),
@@ -360,14 +383,46 @@ const CENTRAL_LS = 'mikromanager_central'
 
 export interface CentralConfig {
   apiUrl: string
-  password: string
+  // Legacy shared viewer password — kept optional now that per-user account
+  // login (centralSession below) is the recommended path; still supported
+  // so existing configs and the phone-viewer PWA keep working unchanged.
+  password?: string
   // Per-tenant E2E decryption keys (base64). Map tenant id → key.
   // The server never has these. Without it, encrypted snapshots cannot be read.
   tenantKeys?: Record<string, string>
-  // Optional second factor for the shared viewer login (ovh/totp.php on the
-  // server side) — ONE secret for the whole central server, unlike
+  // Optional second factor for the LEGACY shared viewer login (ovh/totp.php
+  // on the server side) — ONE secret for the whole central server, unlike
   // tenantKeys which are per-tenant. Base32, same format pyotp uses locally.
+  // Not used by per-user account login, which has its own per-user TOTP.
   totpSecret?: string
+}
+
+// Per-user OVH account session (recommended path) — kept in sessionStorage,
+// not localStorage: it's a short-lived bearer credential, not long-term
+// config, so it shouldn't outlive the browser tab/session by default.
+const CENTRAL_SESSION_KEY = 'mikromanager_central_session'
+
+export interface CentralSession {
+  token: string
+  username: string
+  role: AuthRole
+  allowedTenants?: string[] | null
+  expiresAt: string
+}
+
+export const centralSession = {
+  load(): CentralSession | null {
+    try {
+      const raw = sessionStorage.getItem(CENTRAL_SESSION_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  },
+  save(s: CentralSession) {
+    sessionStorage.setItem(CENTRAL_SESSION_KEY, JSON.stringify(s))
+  },
+  clear() {
+    sessionStorage.removeItem(CENTRAL_SESSION_KEY)
+  },
 }
 
 // TOTP code generation (RFC 6238) via native WebCrypto — mirrors
@@ -462,8 +517,17 @@ async function centralRequest<T>(
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
   const method = opts.method ?? 'GET'
-  const headers: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
-  if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret)
+  const headers: Record<string, string> = {}
+  // Prefer a per-user account session token (recommended path) over the
+  // legacy shared password — `login`/logged-out state doesn't have one yet,
+  // so this falls back to the legacy password if that's all that's configured.
+  const session = centralSession.load()
+  if (session) {
+    headers.Authorization = `Bearer ${session.token}`
+  } else if (cfg.password) {
+    headers.Authorization = `Bearer ${cfg.password}`
+    if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret)
+  }
   let body: string | undefined
   if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json'
@@ -473,6 +537,42 @@ async function centralRequest<T>(
   const resp = await fetch(url.toString(), { method, headers, body })
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`)
   return resp.json()
+}
+
+// ── Per-user OVH account login (Central) ────────────────────────────────────
+// Uses the same central-proxy relay as everything else in this file, just
+// with the new `login`/`me`/`users_*` actions on ovh/api.php, which are
+// unauthenticated (login) or authenticated via the token this returns
+// (everything else) rather than the legacy shared password.
+
+export interface CentralUser {
+  id: number
+  username: string
+  role: AuthRole
+  allowed_tenants: string[] | null
+  totp_enabled: number
+  is_active: number
+  created_at: string
+  last_login_at: string | null
+}
+
+export const centralAuthApi = {
+  login: (username: string, password: string, totp_code?: string) =>
+    centralRequest<{ token: string; username: string; role: AuthRole; allowed_tenants: string[] | null; expires_at: string }>(
+      'login', {}, { method: 'POST', body: { username, password, totp_code } }),
+  logout: () => centralRequest<{ ok: boolean }>('logout', {}, { method: 'POST' }),
+  me: () => centralRequest<{ id: number; username: string; role: AuthRole; allowed_tenants: string[] | null }>('me'),
+  totpConfirm: (code: string) => centralRequest<{ ok: boolean }>('me_totp_confirm', {}, { method: 'POST', body: { code } }),
+}
+
+export const centralUsersApi = {
+  list: () => centralRequest<{ users: CentralUser[] }>('users_list'),
+  add: (data: { username: string; password: string; role: AuthRole; allowed_tenants?: string[] | null }) =>
+    centralRequest<{ ok: boolean; id: number }>('user_add', {}, { method: 'POST', body: data }),
+  update: (data: { id: number; role?: AuthRole; allowed_tenants?: string[] | null; is_active?: boolean; password?: string }) =>
+    centralRequest<{ ok: boolean }>('user_update', {}, { method: 'POST', body: data }),
+  delete: (id: number) => centralRequest<{ ok: boolean; deleted: number }>('user_delete', { id: String(id) }, { method: 'DELETE' }),
+  totpReset: (id: number) => centralRequest<{ secret: string; otpauth_uri: string }>('user_totp_reset', { id: String(id) }, { method: 'POST' }),
 }
 
 // ── Alert + edge types ─────────────────────────────────────────────────────

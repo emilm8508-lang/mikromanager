@@ -79,14 +79,35 @@
     <div class="card">
       <label for="cfg-url">URL API (api.php)</label>
       <input id="cfg-url" placeholder="https://twojadomena.pl/mm/api.php" autocapitalize="off" autocorrect="off">
-      <label for="cfg-pass">Hasło viewera</label>
-      <input id="cfg-pass" type="password" autocomplete="off">
-      <label for="cfg-totp">Sekret TOTP (opcjonalnie)</label>
-      <input id="cfg-totp" type="password" placeholder="np. JBSWY3DPEHPK3PXP" autocapitalize="off" autocorrect="off" data-lpignore="true">
-      <p class="muted">Drugi czynnik logowania — wypełnij tylko, jeśli ustawiłeś <code>viewer_totp_secret</code> w config.php na OVH. Ten sam sekret co w desktopowym widoku "Centralny".</p>
-      <div class="row" style="margin-top:12px;">
-        <button id="btn-login" style="flex:1;">Zapisz i połącz</button>
+
+      <div class="row" style="margin-top:12px; gap:6px;">
+        <button id="btn-mode-account" class="ghost" style="flex:1;">Konto (zalecane)</button>
+        <button id="btn-mode-legacy" class="ghost" style="flex:1;">Hasło współdzielone</button>
       </div>
+
+      <div id="mode-account">
+        <label for="acc-username">Nazwa użytkownika</label>
+        <input id="acc-username" autocapitalize="off" autocorrect="off">
+        <label for="acc-password">Hasło</label>
+        <input id="acc-password" type="password" autocomplete="off">
+        <label for="acc-totp">Kod z aplikacji uwierzytelniającej (jeśli włączone)</label>
+        <input id="acc-totp" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <div class="row" style="margin-top:12px;">
+          <button id="btn-account-login" style="flex:1;">Zaloguj</button>
+        </div>
+      </div>
+
+      <div id="mode-legacy" class="hidden">
+        <label for="cfg-pass">Hasło viewera</label>
+        <input id="cfg-pass" type="password" autocomplete="off">
+        <label for="cfg-totp">Sekret TOTP (opcjonalnie)</label>
+        <input id="cfg-totp" type="password" placeholder="np. JBSWY3DPEHPK3PXP" autocapitalize="off" autocorrect="off" data-lpignore="true">
+        <p class="muted">Drugi czynnik logowania — wypełnij tylko, jeśli ustawiłeś <code>viewer_totp_secret</code> w config.php na OVH. Starsza metoda, jedno wspólne hasło dla wszystkich — zalecamy konto powyżej, jeśli już je masz założone (panel "Użytkownicy" w widoku "Centralny" na desktopie).</p>
+        <div class="row" style="margin-top:12px;">
+          <button id="btn-login" style="flex:1;">Zapisz i połącz</button>
+        </div>
+      </div>
+
       <p id="login-error" class="error-text hidden"></p>
     </div>
   </div>
@@ -141,6 +162,17 @@ function loadConfig() {
 }
 function saveConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
 function clearConfig() { localStorage.removeItem(CFG_KEY); }
+
+// Per-user account session (recommended login path) — same storage shape/key
+// as the desktop app's centralSession, but sessionStorage here too: a
+// short-lived bearer token, not long-term config, on a device that may be
+// shared/lost more easily than a laptop.
+const SESSION_KEY = 'mikromanager_central_session';
+function loadSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch { return null; }
+}
+function saveSession(s) { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
 
 // ── TOTP (RFC 6238) — mirrors ovh/totp.php exactly (SHA1, 6 digits, 30s step)
 function base32Decode(b32) {
@@ -200,8 +232,14 @@ async function apiRequest(action, params, opts) {
   url.searchParams.set('action', action);
   for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v);
 
-  const headers = { Authorization: `Bearer ${cfg.password}` };
-  if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret);
+  const headers = {};
+  const session = loadSession();
+  if (session) {
+    headers.Authorization = `Bearer ${session.token}`;
+  } else if (cfg.password) {
+    headers.Authorization = `Bearer ${cfg.password}`;
+    if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret);
+  }
   const method = (opts && opts.method) || 'GET';
   let body;
   if (opts && opts.body !== undefined) {
@@ -380,15 +418,59 @@ async function refreshAll() {
 }
 
 // ── Screens / wiring ─────────────────────────────────────────────────────
+// "Logged in" = either a per-user account session (recommended) or the
+// legacy shared-password config with a password set.
+function isLoggedIn() {
+  const cfg = loadConfig();
+  return !!(loadSession() || (cfg && cfg.apiUrl && cfg.password));
+}
+
 function showScreen() {
   const cfg = loadConfig();
-  document.getElementById('login-screen').classList.toggle('hidden', !!cfg);
-  document.getElementById('main-screen').classList.toggle('hidden', !cfg);
-  if (cfg) {
-    document.getElementById('settings-url').textContent = cfg.apiUrl;
+  const loggedIn = isLoggedIn();
+  document.getElementById('login-screen').classList.toggle('hidden', loggedIn);
+  document.getElementById('main-screen').classList.toggle('hidden', !loggedIn);
+  if (loggedIn) {
+    document.getElementById('settings-url').textContent = cfg ? cfg.apiUrl : '';
     refreshAll();
   }
 }
+
+let loginMode = 'account';
+function setLoginMode(mode) {
+  loginMode = mode;
+  document.getElementById('mode-account').classList.toggle('hidden', mode !== 'account');
+  document.getElementById('mode-legacy').classList.toggle('hidden', mode !== 'legacy');
+}
+document.getElementById('btn-mode-account').addEventListener('click', () => setLoginMode('account'));
+document.getElementById('btn-mode-legacy').addEventListener('click', () => setLoginMode('legacy'));
+setLoginMode('account');
+
+document.getElementById('btn-account-login').addEventListener('click', async () => {
+  const apiUrl = document.getElementById('cfg-url').value.trim();
+  const username = document.getElementById('acc-username').value.trim();
+  const password = document.getElementById('acc-password').value;
+  const totp_code = document.getElementById('acc-totp').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  if (!apiUrl || !username || !password) {
+    errEl.textContent = 'Podaj URL, nazwę użytkownika i hasło.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  // apiRequest() reads apiUrl from the saved config, so save it (without a
+  // password) before the login call itself.
+  const existing = loadConfig() || {};
+  saveConfig({ ...existing, apiUrl });
+  try {
+    const r = await apiRequest('login', {}, { method: 'POST', body: { username, password, totp_code } });
+    saveSession({ token: r.token, username: r.username, role: r.role, allowedTenants: r.allowed_tenants, expiresAt: r.expires_at });
+    showScreen();
+  } catch (e) {
+    errEl.textContent = 'Błąd logowania: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+});
 
 document.getElementById('btn-login').addEventListener('click', () => {
   const apiUrl = document.getElementById('cfg-url').value.trim();
@@ -411,6 +493,7 @@ document.getElementById('btn-refresh').addEventListener('click', refreshAll);
 document.getElementById('btn-logout').addEventListener('click', () => {
   if (confirm('Usunąć konfigurację i klucze z tego urządzenia?')) {
     clearConfig();
+    clearSession();
     showScreen();
   }
 });

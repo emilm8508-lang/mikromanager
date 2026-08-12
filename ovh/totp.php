@@ -60,3 +60,24 @@ function totp_verify(string $secret, string $code, int $window = 1): bool {
     }
     return false;
 }
+
+/** Random 32-char base32 secret — mirrors pyotp.random_base32() (used for
+ * per-user OVH accounts' own TOTP, one secret per user, distinct from the
+ * single shared viewer_totp_secret above). 32 base32 chars = 160 bits,
+ * same length pyotp's default produces. */
+function totp_generate_secret(): string {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $secret = '';
+    for ($i = 0; $i < 32; $i++) {
+        $secret .= $alphabet[random_int(0, 31)];
+    }
+    return $secret;
+}
+
+/** otpauth:// provisioning URI for QR-code enrollment, same shape as
+ * pyotp.totp_provisioning_uri() (backend/services/auth.py). */
+function totp_provisioning_uri(string $secret, string $username): string {
+    $label = rawurlencode('MikroManager Central:' . $username);
+    $issuer = rawurlencode('MikroManager Central');
+    return "otpauth://totp/{$label}?secret={$secret}&issuer={$issuer}";
+}

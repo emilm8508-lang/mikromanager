@@ -10,6 +10,7 @@ import base64
 import hashlib
 import hmac
 import io
+import json
 import os
 import secrets
 import time
@@ -103,24 +104,38 @@ def verify_totp(secret: str, code: str) -> bool:
 
 
 # ── Session tokens (HMAC-signed cookie value, stdlib only) ──────────────────
+# Carries identity + role so `require_login` can do RBAC and callers can
+# know who's logged in and via which source — a local emergency account
+# always has role="admin"; an OVH-sourced session carries whatever role the
+# central account was assigned. Not a JWT (no need for a standard format
+# here, this token is only ever produced/consumed by this same process).
 
-def create_session_token(account_id: int) -> str:
-    payload = f"{account_id}:{int(time.time()) + SESSION_TTL_SEC}"
-    sig = hmac.new(_get_session_secret(), payload.encode(), hashlib.sha256).hexdigest()
-    return base64.urlsafe_b64encode(payload.encode()).decode() + "." + sig
+def create_session_token(*, source: str, username: str, role: str, account_id: Optional[int] = None) -> str:
+    payload = {
+        "source": source,       # "local" | "ovh"
+        "username": username,
+        "role": role,           # "admin" | "viewer"
+        "account_id": account_id,
+        "exp": int(time.time()) + SESSION_TTL_SEC,
+    }
+    payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    sig = hmac.new(_get_session_secret(), payload_json.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(payload_json.encode()).decode() + "." + sig
 
 
-def verify_session_token(token: str) -> Optional[int]:
+def verify_session_token(token: str) -> Optional[dict]:
     try:
         payload_b64, sig = token.split(".", 1)
-        payload = base64.urlsafe_b64decode(payload_b64.encode()).decode()
-        expected_sig = hmac.new(_get_session_secret(), payload.encode(), hashlib.sha256).hexdigest()
+        payload_json = base64.urlsafe_b64decode(payload_b64.encode()).decode()
+        expected_sig = hmac.new(_get_session_secret(), payload_json.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_sig, sig):
             return None
-        account_id_str, expiry_str = payload.split(":")
-        if int(expiry_str) < int(time.time()):
+        payload = json.loads(payload_json)
+        if int(payload.get("exp", 0)) < int(time.time()):
             return None
-        return int(account_id_str)
+        if payload.get("source") not in ("local", "ovh") or payload.get("role") not in ("admin", "viewer"):
+            return None
+        return payload
     except Exception:
         return None
 

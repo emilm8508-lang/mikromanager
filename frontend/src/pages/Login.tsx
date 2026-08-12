@@ -1,16 +1,18 @@
 import { createContext, useContext, useEffect, useState, FormEvent, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AxiosError } from 'axios'
-import { authApi, MfaSetupInfo } from '../lib/api'
+import { authApi, MfaSetupInfo, AuthRole, AuthSource } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import { ShieldCheck, Lock, AlertTriangle, Network } from 'lucide-react'
+import { ShieldCheck, Lock, AlertTriangle, Network, ShieldAlert } from 'lucide-react'
 
 // ── Auth context — lets Sidebar show the username + a logout button ─────────
 
 interface AuthContextValue {
   username: string
+  role: AuthRole
+  source: AuthSource
   logout: () => void
 }
 
@@ -33,6 +35,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const [step, setStep] = useState<Step>('loading')
   const [username, setUsername] = useState('')
+  const [role, setRole] = useState<AuthRole>('admin')
+  const [source, setSource] = useState<AuthSource>('local')
 
   // Carried between steps of the setup flow
   const [pendingUsername, setPendingUsername] = useState('')
@@ -49,6 +53,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
       try {
         const me = await authApi.me()
         setUsername(me.username)
+        setRole(me.role)
+        setSource(me.source)
         setAuthed(true)
       } catch {
         setStep('login')
@@ -70,7 +76,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   if (authed) {
-    return <AuthContext.Provider value={{ username, logout }}>{children}</AuthContext.Provider>
+    return <AuthContext.Provider value={{ username, role, source, logout }}>{children}</AuthContext.Provider>
   }
 
   return (
@@ -119,7 +125,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         )}
 
         {step === 'login' && (
-          <LoginForm onLoggedIn={(uname) => { setUsername(uname); setAuthed(true) }} />
+          <LoginForm onLoggedIn={(uname, r, src) => { setUsername(uname); setRole(r); setSource(src); setAuthed(true) }} />
         )}
       </div>
     </div>
@@ -323,33 +329,40 @@ function MfaConfirmForm({ info, onConfirmed }: { info: MfaSetupInfo; onConfirmed
   )
 }
 
-// ── Normal login ──────────────────────────────────────────────────────────────
+// ── Normal login (OVH-primary, with automatic fallback-on-unreachable) ──────
 
-function LoginForm({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
+function LoginForm({ onLoggedIn }: { onLoggedIn: (username: string, role: AuthRole, source: AuthSource) => void }) {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showLocal, setShowLocal] = useState(false)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError('')
     setBusy(true)
     try {
-      await authApi.login(username, password, totpCode)
-      onLoggedIn(username)
+      const result = await authApi.login(username, password, totpCode)
+      onLoggedIn(result.username, result.role, result.source)
     } catch (err) {
       const e2 = err as AxiosError<{ detail?: string }>
       if (e2?.response?.status === 429) {
         setError(e2.response.data?.detail || (t('auth.genericError') as string))
+      } else if (e2?.response?.status === 403) {
+        setError(t('auth.tenantNotAllowed') as string)
       } else {
         setError(t('auth.invalidCredentials') as string)
       }
     } finally {
       setBusy(false)
     }
+  }
+
+  if (showLocal) {
+    return <LoginLocalForm onLoggedIn={onLoggedIn} onBack={() => setShowLocal(false)} />
   }
 
   return (
@@ -378,6 +391,83 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
             {t('auth.loginButton')}
           </Button>
         </form>
+        <button
+          type="button"
+          onClick={() => setShowLocal(true)}
+          className="mt-3 text-xs text-slate-500 hover:text-indigo-600 w-full text-center"
+        >
+          {t('auth.loginLocalLink')}
+        </button>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Deliberate, explicit bypass of OVH — the local emergency account ────────
+
+function LoginLocalForm({ onLoggedIn, onBack }: {
+  onLoggedIn: (username: string, role: AuthRole, source: AuthSource) => void
+  onBack: () => void
+}) {
+  const { t } = useTranslation()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const result = await authApi.loginLocal(username, password, totpCode)
+      onLoggedIn(result.username, result.role, result.source)
+    } catch (err) {
+      const e2 = err as AxiosError<{ detail?: string }>
+      if (e2?.response?.status === 429) {
+        setError(e2.response.data?.detail || (t('auth.genericError') as string))
+      } else {
+        setError(t('auth.invalidCredentials') as string)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ShieldAlert size={15} className="text-amber-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('auth.loginLocalTitle')}</h2>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">{t('auth.loginLocalSubtitle')}</p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-3">
+          <Input label={t('auth.username') as string} value={username}
+            onChange={e => setUsername(e.target.value)} required autoFocus />
+          <Input label={t('auth.password') as string} type="password" value={password}
+            onChange={e => setPassword(e.target.value)} required />
+          <Input label={t('auth.totpCode') as string} value={totpCode}
+            onChange={e => setTotpCode(e.target.value)}
+            placeholder={t('auth.mfaCodePlaceholder') as string}
+            inputMode="numeric" maxLength={6} required
+            autoComplete="one-time-code" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+            data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
+            {t('auth.loginButton')}
+          </Button>
+        </form>
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-3 text-xs text-slate-500 hover:text-indigo-600 w-full text-center"
+        >
+          {t('auth.loginLocalBack')}
+        </button>
       </CardContent>
     </Card>
   )

@@ -7,16 +7,18 @@ from pydantic import BaseModel
 
 from models.database import AppAccount, get_db
 from services import auth as auth_svc
+from services import ovh_auth, uplink
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 COOKIE_SECURE = os.environ.get("MIKROMANAGER_COOKIE_SECURE", "0") == "1"
 
 
-def _set_session_cookie(response: Response, account_id: int) -> None:
+def _set_session_cookie(response: Response, *, source: str, username: str,
+                         role: str, account_id: Optional[int] = None) -> None:
     response.set_cookie(
         auth_svc.SESSION_COOKIE,
-        auth_svc.create_session_token(account_id),
+        auth_svc.create_session_token(source=source, username=username, role=role, account_id=account_id),
         max_age=auth_svc.SESSION_TTL_SEC,
         httponly=True,
         samesite="lax",
@@ -25,16 +27,23 @@ def _set_session_cookie(response: Response, account_id: int) -> None:
     )
 
 
-def require_login(request: Request) -> int:
-    """FastAPI dependency — raises 401 unless a valid session cookie is present.
-    Applied to every router except /api/auth and /api/health."""
+def require_login(request: Request) -> dict:
+    """FastAPI dependency — raises 401 unless a valid session cookie is
+    present, returns the session payload ({source, username, role,
+    account_id}). Also enforces a simple, global RBAC rule here (rather than
+    touching every handler in every router): a "viewer" role may only GET —
+    any mutating request is rejected. Applied to every router except
+    /api/auth and /api/health. The local emergency account is always
+    role="admin", so it's never affected by this check."""
     token = request.cookies.get(auth_svc.SESSION_COOKIE)
     if not token:
         raise HTTPException(401, "not authenticated")
-    account_id = auth_svc.verify_session_token(token)
-    if account_id is None:
+    session = auth_svc.verify_session_token(token)
+    if session is None:
         raise HTTPException(401, "session expired or invalid")
-    return account_id
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and session.get("role") == "viewer":
+        raise HTTPException(403, "read-only account — this action requires an admin role")
+    return session
 
 
 def _get_account(db: Session) -> AppAccount | None:
@@ -214,7 +223,7 @@ async def mfa_confirm(data: MfaConfirmIn, response: Response, db: Session = Depe
 
     account.mfa_enabled = True
     db.commit()
-    _set_session_cookie(response, account.id)
+    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id)
     return {"ok": True}
 
 
@@ -224,8 +233,10 @@ class LoginIn(BaseModel):
     totp_code: str
 
 
-@router.post("/login")
-async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+def _local_login(data: LoginIn, response: Response, db: Session) -> dict:
+    """The local emergency account's login check — unchanged from before this
+    feature existed. Deliberately makes no network call (see services/auth.py's
+    module docstring): must keep working even if OVH/its DB is unreachable."""
     account = _get_account(db)
     if account is None:
         raise HTTPException(404, "no account configured — call /setup first")
@@ -253,8 +264,41 @@ async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)
         raise HTTPException(401, "invalid username, password, or code")
 
     auth_svc.record_success(throttle_key)
-    _set_session_cookie(response, account.id)
-    return {"ok": True}
+    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id)
+    return {"ok": True, "source": "local", "username": account.username, "role": "admin"}
+
+
+@router.post("/login")
+async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+    """OVH-primary login: if central is configured, try it first. Only fall
+    back to the local emergency account when OVH is unreachable or has no
+    accounts provisioned yet — a clean credential/scope rejection from a
+    reachable OVH is a hard failure, never silently retried locally (that
+    would be confusing and would mask a real permissions problem)."""
+    if uplink.is_configured():
+        try:
+            result = await ovh_auth.login(data.username, data.password, data.totp_code)
+            _set_session_cookie(response, source="ovh", username=result["username"], role=result["role"])
+            return {"ok": True, "source": "ovh", "username": result["username"], "role": result["role"],
+                    "allowed_tenants": result.get("allowed_tenants")}
+        except ovh_auth.OvhLoginRejected as e:
+            if e.status == 429:
+                raise HTTPException(429, "too many failed attempts — try again shortly")
+            if e.error == "tenant_not_allowed":
+                raise HTTPException(403, "this account does not have access to this agent's tenant")
+            raise HTTPException(401, "invalid username, password, or code")
+        except (ovh_auth.OvhNotProvisioned, ovh_auth.OvhUnreachable):
+            pass  # fall through to the local emergency account below
+
+    return _local_login(data, response, db)
+
+
+@router.post("/login/local")
+async def login_local(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+    """Deliberate, explicit use of the local emergency account — for when an
+    operator wants to bypass OVH on purpose (e.g. their central account was
+    deactivated), not just when OVH happens to be unreachable."""
+    return _local_login(data, response, db)
 
 
 @router.post("/logout")
@@ -264,20 +308,30 @@ async def logout(response: Response):
 
 
 @router.get("/me")
-async def me(account_id: int = Depends(require_login), db: Session = Depends(get_db)):
-    account = db.get(AppAccount, account_id)
-    if account is None:
-        raise HTTPException(401, "not authenticated")
-    return {"username": account.username}
+async def me(session: dict = Depends(require_login), db: Session = Depends(get_db)):
+    if session.get("source") == "local":
+        account = db.get(AppAccount, session.get("account_id"))
+        if account is None:
+            raise HTTPException(401, "not authenticated")
+    return {"username": session["username"], "role": session["role"], "source": session["source"]}
+
+
+def _require_local_session(session: dict) -> None:
+    if session.get("source") != "local":
+        raise HTTPException(400, "not applicable to an OVH-authenticated session — manage TOTP for central "
+                                  "accounts from the Central \"Users\" panel instead")
 
 
 @router.get("/totp-secret")
-async def get_totp_secret(account_id: int = Depends(require_login), db: Session = Depends(get_db)):
+async def get_totp_secret(session: dict = Depends(require_login), db: Session = Depends(get_db)):
     """Export the current account's TOTP secret/QR — for copying this exact
     account (same authenticator entry) onto another agent via /setup's
     'reuse existing secret' field. Requires an active session, unlike
-    /setup/resume which only works before MFA is confirmed."""
-    account = db.get(AppAccount, account_id)
+    /setup/resume which only works before MFA is confirmed. Only meaningful
+    for the local emergency account — OVH accounts manage their own TOTP via
+    the central "Users" panel/`me_totp_confirm`."""
+    _require_local_session(session)
+    account = db.get(AppAccount, session.get("account_id"))
     if account is None:
         raise HTTPException(401, "not authenticated")
 
@@ -299,15 +353,17 @@ class TotpRegenerateIn(BaseModel):
 
 @router.post("/totp-secret/regenerate")
 async def regenerate_totp_secret(data: TotpRegenerateIn = TotpRegenerateIn(),
-                                 account_id: int = Depends(require_login), db: Session = Depends(get_db)):
+                                 session: dict = Depends(require_login), db: Session = Depends(get_db)):
     """Replace the current TOTP secret — with a specific value you provide,
     or (if none given) a fresh random one. For changing authenticator apps,
     or recovering from having scanned/typed it wrong the first time. Takes
     effect immediately (this is an authenticated action, same trust level as
     GET /totp-secret above); the old authenticator entry stops working the
     moment this returns, so the frontend must show the new QR right away and
-    make clear the old one is now dead."""
-    account = db.get(AppAccount, account_id)
+    make clear the old one is now dead. Only meaningful for the local
+    emergency account, same as GET /totp-secret above."""
+    _require_local_session(session)
+    account = db.get(AppAccount, session.get("account_id"))
     if account is None:
         raise HTTPException(401, "not authenticated")
 
