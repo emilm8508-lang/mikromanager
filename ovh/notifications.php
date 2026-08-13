@@ -153,6 +153,20 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             if ($log_time !== '') $msg .= "\nCzas (wg logu urządzenia): {$log_time}";
             if ($log_msg !== '') $msg .= "\nWpis w logu: {$log_msg}";
             return $msg;
+        case 'vuln_overdue':
+            $count = (int)($event['count'] ?? 0);
+            $items = is_array($event['items'] ?? null) ? $event['items'] : [];
+            $msg = "⏰ {$prefix}Podatności po terminie SLA\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Liczba przeterminowanych: {$count}";
+            foreach (array_slice($items, 0, 5) as $it) {
+                $cve = $it['cve_id'] ?? '?';
+                $prod = trim(($it['product'] ?? '?') . ' ' . ($it['version'] ?? ''));
+                $sev = $it['severity'] ?? '?';
+                $days = $it['days_overdue'] ?? '?';
+                $msg .= "\n- {$cve} ({$sev}) {$prod} — {$days} dni po terminie";
+            }
+            return $msg;
         default:
             return "⚠️ {$prefix}[{$tenant}] Alert {$type} na {$device}";
     }

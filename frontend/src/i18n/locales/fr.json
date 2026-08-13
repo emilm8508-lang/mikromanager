@@ -419,6 +419,17 @@
         "credentialHint": "Attribuer des identifiants pour une identification SSH plus précise",
         "noCredential": "— aucun —",
         "rescanHost": "Revérifier",
-        "noHosts": "Aucun hôte ne correspond à ce filtre. Lancez un scan ou changez le filtre."
+        "noHosts": "Aucun hôte ne correspond à ce filtre. Lancez un scan ou changez le filtre.",
+        "overdue": "Délai SLA dépassé",
+        "dueDate": "Échéance SLA",
+        "lastUpdatedBy": "Dernière modification par {{username}}",
+        "notePlaceholder": "Note (p. ex. raison de l'acceptation du risque)",
+        "exportCsv": "Exporter en CSV",
+        "status": {
+            "open": "Ouvert",
+            "in_progress": "En cours",
+            "accepted_risk": "Risque accepté",
+            "resolved": "Résolu"
+        }
     }
 }

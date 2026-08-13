@@ -53,12 +53,15 @@ import os
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
 
 import aiohttp
 from sqlalchemy import select, delete
 
-from models.database import SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnPackage, VulnFinding
+from models.database import (
+    SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnPackage,
+    VulnFinding, VulnRemediation,
+)
 from services.crypto import decrypt
 from services import scanner as scan_svc
 
@@ -77,6 +80,22 @@ NVD_MIN_INTERVAL = 1.2 if NVD_API_KEY else 6.5
 # alone still covers the baseline.
 VULNERS_API_KEY = os.environ.get("MIKROTIK_VULNERS_API_KEY", "")
 VULNERS_MIN_INTERVAL = float(os.environ.get("MIKROTIK_VULNERS_MIN_INTERVAL", "1.5"))
+
+# Remediation SLA (days from first-seen to due), per severity — configurable
+# per deployment. A finding still "open"/"in_progress" past its due date
+# shows as overdue and (once per change in the overdue set) raises a
+# vuln_overdue alert_event through the same pipeline as failed_logins/
+# device_rebooted.
+SLA_DAYS = {
+    "CRITICAL": int(os.environ.get("MIKROTIK_VULN_SLA_CRITICAL_DAYS", "7")),
+    "HIGH": int(os.environ.get("MIKROTIK_VULN_SLA_HIGH_DAYS", "30")),
+    "MEDIUM": int(os.environ.get("MIKROTIK_VULN_SLA_MEDIUM_DAYS", "90")),
+    "LOW": int(os.environ.get("MIKROTIK_VULN_SLA_LOW_DAYS", "180")),
+}
+_SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+OVERDUE_SCAN_TTL_SEC = int(os.environ.get("MIKROTIK_VULN_OVERDUE_SCAN_TTL", "3600"))
+_overdue_cache = {"data": [], "ts": 0.0}
+_alerted_overdue_fingerprints: set = set()
 
 CONNECT_TIMEOUT = 1.0
 BANNER_TIMEOUT = 2.0
@@ -1131,8 +1150,88 @@ async def _get_findings_for(db, product: str, version: str) -> list:
         )
         db.add(row)
         rows.append(row)
+        _ensure_remediation_row(db, product, version, f["cve_id"], f["severity"])
     db.commit()
     return rows
+
+
+def _ensure_remediation_row(db, product: str, version: str, cve_id: str, severity: Optional[str]) -> None:
+    """Create the remediation-tracking row the first time a CVE is seen for
+    this (product, version) — never touches status/note/updated_by on an
+    existing row, only backfills severity if it was missing or changed
+    (rare; CVSS/severity for a published CVE essentially never changes)."""
+    existing = db.execute(
+        select(VulnRemediation).where(
+            VulnRemediation.product == product,
+            VulnRemediation.version == version,
+            VulnRemediation.cve_id == cve_id,
+        )
+    ).scalar_one_or_none()
+    if existing:
+        if severity and existing.severity != severity:
+            existing.severity = severity
+        return
+    db.add(VulnRemediation(
+        product=product, version=version, cve_id=cve_id, severity=severity,
+        status="open", first_seen_at=datetime.utcnow(),
+    ))
+
+
+def sla_due_date(severity: Optional[str], first_seen_at: Optional[datetime]) -> Optional[datetime]:
+    days = SLA_DAYS.get((severity or "").upper())
+    if not days or not first_seen_at:
+        return None
+    return first_seen_at + timedelta(days=days)
+
+
+async def collect_overdue_alert_events() -> List[dict]:
+    """Remediation rows still open/in_progress past their SLA due date.
+    Own TTL cache (mirrors alerts.py's pattern) so this doesn't re-query the
+    DB on every 2-min uplink cycle, and a fingerprint-based dedup so it only
+    re-fires when the overdue SET actually changes (a new item goes
+    overdue, or one gets fixed) — not every cycle for the same standing list."""
+    now_ts = time.time()
+    if (now_ts - _overdue_cache["ts"]) < OVERDUE_SCAN_TTL_SEC:
+        return _overdue_cache["data"]
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(VulnRemediation).where(VulnRemediation.status.in_(["open", "in_progress"]))
+        ).scalars().all()
+
+    now = datetime.utcnow()
+    overdue = []
+    for r in rows:
+        due = sla_due_date(r.severity, r.first_seen_at)
+        if due and now > due:
+            overdue.append((r, due))
+
+    events: List[dict] = []
+    global _alerted_overdue_fingerprints
+    if overdue:
+        fingerprints = {(r.product, r.version, r.cve_id) for r, _due in overdue}
+        if fingerprints - _alerted_overdue_fingerprints or _alerted_overdue_fingerprints - fingerprints:
+            _alerted_overdue_fingerprints = fingerprints
+            overdue.sort(key=lambda pair: _SEVERITY_ORDER.get(pair[0].severity, 4))
+            events.append({
+                "type": "vuln_overdue",
+                "count": len(overdue),
+                "items": [
+                    {
+                        "cve_id": r.cve_id, "product": r.product, "version": r.version,
+                        "severity": r.severity, "days_overdue": (now - due).days,
+                    }
+                    for r, due in overdue[:10]
+                ],
+                "detected_at": now.isoformat(),
+            })
+    elif _alerted_overdue_fingerprints:
+        # Everything got fixed/accepted — reset so a future regression fires fresh.
+        _alerted_overdue_fingerprints = set()
+
+    _overdue_cache["data"] = events
+    _overdue_cache["ts"] = now_ts
+    return events
 
 
 def _finding_brief(f: VulnFinding) -> dict:

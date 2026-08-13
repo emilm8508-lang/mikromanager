@@ -232,6 +232,35 @@ class VulnFinding(Base):
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_finding"),)
 
 
+class VulnRemediation(Base):
+    """Remediation status for a specific finding — deliberately a SEPARATE
+    table from VulnFinding, not new columns on it: VulnFinding rows are a
+    re-fetched CVE cache that services/vuln_scan.py's _get_findings_for
+    DELETEs and recreates every NVD_CACHE_DAYS, which would silently wipe
+    any status stored directly on that table. Keyed by the same (product,
+    version, cve_id) identity, so status survives the cache refresh and
+    re-attaches automatically when the same CVE reappears.
+
+    severity is snapshotted here at first-seen time (not read live from
+    VulnFinding) so SLA due-date computation still works even between
+    cache refreshes — CVSS/severity for a published CVE essentially never
+    changes anyway."""
+    __tablename__ = "vuln_remediation"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product = Column(String, nullable=False, index=True)
+    version = Column(String, nullable=False)
+    cve_id = Column(String, nullable=False)
+    severity = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="open")  # open | in_progress | accepted_risk | resolved
+    note = Column(Text, nullable=True)
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    first_seen_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_remediation"),)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

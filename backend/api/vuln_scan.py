@@ -1,15 +1,23 @@
 import asyncio
+import csv
+import io
+from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from models.database import SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, Device, Credential
+from models.database import (
+    SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, VulnRemediation, Device, Credential,
+)
 from services import vuln_scan
+from api.auth import require_login
 
 router = APIRouter(prefix="/api/vuln", tags=["vuln"])
 
 _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+_VALID_STATUSES = {"open", "in_progress", "accepted_risk", "resolved"}
 
 
 @router.get("/status")
@@ -97,60 +105,166 @@ async def set_host_credential(host_id: int, data: HostCredentialIn):
     return {"ok": True}
 
 
-@router.get("/findings")
-async def list_findings(severity: Optional[str] = None):
+def _build_findings(db, severity: Optional[str] = None) -> list:
     """Every cached CVE finding, joined against whatever currently has that
     (product, version) — live-scanned hosts (VulnService), installed
     packages/software on credentialed hosts (VulnPackage), and/or already-
     known Mikrotik/Cisco devices (Device.ros_version). Findings whose
     version nothing currently matches (e.g. the host disappeared) are
-    omitted — this reflects current exposure, not historical trivia."""
+    omitted — this reflects current exposure, not historical trivia.
+    Also joins in remediation status/SLA — see VulnRemediation's docstring
+    for why that's a separate table from VulnFinding."""
+    findings = db.execute(select(VulnFinding)).scalars().all()
+    services = db.execute(select(VulnService)).scalars().all()
+    packages = db.execute(select(VulnPackage)).scalars().all()
+    hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
+    devices = db.execute(select(Device)).scalars().all()
+    remediations = {
+        (r.product, r.version, r.cve_id): r
+        for r in db.execute(select(VulnRemediation)).scalars().all()
+    }
+
+    affected_by_pv: dict = {}
+    for s in services:
+        if not (s.product and s.version):
+            continue
+        host = hosts.get(s.host_id)
+        if not host:
+            continue
+        affected_by_pv.setdefault((s.product, s.version), []).append(
+            {"kind": "host", "ip": host.ip, "port": s.port})
+    for p in packages:
+        host = hosts.get(p.host_id)
+        if not host:
+            continue
+        affected_by_pv.setdefault((p.name, p.version), []).append(
+            {"kind": "package", "ip": host.ip, "port": None})
+    for d in devices:
+        if not d.ros_version:
+            continue
+        product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
+        affected_by_pv.setdefault((product, d.ros_version), []).append(
+            {"kind": "device", "ip": d.ip, "port": None,
+             "device_id": d.id, "device_name": d.identity or d.name})
+
+    now = datetime.utcnow()
+    out = []
+    for f in findings:
+        if severity and (f.severity or "") != severity.upper():
+            continue
+        affected = affected_by_pv.get((f.product, f.version), [])
+        if not affected:
+            continue
+        r = remediations.get((f.product, f.version, f.cve_id))
+        due = vuln_scan.sla_due_date(f.severity, r.first_seen_at if r else None)
+        status = r.status if r else "open"
+        out.append({
+            "id": f.id, "product": f.product, "version": f.version,
+            "cve_id": f.cve_id, "cvss_score": f.cvss_score, "severity": f.severity,
+            "summary": f.summary, "published": f.published, "ref_url": f.ref_url,
+            "affected": affected,
+            "status": status,
+            "note": r.note if r else None,
+            "updated_by": r.updated_by if r else None,
+            "updated_at": r.updated_at.isoformat() if r and r.updated_at else None,
+            "first_seen_at": r.first_seen_at.isoformat() if r and r.first_seen_at else None,
+            "due_date": due.isoformat() if due else None,
+            "overdue": bool(due and now > due and status in ("open", "in_progress")),
+        })
+
+    out.sort(key=lambda x: (
+        _SEVERITY_ORDER.get(x["severity"], 4),
+        -(x["cvss_score"] or 0),
+    ))
+    return out
+
+
+@router.get("/findings")
+async def list_findings(severity: Optional[str] = None):
     with SessionLocal() as db:
-        findings = db.execute(select(VulnFinding)).scalars().all()
-        services = db.execute(select(VulnService)).scalars().all()
-        packages = db.execute(select(VulnPackage)).scalars().all()
-        hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
-        devices = db.execute(select(Device)).scalars().all()
+        return _build_findings(db, severity)
 
-        affected_by_pv: dict = {}
-        for s in services:
-            if not (s.product and s.version):
-                continue
-            host = hosts.get(s.host_id)
-            if not host:
-                continue
-            affected_by_pv.setdefault((s.product, s.version), []).append(
-                {"kind": "host", "ip": host.ip, "port": s.port})
-        for p in packages:
-            host = hosts.get(p.host_id)
-            if not host:
-                continue
-            affected_by_pv.setdefault((p.name, p.version), []).append(
-                {"kind": "package", "ip": host.ip, "port": None})
-        for d in devices:
-            if not d.ros_version:
-                continue
-            product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
-            affected_by_pv.setdefault((product, d.ros_version), []).append(
-                {"kind": "device", "ip": d.ip, "port": None,
-                 "device_id": d.id, "device_name": d.identity or d.name})
 
-        out = []
-        for f in findings:
-            if severity and (f.severity or "") != severity.upper():
-                continue
-            affected = affected_by_pv.get((f.product, f.version), [])
-            if not affected:
-                continue
-            out.append({
-                "id": f.id, "product": f.product, "version": f.version,
-                "cve_id": f.cve_id, "cvss_score": f.cvss_score, "severity": f.severity,
-                "summary": f.summary, "published": f.published, "ref_url": f.ref_url,
-                "affected": affected,
-            })
+class RemediationIn(BaseModel):
+    product: str
+    version: str
+    cve_id: str
+    status: str
+    note: Optional[str] = None
 
-        out.sort(key=lambda x: (
-            _SEVERITY_ORDER.get(x["severity"], 4),
-            -(x["cvss_score"] or 0),
-        ))
-        return out
+
+@router.put("/remediation")
+async def set_remediation(data: RemediationIn, session: dict = Depends(require_login)):
+    """Update a finding's remediation status. Written directly onto
+    VulnRemediation (not VulnFinding — see that model's docstring), keyed
+    by the same (product, version, cve_id) identity findings already use.
+    Read access to /findings works for any role; changing status is a
+    write, so a viewer-role session is already rejected at the router-level
+    RBAC in require_login before this body ever runs."""
+    if data.status not in _VALID_STATUSES:
+        raise HTTPException(400, f"invalid status — must be one of {sorted(_VALID_STATUSES)}")
+    with SessionLocal() as db:
+        row = db.execute(
+            select(VulnRemediation).where(
+                VulnRemediation.product == data.product,
+                VulnRemediation.version == data.version,
+                VulnRemediation.cve_id == data.cve_id,
+            )
+        ).scalar_one_or_none()
+        if not row:
+            # Defensive fallback — normally created by the scan itself
+            # (services/vuln_scan.py's _ensure_remediation_row) the first
+            # time this CVE is seen for this product/version.
+            row = VulnRemediation(
+                product=data.product, version=data.version, cve_id=data.cve_id,
+                first_seen_at=datetime.utcnow(),
+            )
+            db.add(row)
+        row.status = data.status
+        row.note = data.note
+        row.updated_by = session.get("username")
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        return {"ok": True}
+
+
+def _csv_safe(value) -> str:
+    """Neutralize CSV/formula injection (OWASP-standard mitigation) — a
+    `note` is free-text from a PUT /remediation caller, and CVE product/
+    summary strings ultimately come from NVD/vulners; a value starting with
+    =, +, -, @, tab, or CR would be interpreted as a formula by Excel/
+    Sheets when the export is opened. Prefixing a single quote keeps it as
+    inert text without changing what's displayed in a spreadsheet cell."""
+    s = "" if value is None else str(value)
+    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + s
+    return s
+
+
+@router.get("/findings/export")
+async def export_findings(severity: Optional[str] = None):
+    """CSV export of the current findings list — evidence of regular
+    scanning/remediation tracking for an ISO 27001 / NIS2 audit."""
+    with SessionLocal() as db:
+        findings = _build_findings(db, severity)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "cve_id", "severity", "cvss_score", "product", "version", "status",
+        "first_seen_at", "due_date", "overdue", "updated_by", "updated_at",
+        "note", "affected_count", "ref_url",
+    ])
+    for f in findings:
+        writer.writerow([_csv_safe(v) for v in (
+            f["cve_id"], f["severity"], f["cvss_score"], f["product"], f["version"], f["status"],
+            f["first_seen_at"] or "", f["due_date"] or "", f["overdue"],
+            f["updated_by"] or "", f["updated_at"] or "", f["note"] or "",
+            len(f["affected"]), f["ref_url"] or "",
+        )])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=vulnerability_findings.csv"},
+    )

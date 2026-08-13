@@ -419,6 +419,17 @@
         "credentialHint": "Assign credentials for a deeper SSH-based identity check",
         "noCredential": "— none —",
         "rescanHost": "Check again",
-        "noHosts": "No hosts match this filter. Run a scan or change the filter."
+        "noHosts": "No hosts match this filter. Run a scan or change the filter.",
+        "overdue": "Past SLA due date",
+        "dueDate": "SLA due date",
+        "lastUpdatedBy": "Last changed by {{username}}",
+        "notePlaceholder": "Note (e.g. reason for accepting the risk)",
+        "exportCsv": "Export CSV",
+        "status": {
+            "open": "Open",
+            "in_progress": "In progress",
+            "accepted_risk": "Accepted risk",
+            "resolved": "Resolved"
+        }
     }
 }

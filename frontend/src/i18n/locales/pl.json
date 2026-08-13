@@ -490,6 +490,17 @@
         "credentialHint": "Przypisz poświadczenia dla dokładniejszej identyfikacji przez SSH",
         "noCredential": "— brak —",
         "rescanHost": "Sprawdź ponownie",
-        "noHosts": "Brak hostów pasujących do filtra. Uruchom skan albo zmień filtr."
+        "noHosts": "Brak hostów pasujących do filtra. Uruchom skan albo zmień filtr.",
+        "overdue": "Po terminie SLA",
+        "dueDate": "Termin SLA",
+        "lastUpdatedBy": "Ostatnio zmienione przez {{username}}",
+        "notePlaceholder": "Notatka (np. powód zaakceptowania ryzyka)",
+        "exportCsv": "Eksportuj CSV",
+        "status": {
+            "open": "Otwarte",
+            "in_progress": "W trakcie naprawy",
+            "accepted_risk": "Zaakceptowane ryzyko",
+            "resolved": "Naprawione"
+        }
     }
 }

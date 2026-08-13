@@ -330,6 +330,8 @@ export interface VulnFindingAffected {
   device_name?: string | null
 }
 
+export type VulnRemediationStatus = 'open' | 'in_progress' | 'accepted_risk' | 'resolved'
+
 export interface VulnFindingOut {
   id: number
   product: string
@@ -341,12 +343,23 @@ export interface VulnFindingOut {
   published: string | null
   ref_url: string | null
   affected: VulnFindingAffected[]
+  status: VulnRemediationStatus
+  note: string | null
+  updated_by: string | null
+  updated_at: string | null
+  first_seen_at: string | null
+  due_date: string | null
+  overdue: boolean
 }
 
 export const vulnApi = {
   status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
   run: () => api.post('/vuln/run').then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),
+  setRemediation: (data: { product: string; version: string; cve_id: string; status: VulnRemediationStatus; note?: string }) =>
+    api.put('/vuln/remediation', data).then(r => r.data),
+  exportUrl: (severity?: string) =>
+    '/api/vuln/findings/export' + (severity ? `?severity=${encodeURIComponent(severity)}` : ''),
   findings: (severity?: string) =>
     api.get<VulnFindingOut[]>('/vuln/findings', { params: severity ? { severity } : {} }).then(r => r.data),
   setHostCredential: (hostId: number, credentialId: number | null) =>

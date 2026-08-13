@@ -419,6 +419,17 @@
         "credentialHint": "Asigna credenciales para una identificación más precisa por SSH",
         "noCredential": "— ninguna —",
         "rescanHost": "Comprobar de nuevo",
-        "noHosts": "Ningún host coincide con este filtro. Ejecuta un escaneo o cambia el filtro."
+        "noHosts": "Ningún host coincide con este filtro. Ejecuta un escaneo o cambia el filtro.",
+        "overdue": "Fuera de plazo SLA",
+        "dueDate": "Plazo SLA",
+        "lastUpdatedBy": "Última modificación por {{username}}",
+        "notePlaceholder": "Nota (p. ej. motivo de aceptación del riesgo)",
+        "exportCsv": "Exportar CSV",
+        "status": {
+            "open": "Abierto",
+            "in_progress": "En curso",
+            "accepted_risk": "Riesgo aceptado",
+            "resolved": "Resuelto"
+        }
     }
 }

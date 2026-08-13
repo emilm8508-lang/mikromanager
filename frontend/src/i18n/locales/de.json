@@ -419,6 +419,17 @@
         "credentialHint": "Zugangsdaten zuweisen für eine tiefere SSH-Identitätsprüfung",
         "noCredential": "— keine —",
         "rescanHost": "Erneut prüfen",
-        "noHosts": "Keine Hosts entsprechen diesem Filter. Scan starten oder Filter ändern."
+        "noHosts": "Keine Hosts entsprechen diesem Filter. Scan starten oder Filter ändern.",
+        "overdue": "Über SLA-Frist",
+        "dueDate": "SLA-Frist",
+        "lastUpdatedBy": "Zuletzt geändert von {{username}}",
+        "notePlaceholder": "Notiz (z. B. Grund für die Risikoakzeptanz)",
+        "exportCsv": "CSV exportieren",
+        "status": {
+            "open": "Offen",
+            "in_progress": "In Bearbeitung",
+            "accepted_risk": "Risiko akzeptiert",
+            "resolved": "Behoben"
+        }
     }
 }
