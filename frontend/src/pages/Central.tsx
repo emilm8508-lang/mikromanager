@@ -9,6 +9,7 @@ import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
   HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp, Upload,
+  DatabaseBackup,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
@@ -253,6 +254,8 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['central-pending-restarts'] }) },
   })
 
+  const [showBackups, setShowBackups] = useState(false)
+
   // Two-click confirm — browser confirm() gets blocked after N dialogs
   // (Firefox "prevent additional dialogs" checkbox), so we do it inline.
   const [confirmMode, setConfirmMode] = useState<'update' | 'restart' | null>(null)
@@ -362,7 +365,81 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
           {confirmMode === 'restart' ? t('central.confirmClick') : t('central.restartBtn')}
         </button>
       )}
+      <button
+        onClick={() => setShowBackups(true)}
+        className="text-xs px-2.5 py-1 rounded border bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 inline-flex items-center gap-1"
+        title={t('central.backupsTooltip') as string}
+      >
+        <DatabaseBackup size={11} />
+        {t('central.backupsBtn')}
+      </button>
+      <BackupsModal tenant={tenant.id} open={showBackups} onClose={() => setShowBackups(false)} />
     </div>
+  )
+}
+
+// Lists this tenant's encrypted agent-state backups from OVH and lets an
+// admin download one — the file it downloads is exactly what
+// backend/scripts/restore_backup.py expects as input.
+function BackupsModal({ tenant, open, onClose }: { tenant: string; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['central-backups', tenant],
+    queryFn: () => centralApi.backupList(tenant),
+    enabled: open,
+  })
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  const download = async (id: number) => {
+    setDownloadingId(id)
+    try {
+      const result = await centralApi.backupDownload(tenant, id)
+      const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mikromanager-backup-${tenant}-${id}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('central.backupsModalTitle', { tenant })}>
+      <p className="text-xs text-slate-500 mb-3">{t('central.backupsModalHint')}</p>
+      {isLoading ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('common.loading')}</p>
+      ) : error ? (
+        <p className="text-sm text-red-600 py-4 text-center">{(error as Error).message}</p>
+      ) : !data || data.backups.length === 0 ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('central.backupsEmpty')}</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {data.backups.map(b => (
+            <li key={b.id} className="py-2 flex items-center justify-between text-sm">
+              <div>
+                <p className="text-slate-800">{new Date(b.created_at).toLocaleString()}</p>
+                <p className="text-xs text-slate-400">{(b.size_bytes / 1024).toFixed(1)} KB</p>
+              </div>
+              <button
+                onClick={() => download(b.id)}
+                disabled={downloadingId === b.id}
+                className="text-xs px-2.5 py-1 rounded border bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 disabled:opacity-40 inline-flex items-center gap-1"
+              >
+                <Download size={11} />
+                {downloadingId === b.id ? t('common.loading') : t('central.backupsDownload')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   )
 }
 

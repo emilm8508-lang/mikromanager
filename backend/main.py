@@ -26,6 +26,7 @@ from api.auth import require_login
 from services import refresher
 from services import uplink
 from services import vuln_scan
+from services import agent_backup
 from services import audit as audit_svc
 
 
@@ -35,12 +36,14 @@ async def lifespan(app: FastAPI):
     refresher.start()
     uplink.start()
     vuln_scan.start()
+    agent_backup.start()
     try:
         yield
     finally:
         refresher.stop()
         uplink.stop()
         vuln_scan.stop()
+        agent_backup.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

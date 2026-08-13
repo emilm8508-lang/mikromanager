@@ -391,7 +391,22 @@
         "rotateConfirmButton": "Yes, rotate now",
         "rotating": "Rotating...",
         "rotateSuccess": "Key rotated — {{count}} fields re-encrypted.",
-        "rotateFailed": "Rotation failed."
+        "rotateFailed": "Rotation failed.",
+        "backupTitle": "Agent state backup (BCP)",
+        "backupExplanation": "A weekly, encrypted backup of the database, encryption key, and config, sent to OVH — so a lost disk doesn't also mean losing the entire device inventory, credentials, and central access. Requires a configured E2E key (Central → Agent); without it, no backup is sent at all (never unencrypted).",
+        "backupNoEncKey": "No E2E key configured — backups are disabled. Set one up in Central → Agent (uplink).",
+        "backupLastAt": "Last backup",
+        "backupSchedule": "Schedule",
+        "backupLastError": "Last error: {{error}}",
+        "backupRunSuccess": "Backup uploaded successfully ({{size}}).",
+        "backupRunFailed": "Backup failed: {{error}}",
+        "backupRunning": "Uploading...",
+        "backupRunButton": "Run backup now",
+        "backupRestoreHint": "To restore: download a backup from the \"Central\" view → \"Backups\" button next to the client, then run backend/scripts/restore_backup.py <file> <enc_key>.",
+        "weekday": {
+            "mon": "Monday", "tue": "Tuesday", "wed": "Wednesday", "thu": "Thursday",
+            "fri": "Friday", "sat": "Saturday", "sun": "Sunday"
+        }
     },
     "centralUsers": {
         "title": "Users",

@@ -391,7 +391,22 @@
         "rotateConfirmButton": "Ja, jetzt rotieren",
         "rotating": "Wird rotiert...",
         "rotateSuccess": "Schlüssel rotiert — {{count}} Felder neu verschlüsselt.",
-        "rotateFailed": "Rotation fehlgeschlagen."
+        "rotateFailed": "Rotation fehlgeschlagen.",
+        "backupTitle": "Backup des Agentenzustands (BCP)",
+        "backupExplanation": "Ein wöchentliches, verschlüsseltes Backup der Datenbank, des Verschlüsselungsschlüssels und der Konfiguration, gesendet an OVH — damit ein Datenträgerausfall nicht auch den Verlust des gesamten Geräteinventars, der Zugangsdaten und des Zentralzugriffs bedeutet. Erfordert einen konfigurierten E2E-Schlüssel (Zentral → Agent); ohne ihn wird gar kein Backup gesendet (nie unverschlüsselt).",
+        "backupNoEncKey": "Kein E2E-Schlüssel konfiguriert — Backups sind deaktiviert. Richten Sie einen unter Zentral → Agent (Uplink) ein.",
+        "backupLastAt": "Letztes Backup",
+        "backupSchedule": "Zeitplan",
+        "backupLastError": "Letzter Fehler: {{error}}",
+        "backupRunSuccess": "Backup erfolgreich hochgeladen ({{size}}).",
+        "backupRunFailed": "Backup fehlgeschlagen: {{error}}",
+        "backupRunning": "Wird hochgeladen...",
+        "backupRunButton": "Backup jetzt ausführen",
+        "backupRestoreHint": "Wiederherstellung: Backup in der Ansicht „Zentral“ → Schaltfläche „Backups“ beim Kunden herunterladen, dann backend/scripts/restore_backup.py <Datei> <enc_key> ausführen.",
+        "weekday": {
+            "mon": "Montag", "tue": "Dienstag", "wed": "Mittwoch", "thu": "Donnerstag",
+            "fri": "Freitag", "sat": "Samstag", "sun": "Sonntag"
+        }
     },
     "centralUsers": {
         "title": "Benutzer",

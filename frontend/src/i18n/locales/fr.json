@@ -391,7 +391,22 @@
         "rotateConfirmButton": "Oui, pivoter maintenant",
         "rotating": "Rotation en cours...",
         "rotateSuccess": "Clé pivotée — {{count}} champs rechiffrés.",
-        "rotateFailed": "Échec de la rotation."
+        "rotateFailed": "Échec de la rotation.",
+        "backupTitle": "Sauvegarde de l'état de l'agent (PCA)",
+        "backupExplanation": "Une sauvegarde hebdomadaire et chiffrée de la base de données, de la clé de chiffrement et de la configuration, envoyée à OVH — pour qu'un disque perdu ne signifie pas aussi la perte de tout l'inventaire des équipements, des identifiants et de l'accès central. Nécessite une clé E2E configurée (Central → Agent) ; sans elle, aucune sauvegarde n'est envoyée (jamais en clair).",
+        "backupNoEncKey": "Aucune clé E2E configurée — les sauvegardes sont désactivées. Configurez-en une dans Central → Agent (uplink).",
+        "backupLastAt": "Dernière sauvegarde",
+        "backupSchedule": "Planification",
+        "backupLastError": "Dernière erreur : {{error}}",
+        "backupRunSuccess": "Sauvegarde envoyée avec succès ({{size}}).",
+        "backupRunFailed": "Échec de la sauvegarde : {{error}}",
+        "backupRunning": "Envoi en cours...",
+        "backupRunButton": "Lancer la sauvegarde maintenant",
+        "backupRestoreHint": "Pour restaurer : téléchargez une sauvegarde depuis la vue « Central » → bouton « Sauvegardes » à côté du client, puis exécutez backend/scripts/restore_backup.py <fichier> <enc_key>.",
+        "weekday": {
+            "mon": "Lundi", "tue": "Mardi", "wed": "Mercredi", "thu": "Jeudi",
+            "fri": "Vendredi", "sat": "Samedi", "sun": "Dimanche"
+        }
     },
     "centralUsers": {
         "title": "Utilisateurs",

@@ -142,3 +142,21 @@ CREATE TABLE IF NOT EXISTS sessions (
     INDEX idx_user (user_id),
     INDEX idx_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Agent self-backup (BCP) — encrypted archive of an agent's OWN state
+-- (its SQLite DB + Fernet key + session secret + uplink config), distinct
+-- from `snapshots` (routine telemetry) and from router config backups
+-- (which live entirely on the agent, never uploaded here). `payload` is
+-- always E2E ciphertext — OVH stores it opaquely, same trust model as an
+-- encrypted snapshot; only someone holding the agent's own enc_key can
+-- ever decrypt it. Kept separate from `snapshots` because retention needs
+-- to differ (few, large, infrequent backups vs. many small frequent
+-- snapshots).
+CREATE TABLE IF NOT EXISTS agent_backups (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant VARCHAR(64) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    payload MEDIUMTEXT NOT NULL,
+    size_bytes INT NOT NULL DEFAULT 0,
+    INDEX idx_tenant_time (tenant, created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

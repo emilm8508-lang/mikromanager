@@ -281,6 +281,12 @@
                     "confirmUpdate":  "Wymusic aktualizacje klienta {{tenant}}? Agent za max 2 min pobierze najnowsza wersje z GitHub i zrestartuje sie.",
                     "restartBtn":  "Restart",
                     "restartTooltip":  "Zrestartuj agenta klienta (max 2 min opoznienia)",
+                    "backupsBtn":  "Backupy",
+                    "backupsTooltip":  "Backupy stanu agenta tego klienta",
+                    "backupsModalTitle":  "Backupy — {{tenant}}",
+                    "backupsModalHint":  "Pobrany plik jest gotowy do uzycia z backend/scripts/restore_backup.py (razem z kluczem E2E tego klienta).",
+                    "backupsEmpty":  "Brak backupow dla tego klienta.",
+                    "backupsDownload":  "Pobierz",
                     "restartQueued":  "restart w kolejce",
                     "confirmRestart":  "Zrestartowac agenta klienta {{tenant}}? Za max 2 min agent otrzyma komende i wykona os._exit(0) — supervisor go zrestartuje.",
                     "confirmClick":  "Kliknij aby potwierdzic",
@@ -464,7 +470,22 @@
         "rotateConfirmButton": "Tak, rotuj teraz",
         "rotating": "Rotowanie...",
         "rotateSuccess": "Klucz zrotowany — ponownie zaszyfrowano {{count}} pól.",
-        "rotateFailed": "Rotacja nie powiodła się."
+        "rotateFailed": "Rotacja nie powiodła się.",
+        "backupTitle": "Backup stanu agenta (BCP)",
+        "backupExplanation": "Cotygodniowy, szyfrowany backup bazy danych, klucza szyfrującego i konfiguracji wysyłany do OVH — żeby awaria dysku nie oznaczała utraty całego inwentarza urządzeń, poświadczeń i dostępu do centrali. Wymaga skonfigurowanego klucza E2E (Centralny → Agent), bez niego backup nie wysyła się w ogóle (nigdy niezaszyfrowany).",
+        "backupNoEncKey": "Klucz E2E nie jest skonfigurowany — backupy są wyłączone. Ustaw go w Centralny → Agent (uplink).",
+        "backupLastAt": "Ostatni backup",
+        "backupSchedule": "Harmonogram",
+        "backupLastError": "Ostatni błąd: {{error}}",
+        "backupRunSuccess": "Backup wysłany pomyślnie ({{size}}).",
+        "backupRunFailed": "Backup nie powiódł się: {{error}}",
+        "backupRunning": "Wysyłanie...",
+        "backupRunButton": "Wykonaj backup teraz",
+        "backupRestoreHint": "Odtwarzanie: pobierz backup w widoku „Centralny” → przycisk „Backupy” przy kliencie, następnie backend/scripts/restore_backup.py <plik> <klucz_enc>.",
+        "weekday": {
+            "mon": "Poniedziałek", "tue": "Wtorek", "wed": "Środa", "thu": "Czwartek",
+            "fri": "Piątek", "sat": "Sobota", "sun": "Niedziela"
+        }
     },
     "centralUsers": {
         "title": "Użytkownicy",

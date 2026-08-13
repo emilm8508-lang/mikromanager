@@ -76,6 +76,22 @@ async def get_crypto_status():
     return crypto_svc.key_status()
 
 
+@router.get("/backup/status")
+async def get_backup_status():
+    from services import agent_backup
+    return agent_backup.status()
+
+
+@router.post("/backup/run")
+async def post_backup_run(session: dict = Depends(require_login)):
+    """Admin-only, manual trigger — mirrors /vuln/run's shape (runs inline
+    and returns the result, since a backup takes seconds not minutes)."""
+    if session.get("role") != "admin":
+        raise HTTPException(403, "admin role required")
+    from services import agent_backup
+    return await agent_backup.create_and_upload_backup()
+
+
 @router.post("/crypto/rotate-key")
 async def post_rotate_key(session: dict = Depends(require_login)):
     """Admin-only, even though router-level RBAC already blocks viewer-role

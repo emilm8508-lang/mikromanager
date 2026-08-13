@@ -391,7 +391,22 @@
         "rotateConfirmButton": "Sí, rotar ahora",
         "rotating": "Rotando...",
         "rotateSuccess": "Clave rotada — {{count}} campos vueltos a cifrar.",
-        "rotateFailed": "La rotación falló."
+        "rotateFailed": "La rotación falló.",
+        "backupTitle": "Copia de seguridad del estado del agente (BCP)",
+        "backupExplanation": "Una copia de seguridad semanal y cifrada de la base de datos, la clave de cifrado y la configuración, enviada a OVH — para que la pérdida de un disco no signifique también perder todo el inventario de dispositivos, credenciales y acceso central. Requiere una clave E2E configurada (Central → Agente); sin ella no se envía ninguna copia (nunca sin cifrar).",
+        "backupNoEncKey": "No hay clave E2E configurada — las copias de seguridad están deshabilitadas. Configúrela en Central → Agente (uplink).",
+        "backupLastAt": "Última copia de seguridad",
+        "backupSchedule": "Programación",
+        "backupLastError": "Último error: {{error}}",
+        "backupRunSuccess": "Copia de seguridad subida correctamente ({{size}}).",
+        "backupRunFailed": "La copia de seguridad falló: {{error}}",
+        "backupRunning": "Subiendo...",
+        "backupRunButton": "Ejecutar copia de seguridad ahora",
+        "backupRestoreHint": "Para restaurar: descargue una copia desde la vista «Central» → botón «Copias» junto al cliente, luego ejecute backend/scripts/restore_backup.py <archivo> <enc_key>.",
+        "weekday": {
+            "mon": "Lunes", "tue": "Martes", "wed": "Miércoles", "thu": "Jueves",
+            "fri": "Viernes", "sat": "Sábado", "sun": "Domingo"
+        }
     },
     "centralUsers": {
         "title": "Usuarios",

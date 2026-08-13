@@ -639,6 +639,68 @@ try {
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             break;
 
+        // Agent self-backup (BCP) — metadata-only listing and full
+        // download. Admin-only even for a tenant-scoped identity: this is
+        // the one thing on this server closest to "everything an attacker
+        // would want" (encrypted, but still every credential/key the agent
+        // has), so it gets a stricter check than the usual read actions.
+        case 'backup_list':
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant query param required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            if ($identity['role'] !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'admin_role_required']);
+                break;
+            }
+            $stmt = $pdo->prepare(
+                'SELECT id, created_at, size_bytes FROM agent_backups WHERE tenant = ? ORDER BY created_at DESC LIMIT 20'
+            );
+            $stmt->execute([$tenant]);
+            echo json_encode(['backups' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            break;
+
+        case 'backup_download':
+            $tenant = $_GET['tenant'] ?? '';
+            $backup_id = (int)($_GET['id'] ?? 0);
+            if ($tenant === '' || $backup_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and id required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            if ($identity['role'] !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'admin_role_required']);
+                break;
+            }
+            $stmt = $pdo->prepare(
+                'SELECT payload, created_at, size_bytes FROM agent_backups WHERE id = ? AND tenant = ?'
+            );
+            $stmt->execute([$backup_id, $tenant]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['error' => 'not found']);
+                break;
+            }
+            $envelope = json_decode($row['payload'], true);
+            if (!is_array($envelope)) {
+                http_response_code(500);
+                echo json_encode(['error' => 'stored backup is not valid JSON']);
+                break;
+            }
+            echo json_encode([
+                'created_at' => $row['created_at'],
+                'size_bytes' => (int)$row['size_bytes'],
+                'envelope' => $envelope,
+            ]);
+            break;
+
         case 'usage':
             require_global($identity);
             // Total + per-tenant payload size, plus configured cap.

@@ -75,6 +75,17 @@ def api_url() -> str:
     return url.rstrip("/") + "/api.php"
 
 
+def backup_url() -> str:
+    """URL of ovh/backup.php, same side-by-side deployment convention as
+    api_url() above. Used by services/agent_backup.py."""
+    url = _config["url"]
+    if not url:
+        return ""
+    if "ingest.php" in url:
+        return url.replace("ingest.php", "backup.php")
+    return url.rstrip("/") + "/backup.php"
+
+
 def status() -> dict:
     return {
         "enabled": is_configured(),
@@ -252,7 +263,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.8",
+        "agent_version": "1.9",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),

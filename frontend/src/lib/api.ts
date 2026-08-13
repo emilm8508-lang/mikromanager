@@ -290,6 +290,19 @@ export const systemApi = {
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
   cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
+  backupStatus: () => api.get<AgentBackupStatus>('/system/backup/status').then(r => r.data),
+  backupRun: () => api.post<{ ok: boolean; error: string | null; size_bytes: number | null }>('/system/backup/run').then(r => r.data),
+}
+
+export interface AgentBackupStatus {
+  last_backup_at: string | null
+  last_error: string | null
+  last_size_bytes: number | null
+  in_progress: boolean
+  backup_day: number
+  backup_hour: number
+  next_run_estimated: number
+  enc_key_configured: boolean
 }
 
 export interface CryptoStatus {
@@ -856,6 +869,15 @@ export const centralApi = {
     ),
   pendingDeviceLogRequests: () =>
     centralRequest<{ pending: Array<{ tenant: string; device_id: number; limit: number; queued_at: string }> }>('pending_device_log_requests'),
+
+  // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
+  // checks here; the server enforces it independently.
+  backupList: (tenant: string) =>
+    centralRequest<{ backups: Array<{ id: number; created_at: string; size_bytes: number }> }>('backup_list', { tenant }),
+  backupDownload: (tenant: string, id: number) =>
+    centralRequest<{ created_at: string; size_bytes: number; envelope: Record<string, unknown> }>(
+      'backup_download', { tenant, id: String(id) },
+    ),
 
   // Alerts
   alertChannels: () => centralRequest<{ channels: AlertChannel[] }>('alert_channels'),
