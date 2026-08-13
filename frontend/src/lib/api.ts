@@ -288,6 +288,13 @@ export const systemApi = {
   uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
   uplinkGetEncKey: () => api.get<{ enc_key: string }>('/system/uplink/enc-key').then(r => r.data),
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
+  cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
+  rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
+}
+
+export interface CryptoStatus {
+  key_created_at: string | null
+  encrypted_field_count: number
 }
 
 export interface FirmwareComplianceDevice {

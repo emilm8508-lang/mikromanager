@@ -8,6 +8,7 @@
                 "logs":  "Logi",
                 "vulnerabilities":  "Podatności",
                 "audit":  "Audyt",
+                "security":  "Bezpieczeństwo",
                 "central":  "Centralny"
             },
     "common":  {
@@ -446,6 +447,21 @@
         "colAction": "Akcja",
         "colResult": "Wynik",
         "colIp": "IP"
+    },
+    "security": {
+        "title": "Bezpieczeństwo",
+        "subtitle": "Zarządzanie kluczem szyfrującym poświadczenia i sekrety TOTP.",
+        "adminOnly": "Ta sekcja jest dostępna tylko dla administratorów.",
+        "keyTitle": "Klucz szyfrujący (Fernet)",
+        "keyExplanation": "Ten klucz chroni hasła urządzeń, community SNMP i sekret TOTP lokalnego konta awaryjnego, zapisane w lokalnej bazie. Rotacja generuje nowy klucz i ponownie szyfruje nim wszystkie dane — stary klucz przestaje działać.",
+        "keyCreatedAt": "Utworzony / ostatnio rotowany",
+        "protectedFields": "Chronione pola",
+        "rotateButton": "Rotuj klucz",
+        "rotateConfirm": "To wygeneruje nowy klucz i ponownie zaszyfruje nim wszystkie hasła i sekrety w bazie. Operacja jest bezpieczna (stary klucz zostaje podmieniony dopiero po pomyślnym zapisie wszystkich danych), ale nieodwracalna — kontynuować?",
+        "rotateConfirmButton": "Tak, rotuj teraz",
+        "rotating": "Rotowanie...",
+        "rotateSuccess": "Klucz zrotowany — ponownie zaszyfrowano {{count}} pól.",
+        "rotateFailed": "Rotacja nie powiodła się."
     },
     "centralUsers": {
         "title": "Użytkownicy",

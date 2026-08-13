@@ -8,6 +8,7 @@
                 "logs":  "Protokolle",
                 "vulnerabilities":  "Schwachstellen",
                 "audit":  "Audit",
+                "security":  "Sicherheit",
                 "central":  "Zentral"
             },
     "common":  {
@@ -373,6 +374,21 @@
         "colAction": "Aktion",
         "colResult": "Ergebnis",
         "colIp": "IP"
+    },
+    "security": {
+        "title": "Sicherheit",
+        "subtitle": "Verwaltung des Schlüssels, der Gerätezugangsdaten und TOTP-Secrets schützt.",
+        "adminOnly": "Dieser Bereich ist nur für Administratoren verfügbar.",
+        "keyTitle": "Verschlüsselungsschlüssel (Fernet)",
+        "keyExplanation": "Dieser Schlüssel schützt Gerätepasswörter, SNMP-Community-Strings und das TOTP-Secret des lokalen Notfallkontos in der lokalen Datenbank. Eine Rotation erzeugt einen neuen Schlüssel und verschlüsselt alles damit neu — der alte Schlüssel funktioniert danach nicht mehr.",
+        "keyCreatedAt": "Erstellt / zuletzt rotiert",
+        "protectedFields": "Geschützte Felder",
+        "rotateButton": "Schlüssel rotieren",
+        "rotateConfirm": "Dadurch wird ein neuer Schlüssel erzeugt und jedes Passwort/Secret in der Datenbank damit neu verschlüsselt. Der Vorgang ist sicher (der alte Schlüssel wird erst nach erfolgreichem Neuschreiben aller Daten ersetzt), aber unumkehrbar — fortfahren?",
+        "rotateConfirmButton": "Ja, jetzt rotieren",
+        "rotating": "Wird rotiert...",
+        "rotateSuccess": "Schlüssel rotiert — {{count}} Felder neu verschlüsselt.",
+        "rotateFailed": "Rotation fehlgeschlagen."
     },
     "centralUsers": {
         "title": "Benutzer",

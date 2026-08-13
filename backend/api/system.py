@@ -5,17 +5,19 @@ critical-logs aggregator.
 import asyncio
 import os
 import time
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from services import refresher
 from services import topology as topo_svc
 from services import versions as ver_svc
 from services import uplink as uplink_svc
 from services import updater as updater_svc
+from services import crypto as crypto_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
 from sqlalchemy import select
 from pydantic import BaseModel
+from api.auth import require_login
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -67,6 +69,22 @@ async def get_firmware_compliance():
     from services.uplink's alert-only summary."""
     from services import firmware_status
     return await firmware_status.collect_compliance_report()
+
+
+@router.get("/crypto/status")
+async def get_crypto_status():
+    return crypto_svc.key_status()
+
+
+@router.post("/crypto/rotate-key")
+async def post_rotate_key(session: dict = Depends(require_login)):
+    """Admin-only, even though router-level RBAC already blocks viewer-role
+    writes — this is sensitive enough to check explicitly rather than rely
+    only on the generic method-based gate."""
+    if session.get("role") != "admin":
+        raise HTTPException(403, "admin role required")
+    result = crypto_svc.rotate_key()
+    return {"ok": True, **result}
 
 
 @router.get("/versions/status")

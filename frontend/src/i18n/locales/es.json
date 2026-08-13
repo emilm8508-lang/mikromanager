@@ -8,6 +8,7 @@
                 "logs":  "Registros",
                 "vulnerabilities":  "Vulnerabilidades",
                 "audit":  "Auditoría",
+                "security":  "Seguridad",
                 "central":  "Central"
             },
     "common":  {
@@ -373,6 +374,21 @@
         "colAction": "Acción",
         "colResult": "Resultado",
         "colIp": "IP"
+    },
+    "security": {
+        "title": "Seguridad",
+        "subtitle": "Gestión de la clave que protege las credenciales de dispositivos y los secretos TOTP.",
+        "adminOnly": "Esta sección solo está disponible para administradores.",
+        "keyTitle": "Clave de cifrado (Fernet)",
+        "keyExplanation": "Esta clave protege las contraseñas de dispositivos, las cadenas de comunidad SNMP y el secreto TOTP de la cuenta de emergencia local almacenados en la base de datos local. Rotarla genera una nueva clave y vuelve a cifrar todo con ella — la clave anterior deja de funcionar.",
+        "keyCreatedAt": "Creada / última rotación",
+        "protectedFields": "Campos protegidos",
+        "rotateButton": "Rotar clave",
+        "rotateConfirm": "Esto generará una nueva clave y volverá a cifrar con ella cada contraseña y secreto de la base de datos. La operación es segura (la clave anterior solo se sustituye tras reescribir con éxito todos los datos), pero irreversible — ¿continuar?",
+        "rotateConfirmButton": "Sí, rotar ahora",
+        "rotating": "Rotando...",
+        "rotateSuccess": "Clave rotada — {{count}} campos vueltos a cifrar.",
+        "rotateFailed": "La rotación falló."
     },
     "centralUsers": {
         "title": "Usuarios",

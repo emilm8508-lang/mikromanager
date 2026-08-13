@@ -8,6 +8,7 @@
                 "logs":  "Journaux",
                 "vulnerabilities":  "Vulnérabilités",
                 "audit":  "Audit",
+                "security":  "Sécurité",
                 "central":  "Central"
             },
     "common":  {
@@ -373,6 +374,21 @@
         "colAction": "Action",
         "colResult": "Résultat",
         "colIp": "IP"
+    },
+    "security": {
+        "title": "Sécurité",
+        "subtitle": "Gestion de la clé protégeant les identifiants des équipements et les secrets TOTP.",
+        "adminOnly": "Cette section n'est disponible que pour les administrateurs.",
+        "keyTitle": "Clé de chiffrement (Fernet)",
+        "keyExplanation": "Cette clé protège les mots de passe des équipements, les chaînes de communauté SNMP et le secret TOTP du compte d'urgence local stockés dans la base de données locale. La rotation génère une nouvelle clé et rechiffre tout avec — l'ancienne clé cesse de fonctionner.",
+        "keyCreatedAt": "Créée / dernière rotation",
+        "protectedFields": "Champs protégés",
+        "rotateButton": "Faire pivoter la clé",
+        "rotateConfirm": "Cela générera une nouvelle clé et rechiffrera chaque mot de passe et secret de la base de données avec elle. L'opération est sûre (l'ancienne clé n'est remplacée qu'après réécriture réussie de toutes les données), mais irréversible — continuer ?",
+        "rotateConfirmButton": "Oui, pivoter maintenant",
+        "rotating": "Rotation en cours...",
+        "rotateSuccess": "Clé pivotée — {{count}} champs rechiffrés.",
+        "rotateFailed": "Échec de la rotation."
     },
     "centralUsers": {
         "title": "Utilisateurs",

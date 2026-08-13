@@ -8,6 +8,7 @@
                 "logs":  "Logs",
                 "vulnerabilities":  "Vulnerabilities",
                 "audit":  "Audit",
+                "security":  "Security",
                 "central":  "Central"
             },
     "common":  {
@@ -373,6 +374,21 @@
         "colAction": "Action",
         "colResult": "Result",
         "colIp": "IP"
+    },
+    "security": {
+        "title": "Security",
+        "subtitle": "Manage the encryption key protecting device credentials and TOTP secrets.",
+        "adminOnly": "This section is only available to administrators.",
+        "keyTitle": "Encryption key (Fernet)",
+        "keyExplanation": "This key protects device passwords, SNMP community strings, and the local emergency account's TOTP secret stored in the local database. Rotating generates a new key and re-encrypts everything with it — the old key stops working.",
+        "keyCreatedAt": "Created / last rotated",
+        "protectedFields": "Protected fields",
+        "rotateButton": "Rotate key",
+        "rotateConfirm": "This will generate a new key and re-encrypt every password and secret in the database with it. The operation is safe (the old key is only swapped in after all data has been successfully rewritten) but irreversible — continue?",
+        "rotateConfirmButton": "Yes, rotate now",
+        "rotating": "Rotating...",
+        "rotateSuccess": "Key rotated — {{count}} fields re-encrypted.",
+        "rotateFailed": "Rotation failed."
     },
     "centralUsers": {
         "title": "Users",

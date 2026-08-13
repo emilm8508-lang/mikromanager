@@ -10,6 +10,7 @@ import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { AuditLog } from './pages/AuditLog'
+import { Security } from './pages/Security'
 import { AuthGate } from './pages/Login'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/vulnerabilities" element={<Vulnerabilities />} />
             <Route path="/audit" element={<AuditLog />} />
+            <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />
           </Routes>
         </main>
