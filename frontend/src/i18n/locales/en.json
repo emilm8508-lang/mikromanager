@@ -51,6 +51,9 @@
                       "complianceFirmware":  "RouterBOARD firmware",
                       "complianceNoData":  "no data",
                       "complianceNonCompliant":  "Non-compliant devices:",
+                      "complianceFallbackWarning":  "{{count}} devices could not be checked directly (the router has no connectivity to Mikrotik's servers) — for those, the result is a comparison against a single global version file, which is less accurate (e.g. it can't tell an RC/testing-channel device from a genuinely outdated one).",
+                      "complianceFetchError":  "The last global version-file fetch failed: {{error}}",
+                      "complianceFallbackTag":  "via global file, less certain",
                       "criticalCols":  {
                                            "device":  "Device",
                                            "time":  "Time",

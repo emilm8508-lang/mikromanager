@@ -306,18 +306,29 @@ export interface FirmwareComplianceDevice {
   ros_version: string | null
   ros_target: string | null
   ros_status: 'compliant' | 'outdated' | 'unknown'
+  ros_source: 'device_check' | 'global_fallback' | 'none'
   firmware_current: string | null
   firmware_target: string | null
   firmware_status: 'compliant' | 'outdated' | 'unknown'
   last_seen: string | null
 }
 
+export interface VersionFetchInfo {
+  fetched_at: number | null
+  age_sec: number | null
+  last_error: string | null
+  has_data: boolean
+}
+
 export interface FirmwareComplianceReport {
   latest_stable: string
+  latest_fetch_info: VersionFetchInfo
   total_devices: number
   ros_known_count: number
   ros_compliant_count: number
   ros_compliant_pct: number | null
+  ros_via_device_check_count: number
+  ros_via_global_fallback_count: number
   firmware_known_count: number
   firmware_compliant_count: number
   firmware_compliant_pct: number | null

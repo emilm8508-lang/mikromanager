@@ -62,6 +62,14 @@ function FirmwareComplianceCard() {
             total={data.firmware_known_count}
           />
         </div>
+        {data.ros_via_global_fallback_count > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {t('dashboard.complianceFallbackWarning', { count: data.ros_via_global_fallback_count })}
+            {data.latest_fetch_info.last_error && (
+              <> {t('dashboard.complianceFetchError', { error: data.latest_fetch_info.last_error })}</>
+            )}
+          </p>
+        )}
         {nonCompliant.length > 0 && (
           <div className="border-t border-slate-100 pt-3">
             <p className="text-xs text-slate-500 mb-2">{t('dashboard.complianceNonCompliant')}</p>
@@ -73,6 +81,7 @@ function FirmwareComplianceCard() {
                   </Link>
                   <span className="text-slate-500 font-mono">
                     {d.ros_status === 'outdated' && `RouterOS ${d.ros_version} → ${d.ros_target}`}
+                    {d.ros_status === 'outdated' && d.ros_source === 'global_fallback' && ` (${t('dashboard.complianceFallbackTag')})`}
                     {d.ros_status === 'outdated' && d.firmware_status === 'outdated' && ' · '}
                     {d.firmware_status === 'outdated' && `FW ${d.firmware_current} → ${d.firmware_target}`}
                   </span>

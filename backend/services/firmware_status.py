@@ -46,14 +46,27 @@ def _classify_device(d: Device, latest: Optional[dict]) -> dict:
 
     ros_status = "unknown"
     ros_target = None
+    # Which comparison actually produced ros_status — surfaced to the UI so
+    # "compliant" is verifiable, not just trusted at face value:
+    #   device_check    — the device itself was asked (architecture/channel-
+    #                      aware, the trustworthy path).
+    #   global_fallback — the device never answered its own check (e.g. no
+    #                      internet access to Mikrotik's servers, common on
+    #                      segmented client networks), so this falls back to
+    #                      comparing against the single global "latest
+    #                      stable" file — which can't tell a device on an
+    #                      RC/testing channel from a genuinely outdated one,
+    #                      and is only as fresh as fetch_latest()'s cache.
+    #   none            — no data to compare at all.
+    ros_source = "none"
     if d.ros_update_status:
-        # Per-device, architecture/channel-aware — the authoritative answer
-        # for THIS specific model, preferred over the global-file guess.
+        ros_source = "device_check"
         ros_target = d.latest_ros_version
         ros_status = "outdated" if d.ros_update_status.lower().startswith("new") and d.latest_ros_version else "compliant"
     elif d.ros_version and latest:
         target = ver_svc.pick_target(d.ros_version, latest)
         if target:
+            ros_source = "global_fallback"
             ros_target = target.get("target") or target.get("current")
             ros_status = "outdated" if target.get("status") == "outdated" else "compliant"
 
@@ -64,6 +77,7 @@ def _classify_device(d: Device, latest: Optional[dict]) -> dict:
     return {
         "device_id": d.id, "name": name, "ip": d.ip, "model": d.model, "vendor": d.vendor,
         "ros_version": d.ros_version, "ros_target": ros_target, "ros_status": ros_status,
+        "ros_source": ros_source,
         "firmware_current": d.current_firmware, "firmware_target": d.upgrade_firmware,
         "firmware_status": firmware_status,
         "last_seen": d.last_seen.isoformat() if d.last_seen else None,
@@ -142,10 +156,13 @@ async def collect_compliance_report() -> dict:
 
     return {
         "latest_stable": latest_stable,
+        "latest_fetch_info": ver_svc.cache_info(),
         "total_devices": len(rows),
         "ros_known_count": len(ros_known),
         "ros_compliant_count": sum(1 for r in ros_known if r["ros_status"] == "compliant"),
         "ros_compliant_pct": _pct(ros_known, "ros_status"),
+        "ros_via_device_check_count": sum(1 for r in ros_known if r["ros_source"] == "device_check"),
+        "ros_via_global_fallback_count": sum(1 for r in ros_known if r["ros_source"] == "global_fallback"),
         "firmware_known_count": len(firmware_known),
         "firmware_compliant_count": sum(1 for r in firmware_known if r["firmware_status"] == "compliant"),
         "firmware_compliant_pct": _pct(firmware_known, "firmware_status"),

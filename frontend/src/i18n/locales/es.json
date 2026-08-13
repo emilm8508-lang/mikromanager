@@ -51,6 +51,9 @@
                       "complianceFirmware":  "Firmware RouterBOARD",
                       "complianceNoData":  "sin datos",
                       "complianceNonCompliant":  "Dispositivos no conformes:",
+                      "complianceFallbackWarning":  "{{count}} dispositivos no pudieron verificarse directamente (el router no tiene conectividad con los servidores de Mikrotik) — para ellos, el resultado es una comparación con un único archivo de versión global, menos preciso (por ejemplo, no distingue un dispositivo en canal RC/testing de uno realmente desactualizado).",
+                      "complianceFetchError":  "La última descarga del archivo de versión global falló: {{error}}",
+                      "complianceFallbackTag":  "según archivo global, menos fiable",
                       "criticalCols":  {
                                            "device":  "Dispositivo",
                                            "time":  "Hora",

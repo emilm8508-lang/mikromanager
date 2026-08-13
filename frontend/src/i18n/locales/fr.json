@@ -51,6 +51,9 @@
                       "complianceFirmware":  "Firmware RouterBOARD",
                       "complianceNoData":  "aucune donnée",
                       "complianceNonCompliant":  "Appareils non conformes :",
+                      "complianceFallbackWarning":  "{{count}} appareils n'ont pas pu être vérifiés directement (le routeur n'a pas accès aux serveurs Mikrotik) — pour ceux-ci, le résultat est une comparaison avec un seul fichier de version global, moins précise (elle ne distingue pas, par exemple, un appareil sur le canal RC/test d'un appareil réellement obsolète).",
+                      "complianceFetchError":  "La dernière récupération du fichier de version global a échoué : {{error}}",
+                      "complianceFallbackTag":  "selon le fichier global, moins fiable",
                       "criticalCols":  {
                                            "device":  "Appareil",
                                            "time":  "Heure",
