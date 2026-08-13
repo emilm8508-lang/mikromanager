@@ -47,6 +47,11 @@
                       "activityLog":  "Dziennik zdarzen",
                       "noActivity":  "Brak zdarzen",
                       "noCriticalLogs":  "Brak krytycznych logów - wszystko OK",
+                      "firmwareCompliance":  "Zgodność firmware",
+                      "complianceRos":  "Wersja RouterOS",
+                      "complianceFirmware":  "Firmware RouterBOARD",
+                      "complianceNoData":  "brak danych",
+                      "complianceNonCompliant":  "Urządzenia niezgodne:",
                       "criticalCols":  {
                                            "device":  "Urządzenie",
                                            "time":  "Czas",

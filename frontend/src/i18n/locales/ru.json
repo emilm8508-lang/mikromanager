@@ -45,6 +45,11 @@
                       "goToScanner":  "Перейти к сканеру →",
                       "criticalLogs":  "Критические журналы (последние 20)",
                       "noCriticalLogs":  "Критических журналов нет - все в порядке",
+                      "firmwareCompliance":  "Соответствие firmware",
+                      "complianceRos":  "Версия RouterOS",
+                      "complianceFirmware":  "Firmware RouterBOARD",
+                      "complianceNoData":  "нет данных",
+                      "complianceNonCompliant":  "Несоответствующие устройства:",
                       "criticalCols":  {
                                            "device":  "Устройство",
                                            "time":  "Время",

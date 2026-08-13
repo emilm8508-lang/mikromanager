@@ -1,12 +1,90 @@
 import { useQuery } from '@tanstack/react-query'
-import { devicesApi, systemApi, centralApi, centralConfig, type ActivityEntry } from '../lib/api'
+import { devicesApi, systemApi, centralApi, centralConfig, type ActivityEntry, type FirmwareComplianceDevice } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import { Server, Wifi, CheckCircle2, XCircle, AlertOctagon, RefreshCw, Activity } from 'lucide-react'
+import { Server, Wifi, CheckCircle2, XCircle, AlertOctagon, RefreshCw, Activity, ShieldCheck } from 'lucide-react'
 import { formatDate } from '../lib/utils'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
+
+function ComplianceBar({ label, pct, known, total }: { label: string; pct: number | null; known: number; total: number }) {
+  const { t } = useTranslation()
+  const color = pct === null ? 'bg-slate-200' : pct >= 90 ? 'bg-green-500' : pct >= 70 ? 'bg-amber-500' : 'bg-red-500'
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-slate-600">{label}</span>
+        <span className="text-slate-500">
+          {pct === null ? t('dashboard.complianceNoData') : `${pct}% (${known}/${total})`}
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct ?? 0}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function FirmwareComplianceCard() {
+  const { t } = useTranslation()
+  const { data } = useQuery({
+    queryKey: ['firmware-compliance'],
+    queryFn: systemApi.firmwareCompliance,
+    refetchInterval: 60_000,
+  })
+  if (!data || data.total_devices === 0) return null
+
+  const nonCompliant: FirmwareComplianceDevice[] = data.devices.filter(
+    d => d.ros_status === 'outdated' || d.firmware_status === 'outdated'
+  )
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('dashboard.firmwareCompliance')}</h2>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ComplianceBar
+            label={t('dashboard.complianceRos')}
+            pct={data.ros_compliant_pct}
+            known={data.ros_compliant_count}
+            total={data.ros_known_count}
+          />
+          <ComplianceBar
+            label={t('dashboard.complianceFirmware')}
+            pct={data.firmware_compliant_pct}
+            known={data.firmware_compliant_count}
+            total={data.firmware_known_count}
+          />
+        </div>
+        {nonCompliant.length > 0 && (
+          <div className="border-t border-slate-100 pt-3">
+            <p className="text-xs text-slate-500 mb-2">{t('dashboard.complianceNonCompliant')}</p>
+            <ul className="space-y-1.5">
+              {nonCompliant.slice(0, 8).map(d => (
+                <li key={d.device_id} className="flex items-center justify-between text-xs">
+                  <Link to={`/devices/${d.device_id}`} className="text-indigo-600 hover:underline font-medium">
+                    {d.name}
+                  </Link>
+                  <span className="text-slate-500 font-mono">
+                    {d.ros_status === 'outdated' && `RouterOS ${d.ros_version} → ${d.ros_target}`}
+                    {d.ros_status === 'outdated' && d.firmware_status === 'outdated' && ' · '}
+                    {d.firmware_status === 'outdated' && `FW ${d.firmware_current} → ${d.firmware_target}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ElementType; color: string }) {
   return (
@@ -117,6 +195,7 @@ export function Dashboard() {
       </div>
 
       <ActivityLogCard />
+      <FirmwareComplianceCard />
 
       {/* Critical logs */}
       <Card>

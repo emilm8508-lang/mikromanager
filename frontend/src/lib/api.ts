@@ -287,6 +287,34 @@ export const systemApi = {
   uplinkSendNow: () => api.post<{ success: boolean; status: UplinkStatus }>('/system/uplink/send-now').then(r => r.data),
   uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
   uplinkGetEncKey: () => api.get<{ enc_key: string }>('/system/uplink/enc-key').then(r => r.data),
+  firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
+}
+
+export interface FirmwareComplianceDevice {
+  device_id: number
+  name: string
+  ip: string
+  model: string | null
+  vendor: string | null
+  ros_version: string | null
+  ros_target: string | null
+  ros_status: 'compliant' | 'outdated' | 'unknown'
+  firmware_current: string | null
+  firmware_target: string | null
+  firmware_status: 'compliant' | 'outdated' | 'unknown'
+  last_seen: string | null
+}
+
+export interface FirmwareComplianceReport {
+  latest_stable: string
+  total_devices: number
+  ros_known_count: number
+  ros_compliant_count: number
+  ros_compliant_pct: number | null
+  firmware_known_count: number
+  firmware_compliant_count: number
+  firmware_compliant_pct: number | null
+  devices: FirmwareComplianceDevice[]
 }
 
 // ── Passive vulnerability scanner ─────────────────────────────────────────────

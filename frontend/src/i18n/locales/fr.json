@@ -45,6 +45,11 @@
                       "goToScanner":  "Aller au scanner →",
                       "criticalLogs":  "Journaux critiques (20 derniers)",
                       "noCriticalLogs":  "Aucun journal critique - tout va bien",
+                      "firmwareCompliance":  "Conformité du firmware",
+                      "complianceRos":  "Version RouterOS",
+                      "complianceFirmware":  "Firmware RouterBOARD",
+                      "complianceNoData":  "aucune donnée",
+                      "complianceNonCompliant":  "Appareils non conformes :",
                       "criticalCols":  {
                                            "device":  "Appareil",
                                            "time":  "Heure",

@@ -45,6 +45,11 @@
                       "goToScanner":  "Go to scanner →",
                       "criticalLogs":  "Critical logs (last 20)",
                       "noCriticalLogs":  "No critical logs - all clear",
+                      "firmwareCompliance":  "Firmware compliance",
+                      "complianceRos":  "RouterOS version",
+                      "complianceFirmware":  "RouterBOARD firmware",
+                      "complianceNoData":  "no data",
+                      "complianceNonCompliant":  "Non-compliant devices:",
                       "criticalCols":  {
                                            "device":  "Device",
                                            "time":  "Time",

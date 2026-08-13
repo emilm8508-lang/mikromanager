@@ -45,6 +45,11 @@
                       "goToScanner":  "Zum Scanner →",
                       "criticalLogs":  "Kritische Protokolle (letzte 20)",
                       "noCriticalLogs":  "Keine kritischen Protokolle - alles in Ordnung",
+                      "firmwareCompliance":  "Firmware-Konformität",
+                      "complianceRos":  "RouterOS-Version",
+                      "complianceFirmware":  "RouterBOARD-Firmware",
+                      "complianceNoData":  "keine Daten",
+                      "complianceNonCompliant":  "Nicht konforme Geräte:",
                       "criticalCols":  {
                                            "device":  "Gerät",
                                            "time":  "Zeit",

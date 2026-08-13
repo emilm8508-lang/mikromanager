@@ -59,6 +59,16 @@ async def get_latest_versions():
     return data
 
 
+@router.get("/firmware-compliance")
+async def get_firmware_compliance():
+    """Fleet-wide RouterOS/RouterBOARD-firmware compliance report — % of
+    devices on the approved version, plus the full per-device breakdown.
+    Evidence-oriented (ISO 27001/NIS2 patch-management posture), distinct
+    from services.uplink's alert-only summary."""
+    from services import firmware_status
+    return await firmware_status.collect_compliance_report()
+
+
 @router.get("/versions/status")
 async def get_version_status():
     """For every device — returns its current version and upgrade recommendation."""
