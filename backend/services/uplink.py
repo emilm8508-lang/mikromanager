@@ -210,6 +210,11 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] vuln overdue alert detection error: {e}")
 
     try:
+        alert_events += await edge_discovery.collect_wan_change_events()
+    except Exception as e:
+        print(f"[uplink] WAN change detection error: {e}")
+
+    try:
         edge_ips = await edge_discovery.collect_public_ips()
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")
@@ -247,7 +252,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.4",
+        "agent_version": "1.5",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),

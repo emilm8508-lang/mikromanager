@@ -9,13 +9,16 @@ Handles multi-WAN — one device can produce multiple entries.
 """
 import asyncio
 import ipaddress
+import json
 import os
 import time
+from datetime import datetime
 from typing import List
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, Credential
 from services.device_client import build_client
+from services import activity
 
 
 # Cache full scan for SCAN_TTL_SEC — same reason as alerts.py: uplink runs
@@ -135,3 +138,70 @@ async def collect_public_ips() -> List[dict]:
     _scan_cache["data"] = flat
     _scan_cache["ts"] = now
     return flat
+
+
+# ── WAN IP change detection ──────────────────────────────────────────────
+# Last-known public IP per (device, interface), persisted to disk (not just
+# in memory) so a routine agent restart never looks like a WAN change — an
+# in-memory-only "last known" would reset to empty on every restart and
+# falsely report every device's current IP as "changed" right after.
+_WAN_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wan_state.json")
+
+
+def _load_wan_state() -> dict:
+    if not os.path.exists(_WAN_STATE_PATH):
+        return {}
+    try:
+        with open(_WAN_STATE_PATH) as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_wan_state(state: dict) -> None:
+    os.makedirs(os.path.dirname(_WAN_STATE_PATH), exist_ok=True)
+    try:
+        with open(_WAN_STATE_PATH, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print(f"[edge_discovery] wan state persist error: {e}")
+
+
+async def collect_wan_change_events() -> List[dict]:
+    """Compare each device's current public IP(s) — per (device, interface),
+    multi-WAN safe — against the last value persisted to disk. Reuses
+    collect_public_ips()'s own TTL cache/scan, so this adds no extra device
+    polling. Self-dedupes: the new value is saved immediately after each
+    comparison, so a change is only reported once (the run where it's first
+    observed), not on every subsequent uplink cycle."""
+    current = await collect_public_ips()
+    state = _load_wan_state()
+    events: List[dict] = []
+    for entry in current:
+        key = f"{entry['device_id']}:{entry['iface']}"
+        prev_ip = state.get(key)
+        if prev_ip is not None and prev_ip != entry["ip"]:
+            events.append({
+                "type": "wan_ip_changed",
+                "device_id": entry["device_id"],
+                "device_name": entry["device_name"],
+                "iface": entry["iface"],
+                "old_ip": prev_ip,
+                "new_ip": entry["ip"],
+                "count": 1,
+                "detected_at": datetime.utcnow().isoformat(),
+            })
+            try:
+                activity.record(
+                    "wan_ip_changed", device_name=entry["device_name"],
+                    old_ip=prev_ip, new_ip=entry["ip"], iface=entry["iface"],
+                )
+            except Exception as e:
+                print(f"[edge_discovery] activity record error: {e}")
+        state[key] = entry["ip"]
+    # Deliberately not pruning keys whose device disappeared this run (e.g.
+    # a transient scan failure) — keep the last known value so a later,
+    # successful scan is compared against it, not treated as "first seen".
+    _save_wan_state(state)
+    return events

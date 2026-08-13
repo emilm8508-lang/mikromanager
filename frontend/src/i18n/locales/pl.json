@@ -339,6 +339,8 @@
                      "eventFirmwareAvailable":  "Nowa wersja RouterOS dostepna",
                     "eventBoardFirmwareAvailable":  "Aktualizacja firmware plyty (RouterBOARD)",
                     "eventDeviceRebooted":  "Urzadzenie zrestartowane",
+                    "eventWanIpChanged":  "Zmiana adresu WAN",
+                    "eventVulnOverdue":  "Podatności po terminie SLA",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",

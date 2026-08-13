@@ -153,6 +153,15 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             if ($log_time !== '') $msg .= "\nCzas (wg logu urządzenia): {$log_time}";
             if ($log_msg !== '') $msg .= "\nWpis w logu: {$log_msg}";
             return $msg;
+        case 'wan_ip_changed':
+            $iface = $event['iface'] ?? '?';
+            $old_ip = $event['old_ip'] ?? '?';
+            $new_ip = $event['new_ip'] ?? '?';
+            return "🌐 {$prefix}Zmiana adresu WAN\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device} ({$iface})\n"
+                 . "Stary adres: {$old_ip}\n"
+                 . "Nowy adres: {$new_ip}";
         case 'vuln_overdue':
             $count = (int)($event['count'] ?? 0);
             $items = is_array($event['items'] ?? null) ? $event['items'] : [];
@@ -736,6 +745,10 @@ function activity_format_message(string $type, array $e): string {
             return "Aktualizacja firmware urządzenia {$name} nie powiodła się: {$err}";
         case 'backup_completed':
             return "Backup urządzenia {$name} utworzony";
+        case 'wan_ip_changed':
+            $old_ip = $e['old_ip'] ?? '?';
+            $new_ip = $e['new_ip'] ?? '?';
+            return "Zmiana adresu WAN na {$name}: {$old_ip} → {$new_ip}";
         case 'audit_action':
             // Off-agent copy of the local agent's audit trail (see
             // backend/services/audit.py) — "who did what" for admin
