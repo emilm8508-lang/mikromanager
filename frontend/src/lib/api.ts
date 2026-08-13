@@ -357,6 +357,25 @@ export const vulnApi = {
     ).then(r => r.data),
 }
 
+// ── Audit log ────────────────────────────────────────────────────────────────
+
+export interface AuditEntry {
+  id: number
+  ts: string
+  username: string
+  role: AuthRole
+  source: AuthSource
+  method: string
+  path: string
+  status_code: number
+  ip: string | null
+}
+
+export const auditApi = {
+  list: (params?: { limit?: number; offset?: number; username?: string }) =>
+    api.get<AuditEntry[]>('/audit', { params }).then(r => r.data),
+}
+
 // ── Central (viewer querying OVH directly) ───────────────────────────────────
 
 export interface CentralTenant {

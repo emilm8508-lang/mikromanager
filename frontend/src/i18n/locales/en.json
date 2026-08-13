@@ -7,6 +7,7 @@
                 "credentials":  "Credentials",
                 "logs":  "Logs",
                 "vulnerabilities":  "Vulnerabilities",
+                "audit":  "Audit",
                 "central":  "Central"
             },
     "common":  {
@@ -351,7 +352,22 @@
         "loginLocalBanner": "Logged in with the emergency (local) account — OVH unreachable or bypassed",
         "tenantNotAllowed": "This account does not have access to this customer",
         "roleAdmin": "Administrator",
-        "roleViewer": "Read-only"
+        "roleViewer": "Read-only",
+        "sourceLocal": "local",
+        "sourceOvh": "OVH"
+    },
+    "audit": {
+        "title": "Audit log",
+        "subtitle": "Who did what — every data-modifying action, tied to an account and role.",
+        "adminOnly": "The audit log is only available to administrators.",
+        "filterUsername": "Filter by username",
+        "empty": "No entries",
+        "colTime": "Time",
+        "colUser": "User",
+        "colSource": "Source",
+        "colAction": "Action",
+        "colResult": "Result",
+        "colIp": "IP"
     },
     "centralUsers": {
         "title": "Users",

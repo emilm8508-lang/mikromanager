@@ -722,6 +722,16 @@ function activity_format_message(string $type, array $e): string {
             return "Aktualizacja firmware urządzenia {$name} nie powiodła się: {$err}";
         case 'backup_completed':
             return "Backup urządzenia {$name} utworzony";
+        case 'audit_action':
+            // Off-agent copy of the local agent's audit trail (see
+            // backend/services/audit.py) — "who did what" for admin
+            // actions, forwarded here so a compromised/tampered local
+            // agent can't erase the evidence.
+            $user = $e['username'] ?? '?';
+            $method = $e['method'] ?? '?';
+            $path = $e['path'] ?? '?';
+            $status = $e['status_code'] ?? '?';
+            return "{$user} ({$e['role']}, {$e['source']}): {$method} {$path} → {$status}";
         default:
             return "{$type}: {$name}";
     }

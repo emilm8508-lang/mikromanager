@@ -7,6 +7,7 @@
                 "credentials":  "Poświadczenia",
                 "logs":  "Logi",
                 "vulnerabilities":  "Podatności",
+                "audit":  "Audyt",
                 "central":  "Centralny"
             },
     "common":  {
@@ -422,7 +423,22 @@
         "loginLocalBanner": "Zalogowano kontem awaryjnym (lokalnym) — OVH niedostępne lub pominięte",
         "tenantNotAllowed": "To konto nie ma dostępu do tego klienta",
         "roleAdmin": "Administrator",
-        "roleViewer": "Tylko podgląd"
+        "roleViewer": "Tylko podgląd",
+        "sourceLocal": "lokalne",
+        "sourceOvh": "OVH"
+    },
+    "audit": {
+        "title": "Dziennik audytowy",
+        "subtitle": "Kto co zrobił — każda akcja modyfikująca dane, z powiązaniem do konta i roli.",
+        "adminOnly": "Dziennik audytowy jest dostępny tylko dla administratorów.",
+        "filterUsername": "Filtruj po użytkowniku",
+        "empty": "Brak wpisów",
+        "colTime": "Czas",
+        "colUser": "Użytkownik",
+        "colSource": "Źródło",
+        "colAction": "Akcja",
+        "colResult": "Wynik",
+        "colIp": "IP"
     },
     "centralUsers": {
         "title": "Użytkownicy",

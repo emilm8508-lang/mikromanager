@@ -136,6 +136,26 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class AuditLog(Base):
+    """Who did what — one row per mutating (non-GET) API request that
+    reached a handler, written by services/audit.py. Insert-only: no code
+    path anywhere updates or deletes a row here. Each entry is also queued
+    via services/activity.py, which the next uplink cycle forwards into
+    OVH's existing activity_log table — a copy that has already left this
+    machine before anyone here could tamper with it."""
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ts = Column(DateTime, default=datetime.utcnow, index=True)
+    username = Column(String, nullable=False)
+    role = Column(String, nullable=False)      # admin | viewer
+    source = Column(String, nullable=False)    # local | ovh
+    method = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    status_code = Column(Integer, nullable=False)
+    ip = Column(String, nullable=True)
+
+
 class VulnHost(Base):
     """A host discovered by the passive vulnerability scanner (services/vuln_scan.py).
     May or may not correspond to a known Device — the vuln scanner covers the

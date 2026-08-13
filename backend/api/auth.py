@@ -43,6 +43,7 @@ def require_login(request: Request) -> dict:
         raise HTTPException(401, "session expired or invalid")
     if request.method in ("POST", "PUT", "PATCH", "DELETE") and session.get("role") == "viewer":
         raise HTTPException(403, "read-only account — this action requires an admin role")
+    request.state.session = session  # read by main.py's audit middleware
     return session
 
 

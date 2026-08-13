@@ -7,6 +7,7 @@
                 "credentials":  "Identifiants",
                 "logs":  "Journaux",
                 "vulnerabilities":  "Vulnérabilités",
+                "audit":  "Audit",
                 "central":  "Central"
             },
     "common":  {
@@ -351,7 +352,22 @@
         "loginLocalBanner": "Connecté avec le compte d'urgence (local) — OVH inaccessible ou contourné",
         "tenantNotAllowed": "Ce compte n'a pas accès à ce client",
         "roleAdmin": "Administrateur",
-        "roleViewer": "Lecture seule"
+        "roleViewer": "Lecture seule",
+        "sourceLocal": "local",
+        "sourceOvh": "OVH"
+    },
+    "audit": {
+        "title": "Journal d'audit",
+        "subtitle": "Qui a fait quoi — chaque action modifiant des données, liée à un compte et un rôle.",
+        "adminOnly": "Le journal d'audit n'est disponible que pour les administrateurs.",
+        "filterUsername": "Filtrer par utilisateur",
+        "empty": "Aucune entrée",
+        "colTime": "Heure",
+        "colUser": "Utilisateur",
+        "colSource": "Source",
+        "colAction": "Action",
+        "colResult": "Résultat",
+        "colIp": "IP"
     },
     "centralUsers": {
         "title": "Utilisateurs",

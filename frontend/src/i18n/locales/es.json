@@ -7,6 +7,7 @@
                 "credentials":  "Credenciales",
                 "logs":  "Registros",
                 "vulnerabilities":  "Vulnerabilidades",
+                "audit":  "Auditoría",
                 "central":  "Central"
             },
     "common":  {
@@ -351,7 +352,22 @@
         "loginLocalBanner": "Sesión iniciada con la cuenta de emergencia (local) — OVH no disponible u omitido",
         "tenantNotAllowed": "Esta cuenta no tiene acceso a este cliente",
         "roleAdmin": "Administrador",
-        "roleViewer": "Solo lectura"
+        "roleViewer": "Solo lectura",
+        "sourceLocal": "local",
+        "sourceOvh": "OVH"
+    },
+    "audit": {
+        "title": "Registro de auditoría",
+        "subtitle": "Quién hizo qué — cada acción que modifica datos, vinculada a una cuenta y un rol.",
+        "adminOnly": "El registro de auditoría solo está disponible para administradores.",
+        "filterUsername": "Filtrar por usuario",
+        "empty": "Sin registros",
+        "colTime": "Hora",
+        "colUser": "Usuario",
+        "colSource": "Origen",
+        "colAction": "Acción",
+        "colResult": "Resultado",
+        "colIp": "IP"
     },
     "centralUsers": {
         "title": "Usuarios",

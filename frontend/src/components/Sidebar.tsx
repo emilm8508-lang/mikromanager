@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -231,6 +231,7 @@ function AccountPanel() {
 
 export function Sidebar() {
   const { t } = useTranslation()
+  const { role } = useAuth()
 
   const nav = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
@@ -240,6 +241,10 @@ export function Sidebar() {
     { to: '/credentials', label: t('nav.credentials'), icon: Key },
     { to: '/logs', label: t('nav.logs'), icon: ScrollText },
     { to: '/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert },
+    // Read-only accounts can't act on any admin-action trail meaningfully
+    // (the endpoint itself is admin-only too — this just avoids a dead
+    // link + surprise 403 in the nav).
+    ...(role === 'admin' ? [{ to: '/audit', label: t('nav.audit'), icon: ClipboardList }] : []),
     { to: '/central', label: t('nav.central'), icon: Cloud },
   ]
 

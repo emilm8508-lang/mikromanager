@@ -14,18 +14,19 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, vuln_scan as vuln_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
 from services import vuln_scan
+from services import audit as audit_svc
 
 
 @asynccontextmanager
@@ -68,6 +69,34 @@ app.include_router(logs.router, dependencies=_protected)
 app.include_router(scanner.router, dependencies=_protected)
 app.include_router(system.router, dependencies=_protected)
 app.include_router(vuln_api.router, dependencies=_protected)
+app.include_router(audit_api.router, dependencies=_protected)
+
+
+@app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    """Log every mutating request that reached an authenticated handler —
+    "who did what". require_login stashes the session on request.state
+    (same request object, so it's visible here after call_next returns).
+    Skips /api/auth entirely: login attempts have their own throttle/
+    lockout trail and don't have a session before they succeed anyway."""
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        if (request.method in ("POST", "PUT", "PATCH", "DELETE")
+                and path.startswith("/api/") and not path.startswith("/api/auth")):
+            session = getattr(request.state, "session", None)
+            if session:
+                audit_svc.record(
+                    username=session.get("username") or "?",
+                    role=session.get("role") or "?",
+                    source=session.get("source") or "?",
+                    method=request.method, path=path,
+                    status_code=response.status_code,
+                    ip=request.client.host if request.client else None,
+                )
+    except Exception:
+        pass
+    return response
 
 
 @app.get("/api/health")

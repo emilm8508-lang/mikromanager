@@ -7,6 +7,7 @@
                 "credentials":  "Zugangsdaten",
                 "logs":  "Protokolle",
                 "vulnerabilities":  "Schwachstellen",
+                "audit":  "Audit",
                 "central":  "Zentral"
             },
     "common":  {
@@ -351,7 +352,22 @@
         "loginLocalBanner": "Mit dem Notfallkonto (lokal) angemeldet — OVH nicht erreichbar oder übersprungen",
         "tenantNotAllowed": "Dieses Konto hat keinen Zugriff auf diesen Kunden",
         "roleAdmin": "Administrator",
-        "roleViewer": "Nur Ansicht"
+        "roleViewer": "Nur Ansicht",
+        "sourceLocal": "lokal",
+        "sourceOvh": "OVH"
+    },
+    "audit": {
+        "title": "Audit-Protokoll",
+        "subtitle": "Wer hat was getan — jede datenverändernde Aktion, verknüpft mit Konto und Rolle.",
+        "adminOnly": "Das Audit-Protokoll ist nur für Administratoren verfügbar.",
+        "filterUsername": "Nach Benutzername filtern",
+        "empty": "Keine Einträge",
+        "colTime": "Zeit",
+        "colUser": "Benutzer",
+        "colSource": "Quelle",
+        "colAction": "Aktion",
+        "colResult": "Ergebnis",
+        "colIp": "IP"
     },
     "centralUsers": {
         "title": "Benutzer",
