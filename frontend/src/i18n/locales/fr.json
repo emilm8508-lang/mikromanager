@@ -89,7 +89,8 @@
                                  "credentials":  "Identifiants",
                                  "status":  "Statut",
                                  "lastSeen":  "Vu en dernier",
-                                 "client":  "Client"
+                                 "client":  "Client",
+                                 "owner":  "Responsable"
                              },
                     "versionCheckOk":  "Dernières versions chargées",
                     "versionCheckFail":  "Échec de récupération des dernières versions de Mikrotik",
@@ -109,7 +110,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Demander MAJ firmware de cet appareil (via central)",
                     "remoteFwAskBackup":  "Sauvegarde avant MAJ? [OK] = oui, [Annuler] = non",
-                    "remoteFwConfirm":  "Mettre a jour firmware de {{ip}} chez {{tenant}}? L agent recupere en max 2 min et redemarre l appareil."
+                    "remoteFwConfirm":  "Mettre a jour firmware de {{ip}} chez {{tenant}}? L agent recupere en max 2 min et redemarre l appareil.",
+                    "exportCsvBtn":  "Exporter CSV",
+                    "editTitle":  "Modifier l'appareil",
+                    "ownerLabel":  "Responsable",
+                    "ownerPlaceholder":  "ex. Jean Dupont",
+                    "criticalityLabel":  "Criticité métier",
+                    "criticalityNone":  "— aucune —",
+                    "criticalityLow":  "Faible",
+                    "criticalityMedium":  "Moyenne",
+                    "criticalityHigh":  "Élevée",
+                    "criticalityCritical":  "Critique"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Modèle inconnu",
@@ -406,6 +417,18 @@
         "weekday": {
             "mon": "Lundi", "tue": "Mardi", "wed": "Mercredi", "thu": "Jeudi",
             "fri": "Vendredi", "sat": "Samedi", "sun": "Dimanche"
+        },
+        "supplyChainTitle": "Analyse de la chaîne d'approvisionnement (dépendances)",
+        "supplyChainExplanation": "Analyse hebdomadaire des dépendances du backend (pip-audit) et du frontend (npm audit) à la recherche de vulnérabilités connues (CVE) dans le code de l'application elle-même — pas dans le réseau du client.",
+        "supplyChainLastRun": "Dernière analyse",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "Aucune vulnérabilité connue",
+        "supplyChainFindings": "{{count}} vulnérabilités",
+        "supplyChainRunning": "Analyse en cours...",
+        "supplyChainRunButton": "Analyser maintenant",
+        "severity": {
+            "critical": "critique", "high": "élevée", "moderate": "moyenne", "low": "faible"
         }
     },
     "centralUsers": {

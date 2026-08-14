@@ -89,7 +89,8 @@
                                  "credentials":  "Облікові дані",
                                  "status":  "Статус",
                                  "lastSeen":  "Востаннє",
-                                 "client":  "Klient"
+                                 "client":  "Klient",
+                                 "owner":  "Відповідальний"
                              },
                     "versionCheckOk":  "Останні версії завантажено",
                     "versionCheckFail":  "Не вдалося отримати останні версії з Mikrotik",
@@ -109,7 +110,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Zaprosyty onovlennya firmware (via central)",
                     "remoteFwAskBackup":  "Backup pered onovlennyam? [OK] = tak, [Skasuvaty] = ni",
-                    "remoteFwConfirm":  "Onovyty firmware {{ip}} u {{tenant}}? Agent zabere komandu za 2 hv i perezavantazhyt prystriy."
+                    "remoteFwConfirm":  "Onovyty firmware {{ip}} u {{tenant}}? Agent zabere komandu za 2 hv i perezavantazhyt prystriy.",
+                    "exportCsvBtn":  "Експорт CSV",
+                    "editTitle":  "Редагувати пристрій",
+                    "ownerLabel":  "Відповідальний",
+                    "ownerPlaceholder":  "напр. Іван Іваненко",
+                    "criticalityLabel":  "Критичність для бізнесу",
+                    "criticalityNone":  "— немає —",
+                    "criticalityLow":  "Низька",
+                    "criticalityMedium":  "Середня",
+                    "criticalityHigh":  "Висока",
+                    "criticalityCritical":  "Критична"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Невідома модель",
@@ -406,6 +417,18 @@
         "weekday": {
             "mon": "Понеділок", "tue": "Вівторок", "wed": "Середа", "thu": "Четвер",
             "fri": "П'ятниця", "sat": "Субота", "sun": "Неділя"
+        },
+        "supplyChainTitle": "Сканування ланцюга постачання (залежності)",
+        "supplyChainExplanation": "Щотижневе сканування залежностей бекенду (pip-audit) і фронтенду (npm audit) на відомі вразливості (CVE) у коді самого застосунку — не в мережі клієнта.",
+        "supplyChainLastRun": "Останнє сканування",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "Відомих вразливостей немає",
+        "supplyChainFindings": "{{count}} вразливостей",
+        "supplyChainRunning": "Сканування...",
+        "supplyChainRunButton": "Сканувати зараз",
+        "severity": {
+            "critical": "критичні", "high": "високі", "moderate": "середні", "low": "низькі"
         }
     },
     "centralUsers": {

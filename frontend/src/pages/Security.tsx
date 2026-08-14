@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { systemApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup, PackageSearch } from 'lucide-react'
 import { useAuth } from './Login'
 
 function formatDate(iso: string | null): string {
@@ -88,6 +89,97 @@ function BackupSection() {
         </Button>
 
         <p className="text-[11px] text-slate-400 pt-1">{t('security.backupRestoreHint')}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+const NPM_SEVERITY_BADGE: Record<string, 'gray' | 'blue' | 'yellow' | 'red'> = {
+  info: 'gray', low: 'gray', moderate: 'blue', high: 'yellow', critical: 'red',
+}
+
+function SupplyChainSection() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data } = useQuery({ queryKey: ['supply-chain-status'], queryFn: systemApi.supplyChainStatus, refetchInterval: 30_000 })
+
+  const run = useMutation({
+    mutationFn: systemApi.supplyChainRun,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['supply-chain-status'] }),
+  })
+
+  const npmSummary = data?.npm?.summary
+  const pipCount = data?.pip?.findings?.length ?? 0
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <PackageSearch size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('security.supplyChainTitle')}</h2>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('security.supplyChainExplanation')}</p>
+
+        {data && (
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-slate-500">{t('security.supplyChainLastRun')}: </span>
+              <span className="font-mono">{formatDate(data.last_run)}</span>
+            </p>
+            <p>
+              <span className="text-slate-500">{t('security.backupSchedule')}: </span>
+              <span className="font-mono">
+                {t(`security.weekday.${WEEKDAYS_KEYS[data.scan_day]}`)} {String(data.scan_hour).padStart(2, '0')}:00
+              </span>
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.supplyChainNpm')}</p>
+            {data?.npm?.ok === false ? (
+              <p className="text-xs text-red-600">{data.npm.error}</p>
+            ) : npmSummary ? (
+              <div className="flex gap-1.5 flex-wrap">
+                {(['critical', 'high', 'moderate', 'low'] as const).map(sev => (
+                  npmSummary[sev] > 0 && (
+                    <Badge key={sev} variant={NPM_SEVERITY_BADGE[sev]} className="text-[10px]">
+                      {npmSummary[sev]} {t(`security.severity.${sev}`)}
+                    </Badge>
+                  )
+                ))}
+                {npmSummary.total === 0 && <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">—</span>
+            )}
+          </div>
+          <div className="border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.supplyChainPip')}</p>
+            {data?.pip?.ok === false ? (
+              <p className="text-xs text-red-600">{data.pip.error}</p>
+            ) : data?.pip ? (
+              pipCount === 0 ? (
+                <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>
+              ) : (
+                <Badge variant="red" className="text-[10px]">{t('security.supplyChainFindings', { count: pipCount })}</Badge>
+              )
+            ) : (
+              <span className="text-xs text-slate-400">—</span>
+            )}
+          </div>
+        </div>
+
+        <Button
+          variant="secondary"
+          onClick={() => run.mutate()}
+          disabled={run.isPending || data?.in_progress}
+        >
+          {run.isPending || data?.in_progress ? t('security.supplyChainRunning') : t('security.supplyChainRunButton')}
+        </Button>
       </CardContent>
     </Card>
   )
@@ -184,6 +276,7 @@ export function Security() {
       </Card>
 
       <BackupSection />
+      <SupplyChainSection />
     </div>
   )
 }

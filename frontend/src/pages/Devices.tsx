@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig, centralApi } from '../lib/api'
+import { devicesApi, credentialsApi, systemApi, getAllTenantDevices, centralConfig, centralApi, type Device } from '../lib/api'
 import { pickUpgradeTarget, cleanVersion } from '../lib/version'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -8,10 +8,47 @@ import { Badge } from '../components/ui/Badge'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle, Download } from 'lucide-react'
+import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, RefreshCw, AlertTriangle, Download, Pencil, FileDown } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
+
+const CRITICALITY_BADGE: Record<string, 'gray' | 'blue' | 'yellow' | 'red'> = {
+  low: 'gray', medium: 'blue', high: 'yellow', critical: 'red',
+}
+
+function EditDeviceModal({ device, onClose }: { device: Device; onClose: () => void }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [owner, setOwner] = useState(device.owner ?? '')
+  const [criticality, setCriticality] = useState(device.criticality ?? '')
+
+  const save = useMutation({
+    mutationFn: () => devicesApi.update(device.id, { owner: owner || undefined, criticality: criticality || undefined }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['devices'] }); onClose() },
+  })
+
+  return (
+    <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-4">
+      <Input label={t('devices.ownerLabel')} value={owner} onChange={e => setOwner(e.target.value)} placeholder={t('devices.ownerPlaceholder') as string} />
+      <div>
+        <label className="text-xs font-medium text-slate-600 block mb-1">{t('devices.criticalityLabel')}</label>
+        <select className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900"
+          value={criticality} onChange={e => setCriticality(e.target.value)}>
+          <option value="">{t('devices.criticalityNone')}</option>
+          <option value="low">{t('devices.criticalityLow')}</option>
+          <option value="medium">{t('devices.criticalityMedium')}</option>
+          <option value="high">{t('devices.criticalityHigh')}</option>
+          <option value="critical">{t('devices.criticalityCritical')}</option>
+        </select>
+      </div>
+      <div className="flex gap-2 justify-end pt-2">
+        <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
+      </div>
+    </form>
+  )
+}
 
 function AddDeviceModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -75,6 +112,8 @@ interface UnifiedDevice {
   has_web?: boolean
   has_snmp?: boolean
   credential_id?: number
+  owner?: string | null
+  criticality?: string | null
 }
 
 export function Devices() {
@@ -112,12 +151,25 @@ export function Devices() {
   })
 
   const [addOpen, setAddOpen] = useState(false)
+  const [editDevice, setEditDevice] = useState<Device | null>(null)
   const [search, setSearch] = useState('')
   const [tenantFilter, setTenantFilter] = useState<string>('all')  // 'all' | 'local' | tenant id
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkStatuses, setBulkStatuses] = useState<Record<string, any>>({})
+
+  const exportCsv = async () => {
+    const blob = await devicesApi.exportCsv()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `asset_inventory_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   const remove = useMutation({
     mutationFn: devicesApi.delete,
@@ -179,6 +231,7 @@ export function Devices() {
       last_seen: d.last_seen,
       has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
       credential_id: d.credential_id,
+      owner: d.owner, criticality: d.criticality,
     })),
     ...tenantDevices
       .filter(d => !d.encrypted && d.ip)  // skip undecryptable tenant rows
@@ -234,6 +287,9 @@ export function Devices() {
               <Download size={16} /> {t('devices.firmwareUpgradeBtn', { count: selected.size })}
             </Button>
           )}
+          <Button variant="secondary" onClick={exportCsv}>
+            <FileDown size={16} /> {t('devices.exportCsvBtn')}
+          </Button>
           <Button variant="primary" onClick={() => setAddOpen(true)}>
             <Plus size={16} /> {t('common.addManual')}
           </Button>
@@ -333,6 +389,7 @@ export function Devices() {
                 <th className="px-5 py-3 text-left">{t('devices.cols.model')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.ros')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.capabilities')}</th>
+                <th className="px-5 py-3 text-left">{t('devices.cols.owner')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.status')}</th>
                 <th className="px-5 py-3 text-left">{t('devices.cols.lastSeen')}</th>
                 <th className="px-5 py-3" />
@@ -412,12 +469,25 @@ export function Devices() {
                     </div>
                   </td>
                   <td className="px-5 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-700 text-xs">{d.owner || '—'}</span>
+                      {d.criticality && (
+                        <Badge variant={CRITICALITY_BADGE[d.criticality] ?? 'gray'} className="text-[10px]">
+                          {t(`devices.criticality${d.criticality.charAt(0).toUpperCase()}${d.criticality.slice(1)}`)}
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
                     <Badge variant={d.online ? 'green' : 'red'}>{d.online ? t('common.online') : t('common.offline')}</Badge>
                   </td>
                   <td className="px-5 py-3 text-slate-500 text-xs">{formatDate(d.last_seen)}</td>
                   <td className="px-5 py-3">
                     {isLocal ? (
                       <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditDevice(localDevices.find(ld => ld.id === d.raw_id) ?? null)}>
+                          <Pencil size={13} />
+                        </Button>
                         <Link to={detailPath}>
                           <Button size="sm" variant="ghost"><ExternalLink size={13} /></Button>
                         </Link>
@@ -468,6 +538,10 @@ export function Devices() {
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title={t('devices.addTitle')}>
         <AddDeviceModal onClose={() => setAddOpen(false)} />
+      </Modal>
+
+      <Modal open={!!editDevice} onClose={() => setEditDevice(null)} title={t('devices.editTitle')}>
+        {editDevice && <EditDeviceModal device={editDevice} onClose={() => setEditDevice(null)} />}
       </Modal>
 
       <Modal

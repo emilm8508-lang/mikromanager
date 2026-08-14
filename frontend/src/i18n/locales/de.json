@@ -89,7 +89,8 @@
                                  "credentials":  "Zugangsdaten",
                                  "status":  "Status",
                                  "lastSeen":  "Zuletzt gesehen",
-                                 "client":  "Kunde"
+                                 "client":  "Kunde",
+                                 "owner":  "Verantwortlich"
                              },
                     "versionCheckOk":  "Neueste Versionen geladen",
                     "versionCheckFail":  "Aktuelle Versionen konnten nicht abgerufen werden",
@@ -109,7 +110,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Firmware-Update dieses Geraets anfordern (via Zentrale)",
                     "remoteFwAskBackup":  "Backup vor dem Update? [OK] = ja, [Abbrechen] = nein",
-                    "remoteFwConfirm":  "Firmware auf {{ip}} bei Kunde {{tenant}} aktualisieren? Der Agent uebernimmt in max. 2 min und startet das Geraet neu."
+                    "remoteFwConfirm":  "Firmware auf {{ip}} bei Kunde {{tenant}} aktualisieren? Der Agent uebernimmt in max. 2 min und startet das Geraet neu.",
+                    "exportCsvBtn":  "CSV exportieren",
+                    "editTitle":  "Gerät bearbeiten",
+                    "ownerLabel":  "Verantwortliche Person",
+                    "ownerPlaceholder":  "z.B. Max Mustermann",
+                    "criticalityLabel":  "Geschäftskritikalität",
+                    "criticalityNone":  "— keine —",
+                    "criticalityLow":  "Niedrig",
+                    "criticalityMedium":  "Mittel",
+                    "criticalityHigh":  "Hoch",
+                    "criticalityCritical":  "Kritisch"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unbekanntes Modell",
@@ -406,6 +417,18 @@
         "weekday": {
             "mon": "Montag", "tue": "Dienstag", "wed": "Mittwoch", "thu": "Donnerstag",
             "fri": "Freitag", "sat": "Samstag", "sun": "Sonntag"
+        },
+        "supplyChainTitle": "Lieferketten-Scan (Abhängigkeiten)",
+        "supplyChainExplanation": "Wöchentlicher Scan der Backend- (pip-audit) und Frontend-Abhängigkeiten (npm audit) auf bekannte Schwachstellen (CVEs) im eigenen Code der Anwendung — nicht im Netzwerk des Kunden.",
+        "supplyChainLastRun": "Letzter Scan",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "Keine bekannten Schwachstellen",
+        "supplyChainFindings": "{{count}} Schwachstellen",
+        "supplyChainRunning": "Scanne...",
+        "supplyChainRunButton": "Jetzt scannen",
+        "severity": {
+            "critical": "kritisch", "high": "hoch", "moderate": "mittel", "low": "niedrig"
         }
     },
     "centralUsers": {

@@ -89,7 +89,8 @@
                                  "credentials":  "Credentials",
                                  "status":  "Status",
                                  "lastSeen":  "Last seen",
-                                 "client":  "Client"
+                                 "client":  "Client",
+                                 "owner":  "Owner"
                              },
                     "versionCheckOk":  "Latest versions loaded",
                     "versionCheckFail":  "Failed to fetch latest versions from Mikrotik",
@@ -109,7 +110,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Request firmware upgrade of this device (via central)",
                     "remoteFwAskBackup":  "Backup before upgrade? [OK] = yes, [Cancel] = no",
-                    "remoteFwConfirm":  "Upgrade firmware of device {{ip}} at customer {{tenant}}? The agent will pick up the command within 2 min and reboot the device."
+                    "remoteFwConfirm":  "Upgrade firmware of device {{ip}} at customer {{tenant}}? The agent will pick up the command within 2 min and reboot the device.",
+                    "exportCsvBtn":  "Export CSV",
+                    "editTitle":  "Edit device",
+                    "ownerLabel":  "Owner / responsible person",
+                    "ownerPlaceholder":  "e.g. John Smith",
+                    "criticalityLabel":  "Business criticality",
+                    "criticalityNone":  "— none —",
+                    "criticalityLow":  "Low",
+                    "criticalityMedium":  "Medium",
+                    "criticalityHigh":  "High",
+                    "criticalityCritical":  "Critical"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unknown model",
@@ -406,6 +417,18 @@
         "weekday": {
             "mon": "Monday", "tue": "Tuesday", "wed": "Wednesday", "thu": "Thursday",
             "fri": "Friday", "sat": "Saturday", "sun": "Sunday"
+        },
+        "supplyChainTitle": "Supply-chain scan (dependencies)",
+        "supplyChainExplanation": "Weekly scan of backend (pip-audit) and frontend (npm audit) dependencies for known vulnerabilities (CVEs) in the application's own code — not the client's network.",
+        "supplyChainLastRun": "Last scan",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "No known vulnerabilities",
+        "supplyChainFindings": "{{count}} vulnerabilities",
+        "supplyChainRunning": "Scanning...",
+        "supplyChainRunButton": "Scan now",
+        "severity": {
+            "critical": "critical", "high": "high", "moderate": "moderate", "low": "low"
         }
     },
     "centralUsers": {

@@ -103,6 +103,21 @@ async def post_rotate_key(session: dict = Depends(require_login)):
     return {"ok": True, **result}
 
 
+@router.get("/supply-chain/status")
+async def get_supply_chain_status():
+    from services import supply_chain
+    return supply_chain.status()
+
+
+@router.post("/supply-chain/run")
+async def post_supply_chain_run(session: dict = Depends(require_login)):
+    """Admin-only, manual trigger — mirrors /backup/run's shape."""
+    if session.get("role") != "admin":
+        raise HTTPException(403, "admin role required")
+    from services import supply_chain
+    return await supply_chain.run_scan()
+
+
 @router.get("/versions/status")
 async def get_version_status():
     """For every device — returns its current version and upgrade recommendation."""

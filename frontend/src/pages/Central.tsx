@@ -808,6 +808,28 @@ function KeyBackupPanel() {
           onClick={e => (e.target as HTMLTextAreaElement).select()}
           className="w-full h-40 font-mono text-xs bg-slate-100 border border-slate-200 rounded-lg p-2"
         />
+        <div className="flex justify-end mt-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              // Purely client-side: localStorage -> file. No network call,
+              // nothing sent anywhere — the browser's own download, same
+              // trust boundary as the "Eksportuj klucze" text already had.
+              const blob = new Blob([centralConfig.exportTenantKeys()], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `mikromanager-e2e-keys-${new Date().toISOString().slice(0, 10)}.json`
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            }}
+          >
+            <Download size={12} /> {t('central.exportKeysDownload')}
+          </Button>
+        </div>
       </Modal>
 
       <Modal open={mode === 'import'} onClose={close} title={t('central.importKeys') as string}>

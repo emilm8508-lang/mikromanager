@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from pydantic import BaseModel
 from typing import Optional, List, Callable, Awaitable
 from datetime import datetime
 import asyncio
+import csv
+import io
 import aiohttp
 from models.database import Device, Credential, get_db
 from services.crypto import decrypt
@@ -28,6 +31,8 @@ class DeviceUpdate(BaseModel):
     notes: Optional[str] = None
     x_pos: Optional[float] = None
     y_pos: Optional[float] = None
+    owner: Optional[str] = None
+    criticality: Optional[str] = None
 
 
 class DeviceOut(BaseModel):
@@ -54,6 +59,8 @@ class DeviceOut(BaseModel):
     notes: Optional[str]
     x_pos: float
     y_pos: float
+    owner: Optional[str] = None
+    criticality: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -71,6 +78,55 @@ async def add_device(data: DeviceCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(device)
     return device
+
+
+def _csv_safe(value) -> str:
+    """Same OWASP CSV/formula-injection mitigation as vuln_scan.py's
+    _csv_safe — owner/notes are free-text user input, so a value starting
+    with =, +, -, @, tab, or CR gets neutralized before it can be
+    interpreted as a formula by Excel/Sheets."""
+    s = "" if value is None else str(value)
+    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + s
+    return s
+
+
+@router.get("/export")
+async def export_devices(db: Session = Depends(get_db)):
+    """CSV asset inventory export (ISO 27001 A.5.9) — one row per device
+    with owner/criticality plus compliance status, reusing the same
+    per-device classification as the firmware compliance report so the two
+    views never disagree about what "compliant" means.
+
+    Registered ABOVE /{device_id} so "export" is never swallowed as a
+    (non-integer) device_id path parameter."""
+    from services import firmware_status, versions as ver_svc
+
+    devices = db.execute(select(Device)).scalars().all()
+    latest = await ver_svc.fetch_latest()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "ip", "name", "identity", "model", "vendor", "owner", "criticality",
+        "ros_version", "ros_compliance_status", "ros_source",
+        "credential_assigned", "online", "last_seen",
+    ])
+    for d in devices:
+        cls = firmware_status._classify_device(d, latest)
+        writer.writerow([_csv_safe(v) for v in (
+            d.ip, d.name or "", d.identity or "", d.model or "", d.vendor or "",
+            d.owner or "", d.criticality or "",
+            d.ros_version or "", cls["ros_status"], cls["ros_source"],
+            bool(d.credential_id), d.online,
+            d.last_seen.isoformat() if d.last_seen else "",
+        )])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=asset_inventory.csv"},
+    )
 
 
 @router.get("/{device_id}", response_model=DeviceOut)

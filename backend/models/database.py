@@ -58,6 +58,11 @@ class Device(Base):
     # topology
     x_pos = Column(Float, default=0.0)
     y_pos = Column(Float, default=0.0)
+    # Asset inventory (ISO 27001 A.5.9 — inventory of assets): free-text
+    # owner/responsible person, and a business-impact rating independent of
+    # any technical severity computed elsewhere in the app.
+    owner = Column(String, nullable=True)
+    criticality = Column(String, nullable=True)  # 'low' | 'medium' | 'high' | 'critical', free-text (no DB-level enum)
 
     credential = relationship("Credential", back_populates="devices")
 
@@ -291,6 +296,10 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN latest_ros_version TEXT"))
             if "ros_update_status" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN ros_update_status TEXT"))
+            if "owner" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN owner TEXT"))
+            if "criticality" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN criticality VARCHAR(32)"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

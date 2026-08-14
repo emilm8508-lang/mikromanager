@@ -14,3 +14,4 @@ qrcode>=7.4.2
 pywinrm>=0.4.3
 vulners>=4.0.0
 nvdlib>=0.8.3
+pip-audit>=2.7.3

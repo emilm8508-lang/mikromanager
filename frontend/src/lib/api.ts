@@ -101,6 +101,8 @@ export interface Device {
   notes?: string
   x_pos: number
   y_pos: number
+  owner?: string | null
+  criticality?: string | null  // 'low' | 'medium' | 'high' | 'critical'
 }
 
 export interface ScanRange {
@@ -137,6 +139,7 @@ export const devicesApi = {
   create: (data: Partial<Device>) => api.post<Device>('/devices', data).then(r => r.data),
   update: (id: number, data: Partial<Device>) => api.put<Device>(`/devices/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/devices/${id}`),
+  exportCsv: () => api.get('/devices/export', { responseType: 'blob' }).then(r => r.data as Blob),
   interfaces: (id: number) => api.get(`/devices/${id}/interfaces`).then(r => r.data),
   addresses: (id: number) => api.get(`/devices/${id}/addresses`).then(r => r.data),
   routes: (id: number) => api.get(`/devices/${id}/routes`).then(r => r.data),
@@ -292,6 +295,51 @@ export const systemApi = {
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
   backupStatus: () => api.get<AgentBackupStatus>('/system/backup/status').then(r => r.data),
   backupRun: () => api.post<{ ok: boolean; error: string | null; size_bytes: number | null }>('/system/backup/run').then(r => r.data),
+  supplyChainStatus: () => api.get<SupplyChainStatus>('/system/supply-chain/status').then(r => r.data),
+  supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
+}
+
+export interface SupplyChainPipFinding {
+  package: string
+  version: string
+  id: string
+  aliases: string[]
+  fix_versions: string[]
+}
+
+export interface SupplyChainPipResult {
+  ok: boolean
+  error: string | null
+  findings: SupplyChainPipFinding[]
+  skipped: { name: string; reason: string }[]
+}
+
+export interface SupplyChainNpmFinding {
+  package: string
+  severity: string | null
+  title: string | null
+  url: string | null
+  range: string | null
+  is_direct: boolean | null
+  fix_available: boolean
+}
+
+export interface SupplyChainNpmResult {
+  ok: boolean
+  error: string | null
+  findings: SupplyChainNpmFinding[]
+  summary: { info: number; low: number; moderate: number; high: number; critical: number; total: number } | null
+}
+
+export interface SupplyChainStatus {
+  last_run: string | null
+  last_error: string | null
+  in_progress: boolean
+  pip: SupplyChainPipResult
+  npm: SupplyChainNpmResult
+  scan_day: number
+  scan_hour: number
+  next_run_estimated: number
 }
 
 export interface AgentBackupStatus {

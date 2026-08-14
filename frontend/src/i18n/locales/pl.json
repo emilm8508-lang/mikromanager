@@ -91,7 +91,8 @@
                                  "credentials":  "Poświadczenia",
                                  "status":  "Status",
                                  "lastSeen":  "Ostatnio widziano",
-                                 "client":  "Klient"
+                                 "client":  "Klient",
+                                 "owner":  "Właściciel"
                              },
                     "versionCheckOk":  "Wersje pobrane",
                     "versionCheckFail":  "Nie udało się pobrać aktualnych wersji z Mikrotika",
@@ -111,7 +112,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Wymus aktualizacje firmware tego urzadzenia (via central)",
                     "remoteFwAskBackup":  "Zrobic backup przed upgrade? [OK] = tak, [Anuluj] = nie",
-                    "remoteFwConfirm":  "Aktualizowac firmware urzadzenia {{ip}} u klienta {{tenant}}? Agent klienta odbierze komende w ciagu 2 min i zrestartuje urzadzenie."
+                    "remoteFwConfirm":  "Aktualizowac firmware urzadzenia {{ip}} u klienta {{tenant}}? Agent klienta odbierze komende w ciagu 2 min i zrestartuje urzadzenie.",
+                    "exportCsvBtn":  "Eksportuj CSV",
+                    "editTitle":  "Edytuj urządzenie",
+                    "ownerLabel":  "Właściciel / opiekun",
+                    "ownerPlaceholder":  "np. Jan Kowalski",
+                    "criticalityLabel":  "Krytyczność biznesowa",
+                    "criticalityNone":  "— brak —",
+                    "criticalityLow":  "Niska",
+                    "criticalityMedium":  "Średnia",
+                    "criticalityHigh":  "Wysoka",
+                    "criticalityCritical":  "Krytyczna"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Nieznany model",
@@ -302,6 +313,7 @@
                     "exportKeys": "Eksportuj klucze",
                     "importKeys": "Importuj klucze",
                     "exportKeysHint": "Skopiuj poniższy tekst i wklej go w oknie importu na innej przeglądarce/urządzeniu. Klucze nigdy nie są wysyłane na żaden serwer — to czysto lokalna kopia.",
+                    "exportKeysDownload": "Pobierz jako plik",
                     "importKeysHint": "Wklej tekst wyeksportowany z innej przeglądarki/urządzenia.",
                     "importKeysBtn": "Importuj",
                     "keysImported": "Zaimportowano {{count}} kluczy."
@@ -485,6 +497,18 @@
         "weekday": {
             "mon": "Poniedziałek", "tue": "Wtorek", "wed": "Środa", "thu": "Czwartek",
             "fri": "Piątek", "sat": "Sobota", "sun": "Niedziela"
+        },
+        "supplyChainTitle": "Skan łańcucha dostaw (zależności)",
+        "supplyChainExplanation": "Cotygodniowy skan zależności backendu (pip-audit) i frontendu (npm audit) pod kątem znanych podatności (CVE) w kodzie samej aplikacji — nie w sieci klienta.",
+        "supplyChainLastRun": "Ostatni skan",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "Brak znanych podatności",
+        "supplyChainFindings": "{{count}} podatności",
+        "supplyChainRunning": "Skanowanie...",
+        "supplyChainRunButton": "Skanuj teraz",
+        "severity": {
+            "critical": "krytyczne", "high": "wysokie", "moderate": "średnie", "low": "niskie"
         }
     },
     "centralUsers": {

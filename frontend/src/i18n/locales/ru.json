@@ -89,7 +89,8 @@
                                  "credentials":  "Учётные данные",
                                  "status":  "Статус",
                                  "lastSeen":  "Последний раз",
-                                 "client":  "Klient"
+                                 "client":  "Klient",
+                                 "owner":  "Ответственный"
                              },
                     "versionCheckOk":  "Последние версии загружены",
                     "versionCheckFail":  "Не удалось получить последние версии с Mikrotik",
@@ -109,7 +110,17 @@
                     "remoteFwBtn":  "Firmware",
                     "remoteFwTooltip":  "Zaprosit obnovlenie firmware (via central)",
                     "remoteFwAskBackup":  "Backup pered obnovleniem? [OK] = da, [Otmena] = net",
-                    "remoteFwConfirm":  "Obnovit firmware {{ip}} u {{tenant}}? Agent zaberet komandu za 2 min i perezagruzit ustroystvo."
+                    "remoteFwConfirm":  "Obnovit firmware {{ip}} u {{tenant}}? Agent zaberet komandu za 2 min i perezagruzit ustroystvo.",
+                    "exportCsvBtn":  "Экспорт CSV",
+                    "editTitle":  "Изменить устройство",
+                    "ownerLabel":  "Ответственный",
+                    "ownerPlaceholder":  "напр. Иван Иванов",
+                    "criticalityLabel":  "Критичность для бизнеса",
+                    "criticalityNone":  "— нет —",
+                    "criticalityLow":  "Низкая",
+                    "criticalityMedium":  "Средняя",
+                    "criticalityHigh":  "Высокая",
+                    "criticalityCritical":  "Критическая"
                 },
     "deviceDetail":  {
                          "unknownModel":  "Неизвестная модель",
@@ -406,6 +417,18 @@
         "weekday": {
             "mon": "Понедельник", "tue": "Вторник", "wed": "Среда", "thu": "Четверг",
             "fri": "Пятница", "sat": "Суббота", "sun": "Воскресенье"
+        },
+        "supplyChainTitle": "Сканирование цепочки поставок (зависимости)",
+        "supplyChainExplanation": "Еженедельное сканирование зависимостей бэкенда (pip-audit) и фронтенда (npm audit) на известные уязвимости (CVE) в коде самого приложения — не в сети клиента.",
+        "supplyChainLastRun": "Последнее сканирование",
+        "supplyChainNpm": "Frontend (npm)",
+        "supplyChainPip": "Backend (pip)",
+        "supplyChainClean": "Известных уязвимостей нет",
+        "supplyChainFindings": "{{count}} уязвимостей",
+        "supplyChainRunning": "Сканирование...",
+        "supplyChainRunButton": "Сканировать сейчас",
+        "severity": {
+            "critical": "критические", "high": "высокие", "moderate": "средние", "low": "низкие"
         }
     },
     "centralUsers": {
