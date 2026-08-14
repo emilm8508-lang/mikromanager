@@ -21,6 +21,7 @@ import io
 import json
 import os
 import secrets
+import shutil
 import tarfile
 import time
 from datetime import datetime, timedelta
@@ -113,6 +114,69 @@ def decrypt_archive(envelope: dict, enc_key_b64: str) -> bytes:
     nonce = base64.b64decode(envelope["nonce"])
     ct = base64.b64decode(envelope["ciphertext"])
     return AESGCM(key).decrypt(nonce, ct, None)
+
+
+# ── In-app restore (upload + one click, api/system.py's POST /backup/restore) ──
+#
+# The actual data/ swap can NEVER happen while THIS process is still serving
+# requests: on Windows especially, mikrotik.db is held open by the live
+# SQLAlchemy connection pool, so overwriting it here would either fail
+# outright or corrupt a database another request is mid-query on. Instead the
+# validated, decrypted archive is staged to disk and applied at the very
+# start of the NEXT process — main.py's lifespan() calls
+# apply_staged_restore_if_present() before init_db() ever opens the file, so
+# there is no live handle to fight with. The API handler that calls
+# stage_restore() is responsible for scheduling this process's exit
+# afterwards (same self-restart-for-supervisor pattern as services/updater.py).
+RESTORE_STAGE_PATH = os.path.join(_DATA_DIR, ".pending_restore.tar.gz")
+
+
+def stage_restore(archive_bytes: bytes) -> None:
+    """Validates the decrypted archive actually looks like a backup, then
+    stages it. Raises ValueError if it doesn't contain mikrotik.db — same
+    check as restore_backup.py's CLI path, applied here too since an
+    uploaded file could be anything."""
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tar:
+        if "mikrotik.db" not in tar.getnames():
+            raise ValueError("archive does not contain mikrotik.db — this doesn't look like a valid backup")
+    tmp = RESTORE_STAGE_PATH + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(archive_bytes)
+    os.replace(tmp, RESTORE_STAGE_PATH)
+
+
+def apply_staged_restore_if_present() -> Optional[str]:
+    """Called once at process start, before init_db(). Returns None if there
+    was nothing to do, or a short status string to log otherwise. Fail-safe:
+    any error here removes the staged file and leaves existing data/
+    untouched rather than risking a half-applied restore."""
+    if not os.path.isfile(RESTORE_STAGE_PATH):
+        return None
+    try:
+        with open(RESTORE_STAGE_PATH, "rb") as f:
+            archive_bytes = f.read()
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tar:
+            members = tar.getnames()
+            if "mikrotik.db" not in members:
+                raise ValueError("staged archive missing mikrotik.db")
+            if os.path.isdir(_DATA_DIR) and os.listdir(_DATA_DIR):
+                aside = f"{_DATA_DIR}.bak.{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+                # Moves the staging file itself along with everything else —
+                # it's gone from RESTORE_STAGE_PATH afterwards either way, so
+                # this can't re-trigger on a future boot.
+                shutil.move(_DATA_DIR, aside)
+            os.makedirs(_DATA_DIR, exist_ok=True)
+            try:
+                tar.extractall(_DATA_DIR, filter="data")  # PEP 706, Python 3.12+
+            except TypeError:
+                tar.extractall(_DATA_DIR)
+        return f"restored {len(members)} file(s)"
+    except Exception as e:
+        try:
+            os.remove(RESTORE_STAGE_PATH)
+        except OSError:
+            pass
+        return f"error: {e}"
 
 
 async def create_and_upload_backup() -> dict:

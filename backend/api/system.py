@@ -3,9 +3,10 @@ System endpoints — refresher status, manual trigger, topology, version checks,
 critical-logs aggregator.
 """
 import asyncio
+import json
 import os
 import time
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from services import refresher
 from services import topology as topo_svc
 from services import versions as ver_svc
@@ -90,6 +91,54 @@ async def post_backup_run(session: dict = Depends(require_login)):
         raise HTTPException(403, "admin role required")
     from services import agent_backup
     return await agent_backup.create_and_upload_backup()
+
+
+@router.post("/backup/restore")
+async def post_backup_restore(
+    session: dict = Depends(require_login),
+    file: UploadFile = File(...),
+    enc_key: str = Form(""),
+    confirm: bool = Form(False),
+):
+    """Admin-only, in-app restore: upload a backup file downloaded from
+    Centralny → Backupy, decrypt it, and — if it checks out — schedule this
+    process to exit so the supervisor relaunches it; the actual data/ swap
+    happens at the START of that next process (see main.py's lifespan),
+    never while this one is still serving requests. confirm=true is required
+    explicitly (separate from the multipart file itself) since this
+    overwrites the agent's entire local database on restart."""
+    if session.get("role") != "admin":
+        raise HTTPException(403, "admin role required")
+    if not confirm:
+        raise HTTPException(400, "confirm=true required — this will overwrite local data on restart")
+
+    key = enc_key.strip() or uplink_svc.get_enc_key()
+    if not key:
+        raise HTTPException(400, "no enc_key provided and none configured on this agent")
+
+    raw = await file.read()
+    if len(raw) > 50 * 1024 * 1024:
+        raise HTTPException(413, "backup file too large (max 50MB)")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "not a valid backup file (invalid JSON)")
+    envelope = data.get("envelope") if isinstance(data, dict) and "envelope" in data else data
+
+    from services import agent_backup
+    try:
+        archive_bytes = agent_backup.decrypt_archive(envelope, key)
+    except Exception as e:
+        raise HTTPException(400, f"could not decrypt backup — wrong key, or corrupted/wrong file? ({type(e).__name__}: {e})")
+    try:
+        agent_backup.stage_restore(archive_bytes)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    # Give the HTTP response time to flush before the process exits — same
+    # pattern as services/updater.py's self-update.
+    asyncio.get_event_loop().call_later(3.0, lambda: os._exit(0))
+    return {"ok": True, "staged": True, "restarting": True}
 
 
 @router.post("/crypto/rotate-key")

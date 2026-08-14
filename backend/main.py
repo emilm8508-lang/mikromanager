@@ -33,6 +33,12 @@ from services import audit as audit_svc
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Apply any in-app-triggered restore (api/system.py's POST /backup/restore)
+    # BEFORE init_db() ever opens data/mikrotik.db — see agent_backup.py's
+    # apply_staged_restore_if_present() docstring for why this ordering matters.
+    restore_result = agent_backup.apply_staged_restore_if_present()
+    if restore_result:
+        print(f"[startup] backup restore: {restore_result}")
     init_db()
     refresher.start()
     uplink.start()

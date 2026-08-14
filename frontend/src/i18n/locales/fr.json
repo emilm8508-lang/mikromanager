@@ -414,6 +414,18 @@
         "backupRunning": "Envoi en cours...",
         "backupRunButton": "Lancer la sauvegarde maintenant",
         "backupRestoreHint": "Pour restaurer : téléchargez une sauvegarde depuis la vue « Central » → bouton « Sauvegardes » à côté du client, puis exécutez backend/scripts/restore_backup.py <fichier> <enc_key>.",
+        "restoreTitle": "Restaurer depuis une sauvegarde",
+        "restoreExplanation": "Téléversez un fichier de sauvegarde téléchargé depuis la vue « Central » (bouton « Sauvegardes ») et indiquez la clé E2E utilisée pour le chiffrer — l'agent reconstruira sa base de données, ses identifiants et sa configuration à partir de celui-ci, puis redémarrera automatiquement.",
+        "restoreCliHint": "Si l'agent ne démarre pas du tout (disque mort, nouvelle installation) — cet écran ne peut pas aider, car il n'y a rien où se connecter. Dans ce cas, utilisez backend/scripts/restore_backup.py <fichier> <enc_key> avant de lancer l'application.",
+        "restoreFileLabel": "Fichier de sauvegarde (.json)",
+        "restoreEncKeyLabel": "Clé de chiffrement E2E",
+        "restoreEncKeyPrefilled": "(clé configurée détectée — laissez vide pour l'utiliser)",
+        "restoreButton": "Restaurer depuis le fichier",
+        "restoreConfirm": "Cela écrasera TOUTE la base de données locale et la configuration de l'agent avec les données de la sauvegarde, puis redémarrera l'application. Les données actuelles sont mises de côté (non supprimées), mais l'opération est autrement irréversible sans intervention manuelle — continuer ?",
+        "restoreConfirmButton": "Oui, restaurer et redémarrer",
+        "restoring": "Téléversement et déchiffrement...",
+        "restoreStagedSuccess": "Sauvegarde vérifiée et préparée — l'agent redémarre maintenant. Actualisez la page dans un instant.",
+        "restoreFailed": "Échec de la restauration — vérifiez le fichier et la clé.",
         "weekday": {
             "mon": "Lundi", "tue": "Mardi", "wed": "Mercredi", "thu": "Jeudi",
             "fri": "Vendredi", "sat": "Samedi", "sun": "Dimanche"

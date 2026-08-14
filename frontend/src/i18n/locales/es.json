@@ -414,6 +414,18 @@
         "backupRunning": "Subiendo...",
         "backupRunButton": "Ejecutar copia de seguridad ahora",
         "backupRestoreHint": "Para restaurar: descargue una copia desde la vista «Central» → botón «Copias» junto al cliente, luego ejecute backend/scripts/restore_backup.py <archivo> <enc_key>.",
+        "restoreTitle": "Restaurar desde copia de seguridad",
+        "restoreExplanation": "Suba un archivo de copia de seguridad descargado desde la vista «Central» (botón «Copias») e indique la clave E2E con la que se cifró — el agente reconstruirá su base de datos, credenciales y configuración a partir de ella, y luego se reiniciará automáticamente.",
+        "restoreCliHint": "Si el agente no arranca en absoluto (disco muerto, instalación nueva) — esta pantalla no ayuda, porque no hay nada en lo que iniciar sesión. En ese caso use backend/scripts/restore_backup.py <archivo> <enc_key> antes de iniciar la aplicación.",
+        "restoreFileLabel": "Archivo de copia de seguridad (.json)",
+        "restoreEncKeyLabel": "Clave de cifrado E2E",
+        "restoreEncKeyPrefilled": "(clave configurada detectada — déjelo en blanco para usarla)",
+        "restoreButton": "Restaurar desde archivo",
+        "restoreConfirm": "Esto sobrescribirá TODA la base de datos local y la configuración del agente con los datos de la copia, y luego reiniciará la aplicación. Los datos actuales se apartan (no se eliminan), pero la operación es irreversible sin intervención manual — ¿continuar?",
+        "restoreConfirmButton": "Sí, restaurar y reiniciar",
+        "restoring": "Subiendo y descifrando...",
+        "restoreStagedSuccess": "Copia verificada y preparada — el agente se está reiniciando. Actualice la página en un momento.",
+        "restoreFailed": "La restauración falló — verifique el archivo y la clave.",
         "weekday": {
             "mon": "Lunes", "tue": "Martes", "wed": "Miércoles", "thu": "Jueves",
             "fri": "Viernes", "sat": "Sábado", "sun": "Domingo"

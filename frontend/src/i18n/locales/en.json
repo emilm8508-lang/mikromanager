@@ -414,6 +414,18 @@
         "backupRunning": "Uploading...",
         "backupRunButton": "Run backup now",
         "backupRestoreHint": "To restore: download a backup from the \"Central\" view → \"Backups\" button next to the client, then run backend/scripts/restore_backup.py <file> <enc_key>.",
+        "restoreTitle": "Restore from backup",
+        "restoreExplanation": "Upload a backup file downloaded from the \"Central\" view (\"Backups\" button) and provide the E2E key it was encrypted with — the agent will rebuild its database, credentials, and config from it, then restart automatically.",
+        "restoreCliHint": "If the agent won't start at all (dead disk, fresh install) — this screen can't help, since there's nothing to log into. In that case use backend/scripts/restore_backup.py <file> <enc_key> before launching the app.",
+        "restoreFileLabel": "Backup file (.json)",
+        "restoreEncKeyLabel": "E2E encryption key",
+        "restoreEncKeyPrefilled": "(configured key detected — leave blank to use it)",
+        "restoreButton": "Restore from file",
+        "restoreConfirm": "This will overwrite the ENTIRE local database and agent config with the backup's data, then restart the app. Current data is moved aside (not deleted), but this is otherwise irreversible without manual intervention — continue?",
+        "restoreConfirmButton": "Yes, restore and restart",
+        "restoring": "Uploading and decrypting...",
+        "restoreStagedSuccess": "Backup verified and staged — the agent is restarting now. Refresh the page shortly.",
+        "restoreFailed": "Restore failed — check the file and key.",
         "weekday": {
             "mon": "Monday", "tue": "Tuesday", "wed": "Wednesday", "thu": "Thursday",
             "fri": "Friday", "sat": "Saturday", "sun": "Sunday"

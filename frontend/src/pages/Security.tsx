@@ -5,7 +5,7 @@ import { systemApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup, PackageSearch } from 'lucide-react'
+import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup, PackageSearch, UploadCloud } from 'lucide-react'
 import { useAuth } from './Login'
 
 function formatDate(iso: string | null): string {
@@ -87,8 +87,103 @@ function BackupSection() {
         >
           {runBackup.isPending || data?.in_progress ? t('security.backupRunning') : t('security.backupRunButton')}
         </Button>
+      </CardContent>
+    </Card>
+  )
+}
 
-        <p className="text-[11px] text-slate-400 pt-1">{t('security.backupRestoreHint')}</p>
+function RestoreSection() {
+  const { t } = useTranslation()
+  const [file, setFile] = useState<File | null>(null)
+  const [encKey, setEncKey] = useState('')
+  const [confirming, setConfirming] = useState(false)
+
+  const { data: encKeyData } = useQuery({
+    queryKey: ['uplink-enc-key'],
+    queryFn: systemApi.uplinkGetEncKey,
+    retry: false,
+  })
+
+  const restore = useMutation({
+    mutationFn: () => {
+      if (!file) throw new Error('no file')
+      return systemApi.backupRestore(file, encKey || encKeyData?.enc_key || '')
+    },
+  })
+
+  const effectiveKey = encKey || encKeyData?.enc_key || ''
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <UploadCloud size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('security.restoreTitle')}</h2>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('security.restoreExplanation')}</p>
+        <p className="text-[11px] text-slate-400">{t('security.restoreCliHint')}</p>
+
+        {restore.isSuccess && (
+          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+            {t('security.restoreStagedSuccess')}
+          </p>
+        )}
+        {restore.isError && (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {(restore.error as any)?.response?.data?.detail || t('security.restoreFailed')}
+          </p>
+        )}
+
+        {!restore.isSuccess && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">{t('security.restoreFileLabel')}</label>
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">{t('security.restoreEncKeyLabel')}</label>
+              <input
+                type="text"
+                value={encKey}
+                onChange={e => setEncKey(e.target.value)}
+                placeholder={encKeyData?.enc_key ? t('security.restoreEncKeyPrefilled') as string : ''}
+                className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-900"
+              />
+            </div>
+
+            {!confirming ? (
+              <Button
+                variant="secondary"
+                disabled={!file || !effectiveKey}
+                onClick={() => setConfirming(true)}
+              >
+                {t('security.restoreButton')}
+              </Button>
+            ) : (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 space-y-2">
+                <p className="text-xs text-amber-800 flex items-start gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  {t('security.restoreConfirm')}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="primary" onClick={() => restore.mutate()} disabled={restore.isPending}>
+                    {restore.isPending ? t('security.restoring') : t('security.restoreConfirmButton')}
+                  </Button>
+                  <Button variant="secondary" onClick={() => setConfirming(false)} disabled={restore.isPending}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -276,6 +371,7 @@ export function Security() {
       </Card>
 
       <BackupSection />
+      <RestoreSection />
       <SupplyChainSection />
     </div>
   )

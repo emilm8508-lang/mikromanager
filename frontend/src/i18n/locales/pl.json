@@ -494,6 +494,18 @@
         "backupRunning": "Wysyłanie...",
         "backupRunButton": "Wykonaj backup teraz",
         "backupRestoreHint": "Odtwarzanie: pobierz backup w widoku „Centralny” → przycisk „Backupy” przy kliencie, następnie backend/scripts/restore_backup.py <plik> <klucz_enc>.",
+        "restoreTitle": "Przywróć z backupu",
+        "restoreExplanation": "Wgraj plik backupu pobrany w widoku „Centralny” (przycisk „Backupy”) i podaj klucz E2E, którym został zaszyfrowany — agent odtworzy z niego bazę, poświadczenia i konfigurację, po czym automatycznie się zrestartuje.",
+        "restoreCliHint": "Jeśli agent w ogóle nie startuje (padły dysk, świeża instalacja) — ten ekran nie pomoże, bo nie ma do czego się zalogować. W tej sytuacji użyj backend/scripts/restore_backup.py <plik> <klucz_enc> zanim uruchomisz aplikację.",
+        "restoreFileLabel": "Plik backupu (.json)",
+        "restoreEncKeyLabel": "Klucz szyfrowania E2E",
+        "restoreEncKeyPrefilled": "(wykryto skonfigurowany klucz — zostaw puste, by go użyć)",
+        "restoreButton": "Przywróć z pliku",
+        "restoreConfirm": "To nadpisze CAŁĄ lokalną bazę i konfigurację agenta danymi z backupu, a następnie zrestartuje aplikację. Obecne dane zostaną przeniesione na bok (nie skasowane), ale operacja jest w pełni nieodwracalna bez ręcznej interwencji — kontynuować?",
+        "restoreConfirmButton": "Tak, przywróć i zrestartuj",
+        "restoring": "Wgrywanie i deszyfrowanie...",
+        "restoreStagedSuccess": "Backup zweryfikowany i zapisany do zastosowania — agent restartuje się teraz. Odśwież stronę za chwilę.",
+        "restoreFailed": "Przywracanie nie powiodło się — sprawdź plik i klucz.",
         "weekday": {
             "mon": "Poniedziałek", "tue": "Wtorek", "wed": "Środa", "thu": "Czwartek",
             "fri": "Piątek", "sat": "Sobota", "sun": "Niedziela"

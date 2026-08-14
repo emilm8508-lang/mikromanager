@@ -414,6 +414,18 @@
         "backupRunning": "Wird hochgeladen...",
         "backupRunButton": "Backup jetzt ausführen",
         "backupRestoreHint": "Wiederherstellung: Backup in der Ansicht „Zentral“ → Schaltfläche „Backups“ beim Kunden herunterladen, dann backend/scripts/restore_backup.py <Datei> <enc_key> ausführen.",
+        "restoreTitle": "Aus Backup wiederherstellen",
+        "restoreExplanation": "Laden Sie eine in der Ansicht „Zentral“ (Schaltfläche „Backups“) heruntergeladene Backup-Datei hoch und geben Sie den E2E-Schlüssel an, mit dem sie verschlüsselt wurde — der Agent stellt daraus Datenbank, Zugangsdaten und Konfiguration wieder her und startet danach automatisch neu.",
+        "restoreCliHint": "Falls der Agent gar nicht startet (Festplatte defekt, Neuinstallation) — hilft dieser Bildschirm nicht, da es nichts gibt, worin man sich anmelden könnte. In diesem Fall backend/scripts/restore_backup.py <Datei> <enc_key> verwenden, bevor die App gestartet wird.",
+        "restoreFileLabel": "Backup-Datei (.json)",
+        "restoreEncKeyLabel": "E2E-Verschlüsselungsschlüssel",
+        "restoreEncKeyPrefilled": "(konfigurierter Schlüssel erkannt — leer lassen, um ihn zu verwenden)",
+        "restoreButton": "Aus Datei wiederherstellen",
+        "restoreConfirm": "Dies überschreibt die GESAMTE lokale Datenbank und Agentenkonfiguration mit den Backup-Daten und startet die App danach neu. Aktuelle Daten werden beiseitegelegt (nicht gelöscht), aber der Vorgang ist ansonsten ohne manuellen Eingriff nicht rückgängig zu machen — fortfahren?",
+        "restoreConfirmButton": "Ja, wiederherstellen und neu starten",
+        "restoring": "Wird hochgeladen und entschlüsselt...",
+        "restoreStagedSuccess": "Backup geprüft und vorbereitet — der Agent startet jetzt neu. Seite in Kürze aktualisieren.",
+        "restoreFailed": "Wiederherstellung fehlgeschlagen — Datei und Schlüssel prüfen.",
         "weekday": {
             "mon": "Montag", "tue": "Dienstag", "wed": "Mittwoch", "thu": "Donnerstag",
             "fri": "Freitag", "sat": "Samstag", "sun": "Sonntag"

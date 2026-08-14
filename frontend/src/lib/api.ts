@@ -295,6 +295,13 @@ export const systemApi = {
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
   backupStatus: () => api.get<AgentBackupStatus>('/system/backup/status').then(r => r.data),
   backupRun: () => api.post<{ ok: boolean; error: string | null; size_bytes: number | null }>('/system/backup/run').then(r => r.data),
+  backupRestore: (file: File, encKey: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('enc_key', encKey)
+    form.append('confirm', 'true')
+    return api.post<{ ok: boolean; staged: boolean; restarting: boolean }>('/system/backup/restore', form).then(r => r.data)
+  },
   supplyChainStatus: () => api.get<SupplyChainStatus>('/system/supply-chain/status').then(r => r.data),
   supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
 }
