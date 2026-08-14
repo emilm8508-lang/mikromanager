@@ -420,6 +420,8 @@
         "restoreFileLabel": "Archivo de copia de seguridad (.json)",
         "restoreEncKeyLabel": "Clave de cifrado E2E",
         "restoreEncKeyPrefilled": "(clave configurada detectada — déjelo en blanco para usarla)",
+        "restoreEncKeyFromFile": "(clave encontrada en el archivo — déjelo en blanco para usarla)",
+        "restoreKeyFoundInFile": "Se encontró una clave E2E incluida en este archivo — se usará automáticamente.",
         "restoreButton": "Restaurar desde archivo",
         "restoreConfirm": "Esto sobrescribirá TODA la base de datos local y la configuración del agente con los datos de la copia, y luego reiniciará la aplicación. Los datos actuales se apartan (no se eliminan), pero la operación es irreversible sin intervención manual — ¿continuar?",
         "restoreConfirmButton": "Sí, restaurar y reiniciar",

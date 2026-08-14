@@ -389,11 +389,20 @@ function BackupsModal({ tenant, open, onClose }: { tenant: string; open: boolean
     enabled: open,
   })
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const knownKey = centralConfig.load()?.tenantKeys?.[tenant]
 
   const download = async (id: number) => {
     setDownloadingId(id)
     try {
-      const result = await centralApi.backupDownload(tenant, id)
+      const result: any = await centralApi.backupDownload(tenant, id)
+      if (knownKey) {
+        // Bundled deliberately (user-chosen convenience over strict E2E
+        // separation) — the downloaded file alone is now enough to decrypt
+        // the backup, so treat it as sensitive as the database itself.
+        result.enc_key = knownKey
+        result.enc_key_included_warning =
+          'This file contains the decryption key — treat it like a plaintext credentials dump.'
+      }
       const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -413,6 +422,15 @@ function BackupsModal({ tenant, open, onClose }: { tenant: string; open: boolean
   return (
     <Modal open={open} onClose={onClose} title={t('central.backupsModalTitle', { tenant })}>
       <p className="text-xs text-slate-500 mb-3">{t('central.backupsModalHint')}</p>
+      {knownKey ? (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+          {t('central.backupsKeyWillBeIncluded')}
+        </p>
+      ) : (
+        <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded px-3 py-2 mb-3">
+          {t('central.backupsKeyUnknown')}
+        </p>
+      )}
       {isLoading ? (
         <p className="text-sm text-slate-500 py-4 text-center">{t('common.loading')}</p>
       ) : error ? (

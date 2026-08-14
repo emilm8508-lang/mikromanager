@@ -95,6 +95,7 @@ function BackupSection() {
 function RestoreSection() {
   const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
+  const [fileEmbeddedKey, setFileEmbeddedKey] = useState<string | null>(null)
   const [encKey, setEncKey] = useState('')
   const [confirming, setConfirming] = useState(false)
 
@@ -104,14 +105,28 @@ function RestoreSection() {
     retry: false,
   })
 
+  const onFileChange = (f: File | null) => {
+    setFile(f)
+    setFileEmbeddedKey(null)
+    if (!f) return
+    // Centralny's "Backupy" download can bundle the E2E key into the file
+    // (user-chosen convenience) — peek for it so it doesn't need retyping.
+    f.text().then(text => {
+      try {
+        const parsed = JSON.parse(text)
+        if (typeof parsed?.enc_key === 'string') setFileEmbeddedKey(parsed.enc_key)
+      } catch { /* not JSON or no embedded key — fine, fall back to manual entry */ }
+    }).catch(() => {})
+  }
+
   const restore = useMutation({
     mutationFn: () => {
       if (!file) throw new Error('no file')
-      return systemApi.backupRestore(file, encKey || encKeyData?.enc_key || '')
+      return systemApi.backupRestore(file, encKey || fileEmbeddedKey || encKeyData?.enc_key || '')
     },
   })
 
-  const effectiveKey = encKey || encKeyData?.enc_key || ''
+  const effectiveKey = encKey || fileEmbeddedKey || encKeyData?.enc_key || ''
 
   return (
     <Card>
@@ -143,9 +158,12 @@ function RestoreSection() {
               <input
                 type="file"
                 accept=".json,application/json"
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
+                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
                 className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:text-xs"
               />
+              {fileEmbeddedKey && (
+                <p className="text-[11px] text-green-700 mt-1">{t('security.restoreKeyFoundInFile')}</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium text-slate-600 block mb-1">{t('security.restoreEncKeyLabel')}</label>
@@ -153,7 +171,11 @@ function RestoreSection() {
                 type="text"
                 value={encKey}
                 onChange={e => setEncKey(e.target.value)}
-                placeholder={encKeyData?.enc_key ? t('security.restoreEncKeyPrefilled') as string : ''}
+                placeholder={
+                  fileEmbeddedKey ? t('security.restoreEncKeyFromFile') as string
+                  : encKeyData?.enc_key ? t('security.restoreEncKeyPrefilled') as string
+                  : ''
+                }
                 className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-900"
               />
             </div>

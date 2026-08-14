@@ -420,6 +420,8 @@
         "restoreFileLabel": "Backup file (.json)",
         "restoreEncKeyLabel": "E2E encryption key",
         "restoreEncKeyPrefilled": "(configured key detected — leave blank to use it)",
+        "restoreEncKeyFromFile": "(key found in file — leave blank to use it)",
+        "restoreKeyFoundInFile": "Found an E2E key bundled with this file — it will be used automatically.",
         "restoreButton": "Restore from file",
         "restoreConfirm": "This will overwrite the ENTIRE local database and agent config with the backup's data, then restart the app. Current data is moved aside (not deleted), but this is otherwise irreversible without manual intervention — continue?",
         "restoreConfirmButton": "Yes, restore and restart",

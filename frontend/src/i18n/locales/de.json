@@ -420,6 +420,8 @@
         "restoreFileLabel": "Backup-Datei (.json)",
         "restoreEncKeyLabel": "E2E-Verschlüsselungsschlüssel",
         "restoreEncKeyPrefilled": "(konfigurierter Schlüssel erkannt — leer lassen, um ihn zu verwenden)",
+        "restoreEncKeyFromFile": "(Schlüssel in Datei gefunden — leer lassen, um ihn zu verwenden)",
+        "restoreKeyFoundInFile": "In dieser Datei enthaltenen E2E-Schlüssel gefunden — wird automatisch verwendet.",
         "restoreButton": "Aus Datei wiederherstellen",
         "restoreConfirm": "Dies überschreibt die GESAMTE lokale Datenbank und Agentenkonfiguration mit den Backup-Daten und startet die App danach neu. Aktuelle Daten werden beiseitegelegt (nicht gelöscht), aber der Vorgang ist ansonsten ohne manuellen Eingriff nicht rückgängig zu machen — fortfahren?",
         "restoreConfirmButton": "Ja, wiederherstellen und neu starten",

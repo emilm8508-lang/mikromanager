@@ -112,10 +112,6 @@ async def post_backup_restore(
     if not confirm:
         raise HTTPException(400, "confirm=true required — this will overwrite local data on restart")
 
-    key = enc_key.strip() or uplink_svc.get_enc_key()
-    if not key:
-        raise HTTPException(400, "no enc_key provided and none configured on this agent")
-
     raw = await file.read()
     if len(raw) > 50 * 1024 * 1024:
         raise HTTPException(413, "backup file too large (max 50MB)")
@@ -124,6 +120,15 @@ async def post_backup_restore(
     except json.JSONDecodeError:
         raise HTTPException(400, "not a valid backup file (invalid JSON)")
     envelope = data.get("envelope") if isinstance(data, dict) and "envelope" in data else data
+
+    # Precedence: explicit form field > key embedded in the uploaded file
+    # (Centralny's "Backupy" download can bundle it, see Central.tsx) > this
+    # agent's own configured key (only relevant if restoring its own backup
+    # onto itself, e.g. rolling back to an earlier point).
+    embedded_key = data.get("enc_key") if isinstance(data, dict) else None
+    key = enc_key.strip() or embedded_key or uplink_svc.get_enc_key()
+    if not key:
+        raise HTTPException(400, "no enc_key provided, none embedded in the file, and none configured on this agent")
 
     from services import agent_backup
     try:

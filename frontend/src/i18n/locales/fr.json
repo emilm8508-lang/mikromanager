@@ -420,6 +420,8 @@
         "restoreFileLabel": "Fichier de sauvegarde (.json)",
         "restoreEncKeyLabel": "Clé de chiffrement E2E",
         "restoreEncKeyPrefilled": "(clé configurée détectée — laissez vide pour l'utiliser)",
+        "restoreEncKeyFromFile": "(clé trouvée dans le fichier — laissez vide pour l'utiliser)",
+        "restoreKeyFoundInFile": "Clé E2E trouvée intégrée à ce fichier — elle sera utilisée automatiquement.",
         "restoreButton": "Restaurer depuis le fichier",
         "restoreConfirm": "Cela écrasera TOUTE la base de données locale et la configuration de l'agent avec les données de la sauvegarde, puis redémarrera l'application. Les données actuelles sont mises de côté (non supprimées), mais l'opération est autrement irréversible sans intervention manuelle — continuer ?",
         "restoreConfirmButton": "Oui, restaurer et redémarrer",
