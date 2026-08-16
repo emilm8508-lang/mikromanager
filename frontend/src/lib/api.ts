@@ -660,7 +660,13 @@ async function centralRequest<T>(
   const url = new URL('/api/system/central-proxy', window.location.origin)
   url.searchParams.set('upstream', cfg.apiUrl)
   url.searchParams.set('action', action)
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+  // URLSearchParams.set(k, undefined) stringifies to the literal "undefined"
+  // rather than omitting the param — callers routinely pass `x || undefined`
+  // for "no filter", so this must be skipped explicitly or every such filter
+  // silently becomes `?field=undefined` and matches nothing server-side.
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, v)
+  }
 
   const method = opts.method ?? 'GET'
   const headers: Record<string, string> = {}
