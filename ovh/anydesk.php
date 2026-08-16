@@ -116,9 +116,59 @@ function _anydesk_resolve_tenant(PDO $pdo, string $from_cid, string $to_cid): ?s
     return null;
 }
 
+function _anydesk_prepare_upsert_stmt(PDO $pdo): PDOStatement {
+    return $pdo->prepare(
+        'INSERT INTO anydesk_sessions
+            (anydesk_sid, tenant, from_cid, from_alias, to_cid, to_alias,
+             start_time, end_time, duration_sec, billed_minutes, active, state)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            tenant = VALUES(tenant),
+            end_time = VALUES(end_time),
+            duration_sec = VALUES(duration_sec),
+            billed_minutes = VALUES(billed_minutes),
+            active = VALUES(active),
+            state = VALUES(state),
+            synced_at = NOW()'
+    );
+}
+
+/** Normalizes + upserts ONE session row — shared by both the REST-API sync
+ * path and the CSV-import path (see anydesk_import_csv_rows()) so the
+ * tenant-resolution and billing-minutes math exists in exactly one place,
+ * regardless of which source produced the raw data. Returns false (skipped,
+ * not upserted) when required fields are missing/unparseable — one bad row
+ * must never abort the whole batch. */
+function anydesk_upsert_session_row(
+    PDO $pdo, PDOStatement $stmt,
+    string $sid, string $from_cid, string $from_alias, string $to_cid, string $to_alias,
+    ?string $start_time, ?string $end_time, bool $active, ?string $state
+): bool {
+    if ($sid === '' || $from_cid === '' || $to_cid === '' || $start_time === null) {
+        return false;
+    }
+
+    $duration_sec = null;
+    $billed_minutes = null;
+    if (!$active && $end_time !== null) {
+        $duration_sec = max(0, strtotime($end_time) - strtotime($start_time));
+        $billed_minutes = max(15, (int)ceil($duration_sec / 900) * 15);
+    }
+
+    $tenant = _anydesk_resolve_tenant($pdo, $from_cid, $to_cid);
+
+    $stmt->execute([
+        $sid, $tenant, $from_cid, $from_alias, $to_cid, $to_alias,
+        $start_time, $end_time, $duration_sec, $billed_minutes, $active ? 1 : 0, $state,
+    ]);
+    return true;
+}
+
 /** Core sync — fetches the full current session list from AnyDesk and
  * upserts it into anydesk_sessions (deduped by anydesk_sid). Never throws;
- * every failure mode returns {ok:false, error}. */
+ * every failure mode returns {ok:false, error}. Requires a Standard-or-above
+ * AnyDesk license (Solo has no REST-API) — see anydesk_import_csv_rows()
+ * for the CSV-based alternative that works on any license. */
 function anydesk_sync(PDO $pdo, array $config): array {
     $result = anydesk_api_get($config, 'sessions');
     if (!$result['ok']) {
@@ -129,19 +179,7 @@ function anydesk_sync(PDO $pdo, array $config): array {
     $list = $result['data']['list'] ?? [];
     if (!is_array($list)) $list = [];
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO anydesk_sessions
-            (anydesk_sid, tenant, from_cid, from_alias, to_cid, to_alias,
-             start_time, end_time, duration_sec, billed_minutes, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-            tenant = VALUES(tenant),
-            end_time = VALUES(end_time),
-            duration_sec = VALUES(duration_sec),
-            billed_minutes = VALUES(billed_minutes),
-            active = VALUES(active),
-            synced_at = NOW()'
-    );
+    $stmt = _anydesk_prepare_upsert_stmt($pdo);
 
     $synced = 0;
     $skipped = 0;
@@ -151,32 +189,99 @@ function anydesk_sync(PDO $pdo, array $config): array {
         $from_cid = (string)($session['from']['cid'] ?? '');
         $to_cid = (string)($session['to']['cid'] ?? '');
         $start_time = anydesk_parse_time($session['start-time'] ?? null);
-        if ($sid === '' || $from_cid === '' || $to_cid === '' || $start_time === null) {
-            $skipped++;
-            continue;
-        }
         $end_time = anydesk_parse_time($session['end-time'] ?? null);
-        $active = !empty($session['active']) ? 1 : 0;
+        $active = !empty($session['active']);
 
-        $duration_sec = null;
-        $billed_minutes = null;
-        if (!$active && $end_time !== null) {
-            $duration_sec = max(0, strtotime($end_time) - strtotime($start_time));
-            $billed_minutes = max(15, (int)ceil($duration_sec / 900) * 15);
-        }
-
-        $tenant = _anydesk_resolve_tenant($pdo, $from_cid, $to_cid);
-
-        $stmt->execute([
-            $sid, $tenant, $from_cid, (string)($session['from']['alias'] ?? ''),
+        $ok = anydesk_upsert_session_row(
+            $pdo, $stmt, $sid, $from_cid, (string)($session['from']['alias'] ?? ''),
             $to_cid, (string)($session['to']['alias'] ?? ''),
-            $start_time, $end_time, $duration_sec, $billed_minutes, $active,
-        ]);
-        $synced++;
+            $start_time, $end_time, $active, null
+        );
+        $ok ? $synced++ : $skipped++;
     }
 
     _anydesk_save_sync_state($config, null);
     return ['ok' => true, 'error' => null, 'synced' => $synced, 'skipped' => $skipped];
+}
+
+/** Parses AnyDesk's own "Eksportuj do pliku CSV" export from the Sessions
+ * page of my.anydesk.com (confirmed header, real sample data): sessionId,
+ * state, sourceClientId, sourceClientAlias, destinationClientId,
+ * destinationClientAlias, started, ended, sourceComment, destinationComment,
+ * receivedBytes, sentBytes, sourceCountry, destinationCountry — of which
+ * only the first eight are used here. started/ended are strict ISO8601 UTC
+ * with milliseconds ("2026-08-16T16:27:25.000Z"), which PHP's strtotime()
+ * (via anydesk_parse_time()) parses unambiguously.
+ *
+ * Column POSITIONS are not assumed — the header row is read and mapped to
+ * indices dynamically, so a future AnyDesk export with reordered/added
+ * columns doesn't silently misparse. Malformed rows (wrong column count)
+ * are skipped, never fatal. */
+function anydesk_parse_csv_content(string $csv_text): array {
+    $required = ['sessionId', 'state', 'sourceClientId', 'sourceClientAlias', 'destinationClientId', 'destinationClientAlias', 'started', 'ended'];
+
+    // Strip a UTF-8 BOM if present — confirmed present in a real export from
+    // my.anydesk.com; left in place it corrupts the FIRST header name
+    // (sessionId becomes "\xEF\xBB\xBFsessionId"), silently failing the
+    // required-column check below.
+    if (substr($csv_text, 0, 3) === "\xEF\xBB\xBF") {
+        $csv_text = substr($csv_text, 3);
+    }
+
+    $fh = fopen('php://temp', 'r+');
+    fwrite($fh, $csv_text);
+    rewind($fh);
+
+    $header = fgetcsv($fh);
+    if ($header === false || $header === null) {
+        fclose($fh);
+        return ['rows' => [], 'error' => 'empty file'];
+    }
+    $index = array_flip($header);
+    foreach ($required as $col) {
+        if (!isset($index[$col])) {
+            fclose($fh);
+            return ['rows' => [], 'error' => "missing expected column: {$col}"];
+        }
+    }
+
+    $rows = [];
+    while (($fields = fgetcsv($fh)) !== false) {
+        if ($fields === null || count($fields) !== count($header)) continue; // malformed line, skip
+        $row = [];
+        foreach ($index as $col => $i) $row[$col] = $fields[$i] ?? '';
+        $rows[] = $row;
+    }
+    fclose($fh);
+    return ['rows' => $rows, 'error' => null];
+}
+
+/** Imports already-parsed CSV rows (see anydesk_parse_csv_content()) using
+ * the same upsert/tenant-resolution/billing logic as the REST-API sync —
+ * works on ANY AnyDesk license tier, since it needs no API credentials.
+ * "ended" empty (not yet closed at export time) is treated as still-active,
+ * same convention as the REST-API path. */
+function anydesk_import_csv_rows(PDO $pdo, array $rows): array {
+    $stmt = _anydesk_prepare_upsert_stmt($pdo);
+    $imported = 0;
+    $skipped = 0;
+    foreach ($rows as $row) {
+        $sid = (string)($row['sessionId'] ?? '');
+        $from_cid = (string)($row['sourceClientId'] ?? '');
+        $to_cid = (string)($row['destinationClientId'] ?? '');
+        $start_time = anydesk_parse_time($row['started'] ?? null);
+        $end_time = anydesk_parse_time($row['ended'] ?? null);
+        $state = trim((string)($row['state'] ?? '')) ?: null;
+        $active = $end_time === null;
+
+        $ok = anydesk_upsert_session_row(
+            $pdo, $stmt, $sid, $from_cid, (string)($row['sourceClientAlias'] ?? ''),
+            $to_cid, (string)($row['destinationClientAlias'] ?? ''),
+            $start_time, $end_time, $active, $state
+        );
+        $ok ? $imported++ : $skipped++;
+    }
+    return ['ok' => true, 'imported' => $imported, 'skipped' => $skipped];
 }
 
 /** Opportunistic sync — piggybacks on normal traffic instead of relying on

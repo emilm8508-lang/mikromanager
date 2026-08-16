@@ -238,7 +238,10 @@
                             "mapping": "Mapowanie klientów",
                             "summary": "Podsumowanie"
                         },
-                        "notConfigured": "AnyDesk nie jest skonfigurowany — ustaw anydesk_license_id/anydesk_api_key w ovh/config.php (dane z panelu my.anydesk.com).",
+                        "notConfigured": "Automatyczna synchronizacja przez API AnyDesk niedostępna (wymaga licencji Standard lub wyższej) — użyj importu CSV poniżej.",
+                        "importCsv": "Importuj CSV",
+                        "importCsvHint": "Na stronie „Sesje” w my.anydesk.com kliknij „Eksportuj do pliku CSV” i wgraj go tutaj — działa na każdej licencji, także Solo.",
+                        "importResult": "Zaimportowano {{imported}} sesji, pominięto {{skipped}}.",
                         "lastSync": "Ostatnia synchronizacja",
                         "totalUnclassified": "({{total}} sesji, {{unclassified}} nieocenionych)",
                         "syncNow": "Synchronizuj teraz",

@@ -236,7 +236,7 @@ $action = $_GET['action'] ?? 'tenants';
 $threshold = (int)($config['offline_threshold_sec'] ?? 300);
 $user_auth_actions = [
     'login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset',
-    'anydesk_status', 'anydesk_sync_now', 'anydesk_client_map_list', 'anydesk_client_map_add', 'anydesk_client_map_delete',
+    'anydesk_status', 'anydesk_sync_now', 'anydesk_import_csv', 'anydesk_client_map_list', 'anydesk_client_map_add', 'anydesk_client_map_delete',
     'anydesk_sessions', 'anydesk_session_classify', 'anydesk_summary',
 ];
 
@@ -544,6 +544,33 @@ try {
             case 'anydesk_sync_now':
                 require_admin_session($pdo, bearer_token());
                 echo json_encode(anydesk_sync($pdo, $config));
+                break;
+
+            case 'anydesk_import_csv':
+                // Works on ANY AnyDesk license (no API key needed) — the
+                // manual alternative to anydesk_sync_now for accounts below
+                // the Standard tier, which doesn't include the REST-API.
+                require_admin_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $csv = (string)($data['csv'] ?? '');
+                if ($csv === '') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'csv required']);
+                    break;
+                }
+                if (strlen($csv) > 5 * 1024 * 1024) {
+                    http_response_code(413);
+                    echo json_encode(['error' => 'csv too large (max 5MB)']);
+                    break;
+                }
+                $parsed = anydesk_parse_csv_content($csv);
+                if ($parsed['error'] !== null) {
+                    http_response_code(400);
+                    echo json_encode(['error' => $parsed['error']]);
+                    break;
+                }
+                echo json_encode(anydesk_import_csv_rows($pdo, $parsed['rows']));
                 break;
 
             case 'anydesk_client_map_list':

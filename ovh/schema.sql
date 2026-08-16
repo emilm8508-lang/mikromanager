@@ -189,6 +189,7 @@ CREATE TABLE IF NOT EXISTS anydesk_sessions (
     duration_sec INT NULL,
     billed_minutes INT NULL,             -- GREATEST(15, CEIL(duration_sec/900)*15), set once ended
     active TINYINT(1) NOT NULL DEFAULT 0,
+    state VARCHAR(32) NULL,              -- raw AnyDesk state (e.g. 'closed') — only from CSV import; REST-API sync has no equivalent field, stays NULL there
     category VARCHAR(32) NULL,           -- 'billable' | 'training' | 'internal' | NULL = unclassified
     note TEXT NULL,
     classified_by VARCHAR(64) NULL,

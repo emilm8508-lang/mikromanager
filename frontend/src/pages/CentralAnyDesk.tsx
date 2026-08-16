@@ -8,7 +8,7 @@ import { UsersLoginForm } from './CentralUsers'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { RefreshCw, FileDown, Trash2, Clock } from 'lucide-react'
+import { RefreshCw, FileDown, Upload, Trash2, Clock } from 'lucide-react'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -87,17 +87,16 @@ function StatusBar({ status, onSync, syncing }: { status: AnydeskStatus | null; 
   return (
     <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded px-3 py-2">
       <div className="text-slate-600">
-        {!status.configured ? (
-          <span className="text-amber-700">{t('central.anydesk.notConfigured')}</span>
-        ) : (
+        {!status.configured && <span className="text-amber-700 mr-2">{t('central.anydesk.notConfigured')}</span>}
+        {status.configured && (
           <>
             {t('central.anydesk.lastSync')}: <span className="font-mono">{formatDate(status.last_sync_at)}</span>
             {status.last_error && <span className="text-red-600 ml-2">({status.last_error})</span>}
-            <span className="ml-2 text-slate-400">
-              {t('central.anydesk.totalUnclassified', { total: status.sessions_total, unclassified: status.sessions_unclassified })}
-            </span>
           </>
         )}
+        <span className="ml-2 text-slate-400">
+          {t('central.anydesk.totalUnclassified', { total: status.sessions_total, unclassified: status.sessions_unclassified })}
+        </span>
       </div>
       <button onClick={onSync} disabled={syncing || !status.configured}
         className="text-indigo-600 hover:text-indigo-800 disabled:opacity-40 inline-flex items-center gap-1">
@@ -114,6 +113,7 @@ function SessionsTab() {
   const [tenants, setTenants] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [tenantFilter, setTenantFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
 
@@ -147,6 +147,20 @@ function SessionsTab() {
     finally { setSyncing(false) }
   }
 
+  const importCsvFile = async (file: File) => {
+    setImporting(true)
+    try {
+      const text = await file.text()
+      const r = await centralAnydeskApi.importCsv(text)
+      alert(t('central.anydesk.importResult', { imported: r.imported, skipped: r.skipped }) as string)
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const classify = async (s: AnydeskSession, category: AnydeskCategory | null) => {
     try {
       await centralAnydeskApi.classify(s.id, category, s.note ?? undefined)
@@ -160,7 +174,7 @@ function SessionsTab() {
   }
 
   const exportCsv = () => {
-    const header = ['start_time', 'end_time', 'tenant', 'from_alias', 'from_cid', 'to_alias', 'to_cid', 'duration_sec', 'billed_minutes', 'active', 'category', 'note']
+    const header = ['start_time', 'end_time', 'tenant', 'from_alias', 'from_cid', 'to_alias', 'to_cid', 'duration_sec', 'billed_minutes', 'active', 'state', 'category', 'note']
     const lines = [header.join(',')]
     for (const s of sessions) {
       lines.push(header.map(k => csvSafe((s as any)[k])).join(','))
@@ -193,10 +207,18 @@ function SessionsTab() {
           <option value="training">{t('central.anydesk.category.training')}</option>
           <option value="internal">{t('central.anydesk.category.internal')}</option>
         </select>
-        <Button variant="secondary" onClick={exportCsv} disabled={sessions.length === 0} className="ml-auto">
+        <label className="ml-auto">
+          <input type="file" accept=".csv,text/csv" className="hidden" disabled={importing}
+            onChange={e => { const f = e.target.files?.[0]; if (f) importCsvFile(f); e.target.value = '' }} />
+          <span className={`inline-flex items-center gap-2 rounded-lg font-medium text-sm px-3 py-1.5 cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-800 ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={14} /> {importing ? t('common.loading') : t('central.anydesk.importCsv')}
+          </span>
+        </label>
+        <Button variant="secondary" onClick={exportCsv} disabled={sessions.length === 0}>
           <FileDown size={14} /> {t('central.anydesk.exportCsv')}
         </Button>
       </div>
+      <p className="text-[11px] text-slate-400">{t('central.anydesk.importCsvHint')}</p>
       {loading ? (
         <p className="text-sm text-slate-500 py-4">{t('common.loading')}</p>
       ) : sessions.length === 0 ? (

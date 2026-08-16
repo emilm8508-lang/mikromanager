@@ -741,6 +741,7 @@ export interface AnydeskSession {
   duration_sec: number | null
   billed_minutes: number | null
   active: number
+  state: string | null
   category: AnydeskCategory | null
   note: string | null
   classified_by: string | null
@@ -777,6 +778,7 @@ export interface AnydeskStatus {
 export const centralAnydeskApi = {
   status: () => centralRequest<AnydeskStatus>('anydesk_status'),
   syncNow: () => centralRequest<{ ok: boolean; error: string | null; synced: number; skipped?: number }>('anydesk_sync_now', {}, { method: 'POST' }),
+  importCsv: (csv: string) => centralRequest<{ ok: boolean; imported: number; skipped: number }>('anydesk_import_csv', {}, { method: 'POST', body: { csv } }),
   mappingList: () => centralRequest<{ mappings: AnydeskClientMap[] }>('anydesk_client_map_list'),
   mappingAdd: (data: { tenant: string; anydesk_cid: string; label?: string }) =>
     centralRequest<{ ok: boolean; id: number }>('anydesk_client_map_add', {}, { method: 'POST', body: data }),
