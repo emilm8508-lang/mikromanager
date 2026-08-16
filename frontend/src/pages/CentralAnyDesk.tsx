@@ -4,6 +4,7 @@ import {
   centralAnydeskApi, centralApi, centralSession,
   type AnydeskSession, type AnydeskClientMap, type AnydeskSummaryRow, type AnydeskStatus, type AnydeskCategory,
 } from '../lib/api'
+import { UsersLoginForm } from './CentralUsers'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
@@ -32,15 +33,21 @@ function csvSafe(value: unknown): string {
 
 export function AnydeskPanel() {
   const { t } = useTranslation()
-  const session = centralSession.load()
+  const [session, setSessionState] = useState(centralSession.load())
 
   if (!session) {
-    return <p className="text-sm text-slate-500 bg-white rounded-lg border border-slate-200 p-4">{t('centralUsers.loginTitle')}</p>
+    return <UsersLoginForm onLoggedIn={s => setSessionState(s)} />
   }
   if (session.role !== 'admin' || (session.allowedTenants !== null && session.allowedTenants !== undefined)) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-4 text-sm text-slate-600">
         <p>{t('centralUsers.notGlobalAdmin')}</p>
+        <button
+          onClick={() => { centralSession.clear(); setSessionState(null) }}
+          className="mt-2 text-xs text-indigo-600 hover:text-indigo-500"
+        >
+          {t('centralUsers.switchAccount')}
+        </button>
       </div>
     )
   }

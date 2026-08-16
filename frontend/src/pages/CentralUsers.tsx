@@ -45,9 +45,9 @@ export function UsersPanel() {
   return <UsersManagePanel session={session} onLogout={() => { centralSession.clear(); setSessionState(null) }} />
 }
 
-type SessionValue = NonNullable<ReturnType<typeof centralSession.load>>
+export type SessionValue = NonNullable<ReturnType<typeof centralSession.load>>
 
-function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: SessionValue) => void }) {
+export function UsersLoginForm({ onLoggedIn }: { onLoggedIn: (s: SessionValue) => void }) {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
