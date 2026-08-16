@@ -160,3 +160,42 @@ CREATE TABLE IF NOT EXISTS agent_backups (
     size_bytes INT NOT NULL DEFAULT 0,
     INDEX idx_tenant_time (tenant, created_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AnyDesk-based consultant time tracking (Centrala / global-admin only).
+-- Maps a client's AnyDesk client-ID to a tenant, and stores the synced
+-- session log pulled from AnyDesk's own REST API (see ovh/anydesk.php) —
+-- billable-minutes/category classification happens here, never on AnyDesk's
+-- side, so this is the sole source of truth for billing.
+CREATE TABLE IF NOT EXISTS anydesk_client_map (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant VARCHAR(64) NOT NULL,
+    anydesk_cid VARCHAR(32) NOT NULL,   -- numeric AnyDesk client ID (9 digits)
+    label VARCHAR(128) NULL,             -- free-text operator note, e.g. "Router biura"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_cid (anydesk_cid),
+    INDEX idx_tenant (tenant)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS anydesk_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    anydesk_sid VARCHAR(64) NOT NULL,    -- AnyDesk's own session id, dedup key
+    tenant VARCHAR(64) NULL,             -- resolved via anydesk_client_map; NULL = unmapped
+    from_cid VARCHAR(32) NOT NULL,
+    from_alias VARCHAR(255) NULL,
+    to_cid VARCHAR(32) NOT NULL,
+    to_alias VARCHAR(255) NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NULL,              -- NULL while the session is still active
+    duration_sec INT NULL,
+    billed_minutes INT NULL,             -- GREATEST(15, CEIL(duration_sec/900)*15), set once ended
+    active TINYINT(1) NOT NULL DEFAULT 0,
+    category VARCHAR(32) NULL,           -- 'billable' | 'training' | 'internal' | NULL = unclassified
+    note TEXT NULL,
+    classified_by VARCHAR(64) NULL,
+    classified_at DATETIME NULL,
+    synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_sid (anydesk_sid),
+    INDEX idx_tenant (tenant),
+    INDEX idx_start (start_time),
+    INDEX idx_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

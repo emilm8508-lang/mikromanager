@@ -33,6 +33,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 $config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/totp.php';
+require_once __DIR__ . '/anydesk.php';
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 // Apache + PHP-FPM on shared hosting often strips Authorization. Check fallbacks.
@@ -233,7 +234,11 @@ $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 // ── Routing ──────────────────────────────────────────────────────────────────
 $action = $_GET['action'] ?? 'tenants';
 $threshold = (int)($config['offline_threshold_sec'] ?? 300);
-$user_auth_actions = ['login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset'];
+$user_auth_actions = [
+    'login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset',
+    'anydesk_status', 'anydesk_sync_now', 'anydesk_client_map_list', 'anydesk_client_map_add', 'anydesk_client_map_delete',
+    'anydesk_sessions', 'anydesk_session_classify', 'anydesk_summary',
+];
 
 try {
     $dsn = sprintf(
@@ -515,6 +520,161 @@ try {
                 $secret = totp_generate_secret();
                 $pdo->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')->execute([$secret, $id]);
                 echo json_encode(['secret' => $secret, 'otpauth_uri' => totp_provisioning_uri($secret, (string)$username)]);
+                break;
+
+            // ── AnyDesk time tracking — global-admin only, entirely separate
+            // from tenant-scoped accounts (this is the consultant's own
+            // billing data, never exposed to a client's own login). ────────
+
+            case 'anydesk_status':
+                require_admin_session($pdo, bearer_token());
+                anydesk_maybe_sync($pdo, $config);
+                $state = anydesk_sync_state($config);
+                $total = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions')->fetchColumn();
+                $unclassified = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions WHERE category IS NULL')->fetchColumn();
+                echo json_encode([
+                    'configured' => $config['anydesk_license_id'] !== '' && $config['anydesk_api_key'] !== '',
+                    'last_sync_at' => $state['last_sync_at'],
+                    'last_error' => $state['last_error'],
+                    'sessions_total' => $total,
+                    'sessions_unclassified' => $unclassified,
+                ]);
+                break;
+
+            case 'anydesk_sync_now':
+                require_admin_session($pdo, bearer_token());
+                echo json_encode(anydesk_sync($pdo, $config));
+                break;
+
+            case 'anydesk_client_map_list':
+                require_admin_session($pdo, bearer_token());
+                $rows = $pdo->query('SELECT id, tenant, anydesk_cid, label, created_at FROM anydesk_client_map ORDER BY tenant, anydesk_cid')->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['mappings' => $rows]);
+                break;
+
+            case 'anydesk_client_map_add':
+                require_admin_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $tenant = trim((string)($data['tenant'] ?? ''));
+                $cid = preg_replace('/\D/', '', (string)($data['anydesk_cid'] ?? ''));
+                $label = trim((string)($data['label'] ?? '')) ?: null;
+                if ($tenant === '' || !array_key_exists($tenant, $config['tenants'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'unknown tenant']);
+                    break;
+                }
+                if ($cid === '') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'anydesk_cid required (digits only)']);
+                    break;
+                }
+                try {
+                    $stmt = $pdo->prepare('INSERT INTO anydesk_client_map (tenant, anydesk_cid, label) VALUES (?, ?, ?)');
+                    $stmt->execute([$tenant, $cid, $label]);
+                } catch (PDOException $e) {
+                    http_response_code(409);
+                    echo json_encode(['error' => 'this AnyDesk ID is already mapped']);
+                    break;
+                }
+                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
+                break;
+
+            case 'anydesk_client_map_delete':
+                require_admin_session($pdo, bearer_token());
+                $id = (int)($_GET['id'] ?? 0);
+                if ($id <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id required']);
+                    break;
+                }
+                $stmt = $pdo->prepare('DELETE FROM anydesk_client_map WHERE id = ?');
+                $stmt->execute([$id]);
+                echo json_encode(['ok' => true, 'deleted' => $stmt->rowCount()]);
+                break;
+
+            case 'anydesk_sessions':
+                require_admin_session($pdo, bearer_token());
+                anydesk_maybe_sync($pdo, $config);
+                $where = [];
+                $params = [];
+                if (($t = trim((string)($_GET['tenant'] ?? ''))) !== '') {
+                    $where[] = 'tenant = ?';
+                    $params[] = $t;
+                }
+                if (($c = trim((string)($_GET['category'] ?? ''))) !== '') {
+                    if ($c === 'unclassified') {
+                        $where[] = 'category IS NULL';
+                    } else {
+                        $where[] = 'category = ?';
+                        $params[] = $c;
+                    }
+                }
+                if (($from = trim((string)($_GET['from'] ?? ''))) !== '') {
+                    $where[] = 'start_time >= ?';
+                    $params[] = $from;
+                }
+                if (($to = trim((string)($_GET['to'] ?? ''))) !== '') {
+                    $where[] = 'start_time <= ?';
+                    $params[] = $to;
+                }
+                $sql = 'SELECT * FROM anydesk_sessions';
+                if (!empty($where)) $sql .= ' WHERE ' . implode(' AND ', $where);
+                $sql .= ' ORDER BY start_time DESC LIMIT 500';
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                echo json_encode(['sessions' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+                break;
+
+            case 'anydesk_session_classify':
+                $admin = require_admin_session($pdo, bearer_token());
+                $data = json_decode((string)file_get_contents('php://input'), true);
+                if (!is_array($data)) $data = [];
+                $id = (int)($data['id'] ?? 0);
+                $category = $data['category'] ?? null;
+                $note = array_key_exists('note', $data) ? (string)$data['note'] : null;
+                if ($id <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id required']);
+                    break;
+                }
+                if ($category !== null && !in_array($category, ['billable', 'training', 'internal'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'category must be billable, training, internal, or null']);
+                    break;
+                }
+                $pdo->prepare('UPDATE anydesk_sessions SET category=?, note=?, classified_by=?, classified_at=NOW() WHERE id=?')
+                    ->execute([$category, $note, $admin['username'], $id]);
+                echo json_encode(['ok' => true]);
+                break;
+
+            case 'anydesk_summary':
+                require_admin_session($pdo, bearer_token());
+                $where = ['end_time IS NOT NULL'];
+                $params = [];
+                if (($from = trim((string)($_GET['from'] ?? ''))) !== '') {
+                    $where[] = 'start_time >= ?';
+                    $params[] = $from;
+                }
+                if (($to = trim((string)($_GET['to'] ?? ''))) !== '') {
+                    $where[] = 'start_time <= ?';
+                    $params[] = $to;
+                }
+                $sql = "SELECT
+                            COALESCE(tenant, '(unassigned)') AS tenant,
+                            DATE_FORMAT(start_time, '%Y-%m') AS month,
+                            SUM(CASE WHEN category = 'billable' THEN billed_minutes ELSE 0 END) AS billable_minutes,
+                            SUM(CASE WHEN category = 'training' THEN billed_minutes ELSE 0 END) AS training_minutes,
+                            SUM(CASE WHEN category = 'internal' THEN billed_minutes ELSE 0 END) AS internal_minutes,
+                            SUM(CASE WHEN category IS NULL THEN billed_minutes ELSE 0 END) AS unclassified_minutes,
+                            COUNT(*) AS session_count
+                        FROM anydesk_sessions
+                        WHERE " . implode(' AND ', $where) . '
+                        GROUP BY tenant, month
+                        ORDER BY month DESC, tenant';
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                echo json_encode(['summary' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
                 break;
         }
     } else {

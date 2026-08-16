@@ -721,6 +721,74 @@ export const centralUsersApi = {
   totpReset: (id: number) => centralRequest<{ secret: string; otpauth_uri: string }>('user_totp_reset', { id: String(id) }, { method: 'POST' }),
 }
 
+// ── AnyDesk time tracking (Centrala, global-admin only) ─────────────────────
+// Session data comes from AnyDesk's own REST API, synced server-side by
+// ovh/anydesk.php — this app never talks to AnyDesk directly, only to the
+// usual central-proxy relay.
+
+export type AnydeskCategory = 'billable' | 'training' | 'internal'
+
+export interface AnydeskSession {
+  id: number
+  anydesk_sid: string
+  tenant: string | null
+  from_cid: string
+  from_alias: string | null
+  to_cid: string
+  to_alias: string | null
+  start_time: string
+  end_time: string | null
+  duration_sec: number | null
+  billed_minutes: number | null
+  active: number
+  category: AnydeskCategory | null
+  note: string | null
+  classified_by: string | null
+  classified_at: string | null
+  synced_at: string
+}
+
+export interface AnydeskClientMap {
+  id: number
+  tenant: string
+  anydesk_cid: string
+  label: string | null
+  created_at: string
+}
+
+export interface AnydeskSummaryRow {
+  tenant: string
+  month: string
+  billable_minutes: number
+  training_minutes: number
+  internal_minutes: number
+  unclassified_minutes: number
+  session_count: number
+}
+
+export interface AnydeskStatus {
+  configured: boolean
+  last_sync_at: string | null
+  last_error: string | null
+  sessions_total: number
+  sessions_unclassified: number
+}
+
+export const centralAnydeskApi = {
+  status: () => centralRequest<AnydeskStatus>('anydesk_status'),
+  syncNow: () => centralRequest<{ ok: boolean; error: string | null; synced: number; skipped?: number }>('anydesk_sync_now', {}, { method: 'POST' }),
+  mappingList: () => centralRequest<{ mappings: AnydeskClientMap[] }>('anydesk_client_map_list'),
+  mappingAdd: (data: { tenant: string; anydesk_cid: string; label?: string }) =>
+    centralRequest<{ ok: boolean; id: number }>('anydesk_client_map_add', {}, { method: 'POST', body: data }),
+  mappingDelete: (id: number) => centralRequest<{ ok: boolean; deleted: number }>('anydesk_client_map_delete', { id: String(id) }, { method: 'DELETE' }),
+  sessions: (filters: { tenant?: string; category?: AnydeskCategory | 'unclassified'; from?: string; to?: string } = {}) =>
+    centralRequest<{ sessions: AnydeskSession[] }>('anydesk_sessions', filters as Record<string, string>),
+  classify: (id: number, category: AnydeskCategory | null, note?: string) =>
+    centralRequest<{ ok: boolean }>('anydesk_session_classify', {}, { method: 'POST', body: { id, category, note } }),
+  summary: (filters: { from?: string; to?: string } = {}) =>
+    centralRequest<{ summary: AnydeskSummaryRow[] }>('anydesk_summary', filters as Record<string, string>),
+}
+
 // ── Alert + edge types ─────────────────────────────────────────────────────
 
 export interface AlertChannel {
