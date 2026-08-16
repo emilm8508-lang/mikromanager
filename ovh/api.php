@@ -586,9 +586,13 @@ try {
                 $tenant = trim((string)($data['tenant'] ?? ''));
                 $cid = preg_replace('/\D/', '', (string)($data['anydesk_cid'] ?? ''));
                 $label = trim((string)($data['label'] ?? '')) ?: null;
-                if ($tenant === '' || !array_key_exists($tenant, $config['tenants'])) {
+                // Deliberately NOT restricted to $config['tenants'] (agents
+                // with a configured api_key) — AnyDesk time tracking covers
+                // any billing client, including ones with no MikroManager
+                // agent at all. This is its own free-text client namespace.
+                if ($tenant === '' || strlen($tenant) > 64) {
                     http_response_code(400);
-                    echo json_encode(['error' => 'unknown tenant']);
+                    echo json_encode(['error' => 'tenant (client name) required, max 64 chars']);
                     break;
                 }
                 if ($cid === '') {

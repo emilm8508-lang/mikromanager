@@ -253,6 +253,7 @@
                         "noMappings": "Brak mapowań. Dodaj pierwsze powyżej.",
                         "noSummary": "Brak danych do podsumowania.",
                         "selectTenant": "— wybierz klienta —",
+                        "tenantPlaceholder": "Nazwa klienta (może nie mieć agenta)",
                         "cidPlaceholder": "ID AnyDesk (cyfry)",
                         "labelPlaceholder": "Notatka (opcjonalnie)",
                         "addMapping": "Dodaj mapowanie",

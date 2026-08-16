@@ -120,17 +120,22 @@ function SessionsTab() {
   const reload = async () => {
     setLoading(true)
     try {
-      const [st, s, tn] = await Promise.all([
+      const [st, s, tn, mp] = await Promise.all([
         centralAnydeskApi.status(),
         centralAnydeskApi.sessions({
           tenant: tenantFilter || undefined,
           category: (categoryFilter || undefined) as any,
         }),
         centralApi.tenants(),
+        centralAnydeskApi.mappingList(),
       ])
       setStatus(st)
       setSessions(s.sessions ?? [])
-      setTenants((tn.tenants ?? []).map(x => x.id))
+      // Includes AnyDesk-only clients (no agent), not just agent tenants —
+      // time tracking isn't limited to clients with a MikroManager agent.
+      const agentTenants = (tn.tenants ?? []).map(x => x.id)
+      const anydeskTenants = (mp.mappings ?? []).map(x => x.tenant)
+      setTenants(Array.from(new Set([...agentTenants, ...anydeskTenants])).sort())
     } catch (e) {
       alert((e as Error).message)
     } finally {
@@ -284,8 +289,14 @@ function MappingTab() {
     setLoading(true)
     try {
       const [m, tn] = await Promise.all([centralAnydeskApi.mappingList(), centralApi.tenants()])
-      setMappings(m.mappings ?? [])
-      setTenants((tn.tenants ?? []).map(x => x.id))
+      const mapped = m.mappings ?? []
+      setMappings(mapped)
+      // Suggestions only — combines agent tenants with clients already used
+      // for AnyDesk mapping (which may have no agent at all). The field
+      // itself stays free text, so any client name can be added.
+      const agentTenants = (tn.tenants ?? []).map(x => x.id)
+      const anydeskTenants = mapped.map(x => x.tenant)
+      setTenants(Array.from(new Set([...agentTenants, ...anydeskTenants])).sort())
     } catch (e) {
       alert((e as Error).message)
     } finally {
@@ -318,11 +329,13 @@ function MappingTab() {
     <div className="space-y-3">
       <div className="border border-slate-200 rounded p-3 bg-slate-50 space-y-2">
         <div className="grid grid-cols-3 gap-2">
-          <select value={newTenant} onChange={e => setNewTenant(e.target.value)}
-            className="text-sm border border-slate-300 rounded px-2 py-1.5">
-            <option value="">{t('central.anydesk.selectTenant')}</option>
-            {tenants.map(tn => <option key={tn} value={tn}>{tn}</option>)}
-          </select>
+          <div>
+            <Input list="anydesk-tenant-suggestions" placeholder={t('central.anydesk.tenantPlaceholder') as string}
+              value={newTenant} onChange={e => setNewTenant(e.target.value)} />
+            <datalist id="anydesk-tenant-suggestions">
+              {tenants.map(tn => <option key={tn} value={tn} />)}
+            </datalist>
+          </div>
           <Input placeholder={t('central.anydesk.cidPlaceholder') as string} value={newCid}
             onChange={e => setNewCid(e.target.value.replace(/\D/g, ''))} />
           <Input placeholder={t('central.anydesk.labelPlaceholder') as string} value={newLabel}
