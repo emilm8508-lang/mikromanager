@@ -501,7 +501,7 @@ function formatDuration(sec: number | null): string {
 }
 
 
-function EdgeMonitoringPanel({ channels }: { channels: AlertChannel[] }) {
+function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: string[] }) {
   const { t } = useTranslation()
   const [devices, setDevices] = useState<EdgeDevice[]>([])
   const [events, setEvents] = useState<EdgeEvent[]>([])
@@ -509,6 +509,15 @@ function EdgeMonitoringPanel({ channels }: { channels: AlertChannel[] }) {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
   const [editing, setEditing] = useState<Record<number, { port: string; interval: string; channels: number[] }>>({})
+
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newTenant, setNewTenant] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newIp, setNewIp] = useState('')
+  const [newPort, setNewPort] = useState('')
+  const [newInterval, setNewInterval] = useState(15)
+  const [newChannels, setNewChannels] = useState<number[]>([])
+  const [adding, setAdding] = useState(false)
 
   const reload = async () => {
     try {
@@ -590,6 +599,33 @@ function EdgeMonitoringPanel({ channels }: { channels: AlertChannel[] }) {
     catch (e) { alert((e as Error).message) }
   }
 
+  const toggleNewChannel = (id: number) => {
+    setNewChannels(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const addManual = async () => {
+    if (!newTenant || !newName.trim() || !newIp.trim()) return
+    if (newChannels.length === 0) { alert(t('edge.needChannelBeforeEnable')); return }
+    setAdding(true)
+    try {
+      await centralApi.edgeDeviceAdd({
+        tenant: newTenant,
+        name: newName.trim(),
+        ip: newIp.trim(),
+        check_port: newPort.trim() === '' ? null : parseInt(newPort),
+        interval_sec: Math.max(60, newInterval * 60),
+        channel_ids: newChannels,
+      })
+      setShowAddForm(false)
+      setNewTenant(''); setNewName(''); setNewIp(''); setNewPort(''); setNewInterval(15); setNewChannels([])
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setAdding(false)
+    }
+  }
+
   const statusBadge = (s: string) => {
     const cls = s === 'online' ? 'bg-green-100 text-green-700'
               : s === 'offline' ? 'bg-red-100 text-red-700'
@@ -602,11 +638,77 @@ function EdgeMonitoringPanel({ channels }: { channels: AlertChannel[] }) {
       <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{t('edge.title')}</h3>
-          <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowAddForm(v => !v)} disabled={channels.length === 0}
+              className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
+              {showAddForm ? t('common.cancel') : `+ ${t('edge.addManual')}`}
+            </button>
+            <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+          </div>
         </div>
         <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
           {t('edge.intro')}
         </div>
+        {channels.length === 0 && (
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+            {t('alerts.needChannelFirst')}
+          </div>
+        )}
+
+        {showAddForm && (
+          <div className="border border-slate-200 rounded p-3 space-y-2 bg-slate-50">
+            <p className="text-xs text-slate-500">{t('edge.addManualHint')}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-sm">
+                <span className="text-slate-600">Tenant</span>
+                <select value={newTenant} onChange={e => setNewTenant(e.target.value)}
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
+                  <option value="">{t('edge.selectTenant')}</option>
+                  {tenants.map(tn => <option key={tn} value={tn}>{tn}</option>)}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="text-slate-600">{t('edge.deviceName')}</span>
+                <input value={newName} onChange={e => setNewName(e.target.value)}
+                  placeholder={t('edge.deviceNamePlaceholder') as string}
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1" />
+              </label>
+              <label className="text-sm">
+                <span className="text-slate-600">IP</span>
+                <input value={newIp} onChange={e => setNewIp(e.target.value)}
+                  placeholder="203.0.113.5"
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1 font-mono" />
+              </label>
+              <label className="text-sm">
+                <span className="text-slate-600">{t('edge.port')} ({t('common.optional')})</span>
+                <input value={newPort} onChange={e => setNewPort(e.target.value.replace(/\D/g, ''))}
+                  placeholder="80"
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1" />
+              </label>
+              <label className="text-sm">
+                <span className="text-slate-600">{t('edge.interval')} (min)</span>
+                <input type="number" min={1} value={newInterval} onChange={e => setNewInterval(parseInt(e.target.value) || 1)}
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1" />
+              </label>
+            </div>
+            <div>
+              <div className="text-sm text-slate-600 mb-1">{t('alerts.notifyVia')}</div>
+              <div className="flex flex-wrap gap-2">
+                {channels.filter(c => c.enabled).map(c => (
+                  <label key={c.id} className="text-sm flex items-center gap-1 px-2 py-1 border border-slate-300 rounded bg-white">
+                    <input type="checkbox" checked={newChannels.includes(c.id)}
+                      onChange={() => toggleNewChannel(c.id)} />
+                    {c.name} <span className="text-xs text-slate-500">({c.type})</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button onClick={addManual} disabled={adding || !newTenant || !newName.trim() || !newIp.trim()}
+              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+              {adding ? '...' : t('common.save')}
+            </button>
+          </div>
+        )}
         {err && <div className="text-sm text-red-600">{err}</div>}
         {loading ? (
           <div className="text-sm text-slate-500">{t('common.loading')}</div>
@@ -799,7 +901,7 @@ export function AlertsPanel() {
       </div>
       <ChannelsPanel onChange={loadShared} />
       <RulesPanel channels={channels} tenants={tenants} />
-      <EdgeMonitoringPanel channels={channels} />
+      <EdgeMonitoringPanel channels={channels} tenants={tenants} />
       <HistoryPanel />
     </div>
   )
