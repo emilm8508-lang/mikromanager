@@ -606,7 +606,7 @@ try {
                 $data = json_decode((string)file_get_contents('php://input'), true);
                 if (!is_array($data)) $data = [];
                 $tenant = trim((string)($data['tenant'] ?? ''));
-                $cid = preg_replace('/\D/', '', (string)($data['anydesk_cid'] ?? ''));
+                $cid = anydesk_normalize_cid($data['anydesk_cid'] ?? '');
                 $label = trim((string)($data['label'] ?? '')) ?: null;
                 // Deliberately NOT restricted to $config['tenants'] (agents
                 // with a configured api_key) — AnyDesk time tracking covers

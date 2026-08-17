@@ -77,6 +77,15 @@ function anydesk_parse_time($val): ?string {
     return $ts !== false ? date('Y-m-d H:i:s', $ts) : null;
 }
 
+/** Digits-only canonical form of an AnyDesk client ID — applied to EVERY
+ * cid, on every path (mapping add, REST-API sync, CSV import), so a stray
+ * space/non-breaking-space/formatting artifact in one source (e.g. a CSV
+ * cell) can never cause an otherwise-identical ID to silently fail to
+ * match against a mapping added through a different path. */
+function anydesk_normalize_cid($val): string {
+    return preg_replace('/\D/', '', (string)($val ?? ''));
+}
+
 function _anydesk_sync_state_path(array $config): string {
     $dir = $config['state_dir'];
     if (!is_dir($dir)) @mkdir($dir, 0700, true);
@@ -186,8 +195,8 @@ function anydesk_sync(PDO $pdo, array $config): array {
     foreach ($list as $session) {
         if (!is_array($session)) { $skipped++; continue; }
         $sid = (string)($session['sid'] ?? '');
-        $from_cid = (string)($session['from']['cid'] ?? '');
-        $to_cid = (string)($session['to']['cid'] ?? '');
+        $from_cid = anydesk_normalize_cid($session['from']['cid'] ?? '');
+        $to_cid = anydesk_normalize_cid($session['to']['cid'] ?? '');
         $start_time = anydesk_parse_time($session['start-time'] ?? null);
         $end_time = anydesk_parse_time($session['end-time'] ?? null);
         $active = !empty($session['active']);
@@ -267,8 +276,8 @@ function anydesk_import_csv_rows(PDO $pdo, array $rows): array {
     $skipped = 0;
     foreach ($rows as $row) {
         $sid = (string)($row['sessionId'] ?? '');
-        $from_cid = (string)($row['sourceClientId'] ?? '');
-        $to_cid = (string)($row['destinationClientId'] ?? '');
+        $from_cid = anydesk_normalize_cid($row['sourceClientId'] ?? '');
+        $to_cid = anydesk_normalize_cid($row['destinationClientId'] ?? '');
         $start_time = anydesk_parse_time($row['started'] ?? null);
         $end_time = anydesk_parse_time($row['ended'] ?? null);
         $state = trim((string)($row['state'] ?? '')) ?: null;
