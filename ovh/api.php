@@ -237,7 +237,7 @@ $threshold = (int)($config['offline_threshold_sec'] ?? 300);
 $user_auth_actions = [
     'login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset',
     'anydesk_status', 'anydesk_sync_now', 'anydesk_import_csv', 'anydesk_client_map_list', 'anydesk_client_map_add', 'anydesk_client_map_delete',
-    'anydesk_sessions', 'anydesk_session_classify', 'anydesk_summary',
+    'anydesk_sessions', 'anydesk_session_classify', 'anydesk_summary', 'anydesk_unassigned',
 ];
 
 try {
@@ -532,13 +532,35 @@ try {
                 $state = anydesk_sync_state($config);
                 $total = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions')->fetchColumn();
                 $unclassified = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions WHERE category IS NULL')->fetchColumn();
+                $unassigned = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions WHERE tenant IS NULL')->fetchColumn();
                 echo json_encode([
                     'configured' => $config['anydesk_license_id'] !== '' && $config['anydesk_api_key'] !== '',
                     'last_sync_at' => $state['last_sync_at'],
                     'last_error' => $state['last_error'],
                     'sessions_total' => $total,
                     'sessions_unclassified' => $unclassified,
+                    'sessions_unassigned' => $unassigned,
                 ]);
+                break;
+
+            case 'anydesk_unassigned':
+                // Distinct not-yet-mapped remote clients (grouped, not one
+                // row per session) — feeds the "Przypisz nieprzypisane"
+                // review flow: assign a tenant once per unique cid instead
+                // of hunting through the full session list one row at a
+                // time. Grouped by to_cid only (the client side of an
+                // operator-initiated outbound connection, the dominant
+                // case) — an inbound session where the client is from_cid
+                // instead is a known, unhandled edge case for now.
+                require_admin_session($pdo, bearer_token());
+                $rows = $pdo->query(
+                    'SELECT to_cid AS cid, MAX(to_alias) AS alias, COUNT(*) AS session_count, MAX(start_time) AS last_seen
+                     FROM anydesk_sessions
+                     WHERE tenant IS NULL
+                     GROUP BY to_cid
+                     ORDER BY session_count DESC, last_seen DESC'
+                )->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['unassigned' => $rows]);
                 break;
 
             case 'anydesk_sync_now':
@@ -608,7 +630,13 @@ try {
                     echo json_encode(['error' => 'this AnyDesk ID is already mapped']);
                     break;
                 }
-                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
+                // Retroactively fix sessions imported/synced BEFORE this
+                // mapping existed — without this, a mapping added after the
+                // fact only applies to future syncs, and already-unassigned
+                // sessions stay stuck as unassigned forever.
+                $fixed = $pdo->prepare('UPDATE anydesk_sessions SET tenant = ? WHERE tenant IS NULL AND (from_cid = ? OR to_cid = ?)');
+                $fixed->execute([$tenant, $cid, $cid]);
+                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId(), 'retroactively_assigned' => $fixed->rowCount()]);
                 break;
 
             case 'anydesk_client_map_delete':

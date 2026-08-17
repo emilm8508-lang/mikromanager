@@ -779,6 +779,14 @@ export interface AnydeskStatus {
   last_error: string | null
   sessions_total: number
   sessions_unclassified: number
+  sessions_unassigned: number
+}
+
+export interface AnydeskUnassignedRow {
+  cid: string
+  alias: string | null
+  session_count: number
+  last_seen: string
 }
 
 export const centralAnydeskApi = {
@@ -787,7 +795,7 @@ export const centralAnydeskApi = {
   importCsv: (csv: string) => centralRequest<{ ok: boolean; imported: number; skipped: number }>('anydesk_import_csv', {}, { method: 'POST', body: { csv } }),
   mappingList: () => centralRequest<{ mappings: AnydeskClientMap[] }>('anydesk_client_map_list'),
   mappingAdd: (data: { tenant: string; anydesk_cid: string; label?: string }) =>
-    centralRequest<{ ok: boolean; id: number }>('anydesk_client_map_add', {}, { method: 'POST', body: data }),
+    centralRequest<{ ok: boolean; id: number; retroactively_assigned: number }>('anydesk_client_map_add', {}, { method: 'POST', body: data }),
   mappingDelete: (id: number) => centralRequest<{ ok: boolean; deleted: number }>('anydesk_client_map_delete', { id: String(id) }, { method: 'DELETE' }),
   sessions: (filters: { tenant?: string; category?: AnydeskCategory | 'unclassified'; from?: string; to?: string } = {}) =>
     centralRequest<{ sessions: AnydeskSession[] }>('anydesk_sessions', filters as Record<string, string>),
@@ -795,6 +803,7 @@ export const centralAnydeskApi = {
     centralRequest<{ ok: boolean }>('anydesk_session_classify', {}, { method: 'POST', body: { id, category, note } }),
   summary: (filters: { from?: string; to?: string } = {}) =>
     centralRequest<{ summary: AnydeskSummaryRow[] }>('anydesk_summary', filters as Record<string, string>),
+  unassigned: () => centralRequest<{ unassigned: AnydeskUnassignedRow[] }>('anydesk_unassigned'),
 }
 
 // ── Alert + edge types ─────────────────────────────────────────────────────

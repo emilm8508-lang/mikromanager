@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   centralAnydeskApi, centralApi, centralSession,
-  type AnydeskSession, type AnydeskClientMap, type AnydeskSummaryRow, type AnydeskStatus, type AnydeskCategory,
+  type AnydeskSession, type AnydeskClientMap, type AnydeskSummaryRow, type AnydeskStatus, type AnydeskCategory, type AnydeskUnassignedRow,
 } from '../lib/api'
 import { UsersLoginForm } from './CentralUsers'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { RefreshCw, FileDown, Upload, Trash2, Clock } from 'lucide-react'
+import { Modal } from '../components/ui/Modal'
+import { RefreshCw, FileDown, Upload, Trash2, Clock, UserCheck } from 'lucide-react'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -116,6 +117,7 @@ function SessionsTab() {
   const [importing, setImporting] = useState(false)
   const [tenantFilter, setTenantFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [showUnassigned, setShowUnassigned] = useState(false)
 
   const reload = async () => {
     setLoading(true)
@@ -224,6 +226,14 @@ function SessionsTab() {
         </Button>
       </div>
       <p className="text-[11px] text-slate-400">{t('central.anydesk.importCsvHint')}</p>
+      {!!status?.sessions_unassigned && (
+        <Button variant="secondary" onClick={() => setShowUnassigned(true)}>
+          <UserCheck size={14} /> {t('central.anydesk.assignUnassigned', { count: status.sessions_unassigned })}
+        </Button>
+      )}
+      <Modal open={showUnassigned} onClose={() => { setShowUnassigned(false); reload() }} title={t('central.anydesk.assignUnassignedTitle') as string}>
+        <UnassignedModalBody tenants={tenants} onClose={() => setShowUnassigned(false)} />
+      </Modal>
       {loading ? (
         <p className="text-sm text-slate-500 py-4">{t('common.loading')}</p>
       ) : sessions.length === 0 ? (
@@ -271,6 +281,75 @@ function SessionsTab() {
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+// Focused review queue for assigning a tenant to distinct unmapped AnyDesk
+// clients (grouped, not one row per session) — the "przypisz nieprzypisane"
+// flow requested to replace hunting for the right cid in the full session
+// list. Assigning here reuses mappingAdd(), whose backend retroactively
+// fixes every already-imported session with that cid, not just future ones.
+function UnassignedModalBody({ tenants, onClose }: { tenants: string[]; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<AnydeskUnassignedRow[] | null>(null)
+  const [tenantInputs, setTenantInputs] = useState<Record<string, string>>({})
+  const [assigning, setAssigning] = useState<string | null>(null)
+
+  useEffect(() => {
+    centralAnydeskApi.unassigned().then(r => setRows(r.unassigned ?? [])).catch(e => alert((e as Error).message))
+  }, [])
+
+  const assign = async (row: AnydeskUnassignedRow) => {
+    const tenant = (tenantInputs[row.cid] ?? '').trim()
+    if (!tenant) return
+    setAssigning(row.cid)
+    try {
+      await centralAnydeskApi.mappingAdd({ tenant, anydesk_cid: row.cid, label: row.alias ?? undefined })
+      setRows(prev => (prev ?? []).filter(r => r.cid !== row.cid))
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setAssigning(null)
+    }
+  }
+
+  if (rows === null) return <p className="text-sm text-slate-500 py-4">{t('common.loading')}</p>
+  if (rows.length === 0) {
+    return (
+      <div className="py-4 text-center space-y-3">
+        <p className="text-sm text-green-700">{t('central.anydesk.allAssigned')}</p>
+        <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500">{t('central.anydesk.unassignedRemaining', { count: rows.length })}</p>
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {rows.map(row => (
+          <div key={row.cid} className="border border-slate-200 rounded p-2.5 flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-mono text-slate-800">{row.alias || row.cid}</p>
+              <p className="text-[11px] text-slate-400">
+                {t('central.anydesk.unassignedRowHint', { count: row.session_count, date: formatDate(row.last_seen) })}
+              </p>
+            </div>
+            <Input list="anydesk-tenant-suggestions" placeholder={t('central.anydesk.tenantPlaceholder') as string}
+              value={tenantInputs[row.cid] ?? ''}
+              onChange={e => setTenantInputs(prev => ({ ...prev, [row.cid]: e.target.value }))}
+              className="w-40 shrink-0" />
+            <datalist id="anydesk-tenant-suggestions">
+              {tenants.map(tn => <option key={tn} value={tn} />)}
+            </datalist>
+            <Button size="sm" variant="primary" onClick={() => assign(row)}
+              disabled={assigning === row.cid || !(tenantInputs[row.cid] ?? '').trim()}>
+              {t('central.anydesk.assign')}
+            </Button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

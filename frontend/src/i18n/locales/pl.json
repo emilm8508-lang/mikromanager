@@ -258,6 +258,12 @@
                         "labelPlaceholder": "Notatka (opcjonalnie)",
                         "addMapping": "Dodaj mapowanie",
                         "confirmDeleteMapping": "Usunąć mapowanie dla ID {{cid}}?",
+                        "assignUnassigned": "Przypisz nieprzypisane ({{count}})",
+                        "assignUnassignedTitle": "Przypisz nieprzypisanych klientów",
+                        "allAssigned": "Wszystko przypisane — brak pozostałych do oceny.",
+                        "unassignedRemaining": "Pozostało {{count}} do przypisania.",
+                        "unassignedRowHint": "{{count}} sesji, ostatnia: {{date}}",
+                        "assign": "Przypisz",
                         "exportCsv": "Eksportuj CSV",
                         "category": {
                             "unclassified": "nieocenione",
