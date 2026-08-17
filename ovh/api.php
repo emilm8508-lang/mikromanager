@@ -633,10 +633,27 @@ try {
                 // Retroactively fix sessions imported/synced BEFORE this
                 // mapping existed — without this, a mapping added after the
                 // fact only applies to future syncs, and already-unassigned
-                // sessions stay stuck as unassigned forever.
-                $fixed = $pdo->prepare('UPDATE anydesk_sessions SET tenant = ? WHERE tenant IS NULL AND (from_cid = ? OR to_cid = ?)');
-                $fixed->execute([$tenant, $cid, $cid]);
-                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId(), 'retroactively_assigned' => $fixed->rowCount()]);
+                // sessions stay stuck as unassigned forever. Compared in PHP
+                // (not SQL "= ?") so a row whose from_cid/to_cid was stored
+                // BEFORE anydesk_normalize_cid() existed (stray whitespace
+                // etc. never stripped) still matches correctly — this must
+                // keep working without ever needing a re-import/re-sync,
+                // since the source file may no longer be available later.
+                $candidates = $pdo->query('SELECT id, from_cid, to_cid FROM anydesk_sessions WHERE tenant IS NULL')->fetchAll(PDO::FETCH_ASSOC);
+                $fixIds = [];
+                foreach ($candidates as $row) {
+                    if (anydesk_normalize_cid($row['from_cid']) === $cid || anydesk_normalize_cid($row['to_cid']) === $cid) {
+                        $fixIds[] = (int)$row['id'];
+                    }
+                }
+                $retroCount = 0;
+                if (!empty($fixIds)) {
+                    $placeholders = implode(',', array_fill(0, count($fixIds), '?'));
+                    $upd = $pdo->prepare("UPDATE anydesk_sessions SET tenant = ? WHERE id IN ({$placeholders})");
+                    $upd->execute(array_merge([$tenant], $fixIds));
+                    $retroCount = $upd->rowCount();
+                }
+                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId(), 'retroactively_assigned' => $retroCount]);
                 break;
 
             case 'anydesk_client_map_delete':
