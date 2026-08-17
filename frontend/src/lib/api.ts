@@ -303,7 +303,7 @@ export const systemApi = {
     return api.post<{ ok: boolean; staged: boolean; restarting: boolean }>('/system/backup/restore', form).then(r => r.data)
   },
   supplyChainStatus: () => api.get<SupplyChainStatus>('/system/supply-chain/status').then(r => r.data),
-  supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
+  supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; bandit?: SupplyChainBanditResult; eslint?: SupplyChainEslintResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
 }
 
 export interface SupplyChainPipFinding {
@@ -338,12 +338,48 @@ export interface SupplyChainNpmResult {
   summary: { info: number; low: number; moderate: number; high: number; critical: number; total: number } | null
 }
 
+export interface SupplyChainBanditFinding {
+  file: string
+  line: number
+  severity: string
+  confidence: string
+  test_id: string
+  test_name: string
+  issue_text: string
+  cwe_id: number | null
+  more_info: string
+}
+
+export interface SupplyChainBanditResult {
+  ok: boolean
+  error: string | null
+  findings: SupplyChainBanditFinding[]
+  counts: { high?: number; medium?: number; low?: number }
+}
+
+export interface SupplyChainEslintFinding {
+  file: string
+  line: number
+  rule_id: string | null
+  severity: 'error' | 'warning'
+  message: string
+}
+
+export interface SupplyChainEslintResult {
+  ok: boolean
+  error: string | null
+  findings: SupplyChainEslintFinding[]
+  counts: { error?: number; warning?: number }
+}
+
 export interface SupplyChainStatus {
   last_run: string | null
   last_error: string | null
   in_progress: boolean
   pip: SupplyChainPipResult
   npm: SupplyChainNpmResult
+  bandit: SupplyChainBanditResult
+  eslint: SupplyChainEslintResult
   scan_day: number
   scan_hour: number
   next_run_estimated: number

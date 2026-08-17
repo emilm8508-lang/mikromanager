@@ -433,7 +433,7 @@
             "fri": "Freitag", "sat": "Samstag", "sun": "Sonntag"
         },
         "supplyChainTitle": "Lieferketten-Scan (Abhängigkeiten)",
-        "supplyChainExplanation": "Wöchentlicher Scan der Backend- (pip-audit) und Frontend-Abhängigkeiten (npm audit) auf bekannte Schwachstellen (CVEs) im eigenen Code der Anwendung — nicht im Netzwerk des Kunden.",
+        "supplyChainExplanation": "Wöchentlicher Scan der Backend- (pip-audit) und Frontend-Abhängigkeiten (npm audit) auf bekannte Schwachstellen (CVEs), plus statische Analyse des eigenen Codes (Bandit, ESLint security) auf typische Sicherheitsfehler — alles im eigenen Code der Anwendung, nicht im Netzwerk des Kunden.",
         "supplyChainLastRun": "Letzter Scan",
         "supplyChainNpm": "Frontend (npm)",
         "supplyChainPip": "Backend (pip)",
@@ -443,7 +443,11 @@
         "supplyChainRunButton": "Jetzt scannen",
         "severity": {
             "critical": "kritisch", "high": "hoch", "moderate": "mittel", "low": "niedrig"
-        }
+        },
+        "sastBandit": "Backend (Bandit)",
+        "sastEslint": "Frontend (ESLint security)",
+        "sastErrors": "Fehler",
+        "sastWarnings": "Warnungen"
     },
     "centralUsers": {
         "title": "Benutzer",

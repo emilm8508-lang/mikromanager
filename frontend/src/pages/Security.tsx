@@ -227,6 +227,8 @@ function SupplyChainSection() {
 
   const npmSummary = data?.npm?.summary
   const pipCount = data?.pip?.findings?.length ?? 0
+  const banditCounts = data?.bandit?.counts
+  const eslintCounts = data?.eslint?.counts
 
   return (
     <Card>
@@ -284,6 +286,47 @@ function SupplyChainSection() {
               ) : (
                 <Badge variant="red" className="text-[10px]">{t('security.supplyChainFindings', { count: pipCount })}</Badge>
               )
+            ) : (
+              <span className="text-xs text-slate-400">—</span>
+            )}
+          </div>
+          <div className="border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastBandit')}</p>
+            {data?.bandit?.ok === false ? (
+              <p className="text-xs text-red-600">{data.bandit.error}</p>
+            ) : banditCounts ? (
+              <div className="flex gap-1.5 flex-wrap">
+                {(['high', 'medium', 'low'] as const).map(sev => (
+                  (banditCounts[sev] ?? 0) > 0 && (
+                    <Badge key={sev} variant={sev === 'high' ? 'red' : sev === 'medium' ? 'yellow' : 'gray'} className="text-[10px]">
+                      {banditCounts[sev]} {t(`security.severity.${sev === 'medium' ? 'moderate' : sev}`)}
+                    </Badge>
+                  )
+                ))}
+                {(banditCounts.high ?? 0) + (banditCounts.medium ?? 0) + (banditCounts.low ?? 0) === 0 && (
+                  <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">—</span>
+            )}
+          </div>
+          <div className="border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastEslint')}</p>
+            {data?.eslint?.ok === false ? (
+              <p className="text-xs text-red-600">{data.eslint.error}</p>
+            ) : eslintCounts ? (
+              <div className="flex gap-1.5 flex-wrap">
+                {(eslintCounts.error ?? 0) > 0 && (
+                  <Badge variant="red" className="text-[10px]">{eslintCounts.error} {t('security.sastErrors')}</Badge>
+                )}
+                {(eslintCounts.warning ?? 0) > 0 && (
+                  <Badge variant="yellow" className="text-[10px]">{eslintCounts.warning} {t('security.sastWarnings')}</Badge>
+                )}
+                {(eslintCounts.error ?? 0) + (eslintCounts.warning ?? 0) === 0 && (
+                  <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>
+                )}
+              </div>
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}

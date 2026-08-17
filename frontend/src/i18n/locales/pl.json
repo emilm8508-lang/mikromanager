@@ -568,7 +568,7 @@
             "fri": "Piątek", "sat": "Sobota", "sun": "Niedziela"
         },
         "supplyChainTitle": "Skan łańcucha dostaw (zależności)",
-        "supplyChainExplanation": "Cotygodniowy skan zależności backendu (pip-audit) i frontendu (npm audit) pod kątem znanych podatności (CVE) w kodzie samej aplikacji — nie w sieci klienta.",
+        "supplyChainExplanation": "Cotygodniowy skan zależności backendu (pip-audit) i frontendu (npm audit) pod kątem znanych podatności (CVE), plus statyczna analiza własnego kodu (Bandit, ESLint security) pod kątem typowych błędów bezpieczeństwa — wszystko w kodzie samej aplikacji, nie w sieci klienta.",
         "supplyChainLastRun": "Ostatni skan",
         "supplyChainNpm": "Frontend (npm)",
         "supplyChainPip": "Backend (pip)",
@@ -578,7 +578,11 @@
         "supplyChainRunButton": "Skanuj teraz",
         "severity": {
             "critical": "krytyczne", "high": "wysokie", "moderate": "średnie", "low": "niskie"
-        }
+        },
+        "sastBandit": "Backend (Bandit)",
+        "sastEslint": "Frontend (ESLint security)",
+        "sastErrors": "błędów",
+        "sastWarnings": "ostrzeżeń"
     },
     "centralUsers": {
         "title": "Użytkownicy",

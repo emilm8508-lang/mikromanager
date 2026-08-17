@@ -433,7 +433,7 @@
             "fri": "П'ятниця", "sat": "Субота", "sun": "Неділя"
         },
         "supplyChainTitle": "Сканування ланцюга постачання (залежності)",
-        "supplyChainExplanation": "Щотижневе сканування залежностей бекенду (pip-audit) і фронтенду (npm audit) на відомі вразливості (CVE) у коді самого застосунку — не в мережі клієнта.",
+        "supplyChainExplanation": "Щотижневе сканування залежностей бекенду (pip-audit) і фронтенду (npm audit) на відомі вразливості (CVE), а також статичний аналіз власного коду (Bandit, ESLint security) на типові помилки безпеки — усе в коді самого застосунку, не в мережі клієнта.",
         "supplyChainLastRun": "Останнє сканування",
         "supplyChainNpm": "Frontend (npm)",
         "supplyChainPip": "Backend (pip)",
@@ -443,7 +443,11 @@
         "supplyChainRunButton": "Сканувати зараз",
         "severity": {
             "critical": "критичні", "high": "високі", "moderate": "середні", "low": "низькі"
-        }
+        },
+        "sastBandit": "Backend (Bandit)",
+        "sastEslint": "Frontend (ESLint security)",
+        "sastErrors": "помилок",
+        "sastWarnings": "попереджень"
     },
     "centralUsers": {
         "title": "Користувачі",

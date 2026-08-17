@@ -433,7 +433,7 @@
             "fri": "Viernes", "sat": "Sábado", "sun": "Domingo"
         },
         "supplyChainTitle": "Escaneo de la cadena de suministro (dependencias)",
-        "supplyChainExplanation": "Escaneo semanal de dependencias del backend (pip-audit) y frontend (npm audit) en busca de vulnerabilidades conocidas (CVE) en el propio código de la aplicación — no en la red del cliente.",
+        "supplyChainExplanation": "Escaneo semanal de dependencias del backend (pip-audit) y frontend (npm audit) en busca de vulnerabilidades conocidas (CVE), más análisis estático del propio código (Bandit, ESLint security) en busca de errores de seguridad comunes — todo en el propio código de la aplicación, no en la red del cliente.",
         "supplyChainLastRun": "Último escaneo",
         "supplyChainNpm": "Frontend (npm)",
         "supplyChainPip": "Backend (pip)",
@@ -443,7 +443,11 @@
         "supplyChainRunButton": "Escanear ahora",
         "severity": {
             "critical": "crítica", "high": "alta", "moderate": "media", "low": "baja"
-        }
+        },
+        "sastBandit": "Backend (Bandit)",
+        "sastEslint": "Frontend (ESLint security)",
+        "sastErrors": "errores",
+        "sastWarnings": "advertencias"
     },
     "centralUsers": {
         "title": "Usuarios",
