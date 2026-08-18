@@ -28,6 +28,7 @@ from services import uplink
 from services import vuln_scan
 from services import agent_backup
 from services import supply_chain
+from services import updater as updater_svc
 from services import audit as audit_svc
 
 
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
     vuln_scan.start()
     agent_backup.start()
     supply_chain.start()
+    updater_svc.start_auto_update()
     try:
         yield
     finally:
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
         vuln_scan.stop()
         agent_backup.stop()
         supply_chain.stop()
+        updater_svc.stop_auto_update()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

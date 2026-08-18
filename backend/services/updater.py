@@ -2,8 +2,16 @@
 Self-updater — runs git pull + npm build + exits cleanly so the supervisor
 (systemd on Linux, NSSM on Windows) auto-restarts the process with new code.
 
-Used both by scheduled command from central ("please update") and by manual
-CLI: python -m services.updater.
+Three ways this runs:
+  - Manual: a button click (backend/api/system.py) or CLI (python -m services.updater).
+  - Remote-requested: a scheduled command from central ("please update"),
+    still a deliberate human action (someone clicked "update this tenant").
+  - Fully autonomous (start_auto_update()): checks origin/master once a day
+    and self-updates + restarts with NO human confirmation, if behind.
+    This is a real change in risk profile from the other two paths — a bad
+    push reaches every live agent with auto-update enabled, unattended, no
+    review gate. Explicitly opted into (MIKROTIK_AUTO_UPDATE_ENABLED,
+    defaults to enabled — set to "0" to keep updates manual-only again).
 """
 import asyncio
 import os
@@ -11,11 +19,14 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+AUTO_UPDATE_ENABLED = os.environ.get("MIKROTIK_AUTO_UPDATE_ENABLED", "1").strip().lower() not in ("0", "false", "no")
+AUTO_UPDATE_HOUR = int(os.environ.get("MIKROTIK_AUTO_UPDATE_HOUR", "3"))  # UTC, offset from the :00 weekly jobs
 
 
 # ── State (read by /api/system/updater/status) ────────────────────────────────
@@ -44,7 +55,7 @@ def read_git_info() -> dict:
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--short=12", "HEAD"],
-            capture_output=True, text=True, timeout=5, cwd=REPO_ROOT,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5, cwd=REPO_ROOT,
         )
         if r.returncode == 0:
             info["commit"] = r.stdout.strip()
@@ -53,7 +64,7 @@ def read_git_info() -> dict:
     try:
         r = subprocess.run(
             ["git", "log", "-1", "--format=%ct"],
-            capture_output=True, text=True, timeout=5, cwd=REPO_ROOT,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5, cwd=REPO_ROOT,
         )
         if r.returncode == 0 and r.stdout.strip().isdigit():
             info["commit_time"] = int(r.stdout.strip())
@@ -62,7 +73,7 @@ def read_git_info() -> dict:
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=5, cwd=REPO_ROOT,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5, cwd=REPO_ROOT,
         )
         if r.returncode == 0:
             info["branch"] = r.stdout.strip()
@@ -111,9 +122,13 @@ async def _run(cmd, log, cwd, timeout=300) -> int:
     log.append(f"$ {label}")
 
     def _blocking_run():
+        # encoding="utf-8" explicitly — without it, text=True decodes using
+        # the OS's default codepage (e.g. CP1250 on a Windows agent), which
+        # crashes on legitimate UTF-8 output (a commit message, a package
+        # name) even though git/pip/npm all emit UTF-8 regardless of locale.
         return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
-            env=_child_env(),
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout, cwd=cwd, env=_child_env(),
         )
 
     try:
@@ -184,6 +199,89 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
     finally:
         _state["last_log"] = log
         _state["in_progress"] = False
+
+
+# ── Fully autonomous daily update check ─────────────────────────────────────
+# See module docstring for the risk tradeoff. Deliberately checks (git fetch
+# + compare HEAD to origin/master) BEFORE calling perform_update() — never
+# calls it unconditionally, so a day with no new commits does nothing at all
+# (no needless npm/pip reinstall, no restart).
+
+_auto_update_task: Optional[asyncio.Task] = None
+
+
+def _next_daily_run(now: datetime, hour: int) -> datetime:
+    # :15 past the hour, offset from the other services' :00 weekly slots
+    # (vuln_scan 02:00, agent_backup 03:00, supply_chain 04:00 — all Sunday
+    # only, so an exact hour clash is rare, but the offset keeps it that way).
+    candidate = now.replace(hour=hour, minute=15, second=0, microsecond=0)
+    if candidate <= now:
+        candidate += timedelta(days=1)
+    return candidate
+
+
+async def _check_and_update() -> None:
+    """Fetches origin, compares local HEAD to origin/master, and only calls
+    perform_update() if they actually differ. Never raises — a failed check
+    must not crash the loop; it just tries again at the next scheduled run."""
+    try:
+        loop = asyncio.get_event_loop()
+
+        def _git(args, timeout=60):
+            return subprocess.run(
+                ["git"] + args, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=timeout,
+                cwd=REPO_ROOT, env=_child_env(),
+            )
+
+        fetch = await loop.run_in_executor(None, lambda: _git(["fetch", "origin"]))
+        if fetch.returncode != 0:
+            print(f"[updater] auto-update check: git fetch failed: {(fetch.stderr or '').strip()[:200]}")
+            return
+
+        local = await loop.run_in_executor(None, lambda: _git(["rev-parse", "HEAD"], timeout=10))
+        remote = await loop.run_in_executor(None, lambda: _git(["rev-parse", "origin/master"], timeout=10))
+        local_hash = local.stdout.strip()
+        remote_hash = remote.stdout.strip()
+        if not local_hash or not remote_hash:
+            print("[updater] auto-update check: couldn't determine local/remote HEAD, skipping")
+            return
+        if local_hash == remote_hash:
+            return  # already up to date — most days, this is the only line that runs
+
+        print(f"[updater] auto-update: {local_hash[:12]} -> {remote_hash[:12]}, updating now")
+        await perform_update(restart_supervisor=True)
+    except Exception as e:
+        print(f"[updater] auto-update check error: {type(e).__name__}: {e}")
+
+
+async def _auto_update_loop():
+    while True:
+        try:
+            now = datetime.utcnow()
+            sleep_sec = max(1.0, (_next_daily_run(now, AUTO_UPDATE_HOUR) - now).total_seconds())
+            await asyncio.sleep(sleep_sec)
+            await _check_and_update()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[updater] auto-update loop error: {e}")
+
+
+def start_auto_update():
+    global _auto_update_task
+    if not AUTO_UPDATE_ENABLED:
+        return
+    if _auto_update_task is None or _auto_update_task.done():
+        loop = asyncio.get_event_loop()
+        _auto_update_task = loop.create_task(_auto_update_loop())
+
+
+def stop_auto_update():
+    global _auto_update_task
+    if _auto_update_task and not _auto_update_task.done():
+        _auto_update_task.cancel()
+        _auto_update_task = None
 
 
 if __name__ == "__main__":
