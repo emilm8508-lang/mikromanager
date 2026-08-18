@@ -463,14 +463,25 @@ function edge_sync_from_agent(PDO $pdo, string $tenant, array $edge_ips): void {
         $iface = (string)($e['iface'] ?? '');
         $default_name = $device_name !== '' ? "{$device_name} ({$iface})" : $ip;
 
-        // Default check_port=8291 (Winbox) for new auto-discovered IPs — most
-        // OVH shared hosting has exec() disabled, so ICMP ping won't work.
-        // Winbox is virtually always open on WAN of MikroTik edge devices.
+        // Default check_port=443 (HTTPS/www-ssl) for new auto-discovered IPs —
+        // most OVH shared hosting has exec() disabled, so ICMP ping won't work.
+        // Previously defaulted to 8291 (Winbox), but that nudges users toward
+        // exposing full RouterOS management on WAN just to make this default
+        // check pass — a bad practice for a security-hardened deployment, and
+        // often not even open on properly firewalled routers (silent timeout,
+        // shows as permanently offline despite the router working fine). 443
+        // is still just a guess — many routers won't have ANYTHING open on
+        // WAN, which is the secure default, and will correctly show offline
+        // here until the operator edits check_port to whatever (if anything)
+        // is intentionally exposed for monitoring. Existing rows keep their
+        // stored check_port — this only changes the default for IPs seen for
+        // the very first time (ON DUPLICATE KEY UPDATE below never touches
+        // check_port, so already-discovered devices are unaffected).
         $stmt = $pdo->prepare(
             'INSERT INTO edge_devices
                (tenant, name, ip, check_port, source, source_device_id, source_device_name,
                 source_iface, last_seen_from_agent, channel_ids, enabled)
-             VALUES (?, ?, ?, 8291, "auto", ?, ?, ?, ?, "[]", 0)
+             VALUES (?, ?, ?, 443, "auto", ?, ?, ?, ?, "[]", 0)
              ON DUPLICATE KEY UPDATE
                source_device_id = VALUES(source_device_id),
                source_device_name = VALUES(source_device_name),
