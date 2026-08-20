@@ -236,9 +236,16 @@ function alerts_send_webhook(string $url, array $data): array {
  * being blocked/exec disabled). Otherwise runs system ping with a short timeout.
  * Falls back automatically: if ICMP unavailable, tries TCP on port 80.
  *
- * Returns true if reachable, false if unreachable.
+ * Returns ['ok'=>bool, 'method'=>string, 'detail'=>string] — the method/
+ * detail are shown to the operator (edge_device_check_now, last_check_detail
+ * column) so "offline" is never a silent, unexplainable verdict. Most PHP
+ * shared hosting (this one included, as far as we've confirmed) has exec()
+ * disabled — previously the UI just labeled that case "ICMP" with no
+ * indication it had silently fallen back to a TCP:80 probe instead, which
+ * looks identical to "the address doesn't respond to ping" even when real
+ * ICMP was never attempted at all.
  */
-function edge_check_ip(string $ip, ?int $port = null, int $timeout = 3): bool {
+function edge_check_ip(string $ip, ?int $port = null, int $timeout = 3): array {
     if ($port !== null && $port > 0) {
         return edge_tcp_check($ip, $port, $timeout);
     }
@@ -250,21 +257,36 @@ function edge_check_ip(string $ip, ?int $port = null, int $timeout = 3): bool {
             : "ping -c 1 -W $timeout $safe 2>/dev/null";
         $out = []; $code = 1;
         @exec($cmd, $out, $code);
-        if ($code === 0) return true;
+        if ($code === 0) {
+            return ['ok' => true, 'method' => 'icmp', 'detail' => 'ping OK'];
+        }
         // If exec worked but ping failed, honor the result — don't fallback
         // (avoid false positives just because port 80 responds while ICMP is down)
-        return false;
+        return ['ok' => false, 'method' => 'icmp', 'detail' => "ping failed (exit code {$code})"];
     }
-    // exec disabled → best-effort TCP fallback to 80
-    return edge_tcp_check($ip, 80, $timeout);
+    // exec() disabled on this server → real ICMP is not possible at all;
+    // best-effort TCP fallback to 80 instead. Flagged as 'tcp_fallback' (not
+    // 'icmp') specifically so the operator can tell the difference between
+    // "this address doesn't answer ping" and "this server can't even try".
+    $r = edge_tcp_check($ip, 80, $timeout);
+    $r['method'] = 'tcp_fallback';
+    $r['detail'] = "exec() unavailable on this server, no real ICMP possible — tried TCP 80 instead: {$r['detail']}";
+    return $r;
 }
 
 
-function edge_tcp_check(string $ip, int $port, int $timeout = 3): bool {
+function edge_tcp_check(string $ip, int $port, int $timeout = 3): array {
     $err_no = 0; $err_str = '';
     $sock = @fsockopen($ip, $port, $err_no, $err_str, $timeout);
-    if ($sock) { @fclose($sock); return true; }
-    return false;
+    if ($sock) {
+        @fclose($sock);
+        return ['ok' => true, 'method' => 'tcp', 'detail' => "TCP {$ip}:{$port} connected"];
+    }
+    // errno 111/10061 = connection actively refused (host IS reachable, that
+    // port is just closed) vs. a timeout/other error (host may be firewalled
+    // or genuinely down, or blocking silently) — worth telling apart.
+    $reason = $err_no !== 0 ? "{$err_str} (errno {$err_no})" : 'timed out';
+    return ['ok' => false, 'method' => 'tcp', 'detail' => "TCP {$ip}:{$port} failed: {$reason}"];
 }
 
 
@@ -301,7 +323,9 @@ function edge_check_due(PDO $pdo, int $max_seconds = 8): int {
 function edge_check_one(PDO $pdo, array $d): array {
     $ip = (string)$d['ip'];
     $port = $d['check_port'] !== null ? (int)$d['check_port'] : null;
-    $ok = edge_check_ip($ip, $port);
+    $check = edge_check_ip($ip, $port);
+    $ok = $check['ok'];
+    $detail = $check['detail'];
 
     $prev = $d['last_status'];
     $consecutive = (int)$d['consecutive_fails'];
@@ -325,20 +349,20 @@ function edge_check_one(PDO $pdo, array $d): array {
     if ($state_changed) {
         $stmt = $pdo->prepare(
             "UPDATE edge_devices
-             SET last_check = ?, last_status = ?, last_state_change = ?, consecutive_fails = ?
+             SET last_check = ?, last_status = ?, last_state_change = ?, consecutive_fails = ?, last_check_detail = ?
              WHERE id = ?"
         );
-        $stmt->execute([$now, $effective, $now, $consecutive, $d['id']]);
+        $stmt->execute([$now, $effective, $now, $consecutive, $detail, $d['id']]);
     } else {
         $stmt = $pdo->prepare(
             "UPDATE edge_devices
-             SET last_check = ?, consecutive_fails = ?
+             SET last_check = ?, consecutive_fails = ?, last_check_detail = ?
              WHERE id = ?"
         );
-        $stmt->execute([$now, $consecutive, $d['id']]);
+        $stmt->execute([$now, $consecutive, $detail, $d['id']]);
     }
 
-    $result = ['ok' => $ok, 'state_changed' => $state_changed, 'new_status' => $effective];
+    $result = ['ok' => $ok, 'state_changed' => $state_changed, 'new_status' => $effective, 'method' => $check['method'], 'detail' => $detail];
 
     if (!$state_changed) return $result;
 

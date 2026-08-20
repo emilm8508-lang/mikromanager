@@ -946,6 +946,7 @@ export interface EdgeDevice {
   last_status: 'unknown' | 'online' | 'offline'
   last_state_change: string | null
   consecutive_fails: number
+  last_check_detail: string | null
   created_at: string
 }
 
@@ -1117,7 +1118,7 @@ export const centralApi = {
   edgeDeviceToggle: (id: number) =>
     centralRequest<{ ok: boolean }>('edge_device_toggle', { id: String(id) }, { method: 'POST' }),
   edgeDeviceCheckNow: (id: number) =>
-    centralRequest<{ ok: boolean; result: { ok: boolean; state_changed: boolean; new_status: string } }>(
+    centralRequest<{ ok: boolean; result: { ok: boolean; state_changed: boolean; new_status: string; method: string; detail: string } }>(
       'edge_device_check_now', { id: String(id) }, { method: 'POST' },
     ),
   edgeEvents: (edgeId?: number, limit: number = 100) =>

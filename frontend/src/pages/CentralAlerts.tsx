@@ -585,7 +585,8 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
       const r = await centralApi.edgeDeviceCheckNow(d.id)
       await reload()
       const ok = r.result.ok
-      alert(ok ? t('edge.checkOk') : t('edge.checkFail'))
+      const label = ok ? t('edge.checkOk') : t('edge.checkFail')
+      alert(`${label}\n\n${r.result.detail}`)
     } catch (e) {
       alert((e as Error).message)
     } finally {
@@ -748,7 +749,14 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
                         {d.source_device_name && <div>{d.source_device_name}</div>}
                         {d.source_iface && <div className="font-mono">{d.source_iface}</div>}
                       </td>
-                      <td>{statusBadge(d.last_status)}</td>
+                      <td>
+                        {statusBadge(d.last_status)}
+                        {d.last_check_detail && (
+                          <div className="text-[10px] text-slate-400 mt-0.5 max-w-[220px]" title={d.last_check_detail}>
+                            {d.last_check_detail}
+                          </div>
+                        )}
+                      </td>
                       <td className="text-xs text-slate-500">{d.last_check ? new Date(d.last_check).toLocaleString() : '—'}</td>
                       <td>
                         {e ? (

@@ -76,10 +76,13 @@ CREATE TABLE IF NOT EXISTS edge_devices (
     last_status ENUM('unknown','online','offline') NOT NULL DEFAULT 'unknown',
     last_state_change DATETIME NULL,
     consecutive_fails INT NOT NULL DEFAULT 0,
+    last_check_detail VARCHAR(255) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_tenant_ip (tenant, ip),
     INDEX (tenant), INDEX (enabled, last_check)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Existing install upgrading to this version, run once:
+-- ALTER TABLE edge_devices ADD COLUMN last_check_detail VARCHAR(255) NULL;
 
 -- Activity log (v1.7) — timeline of interesting events (firmware upgraded,
 -- agent restarted after update, backups, etc.). Purely informational, shown
