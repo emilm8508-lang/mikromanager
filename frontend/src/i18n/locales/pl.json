@@ -463,6 +463,15 @@
                      "event":  "Zdarzenie",
                      "duration":  "Czas trwania offline"
                  },
+    "supplyChainCentral": {
+        "title": "Skan łańcucha dostaw — wszyscy klienci",
+        "intro": "Uruchom skan zależności (pip-audit, npm audit) i statycznej analizy kodu (Bandit, ESLint security) na wybranym agencie z poziomu Centrali. Wynik dociera z kolejnym heartbeatem agenta (do 2 min) i pojawia się tu automatycznie.",
+        "noTenants": "Brak podłączonych klientów.",
+        "lastScan": "Ostatni skan",
+        "neverScanned": "Nigdy nie skanowano",
+        "scanNow": "Skanuj teraz",
+        "queued": "W kolejce"
+    },
     "auth": {
         "title": "MikroManager",
         "subtitle": "Bezpieczny dostęp do panelu zarządzania",

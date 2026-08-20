@@ -314,3 +314,47 @@ def stop():
     if _task and not _task.done():
         _task.cancel()
         _task = None
+
+
+def public_summary() -> Optional[dict]:
+    """Redacted, capped summary safe to ride along in the snapshot's
+    plaintext envelope (visible to OVH without the E2E key) — same
+    treatment as firmware_status.collect_firmware_status(): counts + a
+    capped list of top findings per tool, never the full raw tool output
+    (full detail stays local-only, viewable on this agent's own Security
+    page). Returns None before the first scan has ever run."""
+    if _state["last_run"] is None:
+        return None
+
+    def _cap(findings: list, n: int = 10) -> list:
+        return findings[:n]
+
+    pip_f = _state["pip"].get("findings") or []
+    npm_f = _state["npm"].get("findings") or []
+    bandit_f = _state["bandit"].get("findings") or []
+    eslint_f = _state["eslint"].get("findings") or []
+
+    return {
+        "last_run": _state["last_run"],
+        "last_error": _state["last_error"],
+        "pip": {
+            "ok": _state["pip"].get("ok"), "error": _state["pip"].get("error"),
+            "count": len(pip_f),
+            "top": [{"package": f.get("package"), "id": f.get("id")} for f in _cap(pip_f)],
+        },
+        "npm": {
+            "ok": _state["npm"].get("ok"), "error": _state["npm"].get("error"),
+            "count": len(npm_f), "summary": _state["npm"].get("summary"),
+            "top": [{"package": f.get("package"), "severity": f.get("severity")} for f in _cap(npm_f)],
+        },
+        "bandit": {
+            "ok": _state["bandit"].get("ok"), "error": _state["bandit"].get("error"),
+            "count": len(bandit_f), "counts": _state["bandit"].get("counts"),
+            "top": [{"test_id": f.get("test_id"), "severity": f.get("severity")} for f in _cap(bandit_f)],
+        },
+        "eslint": {
+            "ok": _state["eslint"].get("ok"), "error": _state["eslint"].get("error"),
+            "count": len(eslint_f), "counts": _state["eslint"].get("counts"),
+            "top": [{"rule_id": f.get("rule_id"), "severity": f.get("severity")} for f in _cap(eslint_f)],
+        },
+    }

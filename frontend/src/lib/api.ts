@@ -385,6 +385,28 @@ export interface SupplyChainStatus {
   next_run_estimated: number
 }
 
+// Redacted, capped summary sent by each agent in its snapshot envelope —
+// distinct from SupplyChainStatus above (that's the full local result with
+// every finding, only ever fetched from THIS agent's own /system/supply-
+// chain/status). This is what Central sees for every tenant at once.
+export interface CentralSupplyChainToolSummary {
+  ok: boolean | null
+  error: string | null
+  count: number
+  counts?: Record<string, number>
+  summary?: { info: number; low: number; moderate: number; high: number; critical: number; total: number } | null
+  top: Array<Record<string, string | null>>
+}
+
+export interface CentralSupplyChainStatus {
+  last_run: string | null
+  last_error: string | null
+  pip: CentralSupplyChainToolSummary
+  npm: CentralSupplyChainToolSummary
+  bandit: CentralSupplyChainToolSummary
+  eslint: CentralSupplyChainToolSummary
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -1045,6 +1067,12 @@ export const centralApi = {
     ),
   pendingDeviceLogRequests: () =>
     centralRequest<{ pending: Array<{ tenant: string; device_id: number; limit: number; queued_at: string }> }>('pending_device_log_requests'),
+  requestSupplyChainScan: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_supply_chain_scan', { tenant }),
+  pendingSupplyChainScans: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_supply_chain_scans'),
+  supplyChainStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; age_sec: number | null; supply_chain_status: CentralSupplyChainStatus | null }> }>('supply_chain_status_all'),
 
   // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
   // checks here; the server enforces it independently.

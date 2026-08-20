@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -858,6 +858,120 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
 }
 
 
+function ToolBadge({ label, res }: { label: string; res: CentralSupplyChainToolSummary | undefined | null }) {
+  if (!res) return <span className="text-xs text-slate-400">—</span>
+  if (res.ok === false) {
+    return <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700" title={res.error ?? ''}>{label}: {'×'}</span>
+  }
+  const cls = res.count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+  return <span className={`text-xs px-1.5 py-0.5 rounded ${cls}`}>{label}: {res.count}</span>
+}
+
+function SupplyChainCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; last_seen: string | null; age_sec: number | null; supply_chain_status: CentralSupplyChainStatus | null }>>([])
+  const [pending, setPending] = useState<Array<{ tenant: string; queued_at: string }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const [s, p] = await Promise.all([centralApi.supplyChainStatusAll(), centralApi.pendingSupplyChainScans()])
+      setRows(s.tenants ?? [])
+      setPending(p.pending ?? [])
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const pendingSet = new Set(pending.map(p => p.tenant))
+
+  const scanNow = async (tenant: string) => {
+    setBusy(tenant)
+    try {
+      await centralApi.requestSupplyChainScan(tenant)
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('supplyChainCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('supplyChainCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('supplyChainCentral.noTenants')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>{t('supplyChainCentral.lastScan')}</th>
+                <th>pip</th>
+                <th>npm</th>
+                <th>Bandit</th>
+                <th>ESLint</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const sc = r.supply_chain_status
+                const queued = pendingSet.has(r.tenant)
+                return (
+                  <tr key={r.tenant} className="border-b border-slate-100">
+                    <td className="py-2">{r.tenant}</td>
+                    <td className="text-xs text-slate-500">
+                      {sc?.last_run ? new Date(sc.last_run).toLocaleString() : t('supplyChainCentral.neverScanned')}
+                    </td>
+                    <td><ToolBadge label="pip" res={sc?.pip} /></td>
+                    <td><ToolBadge label="npm" res={sc?.npm} /></td>
+                    <td><ToolBadge label="Bandit" res={sc?.bandit} /></td>
+                    <td><ToolBadge label="ESLint" res={sc?.eslint} /></td>
+                    <td className="text-right">
+                      {queued ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('supplyChainCentral.queued')}</span>
+                      ) : (
+                        <button onClick={() => scanNow(r.tenant)} disabled={busy === r.tenant}
+                          className="text-xs text-indigo-600 hover:underline">
+                          {t('supplyChainCentral.scanNow')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export function AlertsPanel() {
   const { t } = useTranslation()
   const [channels, setChannels] = useState<AlertChannel[]>([])
@@ -902,6 +1016,7 @@ export function AlertsPanel() {
       <ChannelsPanel onChange={loadShared} />
       <RulesPanel channels={channels} tenants={tenants} />
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
+      <SupplyChainCentralPanel />
       <HistoryPanel />
     </div>
   )

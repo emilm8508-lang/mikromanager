@@ -248,6 +248,13 @@ async def _build_snapshot() -> dict:
     log_fetch_results, _log_fetch_results = _log_fetch_results, []
 
     try:
+        from services import supply_chain
+        supply_chain_status = supply_chain.public_summary()
+    except Exception as e:
+        print(f"[uplink] supply chain summary error: {e}")
+        supply_chain_status = None
+
+    try:
         from services import vuln_scan
         # Only CRITICAL/HIGH/MEDIUM leave the agent — LOW-severity findings
         # stay purely local (still fully visible in the agent's own
@@ -263,7 +270,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.14",
+        "agent_version": "1.15",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -278,6 +285,7 @@ async def _build_snapshot() -> dict:
         "activity_events": activity_events,
         "log_fetch_results": log_fetch_results,
         "vuln_findings_summary": vuln_findings_summary,
+        "supply_chain_status": supply_chain_status,
     }
 
 
@@ -310,6 +318,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "edge_ips": snapshot.get("edge_ips", []),
             "firmware_status": snapshot.get("firmware_status"),
             "activity_events": snapshot.get("activity_events", []),
+            "supply_chain_status": snapshot.get("supply_chain_status"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
@@ -457,6 +466,8 @@ async def _handle_commands(commands: list) -> None:
 
     Supported commands (mixed types in one list):
       - "update"                                          — self-update the app
+      - "supply_chain_scan"                                — run pip-audit/npm
+        audit/Bandit/eslint-security now; result rides the next snapshot
       - {"type":"firmware_upgrade","device_id":N,
          "backup":bool}                                   — upgrade Mikrotik firmware
       - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
@@ -469,6 +480,10 @@ async def _handle_commands(commands: list) -> None:
         elif cmd == "restart":
             print("[uplink] received RESTART command from central — restarting")
             asyncio.create_task(_perform_restart())
+        elif cmd == "supply_chain_scan":
+            print("[uplink] received SUPPLY_CHAIN_SCAN command from central — starting")
+            from services import supply_chain
+            asyncio.create_task(supply_chain.run_scan())
         elif isinstance(cmd, dict):
             cmd_type = cmd.get("type")
             if cmd_type == "firmware_upgrade":

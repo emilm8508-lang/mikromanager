@@ -1042,6 +1042,68 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_supply_chain_scan':
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . '/supplychain_pending_' . $safe, date('c'));
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "supply_chain_scan_queued", ?, ?)')
+                ->execute([$tenant, "Skan lancucha dostaw zakolejkowany dla {$tenant}", json_encode(['queued_at'=>date('c')])]);
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'pending_supply_chain_scans':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/supplychain_pending_*') as $f) {
+                    $tenant = substr(basename($f), strlen('supplychain_pending_'));
+                    $pending[] = ['tenant' => $tenant, 'queued_at' => date('c', filemtime($f))];
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'supply_chain_status_all':
+            // Aggregate view across every tenant this identity can see, for
+            // Central's "run the supply-chain scan on all agents from here"
+            // panel — same subquery pattern as the 'tenants' action below
+            // (latest snapshot payload per tenant, no E2E key needed since
+            // supply_chain_status travels as plaintext envelope metadata,
+            // same treatment as firmware_status).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        TIMESTAMPDIFF(SECOND, t.last_seen, NOW()) AS age_sec,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $sc = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $sc = $meta['supply_chain_status'] ?? null; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'age_sec' => $r['age_sec'] !== null ? (int)$r['age_sec'] : null,
+                    'supply_chain_status' => $sc,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_firmware_upgrade':
             // Queue a firmware upgrade on a specific device of a specific tenant.
             // The agent picks it up on next heartbeat and runs firmware.upgrade_device.

@@ -307,6 +307,17 @@ try {
         } catch (Throwable $e) {}
     }
 
+    // 2b. Supply-chain scan command (pip-audit/npm audit/Bandit/eslint-security)
+    $supplychain_marker = $state_dir . '/supplychain_pending_' . $safe;
+    if (is_file($supplychain_marker)) {
+        $commands[] = 'supply_chain_scan';
+        @unlink($supplychain_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "supply_chain_scan_delivered", ?, ?)')
+                ->execute([$tenant_header, "Skan lancucha dostaw dostarczony do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
+    }
+
     // 3. Firmware upgrade commands (may be multiple queued for one tenant)
     foreach (glob($state_dir . "/fw_upgrade_{$safe}_*.pending") as $f) {
         $base = basename($f, '.pending');
