@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { cn } from '../lib/utils'
 import { SUPPORTED_LANGS } from '../i18n'
-import { api, systemApi, authApi, MfaSetupInfo } from '../lib/api'
+import { api, systemApi, authApi, MfaSetupInfo, uiMode, UiMode } from '../lib/api'
 import { useAuth } from '../pages/Login'
 import { Modal } from './ui/Modal'
 import { Input } from './ui/Input'
@@ -232,8 +232,14 @@ function AccountPanel() {
 export function Sidebar() {
   const { t } = useTranslation()
   const { role } = useAuth()
+  const [mode, setMode] = useState<UiMode>(uiMode.load())
 
-  const nav = [
+  const setModeAndSave = (m: UiMode) => {
+    uiMode.save(m)
+    setMode(m)
+  }
+
+  const agentNav = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
     { to: '/devices', label: t('nav.devices'), icon: Server },
     { to: '/map', label: t('nav.map'), icon: Network },
@@ -246,8 +252,13 @@ export function Sidebar() {
     // link + surprise 403 in the nav).
     ...(role === 'admin' ? [{ to: '/audit', label: t('nav.audit'), icon: ClipboardList }] : []),
     ...(role === 'admin' ? [{ to: '/security', label: t('nav.security'), icon: ShieldCheck }] : []),
-    { to: '/central', label: t('nav.central'), icon: Cloud },
   ]
+  const centralNavItem = { to: '/central', label: t('nav.central'), icon: Cloud }
+  // 'central' mode is a purely local display preference — hides agent-only
+  // tabs for a computer that's only ever used to view Central. Every local
+  // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
+  // this doesn't touch anything server-side.
+  const nav = mode === 'central' ? [centralNavItem] : [...agentNav, centralNavItem]
 
   return (
     <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col">
@@ -261,6 +272,30 @@ export function Sidebar() {
             <p className="text-sm font-bold text-slate-900 leading-none">MikroManager</p>
             <p className="text-[10px] text-slate-500 mt-0.5">RouterOS v6 / v7</p>
           </div>
+        </div>
+      </div>
+
+      {/* Agent/Central UI mode toggle */}
+      <div className="px-3 pt-3">
+        <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs">
+          <button
+            onClick={() => setModeAndSave('agent')}
+            className={cn(
+              'flex-1 py-1 rounded-md transition-colors',
+              mode === 'agent' ? 'bg-white text-slate-900 font-medium shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            {t('nav.modeAgent')}
+          </button>
+          <button
+            onClick={() => setModeAndSave('central')}
+            className={cn(
+              'flex-1 py-1 rounded-md transition-colors',
+              mode === 'central' ? 'bg-white text-slate-900 font-medium shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            {t('nav.modeCentral')}
+          </button>
         </div>
       </div>
 

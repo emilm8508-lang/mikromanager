@@ -9,7 +9,9 @@
                 "vulnerabilities":  "Vulnerabilidades",
                 "audit":  "Auditoría",
                 "security":  "Seguridad",
-                "central":  "Central"
+                "central":  "Central",
+                "modeAgent":  "Agente",
+                "modeCentral":  "Central"
             },
     "common":  {
                    "online":  "En línea",

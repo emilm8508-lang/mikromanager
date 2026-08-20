@@ -9,7 +9,9 @@
                 "vulnerabilities":  "Schwachstellen",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
-                "central":  "Zentral"
+                "central":  "Zentral",
+                "modeAgent":  "Agent",
+                "modeCentral":  "Zentrale"
             },
     "common":  {
                    "online":  "Online",

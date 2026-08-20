@@ -9,7 +9,9 @@
                 "vulnerabilities":  "Podatności",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
-                "central":  "Centralny"
+                "central":  "Centralny",
+                "modeAgent":  "Agent",
+                "modeCentral":  "Centrala"
             },
     "common":  {
                    "online":  "Online",
@@ -371,7 +373,13 @@
                     "exportKeysDownload": "Pobierz jako plik",
                     "importKeysHint": "Wklej tekst wyeksportowany z innej przeglądarki/urządzenia.",
                     "importKeysBtn": "Importuj",
-                    "keysImported": "Zaimportowano {{count}} kluczy."
+                    "keysImported": "Zaimportowano {{count}} kluczy.",
+                    "exportFullConfig": "Eksportuj pełną konfigurację",
+                    "importFullConfig": "Importuj pełną konfigurację",
+                    "exportFullConfigWarning": "Ten plik zawiera hasło (i sekret TOTP, jeśli ustawiony) w JAWNYM tekście, nie tylko klucze E2E — kto go ma, może zalogować się do Centrali jako Ty. Traktuj jak hasło: nie wysyłaj byle jakim kanałem.",
+                    "importFullConfigHint": "Wklej pełną konfigurację wyeksportowaną z innego komputera — adres API, hasło, sekret TOTP i klucze E2E zostaną ustawione jednym razem. Strona odświeży się automatycznie po imporcie.",
+                    "importFullConfigBtn": "Importuj i zastąp konfigurację",
+                    "fullConfigImported": "Konfiguracja zaimportowana — odświeżam..."
                 },
     "sidebar":  {
                     "versionLabel":  "Wersja",

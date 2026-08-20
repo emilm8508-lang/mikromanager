@@ -597,6 +597,22 @@ export interface CentralTenantList {
   server_time: string
 }
 
+// UI display mode — a purely local browser preference for Sidebar nav.
+// 'central' hides agent-only tabs (Devices/Scanner/Vulnerabilities/etc) on
+// a computer used only to view Central. The backend is NOT affected either
+// way — uplink/scanner/vuln_scan/supply_chain keep running regardless of
+// this setting, it's cosmetic navigation only.
+const UI_MODE_LS = 'mikromanager_ui_mode'
+export type UiMode = 'agent' | 'central'
+export const uiMode = {
+  load(): UiMode {
+    return localStorage.getItem(UI_MODE_LS) === 'central' ? 'central' : 'agent'
+  },
+  save(mode: UiMode) {
+    localStorage.setItem(UI_MODE_LS, mode)
+  },
+}
+
 // Central calls bypass our backend — they go directly to the OVH PHP API.
 // Config is stored in localStorage.
 const CENTRAL_LS = 'mikromanager_central'
@@ -720,6 +736,49 @@ export const centralConfig = {
     cfg.tenantKeys = { ...(cfg.tenantKeys ?? {}), ...Object.fromEntries(entries) }
     centralConfig.save(cfg)
     return entries.length
+  },
+  // Full config transfer (apiUrl + password + totpSecret + tenantKeys) as
+  // ONE blob — for setting up "Centralny" on a second computer in one paste
+  // instead of retyping the API URL/password and re-importing keys
+  // separately. Unlike exportTenantKeys(), this includes the shared viewer
+  // password (and TOTP secret, if set) in PLAIN TEXT — same "convenience
+  // over defense in depth" tradeoff already accepted for E2E-key-bundled
+  // backup downloads elsewhere in this app. Whoever holds this blob can log
+  // into Central as you; treat it like a password, never paste it anywhere
+  // untrusted.
+  exportFullConfig(): string {
+    const cfg = centralConfig.load()
+    return JSON.stringify(cfg ?? {}, null, 2)
+  },
+  importFullConfig(json: string): CentralConfig {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(json)
+    } catch {
+      throw new Error('invalid JSON')
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('expected a JSON object')
+    }
+    const obj = parsed as Record<string, unknown>
+    if (typeof obj.apiUrl !== 'string' || !obj.apiUrl) {
+      throw new Error('missing apiUrl')
+    }
+    const tenantKeysRaw = obj.tenantKeys
+    const tenantKeys = (typeof tenantKeysRaw === 'object' && tenantKeysRaw !== null && !Array.isArray(tenantKeysRaw))
+      ? Object.fromEntries(
+          Object.entries(tenantKeysRaw as Record<string, unknown>)
+            .filter((e): e is [string, string] => typeof e[1] === 'string'),
+        )
+      : undefined
+    const cfg: CentralConfig = {
+      apiUrl: obj.apiUrl,
+      password: typeof obj.password === 'string' ? obj.password : undefined,
+      totpSecret: typeof obj.totpSecret === 'string' ? obj.totpSecret : undefined,
+      tenantKeys,
+    }
+    centralConfig.save(cfg)
+    return cfg
   },
 }
 

@@ -9,7 +9,9 @@
                 "vulnerabilities":  "Вразливості",
                 "audit":  "Аудит",
                 "security":  "Безпека",
-                "central":  "Центр"
+                "central":  "Центр",
+                "modeAgent":  "Агент",
+                "modeCentral":  "Центр"
             },
     "common":  {
                    "online":  "В мережі",

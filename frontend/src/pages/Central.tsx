@@ -870,6 +870,98 @@ function KeyBackupPanel() {
   )
 }
 
+function FullConfigTransferPanel() {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<'none' | 'export' | 'import'>('none')
+  const [importText, setImportText] = useState('')
+  const [importResult, setImportResult] = useState<string | null>(null)
+  const [importError, setImportError] = useState('')
+
+  const doImport = () => {
+    setImportError('')
+    setImportResult(null)
+    try {
+      centralConfig.importFullConfig(importText)
+      setImportResult(t('central.fullConfigImported'))
+      setImportText('')
+      // Everything downstream (channels, tenants, snapshots...) was fetched
+      // against the OLD apiUrl/password — reload so the whole app re-inits
+      // cleanly against the config that was just replaced, instead of
+      // leaving stale query results mixed with the new identity.
+      setTimeout(() => window.location.reload(), 1000)
+    } catch (e) {
+      setImportError((e as Error).message)
+    }
+  }
+
+  const close = () => {
+    setMode('none')
+    setImportText('')
+    setImportResult(null)
+    setImportError('')
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Button size="sm" variant="ghost" onClick={() => setMode('export')}>
+        <Download size={12} /> {t('central.exportFullConfig')}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => setMode('import')}>
+        <Upload size={12} /> {t('central.importFullConfig')}
+      </Button>
+
+      <Modal open={mode === 'export'} onClose={close} title={t('central.exportFullConfig') as string}>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+          {t('central.exportFullConfigWarning')}
+        </p>
+        <textarea
+          readOnly
+          value={centralConfig.exportFullConfig()}
+          onClick={e => (e.target as HTMLTextAreaElement).select()}
+          className="w-full h-48 font-mono text-xs bg-slate-100 border border-slate-200 rounded-lg p-2"
+        />
+        <div className="flex justify-end mt-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              // Purely client-side: localStorage -> file, no network call —
+              // same trust boundary as the E2E-key export just above.
+              const blob = new Blob([centralConfig.exportFullConfig()], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `mikromanager-central-config-${new Date().toISOString().slice(0, 10)}.json`
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            }}
+          >
+            <Download size={12} /> {t('central.exportKeysDownload')}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={mode === 'import'} onClose={close} title={t('central.importFullConfig') as string}>
+        <p className="text-xs text-slate-500 mb-2">{t('central.importFullConfigHint')}</p>
+        <textarea
+          value={importText}
+          onChange={e => setImportText(e.target.value)}
+          placeholder={'{"apiUrl": "...", "password": "...", "tenantKeys": {...}}'}
+          className="w-full h-48 font-mono text-xs border border-slate-300 rounded-lg p-2"
+        />
+        {importError && <p className="text-xs text-red-600 mt-1">{importError}</p>}
+        {importResult && <p className="text-xs text-green-700 mt-1">{importResult}</p>}
+        <Button variant="primary" size="sm" className="mt-2 w-full justify-center"
+          onClick={doImport} disabled={!importText.trim()}>
+          {t('central.importFullConfigBtn')}
+        </Button>
+      </Modal>
+    </div>
+  )
+}
+
 function EncryptedTenantsPanel() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -1001,6 +1093,7 @@ function ViewerPanel() {
       <UsageBar />
 
       <KeyBackupPanel />
+      <FullConfigTransferPanel />
 
       <EncryptedTenantsPanel />
 
