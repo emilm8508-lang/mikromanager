@@ -1050,6 +1050,23 @@ function LinuxCentralPanel() {
     finally { setBusyScan(null) }
   }
 
+  const scanAll = async () => {
+    const targets = tenants.filter(tn => !scanPendingSet.has(tn))
+    if (targets.length === 0) return
+    setBusyScan('__all__')
+    try {
+      // Fan out to every connected tenant's agent — each just writes an
+      // OVH-side marker file, so firing them concurrently is safe (no
+      // shared state between tenants to race on).
+      await Promise.all(targets.map(tn => centralApi.requestLinuxScan(tn)))
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusyScan(null)
+    }
+  }
+
   const upgradeNow = async (tenant: string, hostId: number) => {
     const key = `${tenant}:${hostId}`
     setBusyUpgrade(key)
@@ -1070,11 +1087,16 @@ function LinuxCentralPanel() {
       {err && <div className="text-sm text-red-600">{err}</div>}
 
       {tenants.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={scanAll} disabled={busyScan !== null}
+            className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+            {t('linuxCentral.scanAll', { count: tenants.length })}
+          </button>
+          <span className="text-slate-300">|</span>
           {tenants.map(tn => {
             const queued = scanPendingSet.has(tn)
             return (
-              <button key={tn} onClick={() => scanNow(tn)} disabled={busyScan === tn || queued}
+              <button key={tn} onClick={() => scanNow(tn)} disabled={busyScan === tn || busyScan === '__all__' || queued}
                 className={`text-xs px-2 py-1 rounded border ${queued ? 'bg-amber-100 text-amber-700 border-amber-200' : 'border-slate-300 text-indigo-600 hover:bg-indigo-50'}`}>
                 {queued ? t('linuxCentral.scanQueued', { tenant: tn }) : t('linuxCentral.scanTenant', { tenant: tn })}
               </button>

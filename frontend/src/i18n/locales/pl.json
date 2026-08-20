@@ -711,6 +711,7 @@
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",
         "intro": "Aktualizacje pakietów apt/dnf na zarządzanych serwerach Linux u klientów. Skan sieci wykrywa nowe hosty i odświeża liczbę oczekujących aktualizacji; aktualizacja wymaga włączonego zarządzania Linuksem na danym agencie (MIKROTIK_LINUX_MANAGE_ENABLED).",
+        "scanAll": "Skanuj wszystkich klientów ({{count}})",
         "scanTenant": "Skanuj: {{tenant}}",
         "scanQueued": "{{tenant}}: w kolejce",
         "noHosts": "Brak zarządzanych hostów Linux u żadnego klienta.",
