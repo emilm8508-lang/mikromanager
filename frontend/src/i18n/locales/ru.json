@@ -7,6 +7,7 @@
                 "credentials":  "Учётные данные",
                 "logs":  "Журналы",
                 "vulnerabilities":  "Уязвимости",
+                "linuxHosts":  "Linux",
                 "audit":  "Аудит",
                 "security":  "Безопасность",
                 "central":  "Центр",
@@ -525,5 +526,30 @@
             "accepted_risk": "Риск принят",
             "resolved": "Устранено"
         }
+    },
+    "linux": {
+        "settingsTitle": "Общие учётные данные",
+        "settingsHint": "Одни SSH-учётные данные для всех хостов Linux — без выбора для каждого хоста отдельно.",
+        "disabledWarning": "Управление Linux отключено на этом агенте (MIKROTIK_LINUX_MANAGE_ENABLED). Проверка/обновление не будут работать, пока не включено в конфигурации агента.",
+        "noCredential": "— не выбрано —",
+        "currentCredential": "Текущие учётные данные",
+        "scanNow": "Сканировать сеть сейчас",
+        "hostsTitle": "Хосты Linux",
+        "noHosts": "Хосты Linux пока не обнаружены. Сканирование сети запускается автоматически раз в неделю, либо нажмите \"Сканировать сеть сейчас\" выше.",
+        "pending": "ожидает подтверждения",
+        "unsupportedPkgMgr": "неподдерживаемый менеджер пакетов",
+        "upgradableCount": "{{count}} обновлений",
+        "upToDate": "актуально",
+        "rebootRequired": "требуется перезагрузка",
+        "lastCheck": "Последняя проверка",
+        "lastUpgrade": "Последнее обновление",
+        "enableManagement": "Включить управление",
+        "disableManagement": "Отключить управление",
+        "checkUpdates": "Проверить обновления",
+        "upgradeNow": "Обновить сейчас",
+        "upgradeConfirm": "Запустить обновление (apt/dnf update + upgrade) на {{ip}}? Требуются права sudo указанных учётных данных.",
+        "upgradeAll": "Обновить все управляемые ({{count}})",
+        "upgradeAllConfirm": "Запустить обновление последовательно на {{count}} управляемых хостах?",
+        "jobStatus": "Статус задачи"
     }
 }

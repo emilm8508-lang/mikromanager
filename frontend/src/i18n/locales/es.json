@@ -7,6 +7,7 @@
                 "credentials":  "Credenciales",
                 "logs":  "Registros",
                 "vulnerabilities":  "Vulnerabilidades",
+                "linuxHosts":  "Linux",
                 "audit":  "Auditoría",
                 "security":  "Seguridad",
                 "central":  "Central",
@@ -525,5 +526,30 @@
             "accepted_risk": "Riesgo aceptado",
             "resolved": "Resuelto"
         }
+    },
+    "linux": {
+        "settingsTitle": "Credencial compartida",
+        "settingsHint": "Una credencial SSH usada para todos los hosts Linux — sin selección por host.",
+        "disabledWarning": "La gestión de Linux está deshabilitada en este agente (MIKROTIK_LINUX_MANAGE_ENABLED). Comprobar/actualizar no funcionará hasta que se habilite en la configuración del agente.",
+        "noCredential": "— ninguna seleccionada —",
+        "currentCredential": "Credencial actual",
+        "scanNow": "Escanear red ahora",
+        "hostsTitle": "Hosts Linux",
+        "noHosts": "Aún no se han descubierto hosts Linux. El escaneo de red se ejecuta automáticamente una vez por semana, o haz clic en \"Escanear red ahora\" arriba.",
+        "pending": "pendiente de aprobación",
+        "unsupportedPkgMgr": "gestor de paquetes no compatible",
+        "upgradableCount": "{{count}} actualizaciones",
+        "upToDate": "actualizado",
+        "rebootRequired": "requiere reinicio",
+        "lastCheck": "Última comprobación",
+        "lastUpgrade": "Última actualización",
+        "enableManagement": "Habilitar gestión",
+        "disableManagement": "Deshabilitar gestión",
+        "checkUpdates": "Comprobar actualizaciones",
+        "upgradeNow": "Actualizar ahora",
+        "upgradeConfirm": "¿Ejecutar la actualización (apt/dnf update + upgrade) en {{ip}}? Requiere privilegios sudo de la credencial configurada.",
+        "upgradeAll": "Actualizar todos los gestionados ({{count}})",
+        "upgradeAllConfirm": "¿Ejecutar la actualización secuencialmente en {{count}} hosts gestionados?",
+        "jobStatus": "Estado del trabajo"
     }
 }

@@ -266,11 +266,18 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] vuln findings summary error: {e}")
         vuln_findings_summary = []
 
+    try:
+        from services import linux_manage
+        linux_hosts_status = linux_manage.public_summary()
+    except Exception as e:
+        print(f"[uplink] linux hosts summary error: {e}")
+        linux_hosts_status = []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.18",
+        "agent_version": "1.20",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -286,6 +293,7 @@ async def _build_snapshot() -> dict:
         "log_fetch_results": log_fetch_results,
         "vuln_findings_summary": vuln_findings_summary,
         "supply_chain_status": supply_chain_status,
+        "linux_hosts_status": linux_hosts_status,
     }
 
 
@@ -319,6 +327,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "firmware_status": snapshot.get("firmware_status"),
             "activity_events": snapshot.get("activity_events", []),
             "supply_chain_status": snapshot.get("supply_chain_status"),
+            "linux_hosts_status": snapshot.get("linux_hosts_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
@@ -395,6 +404,9 @@ def _canonical_commands(commands: list) -> str:
             device_id = int(c.get("device_id") or 0)
             limit = int(c.get("limit") or 0)
             parts.append(f"fetch_logs:{device_id}:{limit}")
+        elif isinstance(c, dict) and c.get("type") == "linux_apt_upgrade":
+            host_id = int(c.get("host_id") or 0)
+            parts.append(f"linux_apt_upgrade:{host_id}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -468,10 +480,21 @@ async def _handle_commands(commands: list) -> None:
       - "update"                                          — self-update the app
       - "supply_chain_scan"                                — run pip-audit/npm
         audit/Bandit/eslint-security now; result rides the next snapshot
+      - "linux_scan"                                        — discover new
+        Linux hosts + refresh pending-update counts for managed ones now;
+        NOT gated on MIKROTIK_LINUX_MANAGE_ENABLED (read-only SSH identity/
+        check-for-updates probes, no privileged command — see
+        linux_apt_upgrade below for the one that is gated)
       - {"type":"firmware_upgrade","device_id":N,
          "backup":bool}                                   — upgrade Mikrotik firmware
       - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
         lines from a device, delivered in the next snapshot
+      - {"type":"linux_apt_upgrade","host_id":N}            — apt update+
+        upgrade a managed Linux host. Deliberately gated on
+        MIKROTIK_LINUX_MANAGE_ENABLED locally (services/linux_manage.py):
+        a correctly signed command from central is NOT sufficient by
+        itself to run privileged sudo commands on a client's servers if
+        this agent's own operator never opted in.
     """
     for cmd in commands:
         if cmd == "update":
@@ -484,6 +507,10 @@ async def _handle_commands(commands: list) -> None:
             print("[uplink] received SUPPLY_CHAIN_SCAN command from central — starting")
             from services import supply_chain
             asyncio.create_task(supply_chain.run_scan())
+        elif cmd == "linux_scan":
+            print("[uplink] received LINUX_SCAN command from central — starting")
+            from services import linux_manage
+            asyncio.create_task(linux_manage.discover_linux_hosts())
         elif isinstance(cmd, dict):
             cmd_type = cmd.get("type")
             if cmd_type == "firmware_upgrade":
@@ -503,6 +530,17 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(_fetch_device_logs(int(device_id), limit))
                 else:
                     print(f"[uplink] fetch_logs command missing device_id: {cmd}")
+            elif cmd_type == "linux_apt_upgrade":
+                host_id = cmd.get("host_id")
+                from services import linux_manage
+                if not linux_manage.MANAGE_ENABLED:
+                    print(f"[uplink] linux_apt_upgrade received but MIKROTIK_LINUX_MANAGE_ENABLED "
+                          f"is not set locally — ignoring (host_id={host_id})")
+                elif host_id:
+                    print(f"[uplink] received LINUX_APT_UPGRADE for host {host_id}")
+                    asyncio.create_task(linux_manage.upgrade_host(int(host_id)))
+                else:
+                    print(f"[uplink] linux_apt_upgrade command missing host_id: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

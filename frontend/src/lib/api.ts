@@ -423,6 +423,21 @@ export interface CentralSupplyChainStatus {
   php: CentralSupplyChainToolSummary
 }
 
+// Redacted per-host summary an agent includes in its snapshot envelope —
+// only ever hosts the local operator has already opted into management
+// (managed=True in LinuxHost), never the full auto-discovered list, and
+// never raw command output (see linux_manage.public_summary()).
+export interface CentralLinuxHostStatus {
+  id: number
+  ip: string
+  hostname: string | null
+  distro_pretty: string | null
+  upgradable_count: number | null
+  reboot_required: boolean
+  last_upgrade_at: string | null
+  last_status: string | null
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -556,6 +571,64 @@ export const vulnApi = {
     api.post<{ ip: string; alive: boolean; unique_versions: number; findings_count: number }>(
       `/vuln/hosts/${hostId}/rescan`,
     ).then(r => r.data),
+}
+
+// ── Linux host management (apt update/upgrade) ────────────────────────────────
+
+export interface LinuxHostOut {
+  id: number
+  ip: string
+  hostname: string | null
+  distro_id: string | null
+  distro_pretty: string | null
+  distro_version: string | null
+  package_manager: string | null
+  managed: boolean
+  source: 'auto' | 'manual'
+  first_seen_at: string | null
+  last_seen_at: string | null
+  last_check_at: string | null
+  last_upgrade_at: string | null
+  upgradable_count: number | null
+  reboot_required: boolean
+  last_status: 'ok' | 'error' | 'timeout' | null
+  last_error: string | null
+}
+
+export interface LinuxJobStatus {
+  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'done' | 'error' | 'timeout'
+  started_at?: string
+  finished_at?: string
+  ip?: string
+  identity?: string
+  log?: string[]
+  error?: string
+  upgradable_count?: number
+  reboot_required?: boolean
+}
+
+export interface LinuxSettings {
+  credential_id: number | null
+  credential_name: string | null
+  enabled: boolean
+}
+
+export const linuxApi = {
+  hosts: () => api.get<{ hosts: LinuxHostOut[]; enabled: boolean }>('/linux/hosts').then(r => r.data),
+  setManaged: (hostId: number, managed: boolean) =>
+    api.post<LinuxHostOut>(`/linux/hosts/${hostId}/managed`, { managed }).then(r => r.data),
+  check: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/check`).then(r => r.data),
+  upgrade: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/upgrade`).then(r => r.data),
+  status: (hostId: number) =>
+    api.get<LinuxJobStatus>(`/linux/hosts/${hostId}/status`).then(r => r.data),
+  upgradeBulk: (ids: number[]) =>
+    api.post<{ queued: number }>('/linux/hosts/upgrade-bulk', { ids }).then(r => r.data),
+  discover: () => api.post<{ started: boolean }>('/linux/discover').then(r => r.data),
+  getSettings: () => api.get<LinuxSettings>('/linux/settings').then(r => r.data),
+  setSettings: (credentialId: number | null) =>
+    api.put<LinuxSettings>('/linux/settings', { credential_id: credentialId }).then(r => r.data),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────
@@ -1149,6 +1222,18 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_supply_chain_scans'),
   supplyChainStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; age_sec: number | null; supply_chain_status: CentralSupplyChainStatus | null }> }>('supply_chain_status_all'),
+  requestLinuxScan: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_linux_scan', { tenant }),
+  pendingLinuxScans: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_linux_scans'),
+  requestLinuxAptUpgrade: (tenant: string, hostId: number) =>
+    centralRequest<{ ok: boolean; tenant: string; host_id: number; queued_at: string; note: string }>(
+      'request_linux_apt_upgrade', { tenant, host_id: String(hostId) },
+    ),
+  pendingLinuxAptUpgrades: () =>
+    centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_apt_upgrades'),
+  linuxHostsStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; linux_hosts: CentralLinuxHostStatus[] }> }>('linux_hosts_status_all'),
 
   // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
   // checks here; the server enforces it independently.

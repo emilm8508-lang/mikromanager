@@ -9,6 +9,7 @@ import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
 import { Vulnerabilities } from './pages/Vulnerabilities'
+import { LinuxHosts } from './pages/LinuxHosts'
 import { AuditLog } from './pages/AuditLog'
 import { Security } from './pages/Security'
 import { AuthGate } from './pages/Login'
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/credentials" element={<Credentials />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/vulnerabilities" element={<Vulnerabilities />} />
+            <Route path="/linux" element={<LinuxHosts />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />

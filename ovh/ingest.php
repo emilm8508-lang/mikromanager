@@ -41,6 +41,8 @@ function canonical_commands(array $commands): string {
             $parts[] = 'firmware_upgrade:' . (int)($c['device_id'] ?? 0) . ':' . (!empty($c['backup']) ? '1' : '0');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'fetch_logs') {
             $parts[] = 'fetch_logs:' . (int)($c['device_id'] ?? 0) . ':' . (int)($c['limit'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'linux_apt_upgrade') {
+            $parts[] = 'linux_apt_upgrade:' . (int)($c['host_id'] ?? 0);
         } else {
             $parts[] = 'unknown';
         }
@@ -318,6 +320,17 @@ try {
         } catch (Throwable $e) {}
     }
 
+    // 2c. Linux host discovery/refresh scan command
+    $linux_scan_marker = $state_dir . '/linux_scan_pending_' . $safe;
+    if (is_file($linux_scan_marker)) {
+        $commands[] = 'linux_scan';
+        @unlink($linux_scan_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_scan_delivered", ?, ?)')
+                ->execute([$tenant_header, "Skan hostow Linux dostarczony do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
+    }
+
     // 3. Firmware upgrade commands (may be multiple queued for one tenant)
     foreach (glob($state_dir . "/fw_upgrade_{$safe}_*.pending") as $f) {
         $base = basename($f, '.pending');
@@ -328,6 +341,19 @@ try {
                 'backup' => $m[2] === 'b',
             ];
             @unlink($f);
+        }
+    }
+
+    // 3b. Linux apt-upgrade commands (per host, may be multiple queued)
+    foreach (glob($state_dir . "/linux_upgrade_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^linux_upgrade_.+_(\d+)$/', $base, $m)) {
+            $commands[] = ['type' => 'linux_apt_upgrade', 'host_id' => (int)$m[1]];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_apt_upgrade_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Aktualizacja apt dostarczona do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
         }
     }
 

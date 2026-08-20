@@ -266,6 +266,56 @@ class VulnRemediation(Base):
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_remediation"),)
 
 
+class LinuxHost(Base):
+    """A Linux server the operator has opted into centralized apt-based patch
+    management (services/linux_manage.py). Discovered from services/
+    vuln_scan.py's own weekly scan (any host with an open port 22) — but
+    deliberately a SEPARATE table from VulnHost, not new columns on it:
+    VulnHost rows get deleted the moment one weekly CVE scan doesn't see
+    them (_prune_dead_hosts in vuln_scan.py), which would silently drop a
+    host from a curated, opted-in management list just because it was
+    briefly offline. VulnHost also has no persisted distro/package-manager
+    identity — this table is the first to need that.
+
+    managed=False until an operator explicitly opts in (mirrors
+    edge_devices.enabled in ovh/schema.sql — auto-discovered rows start
+    disabled) — apt upgrade must never run on a host nobody reviewed."""
+    __tablename__ = "linux_hosts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False, unique=True, index=True)
+    hostname = Column(String, nullable=True)
+    distro_id = Column(String, nullable=True)          # /etc/os-release ID, e.g. "ubuntu"
+    distro_pretty = Column(String, nullable=True)       # PRETTY_NAME, e.g. "Ubuntu 22.04.3 LTS"
+    distro_version = Column(String, nullable=True)      # VERSION_ID
+    package_manager = Column(String, nullable=True)     # "apt" — only actionable value in v1
+    managed = Column(Boolean, nullable=False, default=False)
+    source = Column(String, nullable=False, default="auto")   # "auto" | "manual"
+    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_check_at = Column(DateTime, nullable=True)
+    last_upgrade_at = Column(DateTime, nullable=True)
+    upgradable_count = Column(Integer, nullable=True)
+    upgradable_packages = Column(Text, nullable=True)   # JSON list, capped
+    reboot_required = Column(Boolean, nullable=False, default=False)
+    last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
+    last_error = Column(Text, nullable=True)
+
+
+class LinuxManageSettings(Base):
+    """Single-row (id always 1) global config: the ONE shared Credential used
+    for every managed Linux host. No per-host credential picker here (unlike
+    VulnHost.credential_id) — the feature was explicitly requested as "same
+    credential for all of them", so _auth_augment-style per-host credential
+    guessing (services/vuln_scan.py) is deliberately NOT used for discovery
+    or SSH exec here."""
+    __tablename__ = "linux_manage_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

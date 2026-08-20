@@ -7,6 +7,7 @@
                 "credentials":  "Облікові дані",
                 "logs":  "Журнали",
                 "vulnerabilities":  "Вразливості",
+                "linuxHosts":  "Linux",
                 "audit":  "Аудит",
                 "security":  "Безпека",
                 "central":  "Центр",
@@ -525,5 +526,30 @@
             "accepted_risk": "Ризик прийнято",
             "resolved": "Усунено"
         }
+    },
+    "linux": {
+        "settingsTitle": "Спільні облікові дані",
+        "settingsHint": "Одні SSH облікові дані для всіх хостів Linux — без вибору для кожного хоста окремо.",
+        "disabledWarning": "Керування Linux вимкнено на цьому агенті (MIKROTIK_LINUX_MANAGE_ENABLED). Перевірка/оновлення не працюватимуть, доки не увімкнено в конфігурації агента.",
+        "noCredential": "— не вибрано —",
+        "currentCredential": "Поточні облікові дані",
+        "scanNow": "Сканувати мережу зараз",
+        "hostsTitle": "Хости Linux",
+        "noHosts": "Хостів Linux ще не виявлено. Сканування мережі запускається автоматично раз на тиждень, або натисніть \"Сканувати мережу зараз\" вище.",
+        "pending": "очікує підтвердження",
+        "unsupportedPkgMgr": "непідтримуваний менеджер пакетів",
+        "upgradableCount": "{{count}} оновлень",
+        "upToDate": "актуально",
+        "rebootRequired": "потрібен перезапуск",
+        "lastCheck": "Остання перевірка",
+        "lastUpgrade": "Останнє оновлення",
+        "enableManagement": "Увімкнути керування",
+        "disableManagement": "Вимкнути керування",
+        "checkUpdates": "Перевірити оновлення",
+        "upgradeNow": "Оновити зараз",
+        "upgradeConfirm": "Запустити оновлення (apt/dnf update + upgrade) на {{ip}}? Потрібні права sudo налаштованих облікових даних.",
+        "upgradeAll": "Оновити всі керовані ({{count}})",
+        "upgradeAllConfirm": "Запустити оновлення послідовно на {{count}} керованих хостах?",
+        "jobStatus": "Статус завдання"
     }
 }

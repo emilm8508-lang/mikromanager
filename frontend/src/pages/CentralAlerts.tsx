@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -1000,6 +1000,147 @@ function SupplyChainCentralPanel() {
 }
 
 
+function LinuxCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; host: CentralLinuxHostStatus }>>([])
+  const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
+  const [pendingUpgrades, setPendingUpgrades] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
+  const [tenants, setTenants] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [busyScan, setBusyScan] = useState<string | null>(null)
+  const [busyUpgrade, setBusyUpgrade] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const [s, ps, pu] = await Promise.all([
+        centralApi.linuxHostsStatusAll(),
+        centralApi.pendingLinuxScans(),
+        centralApi.pendingLinuxAptUpgrades(),
+      ])
+      const flat: Array<{ tenant: string; host: CentralLinuxHostStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const h of tRow.linux_hosts) flat.push({ tenant: tRow.tenant, host: h })
+      }
+      setRows(flat)
+      setTenants(s.tenants.map(tRow => tRow.tenant))
+      setPendingScans(ps.pending ?? [])
+      setPendingUpgrades(pu.pending ?? [])
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const scanPendingSet = new Set(pendingScans.map(p => p.tenant))
+  const upgradePendingSet = new Set(pendingUpgrades.map(p => `${p.tenant}:${p.host_id}`))
+
+  const scanNow = async (tenant: string) => {
+    setBusyScan(tenant)
+    try { await centralApi.requestLinuxScan(tenant); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyScan(null) }
+  }
+
+  const upgradeNow = async (tenant: string, hostId: number) => {
+    const key = `${tenant}:${hostId}`
+    setBusyUpgrade(key)
+    try { await centralApi.requestLinuxAptUpgrade(tenant, hostId); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyUpgrade(null) }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('linuxCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('linuxCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {tenants.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {tenants.map(tn => {
+            const queued = scanPendingSet.has(tn)
+            return (
+              <button key={tn} onClick={() => scanNow(tn)} disabled={busyScan === tn || queued}
+                className={`text-xs px-2 py-1 rounded border ${queued ? 'bg-amber-100 text-amber-700 border-amber-200' : 'border-slate-300 text-indigo-600 hover:bg-indigo-50'}`}>
+                {queued ? t('linuxCentral.scanQueued', { tenant: tn }) : t('linuxCentral.scanTenant', { tenant: tn })}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('linuxCentral.noHosts')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>Host</th>
+                <th>{t('linuxCentral.distro')}</th>
+                <th>{t('linuxCentral.pending')}</th>
+                <th>{t('linuxCentral.lastUpgrade')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, host }) => {
+                const queued = upgradePendingSet.has(`${tenant}:${host.id}`)
+                return (
+                  <tr key={`${tenant}:${host.id}`} className="border-b border-slate-100">
+                    <td className="py-2">{tenant}</td>
+                    <td className="font-mono text-xs">{host.hostname || host.ip}</td>
+                    <td className="text-xs text-slate-500">{host.distro_pretty ?? '—'}</td>
+                    <td>
+                      {host.upgradable_count != null ? (
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                          {host.upgradable_count}
+                        </span>
+                      ) : <span className="text-xs text-slate-400">—</span>}
+                      {host.reboot_required && (
+                        <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('linuxCentral.rebootRequired')}</span>
+                      )}
+                    </td>
+                    <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
+                    <td className="text-right">
+                      {queued ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('linuxCentral.queued')}</span>
+                      ) : (
+                        <button onClick={() => upgradeNow(tenant, host.id)} disabled={busyUpgrade === `${tenant}:${host.id}`}
+                          className="text-xs text-indigo-600 hover:underline">
+                          {t('linuxCentral.upgradeNow')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export function AlertsPanel() {
   const { t } = useTranslation()
   const [channels, setChannels] = useState<AlertChannel[]>([])
@@ -1045,6 +1186,7 @@ export function AlertsPanel() {
       <RulesPanel channels={channels} tenants={tenants} />
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
       <SupplyChainCentralPanel />
+      <LinuxCentralPanel />
       <HistoryPanel />
     </div>
   )

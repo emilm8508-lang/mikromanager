@@ -1151,6 +1151,118 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_linux_scan':
+            // Queue a Linux-host discovery/refresh pass for a specific
+            // tenant (services/linux_manage.py's discover_linux_hosts()) —
+            // finds new SSH hosts on the network and refreshes pending-
+            // update counts for already-managed ones. Mirrors
+            // request_supply_chain_scan exactly (bare tenant-scoped marker,
+            // no host id needed).
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . '/linux_scan_pending_' . $safe, date('c'));
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'pending_linux_scans':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/linux_scan_pending_*') as $f) {
+                    $tenant = substr(basename($f), strlen('linux_scan_pending_'));
+                    $pending[] = ['tenant' => $tenant, 'queued_at' => date('c', filemtime($f))];
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'request_linux_apt_upgrade':
+            // Queue an apt update+upgrade on a specific Linux host of a
+            // specific tenant. The agent picks it up on next heartbeat and
+            // runs linux_manage.upgrade_host — but only if that agent has
+            // MIKROTIK_LINUX_MANAGE_ENABLED set locally (see uplink.py's
+            // _handle_commands): this marker alone is not enough to force
+            // the action on an agent whose operator never opted in.
+            $tenant = $_GET['tenant'] ?? '';
+            $host_id = (int)($_GET['host_id'] ?? 0);
+            if ($tenant === '' || $host_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and host_id required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/linux_upgrade_{$safe}_{$host_id}.pending";
+            file_put_contents($marker, date('c'));
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'host_id' => $host_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_linux_apt_upgrades':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/linux_upgrade_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // linux_upgrade_TENANT_HOSTID
+                    if (preg_match('/^linux_upgrade_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'host_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'linux_hosts_status_all':
+            // Aggregate view across every tenant this identity can see —
+            // same subquery pattern as supply_chain_status_all: latest
+            // snapshot payload per tenant, no E2E key needed since
+            // linux_hosts_status travels as plaintext envelope metadata
+            // (and only ever contains hosts the local operator has already
+            // opted into management — see linux_manage.public_summary()).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $hosts = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $hosts = $meta['linux_hosts_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'linux_hosts' => $hosts,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_device_logs':
             // Ask the agent to fetch the last N raw log lines from one of its
             // devices. Delivered on next heartbeat; result rides along on the

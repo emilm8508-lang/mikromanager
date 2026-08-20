@@ -454,6 +454,7 @@ _PACKAGE_MANAGER_BY_DISTRO = {
     "ubuntu": "dpkg", "debian": "dpkg",
     "centos": "rpm", "rhel": "rpm", "fedora": "rpm",
     "rocky": "rpm", "almalinux": "rpm", "opensuse": "rpm",
+    "ol": "rpm",  # Oracle Linux — /etc/os-release ID is "ol", not "oracle"
 }
 
 
@@ -1498,6 +1499,12 @@ async def run_scan() -> dict:
                 print(f"[vuln_scan] package audit error for {ip}: {e}")
 
         findings_count = await _lookup_findings(version_pairs)
+
+        try:
+            from services import linux_manage
+            await linux_manage.discover_linux_hosts()
+        except Exception as e:
+            print(f"[vuln_scan] linux host discovery error: {e}")
 
         _hosts_scanned = len(alive_ips)
         _findings_count = findings_count

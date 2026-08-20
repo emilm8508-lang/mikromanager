@@ -7,6 +7,7 @@
                 "credentials":  "Poświadczenia",
                 "logs":  "Logi",
                 "vulnerabilities":  "Podatności",
+                "linuxHosts":  "Linux",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
                 "central":  "Centralny",
@@ -681,5 +682,43 @@
             "accepted_risk": "Zaakceptowane ryzyko",
             "resolved": "Naprawione"
         }
+    },
+    "linux": {
+        "settingsTitle": "Wspólne poświadczenie",
+        "settingsHint": "Jedno poświadczenie SSH używane do wszystkich hostów Linux — bez wyboru per-host.",
+        "disabledWarning": "Zarządzanie Linuksem jest wyłączone na tym agencie (MIKROTIK_LINUX_MANAGE_ENABLED). Sprawdzanie/aktualizacja nie zadziałają, dopóki nie zostanie włączone w konfiguracji agenta.",
+        "noCredential": "— nie wybrano —",
+        "currentCredential": "Aktualne poświadczenie",
+        "scanNow": "Skanuj sieć teraz",
+        "hostsTitle": "Hosty Linux",
+        "noHosts": "Brak wykrytych hostów Linux. Skan sieci uruchamia się automatycznie co tydzień, albo kliknij \"Skanuj sieć teraz\" powyżej.",
+        "pending": "oczekuje na akceptację",
+        "unsupportedPkgMgr": "nieobsługiwany menedżer pakietów",
+        "upgradableCount": "{{count}} aktualizacji",
+        "upToDate": "aktualne",
+        "rebootRequired": "wymaga restartu",
+        "lastCheck": "Ostatnie sprawdzenie",
+        "lastUpgrade": "Ostatnia aktualizacja",
+        "enableManagement": "Włącz zarządzanie",
+        "disableManagement": "Wyłącz zarządzanie",
+        "checkUpdates": "Sprawdź aktualizacje",
+        "upgradeNow": "Aktualizuj teraz",
+        "upgradeConfirm": "Uruchomić aktualizację (apt/dnf update + upgrade) na {{ip}}? Wymaga uprawnień sudo skonfigurowanego poświadczenia.",
+        "upgradeAll": "Aktualizuj wszystkie zarządzane ({{count}})",
+        "upgradeAllConfirm": "Uruchomić aktualizację sekwencyjnie na {{count}} zarządzanych hostach?",
+        "jobStatus": "Status zadania"
+    },
+    "linuxCentral": {
+        "title": "Hosty Linux — wszyscy klienci",
+        "intro": "Aktualizacje pakietów apt/dnf na zarządzanych serwerach Linux u klientów. Skan sieci wykrywa nowe hosty i odświeża liczbę oczekujących aktualizacji; aktualizacja wymaga włączonego zarządzania Linuksem na danym agencie (MIKROTIK_LINUX_MANAGE_ENABLED).",
+        "scanTenant": "Skanuj: {{tenant}}",
+        "scanQueued": "{{tenant}}: w kolejce",
+        "noHosts": "Brak zarządzanych hostów Linux u żadnego klienta.",
+        "distro": "Dystrybucja",
+        "pending": "Oczekujące",
+        "lastUpgrade": "Ostatnia aktualizacja",
+        "rebootRequired": "restart",
+        "queued": "W kolejce",
+        "upgradeNow": "Aktualizuj teraz"
     }
 }

@@ -1,0 +1,245 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { linuxApi, credentialsApi, LinuxHostOut } from '../lib/api'
+import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
+import { TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
+function SettingsPanel() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: settings } = useQuery({ queryKey: ['linux-settings'], queryFn: linuxApi.getSettings })
+  const { data: creds = [] } = useQuery({ queryKey: ['credentials'], queryFn: credentialsApi.list })
+  const [selected, setSelected] = useState<string>('')
+
+  const save = useMutation({
+    mutationFn: (credentialId: number | null) => linuxApi.setSettings(credentialId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-settings'] }),
+  })
+
+  const discover = useMutation({
+    mutationFn: linuxApi.discover,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-hosts'] }),
+  })
+
+  const current = selected || (settings?.credential_id ? String(settings.credential_id) : '')
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <TerminalSquare size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('linux.settingsTitle')}</h2>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('linux.settingsHint')}</p>
+        {settings && !settings.enabled && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            <span>{t('linux.disabledWarning')}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <select
+            value={current}
+            onChange={e => setSelected(e.target.value)}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm flex-1"
+          >
+            <option value="">{t('linux.noCredential')}</option>
+            {creds.map(c => (
+              <option key={c.id} value={c.id}>{c.name} ({c.username})</option>
+            ))}
+          </select>
+          <Button
+            variant="secondary"
+            onClick={() => save.mutate(current ? parseInt(current) : null)}
+            disabled={save.isPending}
+          >
+            {t('common.save')}
+          </Button>
+        </div>
+        {settings?.credential_name && (
+          <p className="text-xs text-slate-500">
+            {t('linux.currentCredential')}: <span className="font-mono">{settings.credential_name}</span>
+          </p>
+        )}
+        <Button variant="secondary" onClick={() => discover.mutate()} disabled={discover.isPending}>
+          <RefreshCw size={13} className={discover.isPending ? 'animate-spin' : ''} />
+          {t('linux.scanNow')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function HostCard({ host }: { host: LinuxHostOut }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [polling, setPolling] = useState(false)
+
+  const { data: job } = useQuery({
+    queryKey: ['linux-job', host.id],
+    queryFn: () => linuxApi.status(host.id),
+    enabled: polling,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status
+      return (s === 'starting' || s === 'checking' || s === 'updating' || s === 'upgrading') ? 3000 : false
+    },
+  })
+
+  const setManaged = useMutation({
+    mutationFn: (managed: boolean) => linuxApi.setManaged(host.id, managed),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-hosts'] }),
+  })
+
+  const runCheck = useMutation({
+    mutationFn: () => linuxApi.check(host.id),
+    onSuccess: () => { setPolling(true); setTimeout(() => qc.invalidateQueries({ queryKey: ['linux-hosts'] }), 5000) },
+  })
+
+  const runUpgrade = useMutation({
+    mutationFn: () => linuxApi.upgrade(host.id),
+    onSuccess: () => setPolling(true),
+  })
+
+  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading'].includes(job.status)
+  const isSupported = host.package_manager === 'apt' || host.package_manager === 'dnf'
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span className="font-mono text-sm text-slate-800">{host.ip}</span>
+          {host.hostname && <span className="text-xs text-slate-500 ml-2">{host.hostname}</span>}
+          {host.source === 'auto' && !host.managed && (
+            <Badge variant="gray" className="text-[10px] ml-2">{t('linux.pending')}</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {host.distro_pretty ? (
+            <Badge variant="blue" className="text-[10px]">{host.distro_pretty}</Badge>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+          {!isSupported && (
+            <Badge variant="gray" className="text-[10px]">{t('linux.unsupportedPkgMgr')}</Badge>
+          )}
+          {host.upgradable_count != null && host.upgradable_count > 0 && (
+            <Badge variant="yellow" className="text-[10px]">{t('linux.upgradableCount', { count: host.upgradable_count })}</Badge>
+          )}
+          {host.upgradable_count === 0 && (
+            <Badge variant="green" className="text-[10px]"><CheckCircle2 size={10} /> {t('linux.upToDate')}</Badge>
+          )}
+          {host.reboot_required && (
+            <Badge variant="red" className="text-[10px]">{t('linux.rebootRequired')}</Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
+        <div>
+          {host.last_check_at && <span>{t('linux.lastCheck')}: {new Date(host.last_check_at).toLocaleString()}</span>}
+          {host.last_upgrade_at && <span className="ml-3">{t('linux.lastUpgrade')}: {new Date(host.last_upgrade_at).toLocaleString()}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {!host.managed ? (
+            <Button size="sm" variant="secondary" onClick={() => setManaged.mutate(true)} disabled={setManaged.isPending}>
+              {t('linux.enableManagement')}
+            </Button>
+          ) : (
+            <>
+              <button onClick={() => setManaged.mutate(false)} className="text-xs text-slate-500 hover:underline">
+                {t('linux.disableManagement')}
+              </button>
+              <Button size="sm" variant="secondary" onClick={() => runCheck.mutate()} disabled={!isSupported || !!inProgress}>
+                <RefreshCw size={12} className={inProgress ? 'animate-spin' : ''} /> {t('linux.checkUpdates')}
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => {
+                if (confirm(t('linux.upgradeConfirm', { ip: host.ip }) as string)) runUpgrade.mutate()
+              }} disabled={!isSupported || !!inProgress}>
+                <Download size={12} /> {t('linux.upgradeNow')}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {job && job.status !== 'no_job' && (
+        <div className="bg-slate-100 rounded-lg p-2 text-xs space-y-1">
+          <p className="font-semibold text-slate-800">{t('linux.jobStatus')}: {job.status}</p>
+          {job.error && <p className="text-red-600">{job.error}</p>}
+          {job.log && job.log.length > 0 && (
+            <div className="mt-1 max-h-40 overflow-auto bg-slate-900 text-green-300 p-2 rounded text-[10px] font-mono whitespace-pre-wrap">
+              {job.log.join('\n')}
+            </div>
+          )}
+        </div>
+      )}
+      {host.last_status === 'error' && host.last_error && !job && (
+        <p className="text-xs text-red-600">{host.last_error}</p>
+      )}
+    </div>
+  )
+}
+
+export function LinuxHosts() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['linux-hosts'],
+    queryFn: linuxApi.hosts,
+    refetchInterval: 15_000,
+  })
+
+  const upgradeAll = useMutation({
+    mutationFn: (ids: number[]) => linuxApi.upgradeBulk(ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-hosts'] }),
+  })
+
+  const hosts = data?.hosts ?? []
+  const managedApt = hosts.filter(h => h.managed && (h.package_manager === 'apt' || h.package_manager === 'dnf'))
+
+  return (
+    <div className="p-6 space-y-4 max-w-4xl">
+      <div className="flex items-center gap-2">
+        <TerminalSquare size={20} className="text-indigo-600" />
+        <h1 className="text-lg font-semibold text-slate-900">{t('nav.linuxHosts')}</h1>
+      </div>
+
+      <SettingsPanel />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">{t('linux.hostsTitle')}</h2>
+            {managedApt.length > 1 && (
+              <Button
+                size="sm" variant="secondary"
+                onClick={() => {
+                  if (confirm(t('linux.upgradeAllConfirm', { count: managedApt.length }) as string)) {
+                    upgradeAll.mutate(managedApt.map(h => h.id))
+                  }
+                }}
+                disabled={upgradeAll.isPending}
+              >
+                <Download size={12} /> {t('linux.upgradeAll', { count: managedApt.length })}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <p className="text-sm text-slate-500">{t('common.loading')}</p>
+          ) : hosts.length === 0 ? (
+            <p className="text-sm text-slate-500">{t('linux.noHosts')}</p>
+          ) : (
+            hosts.map(h => <HostCard key={h.id} host={h} />)
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

@@ -7,6 +7,7 @@
                 "credentials":  "Identifiants",
                 "logs":  "Journaux",
                 "vulnerabilities":  "Vulnérabilités",
+                "linuxHosts":  "Linux",
                 "audit":  "Audit",
                 "security":  "Sécurité",
                 "central":  "Central",
@@ -525,5 +526,30 @@
             "accepted_risk": "Risque accepté",
             "resolved": "Résolu"
         }
+    },
+    "linux": {
+        "settingsTitle": "Identifiant partagé",
+        "settingsHint": "Un seul identifiant SSH utilisé pour tous les hôtes Linux — pas de sélection par hôte.",
+        "disabledWarning": "La gestion Linux est désactivée sur cet agent (MIKROTIK_LINUX_MANAGE_ENABLED). La vérification/mise à jour ne fonctionnera pas tant qu'elle n'est pas activée dans la configuration de l'agent.",
+        "noCredential": "— aucun sélectionné —",
+        "currentCredential": "Identifiant actuel",
+        "scanNow": "Scanner le réseau maintenant",
+        "hostsTitle": "Hôtes Linux",
+        "noHosts": "Aucun hôte Linux découvert pour l'instant. Le scan réseau s'exécute automatiquement une fois par semaine, ou cliquez sur \"Scanner le réseau maintenant\" ci-dessus.",
+        "pending": "en attente d'approbation",
+        "unsupportedPkgMgr": "gestionnaire de paquets non pris en charge",
+        "upgradableCount": "{{count}} mises à jour",
+        "upToDate": "à jour",
+        "rebootRequired": "redémarrage requis",
+        "lastCheck": "Dernière vérification",
+        "lastUpgrade": "Dernière mise à jour",
+        "enableManagement": "Activer la gestion",
+        "disableManagement": "Désactiver la gestion",
+        "checkUpdates": "Vérifier les mises à jour",
+        "upgradeNow": "Mettre à jour maintenant",
+        "upgradeConfirm": "Lancer la mise à jour (apt/dnf update + upgrade) sur {{ip}} ? Nécessite les privilèges sudo de l'identifiant configuré.",
+        "upgradeAll": "Mettre à jour tous les hôtes gérés ({{count}})",
+        "upgradeAllConfirm": "Lancer la mise à jour séquentiellement sur {{count}} hôtes gérés ?",
+        "jobStatus": "Statut de la tâche"
     }
 }

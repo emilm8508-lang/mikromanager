@@ -7,6 +7,7 @@
                 "credentials":  "Credentials",
                 "logs":  "Logs",
                 "vulnerabilities":  "Vulnerabilities",
+                "linuxHosts":  "Linux",
                 "audit":  "Audit",
                 "security":  "Security",
                 "central":  "Central",
@@ -525,5 +526,30 @@
             "accepted_risk": "Accepted risk",
             "resolved": "Resolved"
         }
+    },
+    "linux": {
+        "settingsTitle": "Shared credential",
+        "settingsHint": "One SSH credential used for every Linux host — no per-host selection.",
+        "disabledWarning": "Linux management is disabled on this agent (MIKROTIK_LINUX_MANAGE_ENABLED). Check/upgrade won't work until it's enabled in the agent's configuration.",
+        "noCredential": "— none selected —",
+        "currentCredential": "Current credential",
+        "scanNow": "Scan network now",
+        "hostsTitle": "Linux hosts",
+        "noHosts": "No Linux hosts discovered yet. The network scan runs automatically once a week, or click \"Scan network now\" above.",
+        "pending": "pending approval",
+        "unsupportedPkgMgr": "unsupported package manager",
+        "upgradableCount": "{{count}} updates",
+        "upToDate": "up to date",
+        "rebootRequired": "reboot required",
+        "lastCheck": "Last check",
+        "lastUpgrade": "Last upgrade",
+        "enableManagement": "Enable management",
+        "disableManagement": "Disable management",
+        "checkUpdates": "Check for updates",
+        "upgradeNow": "Upgrade now",
+        "upgradeConfirm": "Run an update (apt/dnf update + upgrade) on {{ip}}? Requires sudo privileges for the configured credential.",
+        "upgradeAll": "Upgrade all managed ({{count}})",
+        "upgradeAllConfirm": "Run the upgrade sequentially on {{count}} managed hosts?",
+        "jobStatus": "Job status"
     }
 }

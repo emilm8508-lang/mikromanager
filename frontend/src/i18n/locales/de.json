@@ -7,6 +7,7 @@
                 "credentials":  "Zugangsdaten",
                 "logs":  "Protokolle",
                 "vulnerabilities":  "Schwachstellen",
+                "linuxHosts":  "Linux",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
                 "central":  "Zentral",
@@ -525,5 +526,30 @@
             "accepted_risk": "Risiko akzeptiert",
             "resolved": "Behoben"
         }
+    },
+    "linux": {
+        "settingsTitle": "Gemeinsame Zugangsdaten",
+        "settingsHint": "Ein SSH-Zugangsdatensatz für alle Linux-Hosts — keine Auswahl pro Host.",
+        "disabledWarning": "Linux-Verwaltung ist auf diesem Agenten deaktiviert (MIKROTIK_LINUX_MANAGE_ENABLED). Prüfen/Aktualisieren funktioniert erst nach Aktivierung in der Agent-Konfiguration.",
+        "noCredential": "— keine ausgewählt —",
+        "currentCredential": "Aktuelle Zugangsdaten",
+        "scanNow": "Netzwerk jetzt scannen",
+        "hostsTitle": "Linux-Hosts",
+        "noHosts": "Noch keine Linux-Hosts gefunden. Der Netzwerkscan läuft automatisch einmal pro Woche, oder klicke oben auf \"Netzwerk jetzt scannen\".",
+        "pending": "wartet auf Freigabe",
+        "unsupportedPkgMgr": "nicht unterstützter Paketmanager",
+        "upgradableCount": "{{count}} Updates",
+        "upToDate": "aktuell",
+        "rebootRequired": "Neustart erforderlich",
+        "lastCheck": "Letzte Prüfung",
+        "lastUpgrade": "Letztes Update",
+        "enableManagement": "Verwaltung aktivieren",
+        "disableManagement": "Verwaltung deaktivieren",
+        "checkUpdates": "Updates prüfen",
+        "upgradeNow": "Jetzt aktualisieren",
+        "upgradeConfirm": "Update (apt/dnf update + upgrade) auf {{ip}} ausführen? Erfordert sudo-Rechte der konfigurierten Zugangsdaten.",
+        "upgradeAll": "Alle verwalteten aktualisieren ({{count}})",
+        "upgradeAllConfirm": "Update sequenziell auf {{count}} verwalteten Hosts ausführen?",
+        "jobStatus": "Job-Status"
     }
 }

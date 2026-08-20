@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -84,6 +84,7 @@ app.include_router(logs.router, dependencies=_protected)
 app.include_router(scanner.router, dependencies=_protected)
 app.include_router(system.router, dependencies=_protected)
 app.include_router(vuln_api.router, dependencies=_protected)
+app.include_router(linux_api.router, dependencies=_protected)
 app.include_router(audit_api.router, dependencies=_protected)
 
 
