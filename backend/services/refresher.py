@@ -45,6 +45,11 @@ _ping_task: Optional[asyncio.Task] = None
 INTERVAL_MIN = int(os.environ.get("MIKROTIK_REFRESH_MIN", "1440"))
 # Bare TCP-connect liveness probe — cheap, unauthenticated, no log entries.
 PING_INTERVAL_MIN = int(os.environ.get("MIKROTIK_PING_MIN", "5"))
+# Delay before the FIRST enrichment run after a (re)start — short, not a
+# full INTERVAL_MIN, so app boot still stays fast but an agent that restarts
+# at least once a day (e.g. the daily auto-update) doesn't have this reset
+# every time and end up never completing a single enrichment run.
+FIRST_RUN_DELAY_SEC = int(os.environ.get("MIKROTIK_REFRESH_FIRST_DELAY_SEC", "300"))
 
 
 def status() -> dict:
@@ -270,11 +275,15 @@ async def _ping_loop():
 
 
 async def _full_loop():
-    """Infrequent, authenticated full-enrichment loop. Waits one interval
-    before first run so app startup is fast."""
+    """Infrequent, authenticated full-enrichment loop. First run happens
+    FIRST_RUN_DELAY_SEC after startup (not immediately — app boot stays
+    fast — but not a full INTERVAL_MIN either, see that constant's
+    docstring for why)."""
+    delay = FIRST_RUN_DELAY_SEC
     while True:
         try:
-            await asyncio.sleep(INTERVAL_MIN * 60)
+            await asyncio.sleep(delay)
+            delay = INTERVAL_MIN * 60
             await refresh_all_devices()
         except asyncio.CancelledError:
             break
