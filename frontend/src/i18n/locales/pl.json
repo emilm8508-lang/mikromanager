@@ -605,6 +605,17 @@
         "sastBandit": "Backend (Bandit)",
         "sastEslint": "Frontend (ESLint security)",
         "sastPhp": "Centrala (PHP security lint)",
+        "viewDetails": "Szczegóły ({{count}})",
+        "detailsTitle": {
+            "npm": "Frontend (npm audit) — szczegóły",
+            "pip": "Backend (pip-audit) — szczegóły",
+            "bandit": "Backend (Bandit) — szczegóły",
+            "eslint": "Frontend (ESLint security) — szczegóły",
+            "php": "Centrala (PHP security lint) — szczegóły"
+        },
+        "fixAvailable": "poprawka dostępna",
+        "fixVersions": "Wersje z poprawką",
+        "moreInfo": "Więcej informacji",
         "sastErrors": "błędów",
         "sastWarnings": "ostrzeżeń"
     },

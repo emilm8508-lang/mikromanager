@@ -449,6 +449,17 @@
         "sastBandit": "Backend (Bandit)",
         "sastEslint": "Frontend (ESLint security)",
         "sastPhp": "Centrala (PHP security lint)",
+        "viewDetails": "Деталі ({{count}})",
+        "detailsTitle": {
+            "npm": "Frontend (npm audit) — деталі",
+            "pip": "Backend (pip-audit) — деталі",
+            "bandit": "Backend (Bandit) — деталі",
+            "eslint": "Frontend (ESLint security) — деталі",
+            "php": "Centrala (PHP security lint) — деталі"
+        },
+        "fixAvailable": "є виправлення",
+        "fixVersions": "Виправлено в",
+        "moreInfo": "Детальніше",
         "sastErrors": "помилок",
         "sastWarnings": "попереджень"
     },

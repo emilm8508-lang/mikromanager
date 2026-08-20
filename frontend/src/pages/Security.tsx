@@ -5,8 +5,9 @@ import { systemApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup, PackageSearch, UploadCloud } from 'lucide-react'
+import { KeyRound, ShieldCheck, AlertTriangle, DatabaseBackup, PackageSearch, UploadCloud, ExternalLink } from 'lucide-react'
 import { useAuth } from './Login'
+import { Modal } from '../components/ui/Modal'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -215,10 +216,13 @@ const NPM_SEVERITY_BADGE: Record<string, 'gray' | 'blue' | 'yellow' | 'red'> = {
   info: 'gray', low: 'gray', moderate: 'blue', high: 'yellow', critical: 'red',
 }
 
+type SupplyChainTool = 'npm' | 'pip' | 'bandit' | 'eslint' | 'php'
+
 function SupplyChainSection() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { data } = useQuery({ queryKey: ['supply-chain-status'], queryFn: systemApi.supplyChainStatus, refetchInterval: 30_000 })
+  const [detailTool, setDetailTool] = useState<SupplyChainTool | null>(null)
 
   const run = useMutation({
     mutationFn: systemApi.supplyChainRun,
@@ -230,6 +234,14 @@ function SupplyChainSection() {
   const banditCounts = data?.bandit?.counts
   const eslintCounts = data?.eslint?.counts
   const phpCounts = data?.php?.counts
+
+  const DetailButton = ({ tool, count }: { tool: SupplyChainTool; count: number }) => (
+    count > 0 ? (
+      <button onClick={() => setDetailTool(tool)} className="text-[10px] text-indigo-600 hover:underline mt-1.5">
+        {t('security.viewDetails', { count })}
+      </button>
+    ) : null
+  )
 
   return (
     <Card>
@@ -276,6 +288,7 @@ function SupplyChainSection() {
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}
+            <DetailButton tool="npm" count={data?.npm?.findings?.length ?? 0} />
           </div>
           <div className="border border-slate-200 rounded-lg p-3">
             <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.supplyChainPip')}</p>
@@ -290,6 +303,7 @@ function SupplyChainSection() {
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}
+            <DetailButton tool="pip" count={pipCount} />
           </div>
           <div className="border border-slate-200 rounded-lg p-3">
             <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastBandit')}</p>
@@ -311,6 +325,7 @@ function SupplyChainSection() {
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}
+            <DetailButton tool="bandit" count={data?.bandit?.findings?.length ?? 0} />
           </div>
           <div className="border border-slate-200 rounded-lg p-3">
             <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastEslint')}</p>
@@ -331,6 +346,7 @@ function SupplyChainSection() {
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}
+            <DetailButton tool="eslint" count={data?.eslint?.findings?.length ?? 0} />
           </div>
           <div className="border border-slate-200 rounded-lg p-3">
             <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastPhp')}</p>
@@ -352,6 +368,7 @@ function SupplyChainSection() {
             ) : (
               <span className="text-xs text-slate-400">—</span>
             )}
+            <DetailButton tool="php" count={data?.php?.findings?.length ?? 0} />
           </div>
         </div>
 
@@ -363,6 +380,86 @@ function SupplyChainSection() {
           {run.isPending || data?.in_progress ? t('security.supplyChainRunning') : t('security.supplyChainRunButton')}
         </Button>
       </CardContent>
+
+      <Modal
+        open={detailTool !== null}
+        onClose={() => setDetailTool(null)}
+        title={detailTool ? t(`security.detailsTitle.${detailTool}`) : ''}
+        className="max-w-2xl"
+      >
+        <div className="max-h-[60vh] overflow-y-auto space-y-2">
+          {detailTool === 'npm' && data?.npm?.findings?.map((f, i) => (
+            <div key={i} className="border border-slate-200 rounded p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono font-medium">{f.package}</span>
+                <Badge variant={NPM_SEVERITY_BADGE[(f.severity ?? 'low') as keyof typeof NPM_SEVERITY_BADGE] ?? 'gray'} className="text-[10px]">
+                  {f.severity ?? '—'}
+                </Badge>
+              </div>
+              {f.title && <p className="text-slate-600 mt-1">{f.title}</p>}
+              <div className="flex items-center gap-3 mt-1 text-slate-400">
+                {f.range && <span className="font-mono">{f.range}</span>}
+                {f.fix_available && <span className="text-green-700">{t('security.fixAvailable')}</span>}
+                {f.url && (
+                  <a href={f.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline flex items-center gap-0.5">
+                    {t('security.moreInfo')} <ExternalLink size={10} />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+          {detailTool === 'pip' && data?.pip?.findings?.map((f, i) => (
+            <div key={i} className="border border-slate-200 rounded p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono font-medium">{f.package} {f.version}</span>
+                <span className="font-mono text-slate-500">{f.id}</span>
+              </div>
+              {f.fix_versions && f.fix_versions.length > 0 && (
+                <p className="text-slate-500 mt-1">{t('security.fixVersions')}: {f.fix_versions.join(', ')}</p>
+              )}
+              {f.aliases && f.aliases.length > 0 && (
+                <p className="text-slate-400 mt-1 font-mono">{f.aliases.join(', ')}</p>
+              )}
+            </div>
+          ))}
+          {detailTool === 'bandit' && data?.bandit?.findings?.map((f, i) => (
+            <div key={i} className="border border-slate-200 rounded p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono">{f.file}:{f.line}</span>
+                <Badge variant={f.severity === 'HIGH' ? 'red' : f.severity === 'MEDIUM' ? 'yellow' : 'gray'} className="text-[10px]">
+                  {f.severity}
+                </Badge>
+              </div>
+              <p className="text-slate-700 font-medium mt-1">{f.test_name} ({f.test_id})</p>
+              <p className="text-slate-600 mt-0.5">{f.issue_text}</p>
+              {f.more_info && (
+                <a href={f.more_info} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline flex items-center gap-0.5 mt-1">
+                  {t('security.moreInfo')} <ExternalLink size={10} />
+                </a>
+              )}
+            </div>
+          ))}
+          {detailTool === 'eslint' && data?.eslint?.findings?.map((f, i) => (
+            <div key={i} className="border border-slate-200 rounded p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono">{f.file}:{f.line}</span>
+                <Badge variant={f.severity === 'error' ? 'red' : 'yellow'} className="text-[10px]">{f.severity}</Badge>
+              </div>
+              <p className="text-slate-700 font-medium mt-1">{f.rule_id}</p>
+              <p className="text-slate-600 mt-0.5">{f.message}</p>
+            </div>
+          ))}
+          {detailTool === 'php' && data?.php?.findings?.map((f, i) => (
+            <div key={i} className="border border-slate-200 rounded p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono">{f.file}:{f.line}</span>
+                <Badge variant={f.severity === 'high' ? 'red' : 'yellow'} className="text-[10px]">{f.severity}</Badge>
+              </div>
+              <p className="text-slate-700 font-medium mt-1 font-mono">{f.function}()</p>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </Card>
   )
 }
