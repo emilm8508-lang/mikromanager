@@ -169,12 +169,17 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
             _state["last_error"] = "git reset failed"
             return False, log
 
-        # 3. Optional: install python deps if requirements.txt changed
-        # Use current interpreter (works with venv too)
+        # 3. Install python deps if requirements.txt changed. Use current
+        # interpreter (works with venv too). Exit code MUST be checked —
+        # previously wasn't, so a failed pip install (network hiccup,
+        # permission issue) silently left the agent on old dependencies
+        # while git+npm still "succeeded", with no visible error anywhere.
         req_path = os.path.join(REPO_ROOT, "backend", "requirements.txt")
         if os.path.exists(req_path):
-            await _run([sys.executable, "-m", "pip", "install",
-                        "-r", req_path, "--quiet"], log, cwd=REPO_ROOT, timeout=600)
+            if await _run([sys.executable, "-m", "pip", "install",
+                           "-r", req_path, "--quiet"], log, cwd=REPO_ROOT, timeout=600) != 0:
+                _state["last_error"] = "pip install failed"
+                return False, log
 
         # 4. npm install + build
         frontend = os.path.join(REPO_ROOT, "frontend")
@@ -246,10 +251,18 @@ async def _check_and_update() -> None:
         if not local_hash or not remote_hash:
             print("[updater] auto-update check: couldn't determine local/remote HEAD, skipping")
             return
-        if local_hash == remote_hash:
-            return  # already up to date — most days, this is the only line that runs
+        if local_hash == remote_hash and not _state.get("last_error"):
+            return  # already up to date AND last attempt was clean — most days, this is the only line that runs
 
-        print(f"[updater] auto-update: {local_hash[:12]} -> {remote_hash[:12]}, updating now")
+        if local_hash == remote_hash:
+            # git is already at the latest commit (it advances before pip/npm
+            # run, so a failed dependency install can't be undone by a retry
+            # of THIS step) — but the previous attempt left last_error set,
+            # so retry the install steps anyway instead of silently giving up
+            # forever just because there's no new commit to react to.
+            print(f"[updater] auto-update: retrying after previous failure ({_state['last_error']})")
+        else:
+            print(f"[updater] auto-update: {local_hash[:12]} -> {remote_hash[:12]}, updating now")
         await perform_update(restart_supervisor=True)
     except Exception as e:
         print(f"[updater] auto-update check error: {type(e).__name__}: {e}")
