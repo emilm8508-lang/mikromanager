@@ -303,7 +303,7 @@ export const systemApi = {
     return api.post<{ ok: boolean; staged: boolean; restarting: boolean }>('/system/backup/restore', form).then(r => r.data)
   },
   supplyChainStatus: () => api.get<SupplyChainStatus>('/system/supply-chain/status').then(r => r.data),
-  supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; bandit?: SupplyChainBanditResult; eslint?: SupplyChainEslintResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
+  supplyChainRun: () => api.post<{ ok: boolean; pip?: SupplyChainPipResult; npm?: SupplyChainNpmResult; bandit?: SupplyChainBanditResult; eslint?: SupplyChainEslintResult; php?: SupplyChainPhpResult; error?: string }>('/system/supply-chain/run').then(r => r.data),
 }
 
 export interface SupplyChainPipFinding {
@@ -372,6 +372,20 @@ export interface SupplyChainEslintResult {
   counts: { error?: number; warning?: number }
 }
 
+export interface SupplyChainPhpFinding {
+  file: string
+  line: number
+  function: string
+  severity: 'high' | 'medium'
+}
+
+export interface SupplyChainPhpResult {
+  ok: boolean
+  error: string | null
+  findings: SupplyChainPhpFinding[]
+  counts: { high?: number; medium?: number }
+}
+
 export interface SupplyChainStatus {
   last_run: string | null
   last_error: string | null
@@ -380,6 +394,7 @@ export interface SupplyChainStatus {
   npm: SupplyChainNpmResult
   bandit: SupplyChainBanditResult
   eslint: SupplyChainEslintResult
+  php: SupplyChainPhpResult
   scan_day: number
   scan_hour: number
   next_run_estimated: number
@@ -405,6 +420,7 @@ export interface CentralSupplyChainStatus {
   npm: CentralSupplyChainToolSummary
   bandit: CentralSupplyChainToolSummary
   eslint: CentralSupplyChainToolSummary
+  php: CentralSupplyChainToolSummary
 }
 
 export interface AgentBackupStatus {

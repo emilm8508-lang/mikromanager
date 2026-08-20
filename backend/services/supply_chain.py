@@ -37,6 +37,8 @@ BACKEND_DIR = os.path.join(updater_svc.REPO_ROOT, "backend")
 REQUIREMENTS_PATH = os.path.join(BACKEND_DIR, "requirements.txt")
 FRONTEND_DIR = os.path.join(updater_svc.REPO_ROOT, "frontend")
 ESLINT_SECURITY_CONFIG = os.path.join(FRONTEND_DIR, "eslint.security.config.mjs")
+OVH_DIR = os.path.join(updater_svc.REPO_ROOT, "ovh")
+PHP_LINT_SCRIPT = os.path.join(OVH_DIR, "tools", "php_security_lint.php")
 
 _state = {
     "last_run": None,
@@ -46,6 +48,7 @@ _state = {
     "npm": {"ok": None, "error": None, "findings": [], "summary": None},
     "bandit": {"ok": None, "error": None, "findings": [], "counts": {}},
     "eslint": {"ok": None, "error": None, "findings": [], "counts": {}},
+    "php": {"ok": None, "error": None, "findings": [], "counts": {}},
 }
 _task: Optional[asyncio.Task] = None
 
@@ -261,6 +264,43 @@ def _run_eslint_security_sync() -> dict:
     return {"ok": True, "error": None, "findings": findings, "counts": counts}
 
 
+def _run_php_lint_sync() -> dict:
+    """Blocking — call via run_in_executor. SAST for the central server's
+    own PHP code (ovh/*.php) — see tools/php_security_lint.php's docstring
+    for why: OVH's shared hosting has exec() disabled, so this can't run
+    THERE; every agent already has a full checkout of ovh/ via the same
+    git repo, so it runs here instead, on whichever agent happens to have
+    a PHP CLI installed. Missing PHP is expected on most agents and is not
+    an error — it's an optional check, silently skipped like a tool that
+    was never installed. Returns {"ok", "error", "findings", "counts"}."""
+    php = shutil.which("php")
+    if not php:
+        return {"ok": False, "error": "php not found on PATH (optional — scans ovh/*.php)", "findings": [], "counts": {}}
+    if not os.path.isfile(PHP_LINT_SCRIPT):
+        return {"ok": False, "error": "php_security_lint.php not found", "findings": [], "counts": {}}
+    cmd = [php, PHP_LINT_SCRIPT, OVH_DIR]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60,
+                            cwd=updater_svc.REPO_ROOT, env=updater_svc._child_env())
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "php lint timed out after 60s", "findings": [], "counts": {}}
+    except FileNotFoundError:
+        return {"ok": False, "error": "php not found on PATH", "findings": [], "counts": {}}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}", "findings": [], "counts": {}}
+
+    try:
+        report = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError):
+        err = (r.stderr or r.stdout or "unknown php lint failure").strip()
+        return {"ok": False, "error": err[-500:], "findings": [], "counts": {}}
+
+    if not report.get("ok"):
+        return {"ok": False, "error": report.get("error") or "php lint failed", "findings": [], "counts": {}}
+
+    return {"ok": True, "error": None, "findings": report.get("findings", []), "counts": report.get("counts", {})}
+
+
 async def run_scan() -> dict:
     """Runs all four checks. One tool failing never blocks the others —
     same fail-isolated philosophy as vuln_scan.py's NVD/vulners merge."""
@@ -270,18 +310,20 @@ async def run_scan() -> dict:
     _state["in_progress"] = True
     try:
         loop = asyncio.get_event_loop()
-        pip_result, npm_result, bandit_result, eslint_result = await asyncio.gather(
+        pip_result, npm_result, bandit_result, eslint_result, php_result = await asyncio.gather(
             loop.run_in_executor(None, _run_pip_audit_sync),
             loop.run_in_executor(None, _run_npm_audit_sync),
             loop.run_in_executor(None, _run_bandit_sync),
             loop.run_in_executor(None, _run_eslint_security_sync),
+            loop.run_in_executor(None, _run_php_lint_sync),
         )
         _state["pip"] = pip_result
         _state["npm"] = npm_result
         _state["bandit"] = bandit_result
         _state["eslint"] = eslint_result
+        _state["php"] = php_result
         _state["last_run"] = datetime.utcnow().isoformat()
-        results = {"pip": pip_result, "npm": npm_result, "bandit": bandit_result, "eslint": eslint_result}
+        results = {"pip": pip_result, "npm": npm_result, "bandit": bandit_result, "eslint": eslint_result, "php": php_result}
         failed = [name for name, res in results.items() if not res["ok"]]
         _state["last_error"] = "; ".join(f"{name}: {results[name]['error']}" for name in failed) if len(failed) == len(results) else None
         return {"ok": True, **results}
@@ -333,6 +375,7 @@ def public_summary() -> Optional[dict]:
     npm_f = _state["npm"].get("findings") or []
     bandit_f = _state["bandit"].get("findings") or []
     eslint_f = _state["eslint"].get("findings") or []
+    php_f = _state["php"].get("findings") or []
 
     return {
         "last_run": _state["last_run"],
@@ -356,5 +399,10 @@ def public_summary() -> Optional[dict]:
             "ok": _state["eslint"].get("ok"), "error": _state["eslint"].get("error"),
             "count": len(eslint_f), "counts": _state["eslint"].get("counts"),
             "top": [{"rule_id": f.get("rule_id"), "severity": f.get("severity")} for f in _cap(eslint_f)],
+        },
+        "php": {
+            "ok": _state["php"].get("ok"), "error": _state["php"].get("error"),
+            "count": len(php_f), "counts": _state["php"].get("counts"),
+            "top": [{"function": f.get("function"), "severity": f.get("severity")} for f in _cap(php_f)],
         },
     }

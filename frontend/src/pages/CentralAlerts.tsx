@@ -875,6 +875,24 @@ function ToolBadge({ label, res }: { label: string; res: CentralSupplyChainToolS
   return <span className={`text-xs px-1.5 py-0.5 rounded ${cls}`}>{label}: {res.count}</span>
 }
 
+// PHP (Centrala's own ovh/*.php code) is intentionally only scanned on
+// whichever agent happens to have a PHP CLI installed — most agents won't,
+// and that's expected, not an error. A red "×" there would look like every
+// other tenant is broken; render that specific case as a neutral "n/a"
+// instead, matching the local Security page's same distinction.
+function PhpToolBadge({ res }: { res: CentralSupplyChainToolSummary | undefined | null }) {
+  if (!res) return <span className="text-xs text-slate-400">—</span>
+  if (res.ok === false) {
+    const notInstalled = (res.error ?? '').includes('not found on PATH')
+    if (notInstalled) {
+      return <span className="text-xs text-slate-400" title={res.error ?? ''}>{'n/a'}</span>
+    }
+    return <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700" title={res.error ?? ''}>{'PHP: ×'}</span>
+  }
+  const cls = res.count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+  return <span className={`text-xs px-1.5 py-0.5 rounded ${cls}`}>{'PHP'}: {res.count}</span>
+}
+
 function SupplyChainCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; last_seen: string | null; age_sec: number | null; supply_chain_status: CentralSupplyChainStatus | null }>>([])
@@ -941,6 +959,7 @@ function SupplyChainCentralPanel() {
                 <th>npm</th>
                 <th>Bandit</th>
                 <th>ESLint</th>
+                <th title={t('supplyChainCentral.phpHint') as string}>{t('supplyChainCentral.phpColumn')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -958,6 +977,7 @@ function SupplyChainCentralPanel() {
                     <td><ToolBadge label="npm" res={sc?.npm} /></td>
                     <td><ToolBadge label="Bandit" res={sc?.bandit} /></td>
                     <td><ToolBadge label="ESLint" res={sc?.eslint} /></td>
+                    <td><PhpToolBadge res={sc?.php} /></td>
                     <td className="text-right">
                       {queued ? (
                         <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('supplyChainCentral.queued')}</span>

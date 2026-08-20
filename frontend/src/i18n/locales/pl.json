@@ -470,7 +470,9 @@
         "lastScan": "Ostatni skan",
         "neverScanned": "Nigdy nie skanowano",
         "scanNow": "Skanuj teraz",
-        "queued": "W kolejce"
+        "queued": "W kolejce",
+        "phpColumn": "PHP (Centrala)",
+        "phpHint": "Statyczna analiza kodu ovh/*.php (centrala) — uruchamia się na dowolnym agencie z zainstalowanym PHP CLI. 'n/a' oznacza, że ten agent nie ma PHP — to normalne, nie błąd."
     },
     "auth": {
         "title": "MikroManager",
@@ -594,6 +596,7 @@
         },
         "sastBandit": "Backend (Bandit)",
         "sastEslint": "Frontend (ESLint security)",
+        "sastPhp": "Centrala (PHP security lint)",
         "sastErrors": "błędów",
         "sastWarnings": "ostrzeżeń"
     },

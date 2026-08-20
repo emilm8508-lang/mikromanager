@@ -229,6 +229,7 @@ function SupplyChainSection() {
   const pipCount = data?.pip?.findings?.length ?? 0
   const banditCounts = data?.bandit?.counts
   const eslintCounts = data?.eslint?.counts
+  const phpCounts = data?.php?.counts
 
   return (
     <Card>
@@ -324,6 +325,27 @@ function SupplyChainSection() {
                   <Badge variant="yellow" className="text-[10px]">{eslintCounts.warning} {t('security.sastWarnings')}</Badge>
                 )}
                 {(eslintCounts.error ?? 0) + (eslintCounts.warning ?? 0) === 0 && (
+                  <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">—</span>
+            )}
+          </div>
+          <div className="border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 mb-1.5">{t('security.sastPhp')}</p>
+            {data?.php?.ok === false ? (
+              <p className="text-xs text-slate-400">{data.php.error}</p>
+            ) : phpCounts ? (
+              <div className="flex gap-1.5 flex-wrap">
+                {(['high', 'medium'] as const).map(sev => (
+                  (phpCounts[sev] ?? 0) > 0 && (
+                    <Badge key={sev} variant={sev === 'high' ? 'red' : 'yellow'} className="text-[10px]">
+                      {phpCounts[sev]} {t(`security.severity.${sev === 'medium' ? 'moderate' : sev}`)}
+                    </Badge>
+                  )
+                ))}
+                {(phpCounts.high ?? 0) + (phpCounts.medium ?? 0) === 0 && (
                   <span className="text-xs text-green-700">{t('security.supplyChainClean')}</span>
                 )}
               </div>
