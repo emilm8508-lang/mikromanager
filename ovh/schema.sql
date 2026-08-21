@@ -79,10 +79,32 @@ CREATE TABLE IF NOT EXISTS edge_devices (
     last_check_detail VARCHAR(255) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_tenant_ip (tenant, ip),
+    -- Identifies "this WAN interface on this device" independently of its
+    -- current IP value, so edge_sync_from_agent() can follow a WAN IP
+    -- rotation by updating the row in place (ip = VALUES(ip)) instead of
+    -- orphaning the existing monitored/enabled row and silently creating
+    -- a brand new disabled one under the old ip-keyed unique constraint
+    -- above. NULL source_device_id/source_iface (manual entries) never
+    -- collide with each other or with auto rows — MySQL never treats NULL
+    -- as equal to NULL in a unique index — so this is a no-op for them.
+    UNIQUE KEY uniq_tenant_device_iface (tenant, source_device_id, source_iface),
     INDEX (tenant), INDEX (enabled, last_check)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- Existing install upgrading to this version, run once:
 -- ALTER TABLE edge_devices ADD COLUMN last_check_detail VARCHAR(255) NULL;
+--
+-- Before adding the new unique key below, check for pre-existing duplicate
+-- (tenant, source_device_id, source_iface) rows first (a real possibility if
+-- you've been running the old ip-keyed version for a while — a WAN IP
+-- rotation would have created an orphaned second row under the old logic).
+-- ALTER TABLE ADD UNIQUE will fail outright if duplicates exist:
+--   SELECT tenant, source_device_id, source_iface, COUNT(*), GROUP_CONCAT(id)
+--   FROM edge_devices WHERE source_device_id IS NOT NULL
+--   GROUP BY tenant, source_device_id, source_iface HAVING COUNT(*) > 1;
+-- For each group found, decide which row to keep (usually the one that's
+-- enabled=1 with your real channel/interval settings) and delete the rest,
+-- then:
+-- ALTER TABLE edge_devices ADD UNIQUE KEY uniq_tenant_device_iface (tenant, source_device_id, source_iface);
 
 -- Activity log (v1.7) — timeline of interesting events (firmware upgraded,
 -- agent restarted after update, backups, etc.). Purely informational, shown

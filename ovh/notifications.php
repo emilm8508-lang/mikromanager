@@ -474,12 +474,19 @@ function edge_dispatch(array $channel, string $message): array {
  * Sync edge_devices from an agent's snapshot metadata (v1.6).
  *
  * Reconciles the DB against the current WAN IPs reported by this tenant:
- *   - unknown (tenant, ip) → insert new row (enabled=0, source='auto')
- *   - existing auto row    → update last_seen_from_agent + name/iface
+ *   - unknown (tenant, device_id, iface) → insert new row (enabled=0, source='auto')
+ *   - existing auto row for that (device_id, iface) → update ip (follows a
+ *     WAN IP rotation in place, see uniq_tenant_device_iface in schema.sql)
+ *     + last_seen_from_agent + name/iface. Deliberately does NOT touch
+ *     enabled/channel_ids/interval_sec/check_port — an operator's existing
+ *     monitoring setup for that WAN link survives an IP change untouched.
  *   - auto rows for this tenant not present in current list AND stale
- *     (>7 days) → delete (device removed or WAN IP rotated)
+ *     (>7 days) → delete (device genuinely removed, not just a rotated IP —
+ *     a rotation now updates the SAME row instead of orphaning it)
  *
- * Manually added rows (source='manual') are never touched here.
+ * Manually added rows (source='manual', no source_device_id) are never
+ * touched here — NULL never collides with NULL in the unique key this
+ * relies on, so they can never be matched/overwritten by an auto sync.
  */
 function edge_sync_from_agent(PDO $pdo, string $tenant, array $edge_ips): void {
     if (empty($edge_ips)) return;
@@ -510,12 +517,21 @@ function edge_sync_from_agent(PDO $pdo, string $tenant, array $edge_ips): void {
         // stored check_port — this only changes the default for IPs seen for
         // the very first time (ON DUPLICATE KEY UPDATE below never touches
         // check_port, so already-discovered devices are unaffected).
+        //
+        // The last_check reset on an IP change comes FIRST in the SET list
+        // below, deliberately before "ip = VALUES(ip)" — MySQL evaluates
+        // ON DUPLICATE KEY UPDATE assignments left to right, and a later
+        // expression sees an earlier one's already-written value, not the
+        // original row. Put the ip write first and this comparison would
+        // always see ip already equal to VALUES(ip), never firing.
         $stmt = $pdo->prepare(
             'INSERT INTO edge_devices
                (tenant, name, ip, check_port, source, source_device_id, source_device_name,
                 source_iface, last_seen_from_agent, channel_ids, enabled)
              VALUES (?, ?, ?, 443, "auto", ?, ?, ?, ?, "[]", 0)
              ON DUPLICATE KEY UPDATE
+               last_check = IF(ip <> VALUES(ip), NULL, last_check),
+               ip = VALUES(ip),
                source_device_id = VALUES(source_device_id),
                source_device_name = VALUES(source_device_name),
                source_iface = VALUES(source_iface),
