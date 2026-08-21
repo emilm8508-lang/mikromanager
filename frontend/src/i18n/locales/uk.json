@@ -310,7 +310,8 @@
                     "versionLabel":  "Versiya",
                     "updateAppTooltip":  "Onovyty MikroManager z GitHub",
                     "updating":  "Onovlennya...",
-                    "updateConfirm":  "Onovyty dodatok? Pidtyagne versiyu z GitHub ta perezavantazhytsya (~2 hv)."
+                    "updateConfirm":  "Onovyty dodatok? Pidtyagne versiyu z GitHub ta perezavantazhytsya (~2 hv).",
+                    "updateError":  "Ostannye onovlennya ne vdalosya"
                 },
     "firmware":  {
                      "check":  "Pereviryty onovlennya",

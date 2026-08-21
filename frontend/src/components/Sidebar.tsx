@@ -384,6 +384,14 @@ function SelfUpdatePanel() {
       {inProgress && (
         <p className="text-indigo-600 italic">{t('sidebar.updating')}</p>
       )}
+      {!inProgress && updaterStatus?.last_error && (
+        <p
+          className="text-red-600"
+          title={Array.isArray(updaterStatus.last_log_tail) ? updaterStatus.last_log_tail.join('\n') : undefined}
+        >
+          {t('sidebar.updateError')}: {updaterStatus.last_error}
+        </p>
+      )}
     </div>
   )
 }

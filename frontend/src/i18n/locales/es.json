@@ -310,7 +310,8 @@
                     "versionLabel":  "Version",
                     "updateAppTooltip":  "Actualizar MikroManager desde GitHub",
                     "updating":  "Actualizando...",
-                    "updateConfirm":  "Actualizar la app? Se descargara la ultima version desde GitHub y se reiniciara (~2 min)."
+                    "updateConfirm":  "Actualizar la app? Se descargara la ultima version desde GitHub y se reiniciara (~2 min).",
+                    "updateError":  "Fallo la ultima actualizacion"
                 },
     "firmware":  {
                      "check":  "Buscar actualizaciones",
