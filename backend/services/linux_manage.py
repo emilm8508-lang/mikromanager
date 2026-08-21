@@ -20,18 +20,25 @@ curated, opted-in list would be a bigger problem than a stale row.
 Job state is held in _jobs (in-memory) so the UI can poll status — same
 pattern as services/firmware.py's _jobs[device_id].
 
-v1 scope: Debian/Ubuntu (apt) only. A host on a different distro family
-is discovered and labeled (package_manager) but check/upgrade actions are
-rejected rather than attempting an unsupported command path.
+v1 scope: apt (Debian/Ubuntu) and dnf (RHEL family, incl. Oracle Linux).
+A host on an unrecognized distro is discovered and labeled
+(package_manager) but check/upgrade actions are rejected rather than
+attempting an unsupported command path.
 
-MIKROTIK_LINUX_MANAGE_ENABLED defaults to "0" (must be explicitly turned
-on) — unlike this codebase's usual default-on convention for background
-features — because this runs privileged `sudo` commands against a
-client's production Linux servers, including on a remote trigger Central
-can send. The flag is checked here (blocks the local tab too) AND
-separately in services/uplink.py's command handler, so a correctly signed
-remote command still can't force the action on an agent whose operator
-never opted in locally.
+MIKROTIK_LINUX_MANAGE_ENABLED defaults to "1" (matches this codebase's
+usual default-on convention, e.g. MIKROTIK_AUTO_UPDATE_ENABLED) — the
+local agent UI already requires password+MFA to reach this tab at all,
+and the sudo commands run here are fixed strings (apt/dnf update+upgrade
+only, see _check_command/_upgrade_command) with no arbitrary-command
+path anywhere in the API, so a separate env-var barrier on top of that
+login would just be friction without a matching new risk. Can still be
+set to "0" to opt back out (e.g. while still reviewing a fresh
+deployment) — checked here (blocks the local tab too) AND separately in
+services/uplink.py's command handler, so a correctly signed remote
+command from Central also respects it. The per-host managed=True opt-in
+(see discover_linux_hosts()'s docstring) is the gate that actually
+matters day to day: it's what stops apt upgrade from ever running on a
+host nobody specifically reviewed, regardless of this flag.
 """
 import asyncio
 import json
@@ -47,7 +54,7 @@ from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
 
-MANAGE_ENABLED = os.environ.get("MIKROTIK_LINUX_MANAGE_ENABLED", "0").strip().lower() in ("1", "true", "yes")
+MANAGE_ENABLED = os.environ.get("MIKROTIK_LINUX_MANAGE_ENABLED", "1").strip().lower() not in ("0", "false", "no")
 
 CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_CHECK_TIMEOUT_SEC", "120"))
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_UPGRADE_TIMEOUT_SEC", "1800"))

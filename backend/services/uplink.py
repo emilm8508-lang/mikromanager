@@ -277,7 +277,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.20",
+        "agent_version": "1.21",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -489,11 +489,12 @@ async def _handle_commands(commands: list) -> None:
          "backup":bool}                                   — upgrade Mikrotik firmware
       - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
         lines from a device, delivered in the next snapshot
-      - {"type":"linux_apt_upgrade","host_id":N}            — apt update+
-        upgrade a managed Linux host. Deliberately gated on
-        MIKROTIK_LINUX_MANAGE_ENABLED locally (services/linux_manage.py):
-        a correctly signed command from central is NOT sufficient by
-        itself to run privileged sudo commands on a client's servers if
+      - {"type":"linux_apt_upgrade","host_id":N}            — apt/dnf
+        update+upgrade a managed Linux host. Respects
+        MIKROTIK_LINUX_MANAGE_ENABLED locally (services/linux_manage.py,
+        defaults on but can be set to "0" to opt out): a correctly signed
+        command from central is NOT sufficient by itself to run privileged
+        sudo commands on a client's servers if
         this agent's own operator never opted in.
     """
     for cmd in commands:
