@@ -313,7 +313,16 @@ function edge_check_due(PDO $pdo, int $max_seconds = 8): int {
 
     foreach ($devices as $d) {
         if ((microtime(true) - $started) > $max_seconds) break;
-        edge_check_one($pdo, $d);
+        try {
+            edge_check_one($pdo, $d);
+        } catch (Throwable $e) {
+            // One device's check failing (network hiccup, or — as happened
+            // in practice — a schema drift like a column added in code but
+            // never migrated on the live DB) must never abort the whole
+            // batch: every other due device still needs checking this
+            // cycle, not silently skipped because device #1 threw.
+            error_log('[mm-edge-check] device ' . ($d['id'] ?? '?') . ': ' . $e->getMessage());
+        }
         $checked++;
     }
     return $checked;
