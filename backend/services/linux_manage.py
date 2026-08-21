@@ -250,6 +250,27 @@ async def discover_linux_hosts() -> dict:
     return {"candidates": len(candidate_ips), "discovered": discovered, "refreshed": checked}
 
 
+async def full_network_scan_and_discover() -> dict:
+    """Manual "Skanuj sieć teraz" entry point (POST /api/linux/discover).
+    discover_linux_hosts() alone only reads whatever the vulnerability
+    scanner's own weekly pass already found (VulnHost/VulnService rows) —
+    it never probes the network itself. That's the right call for the
+    automatic hook at the end of vuln_scan.run_scan() (no point re-probing
+    what that same run just did), but it means a host that only just
+    started listening on port 22 wouldn't be found until the NEXT weekly
+    scan, up to a week later — surprising for a button literally labeled
+    "scan the network now". This triggers a real vuln_scan.run_scan() pass
+    first (safe to call anytime — it no-ops via its own _in_progress guard
+    if a scan is already running), then discovers/refreshes from the
+    freshly updated port data."""
+    try:
+        from services import vuln_scan
+        await vuln_scan.run_scan()
+    except Exception as e:
+        print(f"[linux_manage] full network scan error: {e}")
+    return await discover_linux_hosts()
+
+
 # ── SSH command execution (first place in this codebase capturing real
 # stdout+stderr+exit code — vuln_scan.py's exec_command calls are fixed,
 # read-only, and discard both) ───────────────────────────────────────────

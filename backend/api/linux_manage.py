@@ -53,7 +53,11 @@ async def upgrade_bulk(payload: BulkUpgradeIn, background_tasks: BackgroundTasks
 
 @router.post("/discover")
 async def discover(background_tasks: BackgroundTasks):
-    background_tasks.add_task(linux_manage.discover_linux_hosts)
+    # Full network scan first, not just a re-read of the last one — see
+    # full_network_scan_and_discover()'s docstring for why the plain
+    # discover_linux_hosts() alone would silently miss a host that only
+    # just started listening on port 22.
+    background_tasks.add_task(linux_manage.full_network_scan_and_discover)
     return {"started": True}
 
 
