@@ -432,6 +432,8 @@
                     "eventDeviceRebooted":  "Urzadzenie zrestartowane",
                     "eventWanIpChanged":  "Zmiana adresu WAN",
                     "eventVulnOverdue":  "Podatności po terminie SLA",
+                    "eventTunnelDown":  "Tunel VPN padl (WireGuard/IPsec)",
+                    "eventTunnelUp":  "Tunel VPN wrocil (WireGuard/IPsec)",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",

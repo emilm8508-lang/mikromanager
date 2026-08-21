@@ -10,11 +10,46 @@ If all three fail (or aren't configured), raises with the last error.
 """
 import asyncio
 import aiohttp
+import re
 import ssl
 import time
 from typing import Any, Optional
 import librouteros
 from services.snmp_client import SnmpClient
+
+# WireGuard peer considered "up" if it handshook within this many seconds —
+# RouterOS/community convention: persistent-keepalive (when configured)
+# re-handshakes on roughly this cadence, so a peer that's gone quiet this
+# long is treated as dead rather than merely idle.
+WG_HANDSHAKE_STALE_SEC = 180
+
+
+def _parse_duration_to_sec(value) -> Optional[int]:
+    """RouterOS's last-handshake sometimes comes back as a plain integer of
+    seconds, sometimes as a human duration string like '2m30s' or '1h2m3s'
+    (CLI-style) depending on API path/version — handle both rather than
+    assuming one. Returns None for missing/never-handshaked/unparseable."""
+    if value is None or value == "" or value == "never":
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        if value.isdigit():
+            return int(value)
+        m = re.match(r'^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?(?:(\d+)ms)?$', value.strip())
+        if m and any(m.groups()):
+            d, h, mi, s, _ms = (int(g) if g else 0 for g in m.groups())
+            return d * 86400 + h * 3600 + mi * 60 + s
+    return None
+
+
+def _wireguard_peer_status(peer: dict) -> str:
+    if str(peer.get("disabled", "false")).lower() in ("true", "yes"):
+        return "down"
+    age = _parse_duration_to_sec(peer.get("last-handshake"))
+    if age is None:
+        return "down"
+    return "up" if age <= WG_HANDSHAKE_STALE_SEC else "down"
 
 
 # Remembers, per (device IP, REST path), whether REST is known to fail on
@@ -269,6 +304,36 @@ class MikrotikClient:
         except Exception:
             return []
 
+    async def get_wireguard_status(self) -> dict:
+        """WireGuard interfaces + per-peer status. See _wireguard_peer_status
+        for the up/down rule (last-handshake recency, disabled flag)."""
+        try:
+            interfaces = await self._rest_or_api("interface/wireguard", "/interface/wireguard")
+        except Exception:
+            interfaces = []
+        try:
+            peers = await self._rest_or_api("interface/wireguard/peers", "/interface/wireguard/peers")
+        except Exception:
+            peers = []
+        if isinstance(peers, list):
+            for p in peers:
+                if isinstance(p, dict):
+                    p["status"] = _wireguard_peer_status(p)
+        return {"interfaces": interfaces, "peers": peers}
+
+    async def get_ipsec_status(self) -> list:
+        """IPsec active peers (phase 1) with a computed "up"/"down" status
+        — "up" only when RouterOS itself reports state=="established"."""
+        try:
+            peers = await self._rest_or_api("ip/ipsec/active-peers", "/ip/ipsec/active-peers")
+        except Exception:
+            peers = []
+        if isinstance(peers, list):
+            for p in peers:
+                if isinstance(p, dict):
+                    p["status"] = "up" if str(p.get("state", "")).lower() == "established" else "down"
+        return peers
+
     async def get_vpn_tunnels(self) -> dict:
         result = {}
         for rest_path, api_path, key in [
@@ -281,6 +346,14 @@ class MikrotikClient:
                 result[key] = await self._rest_or_api(rest_path, api_path)
             except Exception:
                 result[key] = []
+        try:
+            result["wireguard"] = await self.get_wireguard_status()
+        except Exception:
+            result["wireguard"] = {"interfaces": [], "peers": []}
+        try:
+            result["ipsec"] = await self.get_ipsec_status()
+        except Exception:
+            result["ipsec"] = []
         return result
 
     async def set_identity(self, name: str) -> None:
