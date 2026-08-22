@@ -32,6 +32,13 @@ from services import activity
 
 _TUNNEL_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "tunnel_state.json")
 
+# Current per-tunnel status from the most recent collect_tunnel_events() run
+# — that function already SSHes every device to diff against persisted state,
+# so public_summary() just reads this cache instead of re-querying routers a
+# second time. Populated after the first successful snapshot cycle; empty
+# list before that (mirrors linux_manage.public_summary()'s "nothing yet").
+_last_status: List[dict] = []
+
 
 def _load_state() -> dict:
     if not os.path.exists(_TUNNEL_STATE_PATH):
@@ -131,6 +138,9 @@ async def collect_tunnel_events() -> List[dict]:
     results = await asyncio.gather(*[_bounded(i) for i in ids])
     current = [t for r in results for t in r]
 
+    global _last_status
+    _last_status = current
+
     state = _load_state()
     events: List[dict] = []
     for t in current:
@@ -158,3 +168,16 @@ async def collect_tunnel_events() -> List[dict]:
 
     _save_state(state)
     return events
+
+
+def public_summary() -> List[dict]:
+    """Redacted view for the snapshot's plaintext envelope — same treatment
+    as linux_manage.public_summary()/supply_chain.public_summary(): just the
+    current up/down status per tunnel, nothing an attacker could use beyond
+    what "Tunele" already shows locally on the agent itself."""
+    return [{
+        "device_name": t["device_name"],
+        "tunnel_type": t["tunnel_type"],
+        "tunnel_name": t["tunnel_name"],
+        "status": t["status"],
+    } for t in _last_status]

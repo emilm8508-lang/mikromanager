@@ -279,6 +279,13 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] linux hosts summary error: {e}")
         linux_hosts_status = []
 
+    try:
+        from services import tunnel_monitor as tunnel_monitor_svc
+        tunnel_status = tunnel_monitor_svc.public_summary()
+    except Exception as e:
+        print(f"[uplink] tunnel status summary error: {e}")
+        tunnel_status = []
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -300,6 +307,7 @@ async def _build_snapshot() -> dict:
         "vuln_findings_summary": vuln_findings_summary,
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
+        "tunnel_status": tunnel_status,
     }
 
 
@@ -334,6 +342,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "activity_events": snapshot.get("activity_events", []),
             "supply_chain_status": snapshot.get("supply_chain_status"),
             "linux_hosts_status": snapshot.get("linux_hosts_status", []),
+            "tunnel_status": snapshot.get("tunnel_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

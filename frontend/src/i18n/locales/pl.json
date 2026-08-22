@@ -728,5 +728,14 @@
         "rebootRequired": "restart",
         "queued": "W kolejce",
         "upgradeNow": "Aktualizuj teraz"
+    },
+    "tunnelCentral": {
+        "title": "Tunele VPN — wszyscy klienci",
+        "intro": "Bieżący status tuneli WireGuard/IPsec wykrytych na routerach każdego klienta. Zmiana up/down alertuje przez Telegram tak samo jak łącze WAN — reguły alertów: zakładka Alerty.",
+        "noTunnels": "Brak wykrytych tuneli WireGuard/IPsec u żadnego klienta.",
+        "device": "Urządzenie",
+        "type": "Typ",
+        "name": "Tunel",
+        "status": "Status"
     }
 }

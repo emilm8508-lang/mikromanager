@@ -438,6 +438,17 @@ export interface CentralLinuxHostStatus {
   last_status: string | null
 }
 
+// Redacted per-tunnel status an agent includes in its snapshot envelope
+// (see services/tunnel_monitor.py's public_summary()) — current up/down
+// state only, same data already visible locally on the agent's own
+// Tunele tab.
+export interface CentralTunnelStatus {
+  device_name: string
+  tunnel_type: string
+  tunnel_name: string
+  status: string
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -1234,6 +1245,8 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_apt_upgrades'),
   linuxHostsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; linux_hosts: CentralLinuxHostStatus[] }> }>('linux_hosts_status_all'),
+  tunnelStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
 
   // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
   // checks here; the server enforces it independently.

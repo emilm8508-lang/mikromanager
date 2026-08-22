@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralTunnelStatus } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -1165,6 +1165,84 @@ function LinuxCentralPanel() {
 }
 
 
+function TunnelCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; tunnel: CentralTunnelStatus }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.tunnelStatusAll()
+      const flat: Array<{ tenant: string; tunnel: CentralTunnelStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const tun of tRow.tunnels) flat.push({ tenant: tRow.tenant, tunnel: tun })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('tunnelCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('tunnelCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('tunnelCentral.noTunnels')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>{t('tunnelCentral.device')}</th>
+                <th>{t('tunnelCentral.type')}</th>
+                <th>{t('tunnelCentral.name')}</th>
+                <th>{t('tunnelCentral.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, tunnel }, i) => (
+                <tr key={`${tenant}:${tunnel.tunnel_type}:${tunnel.tunnel_name}:${i}`} className="border-b border-slate-100">
+                  <td className="py-2">{tenant}</td>
+                  <td className="font-mono text-xs">{tunnel.device_name}</td>
+                  <td className="text-xs text-slate-500 uppercase">{tunnel.tunnel_type}</td>
+                  <td className="font-mono text-xs">{tunnel.tunnel_name}</td>
+                  <td>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${tunnel.status === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {tunnel.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export function AlertsPanel() {
   const { t } = useTranslation()
   const [channels, setChannels] = useState<AlertChannel[]>([])
@@ -1259,6 +1337,7 @@ export function MonitoringPanel() {
         {t('monitoring.intro')}
       </div>
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
+      <TunnelCentralPanel />
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />
     </div>
