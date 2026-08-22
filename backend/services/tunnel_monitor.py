@@ -21,7 +21,7 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, Credential
@@ -60,6 +60,19 @@ def _save_state(state: dict) -> None:
         print(f"[tunnel_monitor] state persist error: {e}")
 
 
+def _ros_major_version(ros_version) -> Optional[int]:
+    """Parses the leading major version number out of a RouterOS version
+    string like "7.23.2 (stable)" or "6.49.10 (long-term)" -> 7 / 6. Returns
+    None if ros_version is empty or unparseable (device never enriched
+    yet, or SNMP-only vendor string leaked through)."""
+    if not ros_version:
+        return None
+    try:
+        return int(str(ros_version).split(".")[0].strip())
+    except (ValueError, IndexError):
+        return None
+
+
 async def _collect_device_tunnels(device_id: int) -> List[dict]:
     """Returns a flat list of {"tunnel_type","tunnel_name","status",
     "device_id","device_name"} for one device's WireGuard peers + IPsec
@@ -83,26 +96,35 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
     device_name = device.identity or device.name or device.ip
     out: List[dict] = []
 
-    try:
-        wg = await asyncio.wait_for(client.get_wireguard_status(), timeout=8)
-    except Exception as e:
-        wg = {"peers": [], "error": f"{type(e).__name__}: {e}"}
-    for p in wg.get("peers") or []:
-        if not isinstance(p, dict):
-            continue
-        name = p.get("name") or p.get(".id") or p.get("interface") or "peer"
-        out.append({"tunnel_type": "wireguard", "tunnel_name": str(name),
-                    "status": p.get("status", "down")})
-    # A query failure (unsupported RouterOS path, no API/SSH reachable, etc.)
-    # used to be swallowed here, so a device whose IPsec/WireGuard query
-    # genuinely fails just vanished from the list with zero trace — no
-    # different from "this device has no tunnels", the exact silent-failure
-    # bug already fixed once for mikrotik_client.py/DeviceDetail.tsx. Only
-    # synthesize this when peers came back empty — if peers succeeded, any
-    # error string here is about the (here-unused) interfaces query.
-    if wg.get("error") and not wg.get("peers"):
-        out.append({"tunnel_type": "wireguard", "tunnel_name": "_query_",
-                    "status": "error", "detail": wg["error"]})
+    # WireGuard was only added to RouterOS in v7 — a v6 router (still the
+    # majority of older client sites) has no such path at all, so querying
+    # it always raises, not because anything is wrong but because the
+    # feature structurally cannot exist there. That's "no WireGuard here",
+    # the same as an empty peer list — not an error worth a row. Only even
+    # attempt the query on a device confirmed (via the already-enriched
+    # ros_version) to be running v7+; an unknown version (never enriched
+    # yet) is treated the same as "don't know" and skipped, not guessed.
+    ros_major = _ros_major_version(device.ros_version)
+    if ros_major is not None and ros_major >= 7:
+        try:
+            wg = await asyncio.wait_for(client.get_wireguard_status(), timeout=8)
+        except Exception as e:
+            wg = {"peers": [], "error": f"{type(e).__name__}: {e}"}
+        for p in wg.get("peers") or []:
+            if not isinstance(p, dict):
+                continue
+            name = p.get("name") or p.get(".id") or p.get("interface") or "peer"
+            out.append({"tunnel_type": "wireguard", "tunnel_name": str(name),
+                        "status": p.get("status", "down")})
+        # A genuine query failure on a device confirmed to support WireGuard
+        # (bad creds, unreachable, unexpected RouterOS quirk) is still worth
+        # surfacing — same silent-failure bug already fixed once for
+        # mikrotik_client.py/DeviceDetail.tsx. Only synthesize this when
+        # peers came back empty — if peers succeeded, any error string here
+        # is about the (here-unused) interfaces query.
+        if wg.get("error") and not wg.get("peers"):
+            out.append({"tunnel_type": "wireguard", "tunnel_name": "_query_",
+                        "status": "error", "detail": wg["error"]})
 
     try:
         ipsec = await asyncio.wait_for(client.get_ipsec_status(), timeout=8)
