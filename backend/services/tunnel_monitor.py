@@ -96,17 +96,21 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
     device_name = device.identity or device.name or device.ip
     out: List[dict] = []
 
-    # ros_version only ever gets set by scanner.py's enrich_device() after a
-    # SUCCESSFUL /system/resource query — i.e. it's proof this device has
-    # actually answered as a real RouterOS box at least once. A switch
-    # (SwOS instead of RouterOS, or a CRS reachable only over its own web
-    # UI/proprietary protocol) or any other vendor="mikrotik"-by-default
-    # device (see the vendor filter above build_client()'s call site) that
-    # never managed that query is exactly the kind of device that also
-    # can't be expected to answer WireGuard/IPsec queries meaningfully —
-    # skip it entirely rather than let every such device add its own
-    # "_query_: error" row.
-    ros_major = _ros_major_version(device.ros_version)
+    # Verify LIVE rather than trusting the cached Device.ros_version: that
+    # field is only ever overwritten when a refresh cycle SUCCEEDS (see
+    # refresher.py — a failed query just leaves the previous value in
+    # place, by design, so a transient miss is never mistaken for "first
+    # seen"). That's the right call for display purposes, but it means a
+    # device that was ever misidentified once (e.g. a printer/switch whose
+    # SNMP sysDescr got misread as a RouterOS version by a bug already
+    # fixed in snmp_client.py) would keep that stale, wrong value forever —
+    # nothing here would ever re-query and overwrite it back to empty. A
+    # fresh /system/resource call is cheap and self-corrects immediately.
+    try:
+        resource = await asyncio.wait_for(client.get_resource(), timeout=8)
+    except Exception:
+        resource = {}
+    ros_major = _ros_major_version(resource.get("version") if isinstance(resource, dict) else None)
     if ros_major is None:
         return []
 

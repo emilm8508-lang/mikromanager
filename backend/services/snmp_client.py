@@ -118,7 +118,20 @@ class SnmpClient:
                 out["board-name"] = board
         except Exception:
             pass
-        if not out.get("board-name") and sys_descr:
+        # sysDescr is standard MIB-2 (1.3.6.1.2.1.1.1.0) — EVERY SNMP-capable
+        # device answers it, not just Mikrotik ones, so anything parsed out
+        # of it (unlike the enterprise-14988 OIDs above, which simply don't
+        # exist on non-Mikrotik hardware and fail cleanly) must be gated on
+        # sysDescr actually claiming to be RouterOS/Mikrotik. Without this,
+        # a printer/switch answering basic SNMP (common when a shared
+        # community string is configured broadly) had its own model number
+        # or firmware string misread as a RouterOS version by the old blind
+        # "any digit.digit substring" regex below — which then fed
+        # Device.ros_version and silently passed as "this is RouterOS v7" in
+        # every feature that trusts that field (tunnel monitoring, firmware
+        # update checks), for a device that was never RouterOS at all.
+        looks_like_routeros = any(tok in sys_descr.lower() for tok in ("routeros", "mikrotik"))
+        if not out.get("board-name") and sys_descr and looks_like_routeros:
             # sysDescr is often "RouterOS RB951G-2HnD" — extract board name
             parts = sys_descr.split()
             for p in parts:
@@ -140,7 +153,7 @@ class SnmpClient:
                     out["version"] = fw
             except Exception:
                 pass
-        if not out.get("version") and sys_descr:
+        if not out.get("version") and sys_descr and looks_like_routeros:
             # RouterOS sysDescr sometimes contains version: "RouterOS v6.49.6"
             import re
             m = re.search(r"\b(\d+\.\d+(?:\.\d+)?)\b", sys_descr)
