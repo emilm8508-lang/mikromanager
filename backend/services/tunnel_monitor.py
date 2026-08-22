@@ -135,9 +135,20 @@ async def collect_tunnel_events() -> List[dict]:
     transient miss must not be treated as "first seen" next time it
     succeeds."""
     with SessionLocal() as db:
-        ids = [d.id for d in db.execute(
+        devices = db.execute(
             select(Device).where(Device.credential_id.is_not(None))
-        ).scalars().all()]
+        ).scalars().all()
+        # Tunnels only make sense on an actual Mikrotik router. build_client()
+        # in device_client.py defaults ANY vendor other than "cisco-sb" to
+        # MikrotikClient — including "generic-snmp" (scanner.py's label for
+        # printers/iDRACs/switches identified only via SNMP sysDescr), since
+        # that client's SNMP fallback is genuinely useful for other features.
+        # isinstance(client, MikrotikClient) below therefore does NOT mean
+        # "is a real router" — without this vendor check, every credentialed
+        # printer/iDRAC got queried for WireGuard/IPsec too, which used to
+        # fail silently and, once query errors started being surfaced,
+        # showed up as a wall of meaningless "_query_: error" rows.
+        ids = [d.id for d in devices if (d.vendor or "mikrotik").lower() == "mikrotik"]
 
     sem = asyncio.Semaphore(5)
 
