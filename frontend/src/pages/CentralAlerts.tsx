@@ -1208,10 +1208,59 @@ export function AlertsPanel() {
       </div>
       <ChannelsPanel onChange={loadShared} />
       <RulesPanel channels={channels} tenants={tenants} />
+      <HistoryPanel />
+    </div>
+  )
+}
+
+
+// Status/monitoring views — WAN reachability, supply-chain scan, Linux
+// patch status — split out from AlertsPanel (which is now just channel/
+// rule configuration + history): these are live status boards you check,
+// not alert setup, so they don't belong mixed in with it.
+export function MonitoringPanel() {
+  const { t } = useTranslation()
+  const [channels, setChannels] = useState<AlertChannel[]>([])
+  const [tenants, setTenants] = useState<string[]>([])
+  const [err, setErr] = useState<string | null>(null)
+  const cfg = centralConfig.load()
+
+  useEffect(() => {
+    if (!cfg) return
+    (async () => {
+      try {
+        const [chRes, tRes] = await Promise.all([
+          centralApi.alertChannels(),
+          centralApi.tenants(),
+        ])
+        setChannels(chRes.channels ?? [])
+        setTenants((tRes.tenants ?? []).map(x => x.id))
+        setErr(null)
+      } catch (e) {
+        setErr((e as Error).message)
+      }
+    })()
+  }, [])
+
+  if (!cfg) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded p-4 text-sm text-amber-800">
+        {t('alerts.needsCentral')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {err && (
+        <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{err}</div>
+      )}
+      <div className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded p-3">
+        {t('monitoring.intro')}
+      </div>
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />
-      <HistoryPanel />
     </div>
   )
 }

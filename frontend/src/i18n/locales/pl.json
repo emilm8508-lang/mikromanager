@@ -231,6 +231,7 @@
                     "subtitle":  "Zbiorczy widok wszystkich klientów przez serwer pośredniczący",
                     "tabViewer":  "Viewer (laptop)",
                     "tabAgent":  "Agent (uplink)",
+                    "tabMonitoring":  "Monitoring",
                     "tabAlerts":  "Alerty",
                     "tabUsers":  "Użytkownicy",
                     "tabAnydesk":  "Czas pracy",
@@ -451,6 +452,9 @@
                      "device":  "Urzadzenie",
                      "details":  "Szczegoly",
                      "deliveryStatus":  "Dostarczono"
+                 },
+    "monitoring":  {
+                     "intro":  "Biezacy status monitorowanych rzeczy u wszystkich klientow — adresy WAN, aktualizacje Linux, tunele VPN. Konfiguracja alertow i ich historia sa w zakladce Alerty."
                  },
     "edge":  {
                      "title":  "Monitoring urzadzen brzegowych",
