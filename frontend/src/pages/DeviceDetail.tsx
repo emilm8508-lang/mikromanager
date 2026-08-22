@@ -222,30 +222,23 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
   }
 
   if (tab === 'tunnels') {
-    // eoip/vxlan/gre/ipip are flat arrays (each row = one interface), but
-    // wireguard/ipsec are nested {peers: [...], error?: string} shapes
-    // (see MikrotikClient.get_wireguard_status/get_ipsec_status) — passing
-    // that object straight to DataTable (which expects an array) used to
-    // crash this section silently, since `data[0]` on a plain object is
+    // Every section here is now a nested {peers|interfaces: [...], error?:
+    // string} shape (see MikrotikClient.get_wireguard_status/
+    // get_ipsec_status/get_simple_tunnel_interfaces) — passing that object
+    // straight to DataTable (which expects a flat array) used to crash
+    // this section silently, since `data[0]` on a plain object is
     // undefined and Object.keys(undefined) throws.
     const t2 = data as Record<string, unknown>
     return (
       <div className="space-y-4">
         {Object.entries(t2).map(([type, value]) => {
-          if (type === 'wireguard' || type === 'ipsec') {
-            const v = (value ?? {}) as { peers?: Record<string, unknown>[]; error?: string | null }
-            return (
-              <div key={type}>
-                <h3 className="text-xs font-semibold text-slate-600 uppercase mb-2">{type}</h3>
-                {v.error && <p className="text-xs text-red-600 mb-2">{v.error}</p>}
-                <DataTable data={v.peers ?? []} emptyLabel={t('common.noData')} />
-              </div>
-            )
-          }
+          const v = (value ?? {}) as { peers?: Record<string, unknown>[]; interfaces?: Record<string, unknown>[]; error?: string | null }
+          const rows = v.peers ?? v.interfaces ?? []
           return (
             <div key={type}>
               <h3 className="text-xs font-semibold text-slate-600 uppercase mb-2">{type}</h3>
-              <DataTable data={value as Record<string, unknown>[]} emptyLabel={t('common.noData')} />
+              {v.error && <p className="text-xs text-red-600 mb-2">{v.error}</p>}
+              <DataTable data={rows} emptyLabel={t('common.noData')} />
             </div>
           )
         })}

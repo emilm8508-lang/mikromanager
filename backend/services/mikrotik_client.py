@@ -343,7 +343,20 @@ class MikrotikClient:
                     p["status"] = "up" if str(p.get("state", "")).lower() == "established" else "down"
         return {"peers": peers, "error": None}
 
-    async def get_vpn_tunnels(self) -> dict:
+    async def get_simple_tunnel_interfaces(self) -> dict:
+        """EoIP/VXLAN/GRE/IPIP — plain interface objects (unlike WireGuard/
+        IPsec, which have their own peer-state semantics). RouterOS's own
+        "R - running" flag (confirmed against help.mikrotik.com's EoIP docs:
+        its absence means the tunnel isn't active) is the right up/down
+        signal, same one shown by "/interface eoip print" and the
+        interface-state log lines RouterOS emits itself (e.g. "eoip-R4 link
+        up"). Meaningful even without an explicit keepalive configured,
+        since "running" reflects RouterOS's own link-detection for the
+        tunnel, not just whether the interface entry is administratively
+        enabled. Each type's "error" key is None on success, same
+        error-surfacing contract as get_wireguard_status()/get_ipsec_status
+        — a query failure must be visible, not indistinguishable from
+        "no such tunnels configured"."""
         result = {}
         for rest_path, api_path, key in [
             ("interface/eoip", "/interface/eoip", "eoip"),
@@ -351,10 +364,25 @@ class MikrotikClient:
             ("interface/gre", "/interface/gre", "gre"),
             ("interface/ipip", "/interface/ipip", "ipip"),
         ]:
+            error = None
             try:
-                result[key] = await self._rest_or_api(rest_path, api_path)
-            except Exception:
-                result[key] = []
+                entries = await self._rest_or_api(rest_path, api_path)
+            except Exception as e:
+                entries = []
+                error = f"{type(e).__name__}: {e}"
+            if isinstance(entries, list):
+                for e in entries:
+                    if isinstance(e, dict):
+                        disabled = str(e.get("disabled", "false")).lower() in ("true", "yes")
+                        running = str(e.get("running", "false")).lower() in ("true", "yes")
+                        e["status"] = "up" if (running and not disabled) else "down"
+            else:
+                entries = []
+            result[key] = {"interfaces": entries, "error": error}
+        return result
+
+    async def get_vpn_tunnels(self) -> dict:
+        result = await self.get_simple_tunnel_interfaces()
         try:
             result["wireguard"] = await self.get_wireguard_status()
         except Exception as e:

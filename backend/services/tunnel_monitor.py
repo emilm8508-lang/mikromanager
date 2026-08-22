@@ -1,8 +1,10 @@
 """
-VPN tunnel monitoring — WireGuard + IPsec (v1 scope; other tunnel types
-like EoIP/GRE/VXLAN/IPIP are already visible read-only in the "Tunele" tab
-via MikrotikClient.get_vpn_tunnels() but have no up/down concept worth
-alerting on the way a peer-based VPN does).
+VPN tunnel monitoring — WireGuard, IPsec, and EoIP/GRE/VXLAN/IPIP
+site-to-site tunnels. The peer-based types (WireGuard/IPsec) get their
+up/down status from their own negotiation state (handshake recency /
+"established"); the plain-interface types get it from RouterOS's own
+"running" flag on the interface entry (confirmed against help.mikrotik.com
+and RouterOS's own "eoip-<name> link up/down" log lines).
 
 Detects a tunnel's status change (up<->down) per device+tunnel and reports
 it via alert_events — the SAME agent-detected-and-reported mechanism
@@ -75,10 +77,10 @@ def _ros_major_version(ros_version) -> Optional[int]:
 
 async def _collect_device_tunnels(device_id: int) -> List[dict]:
     """Returns a flat list of {"tunnel_type","tunnel_name","status",
-    "device_id","device_name"} for one device's WireGuard peers + IPsec
-    active-peers. Non-Mikrotik devices (Cisco SB, SNMP-only) have no
-    tunnel concept here and return empty, same as firmware.py's handling
-    of non-MikrotikClient devices."""
+    "device_id","device_name"} for one device's WireGuard peers, IPsec
+    active-peers, and EoIP/GRE/VXLAN/IPIP tunnel interfaces. Non-Mikrotik
+    devices (Cisco SB, SNMP-only) have no tunnel concept here and return
+    empty, same as firmware.py's handling of non-MikrotikClient devices."""
     with SessionLocal() as db:
         row = db.execute(
             select(Device, Credential)
@@ -153,6 +155,35 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
     if ipsec.get("error") and not ipsec.get("peers"):
         out.append({"tunnel_type": "ipsec", "tunnel_name": "_query_",
                     "status": "error", "detail": ipsec["error"]})
+
+    # EoIP/GRE/VXLAN/IPIP site-to-site tunnels (e.g. sanmed's R1<->R2/R3/R4)
+    # — plain interface objects with RouterOS's own "running" flag as the
+    # up/down signal (see MikrotikClient.get_simple_tunnel_interfaces).
+    # Originally out of scope for this module (no peer-negotiation state
+    # the way WireGuard/IPsec have), but explicitly requested once the
+    # WireGuard/IPsec noise was cleaned up — the interface-level "running"
+    # flag turned out to be a perfectly usable signal after all, confirmed
+    # by RouterOS's own "eoip-R4 link up" log lines.
+    try:
+        simple = await asyncio.wait_for(client.get_simple_tunnel_interfaces(), timeout=8)
+    except Exception as e:
+        simple = {}
+        simple_error = f"{type(e).__name__}: {e}"
+    else:
+        simple_error = None
+    for tunnel_type in ("eoip", "gre", "vxlan", "ipip"):
+        section = simple.get(tunnel_type) or {}
+        interfaces = section.get("interfaces") or []
+        for iface in interfaces:
+            if not isinstance(iface, dict):
+                continue
+            name = iface.get("name") or iface.get(".id") or "tunnel"
+            out.append({"tunnel_type": tunnel_type, "tunnel_name": str(name),
+                        "status": iface.get("status", "down")})
+        err = section.get("error") or simple_error
+        if err and not interfaces:
+            out.append({"tunnel_type": tunnel_type, "tunnel_name": "_query_",
+                        "status": "error", "detail": err})
 
     for t in out:
         t["device_id"] = device.id
