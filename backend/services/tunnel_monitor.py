@@ -96,16 +96,26 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
     device_name = device.identity or device.name or device.ip
     out: List[dict] = []
 
+    # ros_version only ever gets set by scanner.py's enrich_device() after a
+    # SUCCESSFUL /system/resource query — i.e. it's proof this device has
+    # actually answered as a real RouterOS box at least once. A switch
+    # (SwOS instead of RouterOS, or a CRS reachable only over its own web
+    # UI/proprietary protocol) or any other vendor="mikrotik"-by-default
+    # device (see the vendor filter above build_client()'s call site) that
+    # never managed that query is exactly the kind of device that also
+    # can't be expected to answer WireGuard/IPsec queries meaningfully —
+    # skip it entirely rather than let every such device add its own
+    # "_query_: error" row.
+    ros_major = _ros_major_version(device.ros_version)
+    if ros_major is None:
+        return []
+
     # WireGuard was only added to RouterOS in v7 — a v6 router (still the
     # majority of older client sites) has no such path at all, so querying
     # it always raises, not because anything is wrong but because the
     # feature structurally cannot exist there. That's "no WireGuard here",
-    # the same as an empty peer list — not an error worth a row. Only even
-    # attempt the query on a device confirmed (via the already-enriched
-    # ros_version) to be running v7+; an unknown version (never enriched
-    # yet) is treated the same as "don't know" and skipped, not guessed.
-    ros_major = _ros_major_version(device.ros_version)
-    if ros_major is not None and ros_major >= 7:
+    # the same as an empty peer list — not an error worth a row.
+    if ros_major >= 7:
         try:
             wg = await asyncio.wait_for(client.get_wireguard_status(), timeout=8)
         except Exception as e:
