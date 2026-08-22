@@ -447,6 +447,7 @@ export interface CentralTunnelStatus {
   tunnel_type: string
   tunnel_name: string
   status: string
+  detail: string | null
 }
 
 export interface AgentBackupStatus {

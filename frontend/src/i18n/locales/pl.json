@@ -736,6 +736,7 @@
         "device": "Urządzenie",
         "type": "Typ",
         "name": "Tunel",
-        "status": "Status"
+        "status": "Status",
+        "queryError": "błąd zapytania"
     }
 }

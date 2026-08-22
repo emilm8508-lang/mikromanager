@@ -1226,11 +1226,21 @@ function TunnelCentralPanel() {
                   <td className="py-2">{tenant}</td>
                   <td className="font-mono text-xs">{tunnel.device_name}</td>
                   <td className="text-xs text-slate-500 uppercase">{tunnel.tunnel_type}</td>
-                  <td className="font-mono text-xs">{tunnel.tunnel_name}</td>
+                  <td className="font-mono text-xs">{tunnel.status === 'error' ? '—' : tunnel.tunnel_name}</td>
                   <td>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${tunnel.status === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {tunnel.status}
+                    <span
+                      title={tunnel.detail ?? undefined}
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        tunnel.status === 'up' ? 'bg-green-100 text-green-700'
+                        : tunnel.status === 'error' ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {tunnel.status === 'error' ? t('tunnelCentral.queryError') : tunnel.status}
                     </span>
+                    {tunnel.status === 'error' && tunnel.detail && (
+                      <span className="ml-1 text-xs text-slate-400">{tunnel.detail}</span>
+                    )}
                   </td>
                 </tr>
               ))}

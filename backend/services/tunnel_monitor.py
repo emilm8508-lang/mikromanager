@@ -85,25 +85,38 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
 
     try:
         wg = await asyncio.wait_for(client.get_wireguard_status(), timeout=8)
-        for p in wg.get("peers") or []:
-            if not isinstance(p, dict):
-                continue
-            name = p.get("name") or p.get(".id") or p.get("interface") or "peer"
-            out.append({"tunnel_type": "wireguard", "tunnel_name": str(name),
-                        "status": p.get("status", "down")})
-    except Exception:
-        pass
+    except Exception as e:
+        wg = {"peers": [], "error": f"{type(e).__name__}: {e}"}
+    for p in wg.get("peers") or []:
+        if not isinstance(p, dict):
+            continue
+        name = p.get("name") or p.get(".id") or p.get("interface") or "peer"
+        out.append({"tunnel_type": "wireguard", "tunnel_name": str(name),
+                    "status": p.get("status", "down")})
+    # A query failure (unsupported RouterOS path, no API/SSH reachable, etc.)
+    # used to be swallowed here, so a device whose IPsec/WireGuard query
+    # genuinely fails just vanished from the list with zero trace — no
+    # different from "this device has no tunnels", the exact silent-failure
+    # bug already fixed once for mikrotik_client.py/DeviceDetail.tsx. Only
+    # synthesize this when peers came back empty — if peers succeeded, any
+    # error string here is about the (here-unused) interfaces query.
+    if wg.get("error") and not wg.get("peers"):
+        out.append({"tunnel_type": "wireguard", "tunnel_name": "_query_",
+                    "status": "error", "detail": wg["error"]})
 
     try:
         ipsec = await asyncio.wait_for(client.get_ipsec_status(), timeout=8)
-        for p in ipsec.get("peers") or []:
-            if not isinstance(p, dict):
-                continue
-            name = p.get("remote-address") or p.get(".id") or "peer"
-            out.append({"tunnel_type": "ipsec", "tunnel_name": str(name),
-                        "status": p.get("status", "down")})
-    except Exception:
-        pass
+    except Exception as e:
+        ipsec = {"peers": [], "error": f"{type(e).__name__}: {e}"}
+    for p in ipsec.get("peers") or []:
+        if not isinstance(p, dict):
+            continue
+        name = p.get("remote-address") or p.get(".id") or "peer"
+        out.append({"tunnel_type": "ipsec", "tunnel_name": str(name),
+                    "status": p.get("status", "down")})
+    if ipsec.get("error") and not ipsec.get("peers"):
+        out.append({"tunnel_type": "ipsec", "tunnel_name": "_query_",
+                    "status": "error", "detail": ipsec["error"]})
 
     for t in out:
         t["device_id"] = device.id
@@ -146,7 +159,11 @@ async def collect_tunnel_events() -> List[dict]:
     for t in current:
         key = f"{t['device_id']}:{t['tunnel_type']}:{t['tunnel_name']}"
         prev_status = state.get(key)
-        if prev_status is not None and prev_status != t["status"]:
+        # Only alert on a real up<->down transition — an "error" (query
+        # failed) is not a known tunnel state, so treating its appearance/
+        # disappearance as if it were "up"/"down" would fire a misleading
+        # tunnel_up/tunnel_down alert with no actual state change behind it.
+        if prev_status in ("up", "down") and t["status"] in ("up", "down") and prev_status != t["status"]:
             event_type = "tunnel_down" if t["status"] == "down" else "tunnel_up"
             events.append({
                 "type": event_type,
@@ -180,4 +197,5 @@ def public_summary() -> List[dict]:
         "tunnel_type": t["tunnel_type"],
         "tunnel_name": t["tunnel_name"],
         "status": t["status"],
+        "detail": t.get("detail"),
     } for t in _last_status]
