@@ -89,7 +89,7 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
 
     try:
         ipsec = await asyncio.wait_for(client.get_ipsec_status(), timeout=8)
-        for p in ipsec or []:
+        for p in ipsec.get("peers") or []:
             if not isinstance(p, dict):
                 continue
             name = p.get("remote-address") or p.get(".id") or "peer"

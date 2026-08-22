@@ -222,15 +222,33 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
   }
 
   if (tab === 'tunnels') {
-    const t2 = data as Record<string, Record<string, unknown>[]>
+    // eoip/vxlan/gre/ipip are flat arrays (each row = one interface), but
+    // wireguard/ipsec are nested {peers: [...], error?: string} shapes
+    // (see MikrotikClient.get_wireguard_status/get_ipsec_status) — passing
+    // that object straight to DataTable (which expects an array) used to
+    // crash this section silently, since `data[0]` on a plain object is
+    // undefined and Object.keys(undefined) throws.
+    const t2 = data as Record<string, unknown>
     return (
       <div className="space-y-4">
-        {Object.entries(t2).map(([type, rows]) => (
-          <div key={type}>
-            <h3 className="text-xs font-semibold text-slate-600 uppercase mb-2">{type}</h3>
-            <DataTable data={rows} emptyLabel={t('common.noData')} />
-          </div>
-        ))}
+        {Object.entries(t2).map(([type, value]) => {
+          if (type === 'wireguard' || type === 'ipsec') {
+            const v = (value ?? {}) as { peers?: Record<string, unknown>[]; error?: string | null }
+            return (
+              <div key={type}>
+                <h3 className="text-xs font-semibold text-slate-600 uppercase mb-2">{type}</h3>
+                {v.error && <p className="text-xs text-red-600 mb-2">{v.error}</p>}
+                <DataTable data={v.peers ?? []} emptyLabel={t('common.noData')} />
+              </div>
+            )
+          }
+          return (
+            <div key={type}>
+              <h3 className="text-xs font-semibold text-slate-600 uppercase mb-2">{type}</h3>
+              <DataTable data={value as Record<string, unknown>[]} emptyLabel={t('common.noData')} />
+            </div>
+          )
+        })}
       </div>
     )
   }

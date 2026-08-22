@@ -306,33 +306,42 @@ class MikrotikClient:
 
     async def get_wireguard_status(self) -> dict:
         """WireGuard interfaces + per-peer status. See _wireguard_peer_status
-        for the up/down rule (last-handshake recency, disabled flag)."""
+        for the up/down rule (last-handshake recency, disabled flag).
+        Returns an "error" key (None if both queries succeeded) — a query
+        failure (unsupported RouterOS version, REST/API path unreachable,
+        etc.) must be visible, not indistinguishable from "genuinely no
+        WireGuard configured" the way silently-returned empty lists were."""
+        errors = []
         try:
             interfaces = await self._rest_or_api("interface/wireguard", "/interface/wireguard")
-        except Exception:
+        except Exception as e:
             interfaces = []
+            errors.append(f"interfaces: {type(e).__name__}: {e}")
         try:
             peers = await self._rest_or_api("interface/wireguard/peers", "/interface/wireguard/peers")
-        except Exception:
+        except Exception as e:
             peers = []
+            errors.append(f"peers: {type(e).__name__}: {e}")
         if isinstance(peers, list):
             for p in peers:
                 if isinstance(p, dict):
                     p["status"] = _wireguard_peer_status(p)
-        return {"interfaces": interfaces, "peers": peers}
+        return {"interfaces": interfaces, "peers": peers, "error": "; ".join(errors) or None}
 
-    async def get_ipsec_status(self) -> list:
+    async def get_ipsec_status(self) -> dict:
         """IPsec active peers (phase 1) with a computed "up"/"down" status
-        — "up" only when RouterOS itself reports state=="established"."""
+        — "up" only when RouterOS itself reports state=="established".
+        Returns {"peers": [...], "error": str|None} — same reasoning as
+        get_wireguard_status() above, a query failure must be visible."""
         try:
             peers = await self._rest_or_api("ip/ipsec/active-peers", "/ip/ipsec/active-peers")
-        except Exception:
-            peers = []
+        except Exception as e:
+            return {"peers": [], "error": f"{type(e).__name__}: {e}"}
         if isinstance(peers, list):
             for p in peers:
                 if isinstance(p, dict):
                     p["status"] = "up" if str(p.get("state", "")).lower() == "established" else "down"
-        return peers
+        return {"peers": peers, "error": None}
 
     async def get_vpn_tunnels(self) -> dict:
         result = {}
@@ -348,12 +357,12 @@ class MikrotikClient:
                 result[key] = []
         try:
             result["wireguard"] = await self.get_wireguard_status()
-        except Exception:
-            result["wireguard"] = {"interfaces": [], "peers": []}
+        except Exception as e:
+            result["wireguard"] = {"interfaces": [], "peers": [], "error": f"{type(e).__name__}: {e}"}
         try:
             result["ipsec"] = await self.get_ipsec_status()
-        except Exception:
-            result["ipsec"] = []
+        except Exception as e:
+            result["ipsec"] = {"peers": [], "error": f"{type(e).__name__}: {e}"}
         return result
 
     async def set_identity(self, name: str) -> None:
