@@ -275,15 +275,24 @@ async def refresh_all_devices() -> None:
 
 
 async def _ping_loop():
-    """Frequent, unauthenticated liveness loop."""
+    """Frequent, unauthenticated liveness loop. Pings immediately on
+    startup, THEN sleeps — not sleep-then-ping — so a restart (routine,
+    or the daily self-update) doesn't leave online/offline stuck on
+    stale pre-restart data for a full PING_INTERVAL_MIN before the first
+    check even runs. Same reasoning as _full_loop's FIRST_RUN_DELAY_SEC,
+    just immediate here since a bare TCP probe is cheap enough not to
+    need any startup delay at all."""
     while True:
         try:
-            await asyncio.sleep(PING_INTERVAL_MIN * 60)
             await ping_all_devices()
         except asyncio.CancelledError:
             break
         except Exception as e:
             print(f"[refresher] ping error: {e}")
+        try:
+            await asyncio.sleep(PING_INTERVAL_MIN * 60)
+        except asyncio.CancelledError:
+            break
 
 
 async def _full_loop():
