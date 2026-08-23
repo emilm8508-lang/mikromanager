@@ -29,6 +29,13 @@ MAX_CONCURRENT = int(os.environ.get("MIKROTIK_SCAN_CONCURRENCY", "100"))
 # 8728 = legacy API, 22 = SSH, 80/443 = WebFig / REST.
 LIVENESS_PORTS = [8728, 8291, 22, 80, 443]
 
+# Second-pass recheck of hosts that looked dead in the main burst — low
+# concurrency and a generous timeout, run once the main burst has gone
+# quiet (see scan_range_with_progress). Not the main scan's speed/safety
+# trade-off, so this can afford to be slower and gentler.
+RECHECK_CONCURRENCY = 5
+RECHECK_TIMEOUT = 2.0
+
 
 async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
     """Open + immediately close a TCP socket. Uses raw socket via create_connection
@@ -49,7 +56,7 @@ async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
                 pass
 
 
-async def _is_alive(ip: str) -> dict:
+async def _is_alive(ip: str, base_timeout: float = LIVENESS_TIMEOUT) -> dict:
     """Fast parallel probe of common TCP ports. Returns dict of open ports.
 
     Retries once, with double the timeout, if NOTHING responded — under
@@ -64,11 +71,11 @@ async def _is_alive(ip: str) -> dict:
     looked completely dead on the fast pass — genuinely dead hosts (the
     vast majority of any range) are unaffected."""
     results = await asyncio.gather(*[
-        _tcp_open(ip, p, timeout=LIVENESS_TIMEOUT) for p in LIVENESS_PORTS
+        _tcp_open(ip, p, timeout=base_timeout) for p in LIVENESS_PORTS
     ])
     if not any(results):
         results = await asyncio.gather(*[
-            _tcp_open(ip, p, timeout=LIVENESS_TIMEOUT * 2) for p in LIVENESS_PORTS
+            _tcp_open(ip, p, timeout=base_timeout * 2) for p in LIVENESS_PORTS
         ])
     return {port: ok for port, ok in zip(LIVENESS_PORTS, results)}
 
@@ -192,13 +199,14 @@ _is_mikrotik_rest = _is_mikrotik_web
 
 
 async def _probe_host(ip: str, semaphore: asyncio.Semaphore,
-                      on_progress: Optional[Callable] = None) -> Optional[dict]:
+                      on_progress: Optional[Callable] = None,
+                      liveness_timeout: float = LIVENESS_TIMEOUT) -> Optional[dict]:
     async with semaphore:
         if on_progress:
             on_progress(ip, "checking")
 
         # ── Phase 1: parallel liveness — if all closed, abort fast ────────
-        ports = await _is_alive(ip)
+        ports = await _is_alive(ip, base_timeout=liveness_timeout)
         any_alive = any(ports.values())
 
         if not any_alive:
@@ -329,6 +337,8 @@ async def scan_range_with_progress(
                   "skipped_known": skipped_count})
         return 0
 
+    dead_ips: list = []
+
     async def _run_one(ip):
         nonlocal completed, found_count
         result = await _probe_host(ip, semaphore)
@@ -339,11 +349,40 @@ async def scan_range_with_progress(
                 on_event({"type": "found", "ip": ip, "device": result,
                           "completed": completed, "total": total})
             else:
+                dead_ips.append(ip)
                 on_event({"type": "progress", "ip": ip,
                           "completed": completed, "total": total})
         return result
 
     await asyncio.gather(*[_run_one(ip) for ip in hosts])
+
+    # Second, low-concurrency recheck pass for hosts that looked dead
+    # during the main high-concurrency burst. Confirmed on a real device
+    # (Winbox verified directly reachable from the scanning host itself)
+    # that even the in-place doubled-timeout retry inside _is_alive wasn't
+    # enough — if that host is under SUSTAINED load for the whole burst
+    # (not just a brief blip), any check still running inside the same
+    # 100-way-concurrent storm inherits that congestion. This pass runs
+    # only after the main burst has fully finished and gone quiet, with a
+    # much smaller concurrency cap and a far more generous timeout — the
+    # closest this scanner gets to what a single manual connection attempt
+    # (e.g. Test-NetConnection) experiences. Only costs extra time
+    # proportional to however many hosts looked dead, not the whole range.
+    if dead_ips:
+        recheck_sem = asyncio.Semaphore(RECHECK_CONCURRENCY)
+
+        async def _recheck_one(ip):
+            nonlocal found_count
+            result = await _probe_host(ip, recheck_sem, liveness_timeout=RECHECK_TIMEOUT)
+            if result:
+                async with completed_lock:
+                    found_count += 1
+                on_event({"type": "found", "ip": ip, "device": result,
+                          "completed": completed, "total": total})
+            return result
+
+        await asyncio.gather(*[_recheck_one(ip) for ip in dead_ips])
+
     on_event({"type": "cidr_done", "cidr": cidr, "found": found_count,
               "skipped_known": skipped_count})
     return found_count
