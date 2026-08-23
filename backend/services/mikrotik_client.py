@@ -77,6 +77,29 @@ def _mark_rest_ok(key: tuple) -> None:
     _rest_broken.pop(key, None)
 
 
+# Same reasoning as _rest_broken above, but for api-ssl's TLS handshake
+# specifically — a persistent cipher/protocol mismatch would otherwise
+# retry the SAME doomed handshake on every single poll, spamming the
+# device's own log with RouterOS's "ssl: no common ciphers" error each
+# time (confirmed on a real device). Keyed by IP only — the failure is
+# connection-level, before any command is even sent.
+_api_ssl_broken: dict = {}
+_API_SSL_BROKEN_TTL = 3600
+
+
+def _api_ssl_is_broken(ip: str) -> bool:
+    ts = _api_ssl_broken.get(ip)
+    return ts is not None and (time.time() - ts) < _API_SSL_BROKEN_TTL
+
+
+def _mark_api_ssl_broken(ip: str) -> None:
+    _api_ssl_broken[ip] = time.time()
+
+
+def _mark_api_ssl_ok(ip: str) -> None:
+    _api_ssl_broken.pop(ip, None)
+
+
 class MikrotikClient:
     def __init__(self, ip: str, username: str, password: str,
                  api_port: int = 8728, web_port: int = 80,
@@ -132,20 +155,44 @@ class MikrotikClient:
         passed — confirmed on a real router (IP Services list) where the
         plain "api" service was disabled (moved off its default port) and
         only api-ssl was enabled, making that router fully unreachable via
-        the binary API path regardless of api_port's value."""
+        the binary API path regardless of api_port's value.
+
+        RouterOS's embedded TLS stack is often older/more restrictive than
+        a modern OpenSSL 3.x client's default cipher list (which enforces
+        SECLEVEL=2, rejecting plenty of ciphers a small embedded device
+        might still offer) — confirmed on a real device logging "ssl: no
+        common ciphers" against every connection attempt once api-ssl
+        support was added here. Lowered the security level and allowed
+        older TLS versions to widen compatibility; if it still fails, the
+        circuit-breaker below stops retrying the same doomed handshake on
+        every poll cycle."""
         loop = asyncio.get_event_loop()
 
         def _run():
             ssl_wrapper = None
             if self.api_port == 8729:
+                if _api_ssl_is_broken(self.ip):
+                    raise ConnectionError(f"api-ssl previously failed for {self.ip}, skipping retry")
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
+                ctx.minimum_version = ssl.TLSVersion.TLSv1
+                try:
+                    ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+                except ssl.SSLError:
+                    pass
                 ssl_wrapper = ctx.wrap_socket
-            api = librouteros.connect(
-                self.ip, username=self.username, password=self.password,
-                port=self.api_port, timeout=8, ssl_wrapper=ssl_wrapper,
-            )
+            try:
+                api = librouteros.connect(
+                    self.ip, username=self.username, password=self.password,
+                    port=self.api_port, timeout=8, ssl_wrapper=ssl_wrapper,
+                )
+            except Exception:
+                if self.api_port == 8729:
+                    _mark_api_ssl_broken(self.ip)
+                raise
+            if self.api_port == 8729:
+                _mark_api_ssl_ok(self.ip)
             try:
                 # librouteros expects paths like "/system/resource/print"
                 cmd = command if command.startswith("/") else f"/{command}"
