@@ -76,10 +76,22 @@ async def _ping_one(dev_id: int) -> None:
         if not device:
             return
         ip = device.ip
-        ports = [p for p in (device.api_port, device.web_port, device.ssh_port) if p]
+        # Winbox (8291) is always worth trying in addition to whatever's
+        # configured — api_port defaults to 8728 in the DB regardless of
+        # whether the API service is actually enabled, so `ports` was
+        # effectively never empty and the (8728, 80, 22, 443) fallback
+        # below never ran in practice. A router deliberately hardened to
+        # Winbox+SNMP-only management (API/web/SSH all disabled) was
+        # therefore always reported "offline" here despite being perfectly
+        # reachable — confirmed on a real device (CCR2004, SNMP-only badge,
+        # manageable via Winbox, shown "Offline" in the Devices list).
+        ports = {8291}
+        for p in (device.api_port, device.web_port, device.ssh_port):
+            if p:
+                ports.add(p)
 
     online_now = False
-    for port in ports or (8728, 80, 22, 443):
+    for port in ports:
         if await scan_svc._tcp_open(ip, port):
             online_now = True
             break

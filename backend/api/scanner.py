@@ -167,10 +167,17 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
 
                     ordered_creds = sorted(creds, key=cred_priority)
 
-                    best = None       # {cred_id, cred_name, extra, score}
-                    best_score = -1
-
-                    for cred in ordered_creds:
+                    # Try every credential CONCURRENTLY rather than one at a
+                    # time — enrich_device() itself already does REST→API→
+                    # SNMP fallback with several-second timeouts at each
+                    # step, so a sequential loop over up to 6 credentials
+                    # could take up to 6x that per found device (the main
+                    # cause of "scan is very slow" — this single found-device
+                    # step was blocking the whole SSE event loop, delaying
+                    # progress updates for every other host too). Running
+                    # them concurrently bounds the wait to the single
+                    # slowest credential attempt instead of their sum.
+                    async def _try_cred(cred):
                         try:
                             extra = await svc.enrich_device(
                                 found["ip"], cred["username"], cred["password"],
@@ -179,8 +186,7 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                                 snmp_port=found.get("snmp_port", 161),
                             )
                         except Exception:
-                            continue
-
+                            return None
                         # Score the result. Higher = better.
                         # API-capable cred (has password) that succeeded → bonus 100.
                         # Otherwise, count fields populated.
@@ -192,17 +198,17 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                         # Strong preference for password-bearing credentials when they actually returned anything
                         if cred.get("password") and score > 0:
                             score += 100
+                        return {"cred_id": cred["id"], "cred_name": cred["name"],
+                                "extra": extra, "score": score}
 
-                        if score > best_score:
-                            best_score = score
-                            best = {
-                                "cred_id": cred["id"],
-                                "cred_name": cred["name"],
-                                "extra": extra,
-                            }
-                            # If a password-cred returned a complete record, take it and stop.
-                            if cred.get("password") and extra.get("model") and extra.get("ros_version"):
-                                break
+                    cred_results = await asyncio.gather(*[_try_cred(c) for c in ordered_creds])
+
+                    best = None       # {cred_id, cred_name, extra, score}
+                    best_score = -1
+                    for r in cred_results:
+                        if r and r["score"] > best_score:
+                            best_score = r["score"]
+                            best = r
 
                     if best and best_score > 0:
                         found.update(best["extra"])

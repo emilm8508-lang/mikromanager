@@ -123,14 +123,28 @@ class MikrotikClient:
     # ── Binary API protocol (RouterOS v3+, port 8728) ─────────────────────────
 
     async def api_command(self, command: str) -> list:
-        """Execute /command/print via binary API on port 8728. Runs in thread
-        because librouteros is sync. Used as fallback when REST is not available."""
+        """Execute /command/print via binary API on port 8728 (plain) or
+        8729 (api-ssl, TLS-wrapped). Runs in thread because librouteros is
+        sync. Used as fallback when REST is not available.
+
+        api-ssl support was missing entirely until now: librouteros.connect
+        takes an ssl_wrapper callable for exactly this, but it was never
+        passed — confirmed on a real router (IP Services list) where the
+        plain "api" service was disabled (moved off its default port) and
+        only api-ssl was enabled, making that router fully unreachable via
+        the binary API path regardless of api_port's value."""
         loop = asyncio.get_event_loop()
 
         def _run():
+            ssl_wrapper = None
+            if self.api_port == 8729:
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                ssl_wrapper = ctx.wrap_socket
             api = librouteros.connect(
                 self.ip, username=self.username, password=self.password,
-                port=self.api_port, timeout=8,
+                port=self.api_port, timeout=8, ssl_wrapper=ssl_wrapper,
             )
             try:
                 # librouteros expects paths like "/system/resource/print"
@@ -358,6 +372,7 @@ class MikrotikClient:
         — a query failure must be visible, not indistinguishable from
         "no such tunnels configured"."""
         result = {}
+        snmp_interfaces = None  # lazy-loaded once, reused across all 4 types
         for rest_path, api_path, key in [
             ("interface/eoip", "/interface/eoip", "eoip"),
             ("interface/vxlan", "/interface/vxlan", "vxlan"),
@@ -378,6 +393,30 @@ class MikrotikClient:
                         e["status"] = "up" if (running and not disabled) else "down"
             else:
                 entries = []
+            # REST and the binary API both failed outright (e.g. a router
+            # hardened to Winbox+SNMP-only management, both disabled for
+            # everything else) — fall back to SNMP's standard interface
+            # table (IF-MIB), which still lists EoIP/GRE/VXLAN/IPIP tunnels
+            # as ordinary interfaces with a real ifOperStatus, unlike the
+            # type-specific config (remote-address, tunnel-id, ...) which
+            # has no SNMP equivalent at all. Matched by the tunnel type
+            # appearing in the interface name — not a guess, just Mikrotik's
+            # own convention of naming tunnels after their type (confirmed
+            # on a real device: "eoip-R4") — since without the type-specific
+            # query there's no other way to tell an EoIP interface from a
+            # GRE one over SNMP alone.
+            if not entries and error and self._snmp:
+                try:
+                    if snmp_interfaces is None:
+                        snmp_interfaces = await self._snmp.get_interfaces()
+                    matched = [i for i in snmp_interfaces if key in i.get("name", "").lower()]
+                    if matched:
+                        entries = [{"name": i["name"], ".id": i["name"],
+                                    "status": "up" if i.get("running") else "down"}
+                                   for i in matched]
+                        error = None
+                except Exception:
+                    pass
             result[key] = {"interfaces": entries, "error": error}
         return result
 
