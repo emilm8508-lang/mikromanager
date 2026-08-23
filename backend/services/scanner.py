@@ -50,10 +50,26 @@ async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
 
 
 async def _is_alive(ip: str) -> dict:
-    """Fast parallel probe of common TCP ports. Returns dict of open ports."""
+    """Fast parallel probe of common TCP ports. Returns dict of open ports.
+
+    Retries once, with double the timeout, if NOTHING responded — under
+    heavy scan concurrency (up to MAX_CONCURRENT simultaneous connection
+    attempts firing across the whole range at once), a single 0.25s window
+    can occasionally miss a genuinely-reachable device to transient
+    contention, and there was previously no second chance at all (a host
+    marked dead here never gets any other liveness check in this scan run).
+    Confirmed on a real device: Winbox (8291) verified directly reachable
+    from the scanning host itself, yet consistently reported dead here on
+    every scan. The retry only costs extra time for hosts that already
+    looked completely dead on the fast pass — genuinely dead hosts (the
+    vast majority of any range) are unaffected."""
     results = await asyncio.gather(*[
         _tcp_open(ip, p, timeout=LIVENESS_TIMEOUT) for p in LIVENESS_PORTS
     ])
+    if not any(results):
+        results = await asyncio.gather(*[
+            _tcp_open(ip, p, timeout=LIVENESS_TIMEOUT * 2) for p in LIVENESS_PORTS
+        ])
     return {port: ok for port, ok in zip(LIVENESS_PORTS, results)}
 
 
