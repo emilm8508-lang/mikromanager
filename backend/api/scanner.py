@@ -56,6 +56,57 @@ async def delete_range(range_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.get("/probe")
+async def probe_single(ip: str, credential_id: Optional[int] = None,
+                       timeout: float = 2.0, db: Session = Depends(get_db)):
+    """Diagnostic single-IP probe — bypasses the mass-scan's MAX_CONCURRENT
+    semaphore entirely (this is the only thing running against the
+    network at this moment), so it reflects exactly what a single manual
+    connection attempt (e.g. Test-NetConnection) would see. Built to
+    diagnose a device the full-range scan can't seem to find: returns
+    port-by-port liveness (not just a found/dead verdict), the discovery
+    result if any, and — if a credential is given — the full
+    enrich_device() result INCLUDING the raw error, not just success/fail,
+    for that specific IP+credential pair."""
+    import ipaddress
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        raise HTTPException(400, f"Invalid IP address: {ip}")
+
+    ports = await svc._is_alive(ip, base_timeout=timeout)
+    has_api_ssl = await svc._tcp_open(ip, 8729, timeout=timeout)
+    has_snmp = await svc._snmp_alive(ip)
+
+    sem = asyncio.Semaphore(1)
+    found = await svc._probe_host(ip, sem, liveness_timeout=timeout)
+
+    result = {
+        "ip": ip,
+        "ports": {str(p): ok for p, ok in ports.items()},
+        "api_ssl_8729": has_api_ssl,
+        "snmp_public": has_snmp,
+        "found": found,
+    }
+
+    if credential_id:
+        cred = db.execute(select(Credential).where(Credential.id == credential_id)).scalar_one_or_none()
+        if not cred:
+            raise HTTPException(404, "Credential not found")
+        try:
+            extra = await svc.enrich_device(
+                ip, cred.username, decrypt(cred.password_enc),
+                web_port=(found or {}).get("web_port", 80),
+                snmp_community=decrypt(cred.snmp_community_enc) if cred.snmp_community_enc else None,
+                snmp_port=(found or {}).get("snmp_port", 161),
+            )
+            result["enrich"] = {"ok": True, "data": extra}
+        except Exception as e:
+            result["enrich"] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+    return result
+
+
 @router.get("/run")
 async def run_scan(credential_id: Optional[int] = None, full: bool = False):
     """SSE stream with full progress events.

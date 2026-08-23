@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { scannerApi, credentialsApi } from '../lib/api'
+import { scannerApi, credentialsApi, type ScannerProbeResult } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -50,6 +50,26 @@ export function Scanner() {
   const [skippedKnown, setSkippedKnown] = useState(0)
   const [totalFound, setTotalFound] = useState<number | null>(null)
   const esRef = useRef<EventSource | null>(null)
+
+  // Single-IP diagnostic probe — bypasses the mass-scan's concurrency
+  // entirely, so it reflects exactly what a single manual connection
+  // attempt sees. Added specifically to diagnose a device the full-range
+  // scan can't seem to find: shows port-by-port liveness, not just a
+  // found/dead verdict.
+  const [probeIp, setProbeIp] = useState('')
+  const [probeCredId, setProbeCredId] = useState<string>('')
+  const [probeTimeout, setProbeTimeout] = useState('2')
+  const [probeResult, setProbeResult] = useState<ScannerProbeResult | null>(null)
+  const [probeError, setProbeError] = useState<string | null>(null)
+
+  const probeMutation = useMutation({
+    mutationFn: () => scannerApi.probe(probeIp, {
+      credentialId: probeCredId ? Number(probeCredId) : undefined,
+      timeout: probeTimeout ? Number(probeTimeout) : undefined,
+    }),
+    onSuccess: (data) => { setProbeResult(data); setProbeError(null) },
+    onError: (e: Error) => { setProbeError(e.message); setProbeResult(null) },
+  })
 
   const addRange = useMutation({
     mutationFn: () => scannerApi.addRange({ cidr: newCidr, label: newLabel || undefined }),
@@ -274,6 +294,80 @@ export function Scanner() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Single-address diagnostic probe */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-sm font-semibold text-slate-700">{t('scanner.probeTitle')}</h2>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-slate-500">{t('scanner.probeHint')}</p>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-xs text-slate-500 mb-1">{t('scanner.probeIpLabel')}</label>
+              <Input placeholder="192.168.1.1" value={probeIp} onChange={e => setProbeIp(e.target.value)} />
+            </div>
+            <div className="min-w-[160px]">
+              <label className="block text-xs text-slate-500 mb-1">{t('scanner.probeCredLabel')}</label>
+              <select
+                value={probeCredId}
+                onChange={e => setProbeCredId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">{t('scanner.probeCredNone')}</option>
+                {creds.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="w-24">
+              <label className="block text-xs text-slate-500 mb-1">{t('scanner.probeTimeoutLabel')}</label>
+              <Input type="number" step="0.5" min="0.5" value={probeTimeout} onChange={e => setProbeTimeout(e.target.value)} />
+            </div>
+            <Button variant="primary" onClick={() => probeMutation.mutate()} disabled={!probeIp || probeMutation.isPending}>
+              <Search size={16} />
+              {t('scanner.probeButton')}
+            </Button>
+          </div>
+
+          {probeError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-xs text-red-700">
+              {probeError}
+            </div>
+          )}
+
+          {probeResult && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3 text-sm">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probePorts')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(probeResult.ports).map(([port, ok]) => (
+                    <Badge key={port} variant={ok ? 'green' : 'gray'}>{port}: {ok ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                  ))}
+                  <Badge variant={probeResult.api_ssl_8729 ? 'green' : 'gray'}>8729 (api-ssl): {probeResult.api_ssl_8729 ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                  <Badge variant={probeResult.snmp_public ? 'green' : 'gray'}>SNMP (public): {probeResult.snmp_public ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probeDiscovery')}</p>
+                {probeResult.found ? (
+                  <pre className="text-xs bg-white border border-slate-200 rounded p-2 overflow-x-auto">{JSON.stringify(probeResult.found, null, 2)}</pre>
+                ) : (
+                  <p className="text-xs text-red-600">{t('scanner.probeNotFound')}</p>
+                )}
+              </div>
+              {probeResult.enrich && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probeEnrich')}</p>
+                  {probeResult.enrich.ok ? (
+                    <pre className="text-xs bg-white border border-slate-200 rounded p-2 overflow-x-auto">{JSON.stringify(probeResult.enrich.data, null, 2)}</pre>
+                  ) : (
+                    <p className="text-xs text-red-600 font-mono">{probeResult.enrich.error}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </CardContent>

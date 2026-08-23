@@ -188,7 +188,20 @@
                     "fullScanLabel":  "Vollständiger Scan (auch bekannte IPs prüfen)",
                     "incrementalHint":  "Nur neue IPs — bekannte werden durch Auto-Aktualisierung aktualisiert",
                     "fullScanHint":  "Alle IPs werden erneut gescannt",
-                    "skippedKnown":  "{{count}} bekannte übersprungen"
+                    "skippedKnown":  "{{count}} bekannte übersprungen",
+                    "probeTitle":  "Einzeladresse prüfen",
+                    "probeHint":  "Diagnosecheck für eine bestimmte IP — umgeht die Parallelität des Scans komplett und zeigt genau, was ein einzelner Verbindungsversuch sieht. Nützlich, wenn der vollständige Scan ein Gerät nicht findet.",
+                    "probeIpLabel":  "IP-Adresse",
+                    "probeCredLabel":  "Anmeldedaten (optional)",
+                    "probeCredNone":  "Keine — nur Ports",
+                    "probeTimeoutLabel":  "Timeout (s)",
+                    "probeButton":  "Prüfen",
+                    "probePorts":  "Ports",
+                    "probeOpen":  "offen",
+                    "probeClosed":  "geschlossen",
+                    "probeDiscovery":  "Erkennungsergebnis",
+                    "probeNotFound":  "Nicht als Mikrotik/Cisco-Gerät erkannt",
+                    "probeEnrich":  "Testergebnis der Anmeldedaten"
                 },
     "logs":  {
                  "title":  "Geräteprotokolle",

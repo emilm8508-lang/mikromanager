@@ -188,7 +188,20 @@
                     "fullScanLabel":  "Escaneo completo (también revisar IPs conocidos)",
                     "incrementalHint":  "Solo IPs nuevos — los conocidos se actualizan por auto-actualización",
                     "fullScanHint":  "Se volverán a escanear todos los IPs",
-                    "skippedKnown":  "{{count}} conocidos omitidos"
+                    "skippedKnown":  "{{count}} conocidos omitidos",
+                    "probeTitle":  "Comprobar una sola dirección",
+                    "probeHint":  "Comprobación de diagnóstico para una IP específica — evita por completo la concurrencia del escaneo, mostrando exactamente lo que ve un único intento de conexión. Útil cuando el escaneo completo no encuentra un dispositivo.",
+                    "probeIpLabel":  "Dirección IP",
+                    "probeCredLabel":  "Credencial (opcional)",
+                    "probeCredNone":  "Ninguna — solo puertos",
+                    "probeTimeoutLabel":  "Tiempo de espera (s)",
+                    "probeButton":  "Comprobar",
+                    "probePorts":  "Puertos",
+                    "probeOpen":  "abierto",
+                    "probeClosed":  "cerrado",
+                    "probeDiscovery":  "Resultado de detección",
+                    "probeNotFound":  "No detectado como dispositivo Mikrotik/Cisco",
+                    "probeEnrich":  "Resultado de la prueba de credencial"
                 },
     "logs":  {
                  "title":  "Registros del dispositivo",

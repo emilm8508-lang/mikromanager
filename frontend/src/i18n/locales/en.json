@@ -188,7 +188,20 @@
                     "fullScanLabel":  "Full scan (also re-check known IPs)",
                     "incrementalHint":  "New IPs only — known ones are updated by auto-refresh",
                     "fullScanHint":  "All IPs will be re-scanned",
-                    "skippedKnown":  "{{count}} known skipped"
+                    "skippedKnown":  "{{count}} known skipped",
+                    "probeTitle":  "Single address probe",
+                    "probeHint":  "Diagnostic check for one specific IP — bypasses the scan's concurrency entirely, showing exactly what a single connection attempt sees. Useful when a device isn't found by the full scan.",
+                    "probeIpLabel":  "IP address",
+                    "probeCredLabel":  "Credential (optional)",
+                    "probeCredNone":  "None — ports only",
+                    "probeTimeoutLabel":  "Timeout (s)",
+                    "probeButton":  "Check",
+                    "probePorts":  "Ports",
+                    "probeOpen":  "open",
+                    "probeClosed":  "closed",
+                    "probeDiscovery":  "Discovery result",
+                    "probeNotFound":  "Not detected as a Mikrotik/Cisco device",
+                    "probeEnrich":  "Credential test result"
                 },
     "logs":  {
                  "title":  "Device logs",

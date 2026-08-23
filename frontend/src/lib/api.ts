@@ -164,11 +164,28 @@ export const devicesApi = {
 
 // ── Scanner ──────────────────────────────────────────────────────────────────
 
+export interface ScannerProbeResult {
+  ip: string
+  ports: Record<string, boolean>
+  api_ssl_8729: boolean
+  snmp_public: boolean
+  found: Record<string, unknown> | null
+  enrich?: { ok: boolean; data?: Record<string, unknown>; error?: string }
+}
+
 export const scannerApi = {
   listRanges: () => api.get<ScanRange[]>('/scanner/ranges').then(r => r.data),
   addRange: (data: { cidr: string; label?: string }) =>
     api.post<ScanRange>('/scanner/ranges', data).then(r => r.data),
   deleteRange: (id: number) => api.delete(`/scanner/ranges/${id}`),
+  probe: (ip: string, opts?: { credentialId?: number; timeout?: number }) =>
+    api.get<ScannerProbeResult>('/scanner/probe', {
+      params: {
+        ip,
+        credential_id: opts?.credentialId,
+        timeout: opts?.timeout,
+      },
+    }).then(r => r.data),
 }
 
 // ── System (refresher) ───────────────────────────────────────────────────────

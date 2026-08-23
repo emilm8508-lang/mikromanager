@@ -188,7 +188,20 @@
                     "fullScanLabel":  "Scan complet (vérifier aussi les IPs connues)",
                     "incrementalHint":  "Uniquement les nouveaux IPs — les connus sont mis à jour par l\u0027actualisation auto",
                     "fullScanHint":  "Tous les IPs seront re-scannés",
-                    "skippedKnown":  "{{count}} connus ignorés"
+                    "skippedKnown":  "{{count}} connus ignorés",
+                    "probeTitle":  "Vérifier une seule adresse",
+                    "probeHint":  "Vérification de diagnostic pour une IP spécifique — contourne entièrement la concurrence du scan, montrant exactement ce qu'une seule tentative de connexion verrait. Utile quand le scan complet ne trouve pas un appareil.",
+                    "probeIpLabel":  "Adresse IP",
+                    "probeCredLabel":  "Identifiants (optionnel)",
+                    "probeCredNone":  "Aucun — ports uniquement",
+                    "probeTimeoutLabel":  "Délai (s)",
+                    "probeButton":  "Vérifier",
+                    "probePorts":  "Ports",
+                    "probeOpen":  "ouvert",
+                    "probeClosed":  "fermé",
+                    "probeDiscovery":  "Résultat de la découverte",
+                    "probeNotFound":  "Non détecté comme appareil Mikrotik/Cisco",
+                    "probeEnrich":  "Résultat du test d'identifiants"
                 },
     "logs":  {
                  "title":  "Journaux des appareils",
