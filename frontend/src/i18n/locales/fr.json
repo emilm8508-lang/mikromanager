@@ -201,7 +201,11 @@
                     "probeClosed":  "fermé",
                     "probeDiscovery":  "Résultat de la découverte",
                     "probeNotFound":  "Non détecté comme appareil Mikrotik/Cisco",
-                    "probeEnrich":  "Résultat du test d'identifiants"
+                    "probeEnrich":  "Résultat du test d'identifiants",
+                    "probePortsHint":  "Compare la propre méthode de connexion de MikroManager (asyncio, comme pour le scan) à une simple connexion socket au niveau du système d'exploitation (le plus proche de ce que fait un outil manuel comme Test-NetConnection). Une divergence indique quelque chose de spécifique à la façon dont ce processus se connecte — une règle de pare-feu/antivirus, un compte de service restreint — pas l'appareil cible.",
+                    "probeColPort":  "Port",
+                    "probeColNote":  "Remarque",
+                    "probeMismatch":  "divergence !"
                 },
     "logs":  {
                  "title":  "Journaux des appareils",

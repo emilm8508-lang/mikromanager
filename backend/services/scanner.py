@@ -56,6 +56,32 @@ async def _tcp_open(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> bool:
                 pass
 
 
+def _tcp_open_socket_sync(ip: str, port: int, timeout: float) -> tuple:
+    """Plain blocking socket connect — the closest equivalent to what a
+    manual tool like PowerShell's Test-NetConnection does, deliberately
+    NOT going through asyncio at all. Diagnostic tool: confirmed on a real
+    device where asyncio.open_connection() reported every port closed
+    while Test-NetConnection succeeded from the exact same machine — this
+    lets that same comparison run from inside the app itself (any tenant's
+    agent), instead of requiring a separate standalone script every time.
+    Returns (is_open, error_message_or_None)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect((ip, port))
+        return True, None
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    finally:
+        s.close()
+
+
+async def _tcp_open_socket(ip: str, port: int, timeout: float = PORT_TIMEOUT) -> tuple:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _tcp_open_socket_sync, ip, port, timeout)
+
+
 async def _is_alive(ip: str, base_timeout: float = LIVENESS_TIMEOUT) -> dict:
     """Fast parallel probe of common TCP ports. Returns dict of open ports.
 

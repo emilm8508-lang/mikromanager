@@ -67,23 +67,45 @@ async def probe_single(ip: str, credential_id: Optional[int] = None,
     port-by-port liveness (not just a found/dead verdict), the discovery
     result if any, and — if a credential is given — the full
     enrich_device() result INCLUDING the raw error, not just success/fail,
-    for that specific IP+credential pair."""
+    for that specific IP+credential pair.
+
+    ALSO runs the same ports through a plain blocking socket (not asyncio
+    at all) for comparison — confirmed on a real device that
+    asyncio.open_connection() reported every port closed while a manual
+    PowerShell Test-NetConnection succeeded from the exact same machine.
+    If ports_socket disagrees with ports here, that's a strong signal the
+    problem is specific to how THIS PROCESS makes outbound connections
+    (a firewall/AV rule scoped to this executable, a restricted service
+    account, etc.) rather than anything about the target device or
+    MikroManager's own scanning logic."""
     import ipaddress
     try:
         ipaddress.ip_address(ip)
     except ValueError:
         raise HTTPException(400, f"Invalid IP address: {ip}")
 
+    all_ports = list(dict.fromkeys(svc.LIVENESS_PORTS + [8729]))
+
     ports = await svc._is_alive(ip, base_timeout=timeout)
     has_api_ssl = await svc._tcp_open(ip, 8729, timeout=timeout)
     has_snmp = await svc._snmp_alive(ip)
 
+    socket_results = await asyncio.gather(*[
+        svc._tcp_open_socket(ip, p, timeout=timeout) for p in all_ports
+    ])
+    ports_socket = {str(p): {"open": ok, "error": err}
+                    for p, (ok, err) in zip(all_ports, socket_results)}
+
     sem = asyncio.Semaphore(1)
     found = await svc._probe_host(ip, sem, liveness_timeout=timeout)
 
+    ports_all = {str(p): ports.get(p, False) for p in svc.LIVENESS_PORTS}
+    ports_all["8729"] = has_api_ssl
+
     result = {
         "ip": ip,
-        "ports": {str(p): ok for p, ok in ports.items()},
+        "ports": ports_all,
+        "ports_socket": ports_socket,
         "api_ssl_8729": has_api_ssl,
         "snmp_public": has_snmp,
         "found": found,

@@ -203,7 +203,11 @@
                     "probeClosed":  "zamknięty",
                     "probeDiscovery":  "Wynik wykrywania",
                     "probeNotFound":  "Nie wykryto jako urządzenie Mikrotik/Cisco",
-                    "probeEnrich":  "Wynik testu poświadczenia"
+                    "probeEnrich":  "Wynik testu poświadczenia",
+                    "probePortsHint":  "Porównuje własną metodę połączenia MikroManagera (asyncio, ta sama co przy skanowaniu) z połączeniem przez zwykły socket systemowy (najbliższe temu, co robi narzędzie typu Test-NetConnection). Rozbieżność wskazuje na coś specyficznego dla tego, jak łączy się ten proces — regułę firewalla/antywirusa dotyczącą właśnie jego, ograniczone konto usługi — nie na problem samego urządzenia.",
+                    "probeColPort":  "Port",
+                    "probeColNote":  "Uwaga",
+                    "probeMismatch":  "rozbieżność!"
                 },
     "logs":  {
                  "title":  "Logi urządzeń",

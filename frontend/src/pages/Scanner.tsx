@@ -342,11 +342,47 @@ export function Scanner() {
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3 text-sm">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probePorts')}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(probeResult.ports).map(([port, ok]) => (
-                    <Badge key={port} variant={ok ? 'green' : 'gray'}>{port}: {ok ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
-                  ))}
-                  <Badge variant={probeResult.api_ssl_8729 ? 'green' : 'gray'}>8729 (api-ssl): {probeResult.api_ssl_8729 ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                <p className="text-xs text-slate-500 mb-2">{t('scanner.probePortsHint')}</p>
+                <div className="overflow-x-auto">
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr className="text-left text-slate-500 border-b border-slate-200">
+                        <th className="py-1 pr-3">{t('scanner.probeColPort')}</th>
+                        <th className="pr-3">asyncio</th>
+                        <th className="pr-3">socket</th>
+                        <th>{t('scanner.probeColNote')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(probeResult.ports).map(([port, asyncioOk]) => {
+                        const sock = probeResult.ports_socket[port]
+                        const mismatch = sock && sock.open !== asyncioOk
+                        return (
+                          <tr key={port} className={`border-b border-slate-100 ${mismatch ? 'bg-amber-50' : ''}`}>
+                            <td className="py-1 pr-3 font-mono">{port}</td>
+                            <td className="pr-3">
+                              <Badge variant={asyncioOk ? 'green' : 'gray'}>{asyncioOk ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                            </td>
+                            <td className="pr-3">
+                              {sock && (
+                                <Badge variant={sock.open ? 'green' : 'gray'}>{sock.open ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
+                              )}
+                            </td>
+                            <td className="text-slate-500">
+                              {mismatch && (
+                                <span className="text-amber-700 font-medium">{t('scanner.probeMismatch')}</span>
+                              )}
+                              {sock?.error && !sock.open && (
+                                <span className="ml-1 font-mono text-slate-400">{sock.error}</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
                   <Badge variant={probeResult.snmp_public ? 'green' : 'gray'}>SNMP (public): {probeResult.snmp_public ? t('scanner.probeOpen') : t('scanner.probeClosed')}</Badge>
                 </div>
               </div>

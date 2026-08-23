@@ -167,6 +167,7 @@ export const devicesApi = {
 export interface ScannerProbeResult {
   ip: string
   ports: Record<string, boolean>
+  ports_socket: Record<string, { open: boolean; error: string | null }>
   api_ssl_8729: boolean
   snmp_public: boolean
   found: Record<string, unknown> | null

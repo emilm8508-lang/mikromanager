@@ -201,7 +201,11 @@
                     "probeClosed":  "geschlossen",
                     "probeDiscovery":  "Erkennungsergebnis",
                     "probeNotFound":  "Nicht als Mikrotik/Cisco-Gerät erkannt",
-                    "probeEnrich":  "Testergebnis der Anmeldedaten"
+                    "probeEnrich":  "Testergebnis der Anmeldedaten",
+                    "probePortsHint":  "Vergleicht MikroManagers eigene Verbindungsmethode (asyncio, wie beim Scan) mit einem einfachen Socket auf Betriebssystemebene (am nächsten zu dem, was ein manuelles Tool wie Test-NetConnection tut). Eine Abweichung deutet auf etwas Prozessspezifisches hin — eine Firewall-/Antivirenregel, ein eingeschränktes Dienstkonto — nicht auf das Zielgerät.",
+                    "probeColPort":  "Port",
+                    "probeColNote":  "Hinweis",
+                    "probeMismatch":  "Abweichung!"
                 },
     "logs":  {
                  "title":  "Geräteprotokolle",
