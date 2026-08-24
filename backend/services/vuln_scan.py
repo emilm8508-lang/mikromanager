@@ -1353,11 +1353,27 @@ async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:
 
 async def _probe_host(ip: str, sem: asyncio.Semaphore) -> dict:
     """Returns {port: (service_name, banner, product, version)} for every
-    open port found on this host."""
+    open port found on this host.
+
+    Retries the WHOLE port set once, at double the timeout, if NOTHING
+    responded — same reasoning and same fix already applied to
+    scanner.py's _is_alive() for Mikrotik device discovery: at
+    SCAN_CONCURRENCY hosts probed at once, each checking every port in
+    ALL_PORTS (dozens), a single 1s window with no second chance can miss
+    a genuinely-reachable, definitely-SSH-enabled host to transient
+    contention — confirmed on a real network where an expected Linux
+    server with SSH open never appeared in VulnHost/VulnService (and so
+    never became a linux_manage candidate) despite being verified
+    reachable. This module has its own independent port-probing (not
+    scanner.py's), so the earlier fix there never covered this path."""
     async with sem:
         open_ports = await asyncio.gather(*[
             scan_svc._tcp_open(ip, p, timeout=CONNECT_TIMEOUT) for p in ALL_PORTS
         ])
+        if not any(open_ports):
+            open_ports = await asyncio.gather(*[
+                scan_svc._tcp_open(ip, p, timeout=CONNECT_TIMEOUT * 2) for p in ALL_PORTS
+            ])
         found = {}
         for port, is_open in zip(ALL_PORTS, open_ports):
             if not is_open:
