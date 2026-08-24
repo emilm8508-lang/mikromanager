@@ -17,7 +17,7 @@ if sys.platform == "win32":
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
@@ -128,5 +128,21 @@ if os.path.isdir(FRONTEND_DIST):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
+        # Read the whole file into memory rather than FileResponse's
+        # stat-then-stream pattern: Content-Length there is computed from
+        # os.stat() BEFORE the file is actually opened and read, so if
+        # anything changes the file's size in that window — a self-update
+        # rebuilding dist/, antivirus scanning it, anything — the browser
+        # gets a header promising N bytes but a body of a different size.
+        # Confirmed on a real agent as net::ERR_CONTENT_LENGTH_MISMATCH,
+        # and survived two other fixes targeting specific causes of that
+        # window (atomic dist swap, a dedicated scan thread pool) — so
+        # instead of chasing the exact interference mechanism, this makes
+        # the two values structurally impossible to disagree: they're both
+        # derived from the exact same read, in memory, all at once. The
+        # file is tiny (a bare SPA shell, well under 1KB), so the brief
+        # synchronous read here is not a meaningful cost.
         index = os.path.join(FRONTEND_DIST, "index.html")
-        return FileResponse(index)
+        with open(index, "rb") as f:
+            content = f.read()
+        return Response(content=content, media_type="text/html")
