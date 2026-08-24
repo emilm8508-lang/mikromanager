@@ -187,8 +187,43 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
         if await _run([npm, "install", "--no-audit", "--no-fund"], log, cwd=frontend, timeout=600) != 0:
             _state["last_error"] = "npm install failed"
             return False, log
-        if await _run([npm, "run", "build"], log, cwd=frontend, timeout=600) != 0:
+
+        # Build into a staging directory rather than straight into "dist" —
+        # the live backend keeps serving dist/'s files (StaticFiles/
+        # FileResponse) the WHOLE time this update runs (nothing here stops
+        # traffic), and Vite overwrites files in place rather than replacing
+        # them atomically. A request landing mid-write reads a file whose
+        # size changed between the response's Content-Length being computed
+        # and the body finishing streaming — confirmed on a real agent as
+        # the browser's own page load failing with net::ERR_CONTENT_LENGTH_
+        # MISMATCH, right as an update was building. Swapping the whole
+        # directory in with a rename (near-instant, not proportional to
+        # content size) instead closes that window down to microseconds.
+        dist = os.path.join(frontend, "dist")
+        dist_new = os.path.join(frontend, "dist_new")
+        dist_old = os.path.join(frontend, "dist_old")
+        if os.path.isdir(dist_new):
+            shutil.rmtree(dist_new, ignore_errors=True)
+        if await _run([npm, "run", "build", "--", "--outDir", "dist_new"],
+                      log, cwd=frontend, timeout=600) != 0:
             _state["last_error"] = "npm build failed"
+            return False, log
+
+        if not os.path.isdir(dist_new):
+            _state["last_error"] = "npm build produced no dist_new output"
+            return False, log
+        try:
+            # Leftover from a previous cycle that couldn't be removed then
+            # (e.g. a file still open from an in-flight response on Windows,
+            # which blocks deletion) — best-effort cleanup, never fatal.
+            if os.path.isdir(dist_old):
+                shutil.rmtree(dist_old, ignore_errors=True)
+            if os.path.isdir(dist):
+                os.rename(dist, dist_old)
+            os.rename(dist_new, dist)
+        except OSError as e:
+            _state["last_error"] = f"dist swap failed: {e}"
+            log.append(f"[dist swap error] {e}")
             return False, log
 
         _state["last_ok"] = datetime.utcnow().isoformat()

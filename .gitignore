@@ -13,6 +13,8 @@ ENV/
 # Frontend
 node_modules/
 frontend/dist/
+frontend/dist_new/
+frontend/dist_old/
 *.local
 .vite/
 
