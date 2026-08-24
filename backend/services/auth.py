@@ -29,14 +29,36 @@ _SESSION_SECRET_PATH = os.path.join(_DATA_DIR, ".session_secret")
 _PBKDF2_ITERATIONS = 260_000
 
 
+# Cached after the first successful read — this file practically never
+# changes during normal operation (created once, read forever after), but
+# _get_session_secret() used to re-open it from disk on EVERY single
+# authenticated request (verify_session_token() calls it fresh every time).
+# Under heavy disk I/O elsewhere in the process (a network scan writing
+# lots of data, antivirus real-time-scanning the file, any transient OS-
+# level hiccup), that repeated read could fail — and verify_session_token()'s
+# broad except-Exception treats a failed read exactly like a genuinely
+# invalid signature, producing a real 401 on an otherwise-valid session.
+# Confirmed on a real agent: a request failed with 401 immediately after a
+# previous request on the SAME session succeeded, no reload in between,
+# right as a network scan was running. Caching removes almost all of that
+# exposure — after the first read (typically at first login), this never
+# touches disk again for the life of the process.
+_session_secret_cache: Optional[bytes] = None
+
+
 def _get_session_secret() -> bytes:
+    global _session_secret_cache
+    if _session_secret_cache is not None:
+        return _session_secret_cache
     os.makedirs(_DATA_DIR, exist_ok=True)
     if os.path.exists(_SESSION_SECRET_PATH):
         with open(_SESSION_SECRET_PATH, "rb") as f:
-            return f.read()
+            _session_secret_cache = f.read()
+        return _session_secret_cache
     key = secrets.token_bytes(32)
     with open(_SESSION_SECRET_PATH, "wb") as f:
         f.write(key)
+    _session_secret_cache = key
     return key
 
 
