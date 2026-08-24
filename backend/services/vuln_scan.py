@@ -52,6 +52,7 @@ import io
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -100,6 +101,20 @@ _alerted_overdue_fingerprints: set = set()
 CONNECT_TIMEOUT = 1.0
 BANNER_TIMEOUT = 2.0
 SCAN_CONCURRENCY = int(os.environ.get("MIKROTIK_VULN_SCAN_CONCURRENCY", "40"))
+
+# Dedicated thread pool for this module's blocking SSH/WinRM/vulners calls —
+# NOT the process's default executor (loop.run_in_executor(None, ...) uses
+# a SHARED pool, same one Starlette/anyio reach for internally for things
+# like FileResponse's file reads). With up to SCAN_CONCURRENCY hosts probed
+# at once, each possibly trying several saved credentials, a full network
+# scan can submit far more blocking tasks than the default pool's small
+# worker count — starving out completely unrelated requests elsewhere in
+# the app for however long the slowest SSH/SNMP timeout takes. Confirmed on
+# a real agent: a simple static page load stalled ~5s and arrived truncated
+# while a "Skanuj sieć teraz" scan was running. Sized generously above
+# SCAN_CONCURRENCY since a single host can have multiple in-flight blocking
+# calls (identity + package listing + per-credential attempts).
+_EXECUTOR = ThreadPoolExecutor(max_workers=max(64, SCAN_CONCURRENCY * 2), thread_name_prefix="vulnscan")
 
 # Ports we actively fingerprint (banner grab + version parse).
 BANNER_PORTS = {
@@ -389,7 +404,7 @@ async def _ssh_identity(ip: str, port: int, username: str, password: str) -> tup
     pick a package manager (see _PACKAGE_MANAGER_BY_DISTRO below) without
     re-deriving it from the display name."""
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, _ssh_identity_sync, ip, port, username, password)
+    result = await loop.run_in_executor(_EXECUTOR, _ssh_identity_sync, ip, port, username, password)
     if not result:
         return None, None, None
     output = result["output"]
@@ -433,7 +448,7 @@ async def _winrm_identity(ip: str, port: int, username: str, password: str,
     """Returns (product, version) parsed from `systeminfo` output, or (None, None)."""
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
-        None, _winrm_identity_sync, ip, port, username, password, domain)
+        _EXECUTOR, _winrm_identity_sync, ip, port, username, password, domain)
     if not result:
         return None, None
     output = result["output"]
@@ -511,7 +526,7 @@ async def _ssh_list_packages(ip: str, port: int, username: str, password: str,
                              distro_id: Optional[str]) -> Optional[list]:
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
-        None, _ssh_list_packages_sync, ip, port, username, password, distro_id)
+        _EXECUTOR, _ssh_list_packages_sync, ip, port, username, password, distro_id)
 
 
 _WINRM_INVENTORY_SCRIPT = (
@@ -571,7 +586,7 @@ async def _winrm_list_inventory(ip: str, port: int, username: str, password: str
                                 domain: Optional[str]) -> Optional[dict]:
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
-        None, _winrm_list_inventory_sync, ip, port, username, password, domain)
+        _EXECUTOR, _winrm_list_inventory_sync, ip, port, username, password, domain)
 
 
 # ── Credential auto-detection (SSH + WinRM) ──────────────────────────────────
@@ -748,7 +763,7 @@ async def _vulners_linux_audit(os_name: str, os_version: str, package_lines: lis
     _vulners_last_call = time.time()
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _vulners_linux_audit_sync, os_name, os_version, package_lines)
+        return await loop.run_in_executor(_EXECUTOR, _vulners_linux_audit_sync, os_name, os_version, package_lines)
     except Exception as e:
         print(f"[vuln_scan] vulners linux_audit failed for {os_name} {os_version}: {e}")
         return []
@@ -786,7 +801,7 @@ async def _vulners_win_audit(os_name: str, os_version: str, kbs: list, software:
     _vulners_last_call = time.time()
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _vulners_win_audit_sync, os_name, os_version, kbs, software)
+        return await loop.run_in_executor(_EXECUTOR, _vulners_win_audit_sync, os_name, os_version, kbs, software)
     except Exception as e:
         print(f"[vuln_scan] vulners win_audit failed for {os_name} {os_version}: {e}")
         return []
@@ -1007,7 +1022,7 @@ async def _nvd_query_live(product: str, version: str) -> list:
 
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _nvd_query_live_sync, product, version)
+        return await loop.run_in_executor(_EXECUTOR, _nvd_query_live_sync, product, version)
     except Exception as e:
         print(f"[vuln_scan] NVD query failed for {product} {version}: {e}")
         return []
@@ -1104,7 +1119,7 @@ async def _vulners_query(product: str, version: str) -> list:
     _vulners_last_call = time.time()
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _vulners_query_sync, product, version)
+        return await loop.run_in_executor(_EXECUTOR, _vulners_query_sync, product, version)
     except Exception as e:
         print(f"[vuln_scan] vulners query failed for {product} {version}: {e}")
         return []

@@ -142,7 +142,11 @@ def _identify_host_sync(ip: str, username: str, password: str) -> Optional[dict]
 
 async def _identify_host(ip: str, username: str, password: str) -> Optional[dict]:
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, _identify_host_sync, ip, username, password)
+    # Shares vuln_scan.py's dedicated thread pool rather than the process's
+    # default executor — same reasoning as there: a blocking SSH call here
+    # must never compete with (and starve) unrelated work elsewhere in the
+    # app (e.g. serving a static page) for a thread from a shared pool.
+    result = await loop.run_in_executor(vs._EXECUTOR, _identify_host_sync, ip, username, password)
     if not result:
         return None
     os_part, _, host_part = result["output"].partition("---HOST---")
@@ -435,7 +439,7 @@ async def _run_check(ip: str, username: str, password: str, pkg_mgr: str) -> dic
     loop = asyncio.get_event_loop()
     try:
         result = await asyncio.wait_for(
-            loop.run_in_executor(None, _sudo_exec_sync, ip, username, password,
+            loop.run_in_executor(vs._EXECUTOR, _sudo_exec_sync, ip, username, password,
                                   _check_command(pkg_mgr), CHECK_TIMEOUT_SEC),
             timeout=CHECK_TIMEOUT_SEC + 15,
         )
@@ -573,7 +577,7 @@ async def upgrade_host(host_id: int) -> dict:
             _jobs[host_id]["log"].append("Running apt-get update...")
             try:
                 upd = await asyncio.wait_for(
-                    loop.run_in_executor(None, _sudo_exec_sync, ip, username, password,
+                    loop.run_in_executor(vs._EXECUTOR, _sudo_exec_sync, ip, username, password,
                                           "DEBIAN_FRONTEND=noninteractive apt-get update -qq",
                                           UPGRADE_TIMEOUT_SEC),
                     timeout=UPGRADE_TIMEOUT_SEC + 15,
@@ -594,7 +598,7 @@ async def upgrade_host(host_id: int) -> dict:
         _jobs[host_id]["log"].append(f"Running {_upgrade_command(pkg_mgr)}...")
         try:
             up = await asyncio.wait_for(
-                loop.run_in_executor(None, _sudo_exec_sync, ip, username, password,
+                loop.run_in_executor(vs._EXECUTOR, _sudo_exec_sync, ip, username, password,
                                       _upgrade_command(pkg_mgr), UPGRADE_TIMEOUT_SEC),
                 timeout=UPGRADE_TIMEOUT_SEC + 15,
             )
@@ -610,7 +614,7 @@ async def upgrade_host(host_id: int) -> dict:
         reboot_required = False
         try:
             rr = await loop.run_in_executor(
-                None, _plain_exec_sync, ip, username, password, _reboot_check_command(pkg_mgr), 15)
+                vs._EXECUTOR, _plain_exec_sync, ip, username, password, _reboot_check_command(pkg_mgr), 15)
             reboot_required = "REBOOT_REQUIRED" in rr.get("output", "")
         except Exception:
             pass
