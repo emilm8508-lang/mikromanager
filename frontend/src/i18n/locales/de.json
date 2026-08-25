@@ -205,7 +205,12 @@
                     "probePortsHint":  "Vergleicht MikroManagers eigene Verbindungsmethode (asyncio, wie beim Scan) mit einem einfachen Socket auf Betriebssystemebene (am nächsten zu dem, was ein manuelles Tool wie Test-NetConnection tut). Eine Abweichung deutet auf etwas Prozessspezifisches hin — eine Firewall-/Antivirenregel, ein eingeschränktes Dienstkonto — nicht auf das Zielgerät.",
                     "probeColPort":  "Port",
                     "probeColNote":  "Hinweis",
-                    "probeMismatch":  "Abweichung!"
+                    "probeMismatch":  "Abweichung!",
+                    "probeScanRanges":  "Zugehörigkeit zu Scan-Bereichen",
+                    "probeInRange":  "im Bereich",
+                    "probeOutOfRange":  "AUSSERHALB",
+                    "probeVulnScan":  "Eigene Prüfung des Schwachstellenscanners (unabhängig von oben)",
+                    "probeVulnScanEmpty":  "Auf keinem der ~60-100+ geprüften Ports für diese IP etwas gefunden"
                 },
     "logs":  {
                  "title":  "Geräteprotokolle",

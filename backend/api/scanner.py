@@ -9,6 +9,7 @@ from typing import List, Optional
 from models.database import ScanRange, Device, Credential, SessionLocal, get_db
 from services.crypto import decrypt
 from services import scanner as svc
+from services import vuln_scan as vscan
 from datetime import datetime
 
 router = APIRouter(prefix="/api/scanner", tags=["scanner"])
@@ -102,6 +103,34 @@ async def probe_single(ip: str, credential_id: Optional[int] = None,
     ports_all = {str(p): ports.get(p, False) for p in svc.LIVENESS_PORTS}
     ports_all["8729"] = has_api_ssl
 
+    # Is this IP even inside a configured, active scan range? A host the
+    # vuln scanner never persists (missing entirely from Vulnerabilities,
+    # not just from linux_manage) despite a confirmed-open port could
+    # simply be outside every range it actually iterates — check this
+    # directly rather than assuming ranges match what a human eyeballed.
+    import ipaddress as _ipaddress
+    with SessionLocal() as _db:
+        _ranges = _db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all()  # noqa: E712
+    range_membership = []
+    for r in _ranges:
+        try:
+            in_range = _ipaddress.ip_address(ip) in _ipaddress.ip_network(r.cidr, strict=False)
+        except ValueError:
+            in_range = False
+        range_membership.append({"cidr": r.cidr, "label": r.label, "contains_ip": in_range})
+
+    # vuln_scan.py has its OWN, completely independent port-probing
+    # (checking ~60-100+ ports via ALL_PORTS, not just the 5 above) that
+    # feeds VulnHost/VulnService (and from there, linux_manage's Linux
+    # host discovery) — run it here in isolation, with zero contention
+    # from a real scan's other concurrent hosts, to tell apart "this
+    # module's probe genuinely can't see this host" from "something after
+    # the probe succeeds fails to persist it".
+    vuln_sem = asyncio.Semaphore(1)
+    vuln_probe_result = await vscan._probe_host(ip, vuln_sem)
+    vuln_ports_found = {str(p): {"service": v[0], "product": v[2], "version": v[3]}
+                        for p, v in vuln_probe_result.items()}
+
     result = {
         "ip": ip,
         "ports": ports_all,
@@ -109,6 +138,8 @@ async def probe_single(ip: str, credential_id: Optional[int] = None,
         "api_ssl_8729": has_api_ssl,
         "snmp_public": has_snmp,
         "found": found,
+        "scan_range_membership": range_membership,
+        "vuln_scan_probe": vuln_ports_found,
     }
 
     if credential_id:

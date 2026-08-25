@@ -205,7 +205,12 @@
                     "probePortsHint":  "Compara el propio método de conexión de MikroManager (asyncio, igual que el escaneo) con una conexión de socket simple a nivel de sistema operativo (lo más parecido a lo que hace una herramienta manual como Test-NetConnection). Una discrepancia apunta a algo específico de cómo se conecta este proceso — una regla de firewall/antivirus, una cuenta de servicio restringida — no al dispositivo de destino.",
                     "probeColPort":  "Puerto",
                     "probeColNote":  "Nota",
-                    "probeMismatch":  "¡discrepancia!"
+                    "probeMismatch":  "¡discrepancia!",
+                    "probeScanRanges":  "Pertenencia a rangos de escaneo",
+                    "probeInRange":  "dentro del rango",
+                    "probeOutOfRange":  "FUERA DE RANGO",
+                    "probeVulnScan":  "Prueba propia del escáner de vulnerabilidades (independiente de la anterior)",
+                    "probeVulnScanEmpty":  "No encontró nada en ninguno de sus ~60-100+ puertos comprobados para esta IP"
                 },
     "logs":  {
                  "title":  "Registros del dispositivo",

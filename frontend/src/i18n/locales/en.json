@@ -205,7 +205,12 @@
                     "probePortsHint":  "Compares MikroManager's own connection method (asyncio, same as the scan) against a plain OS-level socket connect (closest to what a manual tool like Test-NetConnection does). A mismatch points to something specific to how this process connects — a firewall/antivirus rule scoped to it, a restricted service account — not the target device.",
                     "probeColPort":  "Port",
                     "probeColNote":  "Note",
-                    "probeMismatch":  "mismatch!"
+                    "probeMismatch":  "mismatch!",
+                    "probeScanRanges":  "Scan range membership",
+                    "probeInRange":  "in range",
+                    "probeOutOfRange":  "OUT OF RANGE",
+                    "probeVulnScan":  "Vulnerability scanner's own probe (independent from the above)",
+                    "probeVulnScanEmpty":  "Found nothing on any of its ~60-100+ checked ports for this IP"
                 },
     "logs":  {
                  "title":  "Device logs",

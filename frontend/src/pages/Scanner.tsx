@@ -394,6 +394,24 @@ export function Scanner() {
                   <p className="text-xs text-red-600">{t('scanner.probeNotFound')}</p>
                 )}
               </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probeScanRanges')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {probeResult.scan_range_membership.map((r, i) => (
+                    <Badge key={i} variant={r.contains_ip ? 'green' : 'gray'}>
+                      {r.cidr}{r.label ? ` (${r.label})` : ''}: {r.contains_ip ? t('scanner.probeInRange') : t('scanner.probeOutOfRange')}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probeVulnScan')}</p>
+                {Object.keys(probeResult.vuln_scan_probe).length > 0 ? (
+                  <pre className="text-xs bg-white border border-slate-200 rounded p-2 overflow-x-auto">{JSON.stringify(probeResult.vuln_scan_probe, null, 2)}</pre>
+                ) : (
+                  <p className="text-xs text-red-600">{t('scanner.probeVulnScanEmpty')}</p>
+                )}
+              </div>
               {probeResult.enrich && (
                 <div>
                   <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">{t('scanner.probeEnrich')}</p>

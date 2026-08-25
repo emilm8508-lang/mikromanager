@@ -207,7 +207,12 @@
                     "probePortsHint":  "Porównuje własną metodę połączenia MikroManagera (asyncio, ta sama co przy skanowaniu) z połączeniem przez zwykły socket systemowy (najbliższe temu, co robi narzędzie typu Test-NetConnection). Rozbieżność wskazuje na coś specyficznego dla tego, jak łączy się ten proces — regułę firewalla/antywirusa dotyczącą właśnie jego, ograniczone konto usługi — nie na problem samego urządzenia.",
                     "probeColPort":  "Port",
                     "probeColNote":  "Uwaga",
-                    "probeMismatch":  "rozbieżność!"
+                    "probeMismatch":  "rozbieżność!",
+                    "probeScanRanges":  "Przynależność do zakresów skanowania",
+                    "probeInRange":  "w zakresie",
+                    "probeOutOfRange":  "POZA ZAKRESEM",
+                    "probeVulnScan":  "Własna próba skanera podatności (niezależna od powyższej)",
+                    "probeVulnScanEmpty":  "Nic nie znaleziono na żadnym z ~60-100+ sprawdzanych portów dla tego IP"
                 },
     "logs":  {
                  "title":  "Logi urządzeń",

@@ -171,6 +171,8 @@ export interface ScannerProbeResult {
   api_ssl_8729: boolean
   snmp_public: boolean
   found: Record<string, unknown> | null
+  scan_range_membership: Array<{ cidr: string; label: string | null; contains_ip: boolean }>
+  vuln_scan_probe: Record<string, { service: string; product: string | null; version: string | null }>
   enrich?: { ok: boolean; data?: Record<string, unknown>; error?: string }
 }
 

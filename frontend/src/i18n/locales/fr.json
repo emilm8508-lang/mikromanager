@@ -205,7 +205,12 @@
                     "probePortsHint":  "Compare la propre méthode de connexion de MikroManager (asyncio, comme pour le scan) à une simple connexion socket au niveau du système d'exploitation (le plus proche de ce que fait un outil manuel comme Test-NetConnection). Une divergence indique quelque chose de spécifique à la façon dont ce processus se connecte — une règle de pare-feu/antivirus, un compte de service restreint — pas l'appareil cible.",
                     "probeColPort":  "Port",
                     "probeColNote":  "Remarque",
-                    "probeMismatch":  "divergence !"
+                    "probeMismatch":  "divergence !",
+                    "probeScanRanges":  "Appartenance aux plages de scan",
+                    "probeInRange":  "dans la plage",
+                    "probeOutOfRange":  "HORS PLAGE",
+                    "probeVulnScan":  "Propre sonde du scanner de vulnérabilités (indépendante de ci-dessus)",
+                    "probeVulnScanEmpty":  "N'a rien trouvé sur aucun de ses ~60-100+ ports vérifiés pour cette IP"
                 },
     "logs":  {
                  "title":  "Journaux des appareils",
