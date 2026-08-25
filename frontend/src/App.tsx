@@ -8,6 +8,7 @@ import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
+import { CentralInventory } from './pages/CentralInventory'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { Inventory } from './pages/Inventory'
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />
+            <Route path="/central/inventory" element={<CentralInventory />} />
           </Routes>
         </main>
       </div>

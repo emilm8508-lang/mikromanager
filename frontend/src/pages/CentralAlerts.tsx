@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, getAllTenantInventory, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralTunnelStatus, type TenantInventoryEntry } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralTunnelStatus } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -1253,132 +1253,6 @@ function TunnelCentralPanel() {
 }
 
 
-function InventoryCentralPanel() {
-  const { t } = useTranslation()
-  const [rows, setRows] = useState<TenantInventoryEntry[]>([])
-  const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
-  const [tenants, setTenants] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState<string | null>(null)
-  const [busyScan, setBusyScan] = useState<string | null>(null)
-
-  const reload = async () => {
-    try {
-      const [inv, ps] = await Promise.all([
-        getAllTenantInventory(),
-        centralApi.pendingLinuxScans(),
-      ])
-      setRows(inv)
-      setTenants([...new Set(inv.map(r => r.tenant))])
-      setPendingScans(ps.pending ?? [])
-      setErr(null)
-    } catch (e) {
-      setErr((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    reload()
-    const iv = setInterval(reload, 60000)
-    return () => clearInterval(iv)
-  }, [])
-
-  const scanPendingSet = new Set(pendingScans.map(p => p.tenant))
-
-  // Reuses the SAME "please scan the network now" mechanism as
-  // LinuxCentralPanel (request_linux_scan) — it already runs a full
-  // vuln_scan.run_scan(), which is exactly what services/inventory.py's
-  // classification is built from, so there's no separate "inventory scan"
-  // to trigger.
-  const scanAll = async () => {
-    const targets = tenants.filter(tn => !scanPendingSet.has(tn))
-    if (targets.length === 0) return
-    setBusyScan('__all__')
-    try {
-      await Promise.all(targets.map(tn => centralApi.requestLinuxScan(tn)))
-      await reload()
-    } catch (e) {
-      alert((e as Error).message)
-    } finally {
-      setBusyScan(null)
-    }
-  }
-
-  const groupLabel = (g: TenantInventoryEntry['group']) => ({
-    network: t('inventoryCentral.groupNetwork'),
-    windows: t('inventoryCentral.groupWindows'),
-    linux: t('inventoryCentral.groupLinux'),
-    other: t('inventoryCentral.groupOther'),
-  })[g]
-
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900">{t('inventoryCentral.title')}</h3>
-        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
-      </div>
-      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
-        {t('inventoryCentral.intro')}
-      </div>
-      {err && <div className="text-sm text-red-600">{err}</div>}
-
-      {tenants.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={scanAll} disabled={busyScan !== null}
-            className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
-            {t('inventoryCentral.scanAll', { count: tenants.length })}
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-sm text-slate-500">{t('common.loading')}</div>
-      ) : rows.length === 0 ? (
-        <div className="text-sm text-slate-500">{t('inventoryCentral.empty')}</div>
-      ) : (
-        <div className="overflow-x-auto max-h-96 overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500 border-b sticky top-0 bg-white">
-                <th className="py-1">Tenant</th>
-                <th>{t('inventoryCentral.colGroup')}</th>
-                <th>IP</th>
-                <th>{t('inventoryCentral.colNameOrHost')}</th>
-                <th>{t('inventoryCentral.colDetail')}</th>
-                <th>{t('inventoryCentral.colFindings')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.tenant}:${r.group}:${r.ip}:${i}`} className="border-b border-slate-100">
-                  <td className="py-2">{r.tenant}</td>
-                  <td className="text-xs text-slate-500 uppercase">{groupLabel(r.group)}</td>
-                  <td className="font-mono text-xs">{r.ip}</td>
-                  <td>{r.name || r.hostname || '—'}</td>
-                  <td className="text-xs text-slate-500">
-                    {r.group === 'network' ? [r.vendor, r.model].filter(Boolean).join(' ') || '—'
-                      : r.os || (r.ports.length > 0 ? r.ports.join(', ') : '—')}
-                  </td>
-                  <td>
-                    {r.findings_count > 0 ? (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
-                        {t('inventoryCentral.findingsCount', { count: r.findings_count })}
-                      </span>
-                    ) : <span className="text-xs text-slate-400">—</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
 export function AlertsPanel() {
   const { t } = useTranslation()
   const [channels, setChannels] = useState<AlertChannel[]>([])
@@ -1473,7 +1347,6 @@ export function MonitoringPanel() {
         {t('monitoring.intro')}
       </div>
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
-      <InventoryCentralPanel />
       <TunnelCentralPanel />
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />

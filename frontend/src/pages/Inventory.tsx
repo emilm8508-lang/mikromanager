@@ -5,7 +5,7 @@ import { Badge } from '../components/ui/Badge'
 import { Boxes, Server, MonitorSmartphone, TerminalSquare, HelpCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-function FindingsBadge({ count }: { count: number }) {
+export function FindingsBadge({ count }: { count: number }) {
   const { t } = useTranslation()
   if (count === 0) return <span className="text-xs text-slate-400">—</span>
   return <Badge variant="red" className="text-[10px]">{t('inventory.findingsCount', { count })}</Badge>
