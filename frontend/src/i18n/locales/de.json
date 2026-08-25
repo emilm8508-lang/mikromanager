@@ -548,6 +548,17 @@
             "in_progress": "In Bearbeitung",
             "accepted_risk": "Risiko akzeptiert",
             "resolved": "Behoben"
+        },
+        "scanPhase": {
+            "probing": "Ports werden geprüft",
+            "rechecking": "Nicht reagierende Hosts werden erneut geprüft",
+            "credentials": "Zugangsdaten werden getestet",
+            "persisting": "Ergebnisse werden gespeichert",
+            "package_audit": "Installierte Pakete werden geprüft",
+            "findings": "CVEs werden nachgeschlagen",
+            "linux_discovery": "Linux-Hosts werden erkannt",
+            "linux_identify": "Neue Hosts werden identifiziert",
+            "linux_refresh": "Ausstehende Updates werden aktualisiert"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "Update (apt/dnf update + upgrade) auf {{ip}} ausführen? Erfordert sudo-Rechte der konfigurierten Zugangsdaten.",
         "upgradeAll": "Alle verwalteten aktualisieren ({{count}})",
         "upgradeAllConfirm": "Update sequenziell auf {{count}} verwalteten Hosts ausführen?",
-        "jobStatus": "Job-Status"
+        "jobStatus": "Job-Status",
+        "scanPhase": {
+            "probing": "Ports werden geprüft",
+            "rechecking": "Nicht reagierende Hosts werden erneut geprüft",
+            "credentials": "Zugangsdaten werden getestet",
+            "persisting": "Ergebnisse werden gespeichert",
+            "package_audit": "Installierte Pakete werden geprüft",
+            "findings": "CVEs werden nachgeschlagen",
+            "linux_discovery": "Linux-Hosts werden erkannt",
+            "linux_identify": "Neue Hosts werden identifiziert",
+            "linux_refresh": "Ausstehende Updates werden aktualisiert"
+        }
     }
 }

@@ -548,6 +548,17 @@
             "in_progress": "En curso",
             "accepted_risk": "Riesgo aceptado",
             "resolved": "Resuelto"
+        },
+        "scanPhase": {
+            "probing": "Comprobando puertos",
+            "rechecking": "Volviendo a comprobar hosts sin respuesta",
+            "credentials": "Probando credenciales",
+            "persisting": "Guardando resultados",
+            "package_audit": "Auditando paquetes instalados",
+            "findings": "Buscando CVE",
+            "linux_discovery": "Detectando hosts Linux",
+            "linux_identify": "Identificando hosts nuevos",
+            "linux_refresh": "Actualizando actualizaciones pendientes"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "¿Ejecutar la actualización (apt/dnf update + upgrade) en {{ip}}? Requiere privilegios sudo de la credencial configurada.",
         "upgradeAll": "Actualizar todos los gestionados ({{count}})",
         "upgradeAllConfirm": "¿Ejecutar la actualización secuencialmente en {{count}} hosts gestionados?",
-        "jobStatus": "Estado del trabajo"
+        "jobStatus": "Estado del trabajo",
+        "scanPhase": {
+            "probing": "Comprobando puertos",
+            "rechecking": "Volviendo a comprobar hosts sin respuesta",
+            "credentials": "Probando credenciales",
+            "persisting": "Guardando resultados",
+            "package_audit": "Auditando paquetes instalados",
+            "findings": "Buscando CVE",
+            "linux_discovery": "Detectando hosts Linux",
+            "linux_identify": "Identificando hosts nuevos",
+            "linux_refresh": "Actualizando actualizaciones pendientes"
+        }
     }
 }

@@ -1,4 +1,7 @@
+import asyncio
+import json
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from services import linux_manage
@@ -59,6 +62,50 @@ async def discover(background_tasks: BackgroundTasks):
     # just started listening on port 22.
     background_tasks.add_task(linux_manage.full_network_scan_and_discover)
     return {"started": True}
+
+
+@router.get("/discover-stream")
+async def discover_stream():
+    """Same scan as POST /discover, but as an SSE stream reporting live
+    progress — added because the fire-and-forget POST gave zero visible
+    feedback for however long the scan takes (confirmed: clicking "Skanuj
+    sieć teraz" and seeing nothing happen for minutes). Event shape:
+    {"type": "phase", "phase": ..., "total": ...} announcing a new stage
+    ("probing", "rechecking", "credentials", "persisting", "package_audit",
+    "findings", "linux_discovery", "linux_identify", "linux_refresh"), or
+    {"type": "progress", "phase": ..., "completed": ..., "total": ...,
+    "ip": ...} per host within a stage, or {"type": "done", ...} at the end."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+
+    def emit(event: dict):
+        try:
+            queue.put_nowait(event)
+        except asyncio.QueueFull:
+            pass
+
+    async def _run():
+        try:
+            result = await linux_manage.full_network_scan_and_discover(on_event=emit)
+            emit({"type": "result", **result})
+        except Exception as e:
+            emit({"type": "error", "message": str(e)})
+        finally:
+            queue.put_nowait(None)  # sentinel = end stream
+
+    async def event_generator():
+        task = asyncio.create_task(_run())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/settings")

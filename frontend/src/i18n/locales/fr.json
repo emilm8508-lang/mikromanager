@@ -548,6 +548,17 @@
             "in_progress": "En cours",
             "accepted_risk": "Risque accepté",
             "resolved": "Résolu"
+        },
+        "scanPhase": {
+            "probing": "Vérification des ports",
+            "rechecking": "Nouvelle vérification des hôtes sans réponse",
+            "credentials": "Test des identifiants",
+            "persisting": "Enregistrement des résultats",
+            "package_audit": "Audit des paquets installés",
+            "findings": "Recherche des CVE",
+            "linux_discovery": "Détection des hôtes Linux",
+            "linux_identify": "Identification des nouveaux hôtes",
+            "linux_refresh": "Actualisation des mises à jour en attente"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "Lancer la mise à jour (apt/dnf update + upgrade) sur {{ip}} ? Nécessite les privilèges sudo de l'identifiant configuré.",
         "upgradeAll": "Mettre à jour tous les hôtes gérés ({{count}})",
         "upgradeAllConfirm": "Lancer la mise à jour séquentiellement sur {{count}} hôtes gérés ?",
-        "jobStatus": "Statut de la tâche"
+        "jobStatus": "Statut de la tâche",
+        "scanPhase": {
+            "probing": "Vérification des ports",
+            "rechecking": "Nouvelle vérification des hôtes sans réponse",
+            "credentials": "Test des identifiants",
+            "persisting": "Enregistrement des résultats",
+            "package_audit": "Audit des paquets installés",
+            "findings": "Recherche des CVE",
+            "linux_discovery": "Détection des hôtes Linux",
+            "linux_identify": "Identification des nouveaux hôtes",
+            "linux_refresh": "Actualisation des mises à jour en attente"
+        }
     }
 }

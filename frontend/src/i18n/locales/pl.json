@@ -710,6 +710,17 @@
             "in_progress": "W trakcie naprawy",
             "accepted_risk": "Zaakceptowane ryzyko",
             "resolved": "Naprawione"
+        },
+        "scanPhase": {
+            "probing": "Sprawdzanie portów",
+            "rechecking": "Ponowne sprawdzanie nieodpowiadających hostów",
+            "credentials": "Testowanie poświadczeń",
+            "persisting": "Zapisywanie wyników",
+            "package_audit": "Audyt zainstalowanych pakietów",
+            "findings": "Wyszukiwanie CVE",
+            "linux_discovery": "Wykrywanie hostów Linux",
+            "linux_identify": "Identyfikacja nowych hostów",
+            "linux_refresh": "Odświeżanie oczekujących aktualizacji"
         }
     },
     "linux": {
@@ -735,7 +746,18 @@
         "upgradeConfirm": "Uruchomić aktualizację (apt/dnf update + upgrade) na {{ip}}? Wymaga uprawnień sudo skonfigurowanego poświadczenia.",
         "upgradeAll": "Aktualizuj wszystkie zarządzane ({{count}})",
         "upgradeAllConfirm": "Uruchomić aktualizację sekwencyjnie na {{count}} zarządzanych hostach?",
-        "jobStatus": "Status zadania"
+        "jobStatus": "Status zadania",
+        "scanPhase": {
+            "probing": "Sprawdzanie portów",
+            "rechecking": "Ponowne sprawdzanie nieodpowiadających hostów",
+            "credentials": "Testowanie poświadczeń",
+            "persisting": "Zapisywanie wyników",
+            "package_audit": "Audyt zainstalowanych pakietów",
+            "findings": "Wyszukiwanie CVE",
+            "linux_discovery": "Wykrywanie hostów Linux",
+            "linux_identify": "Identyfikacja nowych hostów",
+            "linux_refresh": "Odświeżanie oczekujących aktualizacji"
+        }
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

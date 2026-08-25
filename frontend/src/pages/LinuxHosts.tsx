@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { linuxApi, credentialsApi, LinuxHostOut } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -6,6 +6,31 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+interface ScanProgressEvent {
+  type: 'phase' | 'progress' | 'done' | 'result' | 'error'
+  phase?: string
+  completed?: number
+  total?: number
+  ip?: string
+  message?: string
+}
+
+function ScanProgressBar({ phase, completed, total, ip }: { phase: string; completed: number; total: number; ip: string | null }) {
+  const { t } = useTranslation()
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+  return (
+    <div className="space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-slate-700">{t(`linux.scanPhase.${phase}`, phase)}{ip && <span className="text-slate-500 font-mono"> — {ip}</span>}</span>
+        <span className="text-slate-600 font-mono">{completed}/{total} ({pct}%)</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
 
 function SettingsPanel() {
   const { t } = useTranslation()
@@ -19,10 +44,46 @@ function SettingsPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-settings'] }),
   })
 
-  const discover = useMutation({
-    mutationFn: linuxApi.discover,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-hosts'] }),
-  })
+  // Live progress via SSE instead of a fire-and-forget POST — clicking
+  // "Skanuj sieć teraz" used to give zero visible feedback for however
+  // long the scan takes (confirmed: looked like nothing happened at all).
+  const [scanning, setScanning] = useState(false)
+  const [scanPhase, setScanPhase] = useState<string | null>(null)
+  const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 })
+  const [scanIp, setScanIp] = useState<string | null>(null)
+  const esRef = useRef<EventSource | null>(null)
+
+  const runDiscoverStream = () => {
+    setScanning(true)
+    setScanPhase(null)
+    setScanProgress({ completed: 0, total: 0 })
+    setScanIp(null)
+    const es = new EventSource('/api/linux/discover-stream')
+    esRef.current = es
+    es.onmessage = (e) => {
+      const ev: ScanProgressEvent = JSON.parse(e.data)
+      if (ev.type === 'phase') {
+        setScanPhase(ev.phase ?? null)
+        setScanProgress({ completed: 0, total: ev.total ?? 0 })
+        setScanIp(null)
+      } else if (ev.type === 'progress') {
+        setScanPhase(ev.phase ?? null)
+        setScanProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
+        setScanIp(ev.ip ?? null)
+      } else if (ev.type === 'result' || ev.type === 'error') {
+        es.close()
+        esRef.current = null
+        setScanning(false)
+        qc.invalidateQueries({ queryKey: ['linux-hosts'] })
+      }
+    }
+    es.onerror = () => {
+      es.close()
+      esRef.current = null
+      setScanning(false)
+      qc.invalidateQueries({ queryKey: ['linux-hosts'] })
+    }
+  }
 
   const current = selected || (settings?.credential_id ? String(settings.credential_id) : '')
 
@@ -66,10 +127,13 @@ function SettingsPanel() {
             {t('linux.currentCredential')}: <span className="font-mono">{settings.credential_name}</span>
           </p>
         )}
-        <Button variant="secondary" onClick={() => discover.mutate()} disabled={discover.isPending}>
-          <RefreshCw size={13} className={discover.isPending ? 'animate-spin' : ''} />
+        <Button variant="secondary" onClick={runDiscoverStream} disabled={scanning}>
+          <RefreshCw size={13} className={scanning ? 'animate-spin' : ''} />
           {t('linux.scanNow')}
         </Button>
+        {scanning && (
+          <ScanProgressBar phase={scanPhase ?? ''} completed={scanProgress.completed} total={scanProgress.total} ip={scanIp} />
+        )}
       </CardContent>
     </Card>
   )

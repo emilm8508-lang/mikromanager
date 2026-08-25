@@ -46,7 +46,7 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 from sqlalchemy import select
 
 from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxManageSettings
@@ -173,12 +173,18 @@ async def _identify_host(ip: str, username: str, password: str) -> Optional[dict
     }
 
 
-async def discover_linux_hosts() -> dict:
+async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
     """Read hosts with an open SSH port from the vuln scanner's own tables
     (no independent port scan — reuses services/vuln_scan.py's weekly
     pass), identify any not yet known using ONLY the shared credential.
     New hosts are inserted with managed=False (pending) — never
-    auto-enabled."""
+    auto-enabled.
+
+    on_event, if given, reports progress the same way as vuln_scan.run_scan()
+    (reuses its _emit helper) — this function's two sequential per-host
+    loops (identifying new hosts, refreshing pending-update counts for
+    already-managed ones) are exactly the kind of silent, potentially-slow
+    work that button click had zero feedback for."""
     if not MANAGE_ENABLED:
         return {"skipped": "MIKROTIK_LINUX_MANAGE_ENABLED not set"}
 
@@ -208,9 +214,12 @@ async def discover_linux_hosts() -> dict:
             db.commit()
 
     new_ips = [ip for ip in candidate_ips if ip not in known_ips]
+    vs._emit(on_event, {"type": "phase", "phase": "linux_identify", "total": len(new_ips)})
     discovered = 0
-    for ip in new_ips:
+    for idx, ip in enumerate(new_ips, 1):
         info = await _identify_host(ip, username, password)
+        vs._emit(on_event, {"type": "progress", "phase": "linux_identify",
+                            "completed": idx, "total": len(new_ips), "ip": ip})
         if not info or not info["distro_id"]:
             continue
         with SessionLocal() as db:
@@ -238,7 +247,10 @@ async def discover_linux_hosts() -> dict:
         ).scalars().all()
         managed_snapshot = [(h.id, h.ip, h.package_manager) for h in managed_hosts]
 
-    for host_id, ip, pkg_mgr in managed_snapshot:
+    vs._emit(on_event, {"type": "phase", "phase": "linux_refresh", "total": len(managed_snapshot)})
+    for idx, (host_id, ip, pkg_mgr) in enumerate(managed_snapshot, 1):
+        vs._emit(on_event, {"type": "progress", "phase": "linux_refresh",
+                            "completed": idx, "total": len(managed_snapshot), "ip": ip})
         if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
             continue  # a user-triggered check/upgrade is already running for this host
         try:
@@ -254,7 +266,7 @@ async def discover_linux_hosts() -> dict:
     return {"candidates": len(candidate_ips), "discovered": discovered, "refreshed": checked}
 
 
-async def full_network_scan_and_discover() -> dict:
+async def full_network_scan_and_discover(on_event: Optional[Callable] = None) -> dict:
     """Manual "Skanuj sieć teraz" entry point (POST /api/linux/discover).
     discover_linux_hosts() alone only reads whatever the vulnerability
     scanner's own weekly pass already found (VulnHost/VulnService rows) —
@@ -266,13 +278,17 @@ async def full_network_scan_and_discover() -> dict:
     "scan the network now". This triggers a real vuln_scan.run_scan() pass
     first (safe to call anytime — it no-ops via its own _in_progress guard
     if a scan is already running), then discovers/refreshes from the
-    freshly updated port data."""
+    freshly updated port data.
+
+    on_event, if given, is passed straight through to run_scan() (which
+    itself already calls discover_linux_hosts(on_event=on_event) at its
+    end) and to this function's own explicit discover_linux_hosts() call
+    below, so a caller streaming progress sees phases from both stages."""
     try:
-        from services import vuln_scan
-        await vuln_scan.run_scan()
+        await vs.run_scan(on_event=on_event)
     except Exception as e:
         print(f"[linux_manage] full network scan error: {e}")
-    return await discover_linux_hosts()
+    return await discover_linux_hosts(on_event=on_event)
 
 
 # ── SSH command execution (first place in this codebase capturing real

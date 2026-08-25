@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import json
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,6 +34,55 @@ async def trigger_run():
         raise HTTPException(409, "Skan podatności jest już w toku")
     asyncio.create_task(vuln_scan.run_scan())
     return {"started": True}
+
+
+@router.get("/scan-stream")
+async def scan_stream():
+    """Same scan as POST /run, but as an SSE stream reporting live
+    progress — added because the fire-and-forget POST gave zero visible
+    feedback for however long the scan takes. Event shape: {"type":
+    "phase", "phase": ..., "total": ...} announcing a new stage ("probing",
+    "rechecking", "credentials", "persisting", "package_audit", "findings",
+    "linux_discovery", "linux_identify", "linux_refresh"), or {"type":
+    "progress", "phase": ..., "completed": ..., "total": ..., "ip": ...}
+    per host within a stage, or {"type": "done", ...} at the end. 409 if a
+    scan is already in progress (same guard as POST /run) — the stream
+    would otherwise just sit there emitting nothing until the OTHER scan
+    finishes, silently misleading whoever opened it."""
+    if vuln_scan._in_progress:
+        raise HTTPException(409, "Skan podatności jest już w toku")
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+
+    def emit(event: dict):
+        try:
+            queue.put_nowait(event)
+        except asyncio.QueueFull:
+            pass
+
+    async def _run():
+        try:
+            result = await vuln_scan.run_scan(on_event=emit)
+            emit({"type": "result", **result})
+        except Exception as e:
+            emit({"type": "error", "message": str(e)})
+        finally:
+            queue.put_nowait(None)  # sentinel = end stream
+
+    async def event_generator():
+        task = asyncio.create_task(_run())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/hosts")

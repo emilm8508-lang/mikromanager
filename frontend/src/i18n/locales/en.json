@@ -548,6 +548,17 @@
             "in_progress": "In progress",
             "accepted_risk": "Accepted risk",
             "resolved": "Resolved"
+        },
+        "scanPhase": {
+            "probing": "Checking ports",
+            "rechecking": "Rechecking unresponsive hosts",
+            "credentials": "Testing credentials",
+            "persisting": "Saving results",
+            "package_audit": "Auditing installed packages",
+            "findings": "Looking up CVEs",
+            "linux_discovery": "Discovering Linux hosts",
+            "linux_identify": "Identifying new hosts",
+            "linux_refresh": "Refreshing pending updates"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "Run an update (apt/dnf update + upgrade) on {{ip}}? Requires sudo privileges for the configured credential.",
         "upgradeAll": "Upgrade all managed ({{count}})",
         "upgradeAllConfirm": "Run the upgrade sequentially on {{count}} managed hosts?",
-        "jobStatus": "Job status"
+        "jobStatus": "Job status",
+        "scanPhase": {
+            "probing": "Checking ports",
+            "rechecking": "Rechecking unresponsive hosts",
+            "credentials": "Testing credentials",
+            "persisting": "Saving results",
+            "package_audit": "Auditing installed packages",
+            "findings": "Looking up CVEs",
+            "linux_discovery": "Discovering Linux hosts",
+            "linux_identify": "Identifying new hosts",
+            "linux_refresh": "Refreshing pending updates"
+        }
     }
 }

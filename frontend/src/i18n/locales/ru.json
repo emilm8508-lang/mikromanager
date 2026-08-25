@@ -548,6 +548,17 @@
             "in_progress": "В работе",
             "accepted_risk": "Риск принят",
             "resolved": "Устранено"
+        },
+        "scanPhase": {
+            "probing": "Проверка портов",
+            "rechecking": "Повторная проверка не отвечающих хостов",
+            "credentials": "Проверка учётных данных",
+            "persisting": "Сохранение результатов",
+            "package_audit": "Аудит установленных пакетов",
+            "findings": "Поиск CVE",
+            "linux_discovery": "Обнаружение хостов Linux",
+            "linux_identify": "Идентификация новых хостов",
+            "linux_refresh": "Обновление ожидающих обновлений"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "Запустить обновление (apt/dnf update + upgrade) на {{ip}}? Требуются права sudo указанных учётных данных.",
         "upgradeAll": "Обновить все управляемые ({{count}})",
         "upgradeAllConfirm": "Запустить обновление последовательно на {{count}} управляемых хостах?",
-        "jobStatus": "Статус задачи"
+        "jobStatus": "Статус задачи",
+        "scanPhase": {
+            "probing": "Проверка портов",
+            "rechecking": "Повторная проверка не отвечающих хостов",
+            "credentials": "Проверка учётных данных",
+            "persisting": "Сохранение результатов",
+            "package_audit": "Аудит установленных пакетов",
+            "findings": "Поиск CVE",
+            "linux_discovery": "Обнаружение хостов Linux",
+            "linux_identify": "Идентификация новых хостов",
+            "linux_refresh": "Обновление ожидающих обновлений"
+        }
     }
 }

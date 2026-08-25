@@ -54,7 +54,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import aiohttp
 from sqlalchemy import select, delete
@@ -1468,9 +1468,27 @@ async def _lookup_findings(version_pairs: dict) -> int:
     return count
 
 
-async def run_scan() -> dict:
+def _emit(on_event: Optional[Callable], event: dict) -> None:
+    if on_event is None:
+        return
+    try:
+        on_event(event)
+    except Exception as e:
+        print(f"[vuln_scan] on_event callback error: {e}")
+
+
+async def run_scan(on_event: Optional[Callable] = None) -> dict:
     """Full pass: known devices' tracked versions + live network banner-grab
-    across all active ScanRange CIDRs, deduped CVE lookups, persisted results."""
+    across all active ScanRange CIDRs, deduped CVE lookups, persisted results.
+
+    on_event, if given, is called with progress dicts as the scan proceeds
+    ({"type": "phase", "phase": ..., "total": ...} announcing a new stage,
+    {"type": "progress", "phase": ..., "completed": ..., "total": ...,
+    "ip": ...} per host within a stage) — added because this scan can take
+    a long time with zero visible feedback otherwise (confirmed: clicking
+    "Skanuj sieć teraz" and seeing nothing happen for minutes). Purely
+    additive — every existing caller that doesn't pass on_event behaves
+    exactly as before."""
     global _in_progress, _last_run, _last_duration_sec, _hosts_scanned, _findings_count
 
     if _in_progress:
@@ -1507,8 +1525,21 @@ async def run_scan() -> dict:
                 continue
         all_ips = sorted(all_ips_set)
 
+        _emit(on_event, {"type": "phase", "phase": "probing", "total": len(all_ips)})
+        probe_completed = 0
+        probe_lock = asyncio.Lock()
+
+        async def _probe_one(ip):
+            nonlocal probe_completed
+            r = await _probe_host(ip, sem)
+            async with probe_lock:
+                probe_completed += 1
+                _emit(on_event, {"type": "progress", "phase": "probing",
+                                 "completed": probe_completed, "total": len(all_ips), "ip": ip})
+            return r
+
         sem = asyncio.Semaphore(SCAN_CONCURRENCY)
-        results = await asyncio.gather(*[_probe_host(ip, sem) for ip in all_ips])
+        results = await asyncio.gather(*[_probe_one(ip) for ip in all_ips])
 
         # Second, low-concurrency recheck pass for hosts that came back with
         # zero open ports from the main burst — _probe_host()'s own in-place
@@ -1521,15 +1552,29 @@ async def run_scan() -> dict:
         # probe found instantly in isolation but the real scan never did.
         dead_indices = [i for i, r in enumerate(results) if not r]
         if dead_indices:
+            _emit(on_event, {"type": "phase", "phase": "rechecking", "total": len(dead_indices)})
+            recheck_completed = 0
+            recheck_lock = asyncio.Lock()
+
+            async def _recheck_one(i):
+                nonlocal recheck_completed
+                r = await _probe_host(all_ips[i], recheck_sem, base_timeout=RECHECK_TIMEOUT)
+                async with recheck_lock:
+                    recheck_completed += 1
+                    _emit(on_event, {"type": "progress", "phase": "rechecking",
+                                     "completed": recheck_completed, "total": len(dead_indices),
+                                     "ip": all_ips[i]})
+                return r
+
             recheck_sem = asyncio.Semaphore(RECHECK_CONCURRENCY)
-            recheck_results = await asyncio.gather(*[
-                _probe_host(all_ips[i], recheck_sem, base_timeout=RECHECK_TIMEOUT)
-                for i in dead_indices
-            ])
+            recheck_results = await asyncio.gather(*[_recheck_one(i) for i in dead_indices])
             for i, r in zip(dead_indices, recheck_results):
                 if r:
                     results[i] = r
 
+        n_alive = sum(1 for r in results if r)
+        _emit(on_event, {"type": "phase", "phase": "credentials", "total": n_alive})
+        cred_completed = 0
         alive_ips, alive_results = [], []
         auth_by_ip: dict = {}  # ip -> auth_info dict from _auth_augment
         for ip, ports_found in zip(all_ips, results):
@@ -1544,7 +1589,11 @@ async def run_scan() -> dict:
                                             existing_cred_by_ip.get(ip), all_creds, known_device_ips)
             if auth_info:
                 auth_by_ip[ip] = auth_info
+            cred_completed += 1
+            _emit(on_event, {"type": "progress", "phase": "credentials",
+                             "completed": cred_completed, "total": n_alive, "ip": ip})
 
+        _emit(on_event, {"type": "phase", "phase": "persisting"})
         host_ids = await _persist_services(alive_ips, alive_results)
         await _apply_credentials({ip: info["cred_id"] for ip, info in auth_by_ip.items()})
         await _prune_dead_hosts(all_ips, set(alive_ips))
@@ -1552,9 +1601,14 @@ async def run_scan() -> dict:
         # Deeper, opt-in full package/software audit — only for hosts where
         # a credential just worked, gated per-host by PACKAGE_AUDIT_DAYS
         # inside _package_audit itself (see that function's docstring).
+        _emit(on_event, {"type": "phase", "phase": "package_audit", "total": len(auth_by_ip)})
+        pkg_completed = 0
         for ip, auth_info in auth_by_ip.items():
             host_id = host_ids.get(ip)
             cred = creds_by_id.get(auth_info["cred_id"])
+            pkg_completed += 1
+            _emit(on_event, {"type": "progress", "phase": "package_audit",
+                             "completed": pkg_completed, "total": len(auth_by_ip), "ip": ip})
             if not (host_id and cred):
                 continue
             try:
@@ -1562,16 +1616,20 @@ async def run_scan() -> dict:
             except Exception as e:
                 print(f"[vuln_scan] package audit error for {ip}: {e}")
 
+        _emit(on_event, {"type": "phase", "phase": "findings"})
         findings_count = await _lookup_findings(version_pairs)
 
+        _emit(on_event, {"type": "phase", "phase": "linux_discovery"})
         try:
             from services import linux_manage
-            await linux_manage.discover_linux_hosts()
+            await linux_manage.discover_linux_hosts(on_event=on_event)
         except Exception as e:
             print(f"[vuln_scan] linux host discovery error: {e}")
 
         _hosts_scanned = len(alive_ips)
         _findings_count = findings_count
+        _emit(on_event, {"type": "done", "hosts_scanned": len(alive_ips),
+                         "unique_versions": len(version_pairs), "findings_count": findings_count})
         return {"hosts_scanned": len(alive_ips), "unique_versions": len(version_pairs),
                 "findings_count": findings_count}
     finally:

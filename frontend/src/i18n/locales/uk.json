@@ -548,6 +548,17 @@
             "in_progress": "У роботі",
             "accepted_risk": "Ризик прийнято",
             "resolved": "Усунено"
+        },
+        "scanPhase": {
+            "probing": "Перевірка портів",
+            "rechecking": "Повторна перевірка хостів без відповіді",
+            "credentials": "Перевірка облікових даних",
+            "persisting": "Збереження результатів",
+            "package_audit": "Аудит встановлених пакетів",
+            "findings": "Пошук CVE",
+            "linux_discovery": "Виявлення хостів Linux",
+            "linux_identify": "Ідентифікація нових хостів",
+            "linux_refresh": "Оновлення очікуваних оновлень"
         }
     },
     "linux": {
@@ -573,6 +584,17 @@
         "upgradeConfirm": "Запустити оновлення (apt/dnf update + upgrade) на {{ip}}? Потрібні права sudo налаштованих облікових даних.",
         "upgradeAll": "Оновити всі керовані ({{count}})",
         "upgradeAllConfirm": "Запустити оновлення послідовно на {{count}} керованих хостах?",
-        "jobStatus": "Статус завдання"
+        "jobStatus": "Статус завдання",
+        "scanPhase": {
+            "probing": "Перевірка портів",
+            "rechecking": "Повторна перевірка хостів без відповіді",
+            "credentials": "Перевірка облікових даних",
+            "persisting": "Збереження результатів",
+            "package_audit": "Аудит встановлених пакетів",
+            "findings": "Пошук CVE",
+            "linux_discovery": "Виявлення хостів Linux",
+            "linux_identify": "Ідентифікація нових хостів",
+            "linux_refresh": "Оновлення очікуваних оновлень"
+        }
     }
 }
