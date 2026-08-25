@@ -757,7 +757,8 @@
             "linux_discovery": "Wykrywanie hostów Linux",
             "linux_identify": "Identyfikacja nowych hostów",
             "linux_refresh": "Odświeżanie oczekujących aktualizacji"
-        }
+        },
+        "skipNotesTitle": "Znalezione, ale niedodane hosty (widoczne np. w Podatnościach z innym poświadczeniem):"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

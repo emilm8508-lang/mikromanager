@@ -595,6 +595,7 @@
             "linux_discovery": "Linux-Hosts werden erkannt",
             "linux_identify": "Neue Hosts werden identifiziert",
             "linux_refresh": "Ausstehende Updates werden aktualisiert"
-        }
+        },
+        "skipNotesTitle": "Gefundene, aber nicht hinzugefügte Hosts (z. B. in Schwachstellen mit anderen Zugangsdaten sichtbar):"
     }
 }

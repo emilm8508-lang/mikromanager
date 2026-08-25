@@ -595,6 +595,7 @@
             "linux_discovery": "Discovering Linux hosts",
             "linux_identify": "Identifying new hosts",
             "linux_refresh": "Refreshing pending updates"
-        }
+        },
+        "skipNotesTitle": "Hosts found but not added (shown elsewhere, e.g. Vulnerabilities, with a different credential):"
     }
 }

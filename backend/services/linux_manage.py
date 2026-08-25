@@ -114,12 +114,20 @@ def _shared_credential() -> Optional[tuple]:
 
 # ── Discovery ────────────────────────────────────────────────────────────
 
-def _identify_host_sync(ip: str, username: str, password: str) -> Optional[dict]:
+def _identify_host_sync(ip: str, username: str, password: str) -> dict:
     """Blocking — run via loop.run_in_executor. Read-only SSH probe: distro
     identity + hostname. Deliberately separate from vuln_scan.py's
     _ssh_identity_sync (which only parses ID/VERSION_ID, discards
     hostname/PRETTY_NAME) so this feature never needs to touch that
-    already-relied-upon shared function."""
+    already-relied-upon shared function.
+
+    Always returns a dict with an "error" key (None on success) — a failed
+    SSH login with the ONE shared credential this module uses (as opposed
+    to vuln_scan.py's _auth_augment, which tries every saved credential)
+    used to be silently indistinguishable from "not a supported Linux
+    host": confirmed on a real network where a host clearly visible in
+    Vulnerabilities (a DIFFERENT credential worked there) never appeared
+    in Hosty Linux at all, with zero indication why."""
     import paramiko
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -130,9 +138,9 @@ def _identify_host_sync(ip: str, username: str, password: str) -> Optional[dict]
         _, stdout, _ = client.exec_command(
             "cat /etc/os-release 2>/dev/null; echo ---HOST---; hostname 2>/dev/null", timeout=8)
         output = stdout.read().decode("utf-8", errors="ignore")
-        return {"output": output}
-    except Exception:
-        return None
+        return {"output": output, "error": None}
+    except Exception as e:
+        return {"output": "", "error": f"{type(e).__name__}: {e}"}
     finally:
         try:
             client.close()
@@ -140,19 +148,21 @@ def _identify_host_sync(ip: str, username: str, password: str) -> Optional[dict]
             pass
 
 
-async def _identify_host(ip: str, username: str, password: str) -> Optional[dict]:
+async def _identify_host(ip: str, username: str, password: str) -> dict:
     loop = asyncio.get_event_loop()
     # Shares vuln_scan.py's dedicated thread pool rather than the process's
     # default executor — same reasoning as there: a blocking SSH call here
     # must never compete with (and starve) unrelated work elsewhere in the
     # app (e.g. serving a static page) for a thread from a shared pool.
     result = await loop.run_in_executor(vs._EXECUTOR, _identify_host_sync, ip, username, password)
-    if not result:
-        return None
+    if result["error"]:
+        return {"distro_id": None, "error": result["error"]}
     os_part, _, host_part = result["output"].partition("---HOST---")
     id_m = _OS_RELEASE_ID_RE.search(os_part)
     if not id_m:
-        return None
+        return {"distro_id": None,
+                "error": "SSH login succeeded but /etc/os-release didn't match any known distro "
+                         "(not Linux, or a distro this module doesn't recognize)"}
     ver_m = _OS_RELEASE_VERSION_RE.search(os_part)
     pretty_m = _OS_RELEASE_PRETTY_RE.search(os_part)
     distro_id = (id_m.group(1) or id_m.group(2) or "").lower()
@@ -169,7 +179,7 @@ async def _identify_host(ip: str, username: str, password: str) -> Optional[dict
     return {
         "distro_id": distro_id, "distro_version": distro_version,
         "distro_pretty": distro_pretty, "hostname": hostname,
-        "package_manager": package_manager,
+        "package_manager": package_manager, "error": None,
     }
 
 
@@ -219,8 +229,11 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
     for idx, ip in enumerate(new_ips, 1):
         info = await _identify_host(ip, username, password)
         vs._emit(on_event, {"type": "progress", "phase": "linux_identify",
-                            "completed": idx, "total": len(new_ips), "ip": ip})
-        if not info or not info["distro_id"]:
+                            "completed": idx, "total": len(new_ips), "ip": ip,
+                            "detail": info.get("error")})
+        if info.get("error"):
+            print(f"[linux_manage] identify skipped {ip}: {info['error']}")
+        if not info["distro_id"]:
             continue
         with SessionLocal() as db:
             if db.execute(select(LinuxHost).where(LinuxHost.ip == ip)).scalar_one_or_none():

@@ -13,6 +13,7 @@ interface ScanProgressEvent {
   completed?: number
   total?: number
   ip?: string
+  detail?: string | null
   message?: string
 }
 
@@ -51,6 +52,7 @@ function SettingsPanel() {
   const [scanPhase, setScanPhase] = useState<string | null>(null)
   const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 })
   const [scanIp, setScanIp] = useState<string | null>(null)
+  const [skipNotes, setSkipNotes] = useState<Array<{ ip: string; detail: string }>>([])
   const esRef = useRef<EventSource | null>(null)
 
   const runDiscoverStream = () => {
@@ -58,6 +60,7 @@ function SettingsPanel() {
     setScanPhase(null)
     setScanProgress({ completed: 0, total: 0 })
     setScanIp(null)
+    setSkipNotes([])
     const es = new EventSource('/api/linux/discover-stream')
     esRef.current = es
     es.onmessage = (e) => {
@@ -70,6 +73,14 @@ function SettingsPanel() {
         setScanPhase(ev.phase ?? null)
         setScanProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
         setScanIp(ev.ip ?? null)
+        // linux_identify's "detail" explains WHY a host visible elsewhere
+        // (e.g. in Vulnerabilities, which tries every saved credential)
+        // didn't become a Linux Hosts candidate — this module only ever
+        // uses the ONE shared credential above, so a wrong password for a
+        // specific host used to just vanish with zero trace.
+        if (ev.phase === 'linux_identify' && ev.detail && ev.ip) {
+          setSkipNotes(prev => [...prev, { ip: ev.ip!, detail: ev.detail! }])
+        }
       } else if (ev.type === 'result' || ev.type === 'error') {
         es.close()
         esRef.current = null
@@ -133,6 +144,16 @@ function SettingsPanel() {
         </Button>
         {scanning && (
           <ScanProgressBar phase={scanPhase ?? ''} completed={scanProgress.completed} total={scanProgress.total} ip={scanIp} />
+        )}
+        {skipNotes.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+            <p className="text-xs font-semibold text-amber-800">{t('linux.skipNotesTitle')}</p>
+            {skipNotes.map((n, i) => (
+              <p key={i} className="text-xs text-amber-700">
+                <span className="font-mono">{n.ip}</span>: {n.detail}
+              </p>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

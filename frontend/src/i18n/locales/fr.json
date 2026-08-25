@@ -595,6 +595,7 @@
             "linux_discovery": "Détection des hôtes Linux",
             "linux_identify": "Identification des nouveaux hôtes",
             "linux_refresh": "Actualisation des mises à jour en attente"
-        }
+        },
+        "skipNotesTitle": "Hôtes trouvés mais non ajoutés (visibles p. ex. dans Vulnérabilités avec un autre identifiant) :"
     }
 }
