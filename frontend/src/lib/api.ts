@@ -783,8 +783,8 @@ export const windowsApi = {
     api.post<{ queued: number }>('/windows/hosts/run-script-bulk', { ids, script, reason }).then(r => r.data),
   discover: () => api.post<{ started: boolean }>('/windows/discover').then(r => r.data),
   getSettings: () => api.get<WindowsSettings>('/windows/settings').then(r => r.data),
-  setSettings: (credentialId: number | null) =>
-    api.put<WindowsSettings>('/windows/settings', { credential_id: credentialId }).then(r => r.data),
+  setSettings: (credentialId: number | null, manageEnabled?: boolean) =>
+    api.put<WindowsSettings>('/windows/settings', { credential_id: credentialId, manage_enabled: manageEnabled }).then(r => r.data),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────
@@ -1403,7 +1403,13 @@ export const centralApi = {
   pendingWindowsRestarts: () =>
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_windows_restarts'),
   windowsHostsStatusAll: () =>
-    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; windows_hosts: CentralWindowsHostStatus[] }> }>('windows_hosts_status_all'),
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; windows_hosts: CentralWindowsHostStatus[]; manage_enabled: boolean }> }>('windows_hosts_status_all'),
+  requestWindowsManageToggle: (tenant: string, enabled: boolean) =>
+    centralRequest<{ ok: boolean; tenant: string; enabled: boolean; queued_at: string; note: string }>(
+      'request_windows_manage_toggle', { tenant, enabled: String(enabled) },
+    ),
+  pendingWindowsManageToggles: () =>
+    centralRequest<{ pending: Array<{ tenant: string; enabled: boolean; queued_at: string }> }>('pending_windows_manage_toggles'),
   tunnelStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
 

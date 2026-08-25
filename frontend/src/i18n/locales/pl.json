@@ -766,7 +766,8 @@
     "windows": {
         "settingsTitle": "Wspólne poświadczenie",
         "settingsHint": "Jedno poświadczenie WinRM używane do wszystkich hostów Windows — bez wyboru per-host.",
-        "disabledWarning": "Zarządzanie Windows jest wyłączone na tym agencie (MIKROTIK_WINDOWS_MANAGE_ENABLED). Sprawdzanie/aktualizacja/restart nie zadziałają, dopóki nie zostanie włączone w konfiguracji agenta.",
+        "disabledWarning": "Zarządzanie Windows jest wyłączone. Instalacja aktualizacji/restart nie zadziałają, dopóki nie włączysz go powyżej (albo z Centrali).",
+        "manageEnabledToggle": "Zarządzanie Windows włączone",
         "noCredential": "— nie wybrano —",
         "currentCredential": "Aktualne poświadczenie",
         "scanNow": "Skanuj sieć teraz",

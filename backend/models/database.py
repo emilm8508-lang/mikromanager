@@ -91,6 +91,11 @@ class ScanRange(Base):
     cidr = Column(String, nullable=False, unique=True)
     label = Column(String, nullable=True)
     active = Column(Boolean, default=True)
+    # Optional per-range schedule override for services/vuln_scan.py's
+    # weekly scan — NULL (both) = use the global MIKROTIK_VULN_SCAN_DAY/
+    # MIKROTIK_VULN_SCAN_HOUR default, same as every range today.
+    scan_day = Column(Integer, nullable=True)    # 0=Mon..6=Sun
+    scan_hour = Column(Integer, nullable=True)   # 0-23
 
 
 class DeviceBackup(Base):
@@ -300,6 +305,7 @@ class LinuxHost(Base):
     reboot_required = Column(Boolean, nullable=False, default=False)
     last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
     last_error = Column(Text, nullable=True)
+    last_compliance_check_at = Column(DateTime, nullable=True)
 
 
 class LinuxManageSettings(Base):
@@ -344,17 +350,49 @@ class WindowsHost(Base):
     last_error = Column(Text, nullable=True)
     last_restart_at = Column(DateTime, nullable=True)
     last_restart_reason = Column(Text, nullable=True)
+    last_compliance_check_at = Column(DateTime, nullable=True)
 
 
 class WindowsManageSettings(Base):
     """Single-row (id always 1) global config: the ONE shared Credential used
     for every managed Windows host — same "one credential for all" model as
-    LinuxManageSettings, per the user's explicit request to mirror Linux."""
+    LinuxManageSettings, per the user's explicit request to mirror Linux.
+
+    manage_enabled: NULL = fall back to the MIKROTIK_WINDOWS_MANAGE_ENABLED
+    env var (the original, OS-level-only toggle) — nullable rather than a
+    plain default so an operator who never touches this setting keeps
+    exactly today's behavior. A non-NULL value here overrides the env var,
+    letting the toggle be flipped from this agent's own UI (or remotely
+    from Central) without editing the OS process environment and
+    restarting the service on every single agent."""
     __tablename__ = "windows_manage_settings"
 
     id = Column(Integer, primary_key=True, default=1)
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    manage_enabled = Column(Boolean, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ComplianceCheckResult(Base):
+    """Result of one configuration-hardening check (services/compliance.py)
+    against one managed target — read-only pass/fail, not a vulnerability
+    (no CVE involved). One row per (target_type, target_id, check_id),
+    overwritten on every run — history isn't needed yet, checked_at says
+    "as of when"."""
+    __tablename__ = "compliance_check_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    target_type = Column(String, nullable=False)   # "linux" | "windows" | "mikrotik"
+    target_id = Column(Integer, nullable=False)     # LinuxHost.id / WindowsHost.id / Device.id
+    check_id = Column(String, nullable=False)        # e.g. "linux.ssh_root_login_disabled"
+    title = Column(String, nullable=False)
+    severity = Column(String, nullable=False)         # "high" | "medium" | "low"
+    passed = Column(Boolean, nullable=True)             # None = couldn't be determined
+    detail = Column(Text, nullable=True)                 # what was actually found
+    checked_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("target_type", "target_id", "check_id",
+                                        name="uq_compliance_check"),)
 
 
 def _migrate_add_columns():
@@ -397,6 +435,32 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "last_package_audit_at" not in vh_cols:
                 conn.execute(text("ALTER TABLE vuln_hosts ADD COLUMN last_package_audit_at DATETIME"))
+
+    if "scan_ranges" in inspector.get_table_names():
+        sr_cols = {c["name"] for c in inspector.get_columns("scan_ranges")}
+        with engine.begin() as conn:
+            if "scan_day" not in sr_cols:
+                conn.execute(text("ALTER TABLE scan_ranges ADD COLUMN scan_day INTEGER"))
+            if "scan_hour" not in sr_cols:
+                conn.execute(text("ALTER TABLE scan_ranges ADD COLUMN scan_hour INTEGER"))
+
+    if "linux_hosts" in inspector.get_table_names():
+        lh_cols = {c["name"] for c in inspector.get_columns("linux_hosts")}
+        with engine.begin() as conn:
+            if "last_compliance_check_at" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_compliance_check_at DATETIME"))
+
+    if "windows_hosts" in inspector.get_table_names():
+        wh_cols = {c["name"] for c in inspector.get_columns("windows_hosts")}
+        with engine.begin() as conn:
+            if "last_compliance_check_at" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_compliance_check_at DATETIME"))
+
+    if "windows_manage_settings" in inspector.get_table_names():
+        wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}
+        with engine.begin() as conn:
+            if "manage_enabled" not in wms_cols:
+                conn.execute(text("ALTER TABLE windows_manage_settings ADD COLUMN manage_enabled BOOLEAN"))
 
 
 def init_db():

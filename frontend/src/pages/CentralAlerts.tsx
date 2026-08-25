@@ -1171,29 +1171,37 @@ function WindowsCentralPanel() {
   const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
   const [pendingUpdates, setPendingUpdates] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
   const [pendingRestarts, setPendingRestarts] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
+  const [pendingToggles, setPendingToggles] = useState<Array<{ tenant: string; enabled: boolean; queued_at: string }>>([])
+  const [manageEnabledByTenant, setManageEnabledByTenant] = useState<Record<string, boolean>>({})
   const [tenants, setTenants] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busyScan, setBusyScan] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [busyToggle, setBusyToggle] = useState<string | null>(null)
 
   const reload = async () => {
     try {
-      const [s, ps, pu, pr] = await Promise.all([
+      const [s, ps, pu, pr, pt] = await Promise.all([
         centralApi.windowsHostsStatusAll(),
         centralApi.pendingLinuxScans(),
         centralApi.pendingWindowsUpdates(),
         centralApi.pendingWindowsRestarts(),
+        centralApi.pendingWindowsManageToggles(),
       ])
       const flat: Array<{ tenant: string; host: CentralWindowsHostStatus }> = []
+      const enabledMap: Record<string, boolean> = {}
       for (const tRow of s.tenants) {
         for (const h of tRow.windows_hosts) flat.push({ tenant: tRow.tenant, host: h })
+        enabledMap[tRow.tenant] = tRow.manage_enabled
       }
       setRows(flat)
+      setManageEnabledByTenant(enabledMap)
       setTenants(s.tenants.map(tRow => tRow.tenant))
       setPendingScans(ps.pending ?? [])
       setPendingUpdates(pu.pending ?? [])
       setPendingRestarts(pr.pending ?? [])
+      setPendingToggles(pt.pending ?? [])
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
@@ -1259,6 +1267,13 @@ function WindowsCentralPanel() {
     finally { setBusyAction(null) }
   }
 
+  const toggleManage = async (tenant: string, enabled: boolean) => {
+    setBusyToggle(tenant)
+    try { await centralApi.requestWindowsManageToggle(tenant, enabled); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyToggle(null) }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -1269,6 +1284,24 @@ function WindowsCentralPanel() {
         {t('windowsCentral.intro')}
       </div>
       {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {tenants.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {tenants.map(tn => {
+            const pendingToggle = pendingToggles.find(p => p.tenant === tn)
+            const enabled = manageEnabledByTenant[tn] ?? false
+            return (
+              <label key={tn} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-slate-300">
+                <input type="checkbox" checked={pendingToggle ? pendingToggle.enabled : enabled}
+                  disabled={busyToggle === tn || !!pendingToggle}
+                  onChange={e => toggleManage(tn, e.target.checked)} />
+                {tn}
+                {pendingToggle && <span className="text-amber-600">({t('windowsCentral.queued')})</span>}
+              </label>
+            )
+          })}
+        </div>
+      )}
 
       {tenants.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">

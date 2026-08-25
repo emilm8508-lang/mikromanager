@@ -1366,7 +1366,9 @@ try {
         case 'windows_hosts_status_all':
             // Mirrors linux_hosts_status_all exactly — plaintext envelope
             // metadata, only ever managed=True hosts (windows_manage.
-            // public_summary()), no E2E key needed.
+            // public_summary()), no E2E key needed. Also surfaces
+            // windows_manage_enabled so the Central panel can show/toggle
+            // the per-tenant state without a separate round trip.
             $stmt = $pdo->query(
                 'SELECT t.id AS tenant, t.last_seen,
                         (SELECT payload FROM snapshots
@@ -1379,18 +1381,61 @@ try {
             $result = [];
             foreach ($rows as $r) {
                 $hosts = [];
+                $manage_enabled = false;
                 if (!empty($r['_latest_payload'])) {
                     $meta = json_decode($r['_latest_payload'], true);
-                    if (is_array($meta)) { $hosts = $meta['windows_hosts_status'] ?? []; }
+                    if (is_array($meta)) {
+                        $hosts = $meta['windows_hosts_status'] ?? [];
+                        $manage_enabled = !empty($meta['windows_manage_enabled']);
+                    }
                 }
                 $result[] = [
                     'tenant' => $r['tenant'],
                     'last_seen' => $r['last_seen'],
                     'windows_hosts' => $hosts,
+                    'manage_enabled' => $manage_enabled,
                 ];
             }
             $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['tenants' => $result]);
+            break;
+
+        case 'request_windows_manage_toggle':
+            // Flip windows_manage.py's DB-backed MANAGE_ENABLED override
+            // for a whole tenant's agent — bare tenant-scoped marker like
+            // request_linux_scan, `enabled` encoded in the filename (0/1)
+            // rather than file content, same trick as request_firmware_
+            // upgrade's backup flag suffix.
+            $tenant = $_GET['tenant'] ?? '';
+            $enabled = ($_GET['enabled'] ?? 'false') === 'true';
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $e = $enabled ? '1' : '0';
+            // Only one pending toggle per tenant makes sense — clear any
+            // opposite-value marker left over from a quick double-click.
+            @unlink($state_dir . "/win_manage_toggle_{$safe}_0.pending");
+            @unlink($state_dir . "/win_manage_toggle_{$safe}_1.pending");
+            file_put_contents($state_dir . "/win_manage_toggle_{$safe}_{$e}.pending", date('c'));
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'enabled'=>$enabled,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'pending_windows_manage_toggles':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/win_manage_toggle_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    if (preg_match('/^win_manage_toggle_(.+)_([01])$/', $base, $m)) {
+                        $pending[] = ['tenant' => $m[1], 'enabled' => $m[2] === '1', 'queued_at' => date('c', filemtime($f))];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
             break;
 
         case 'tunnel_status_all':

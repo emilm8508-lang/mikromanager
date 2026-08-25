@@ -604,7 +604,8 @@
     "windows": {
         "settingsTitle": "Credencial compartida",
         "settingsHint": "Una credencial WinRM usada para todos los hosts Windows — sin selección por host.",
-        "disabledWarning": "La gestión de Windows está deshabilitada en este agente (MIKROTIK_WINDOWS_MANAGE_ENABLED). Comprobar/instalar/reiniciar no funcionará hasta que se habilite en la configuración del agente.",
+        "disabledWarning": "La gestión de Windows está deshabilitada. Instalar/reiniciar no funcionará hasta que la habilites arriba (o desde Central).",
+        "manageEnabledToggle": "Gestión de Windows habilitada",
         "noCredential": "— ninguna seleccionada —",
         "currentCredential": "Credencial actual",
         "scanNow": "Escanear red ahora",

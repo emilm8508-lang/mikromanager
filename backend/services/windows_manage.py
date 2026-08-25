@@ -21,7 +21,7 @@ PSWindowsUpdate's remote mode uses (Invoke-WUJob): write a script to the
 target, register + immediately run a Scheduled Task as SYSTEM (a LOCAL
 execution context on that host, so double-hop doesn't apply), poll for
 its result file, then clean the task and script up. This is the least
-verified part of this module — see MANAGE_ENABLED below.
+verified part of this module — see _manage_enabled() below.
 
 MIKROTIK_WINDOWS_MANAGE_ENABLED defaults to "0" (OFF), unlike Linux's
 default-on MIKROTIK_LINUX_MANAGE_ENABLED — the scheduled-task-as-SYSTEM
@@ -32,6 +32,12 @@ actions too, not discovery/read-only Search) AND separately in
 services/uplink.py's command handler. The per-host managed=True opt-in
 is still the gate that matters day to day, exactly as documented in
 linux_manage.py.
+
+The toggle itself is no longer JUST that env var: WindowsManageSettings.
+manage_enabled (DB) overrides it when set, so the operator can flip this
+from the agent's own UI — or remotely from Central — instead of having
+to SSH/RDP into each agent's OS to edit its environment and restart the
+service. See _manage_enabled() below.
 """
 import asyncio
 import json
@@ -48,7 +54,20 @@ from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
 
-MANAGE_ENABLED = os.environ.get("MIKROTIK_WINDOWS_MANAGE_ENABLED", "0").strip().lower() not in ("0", "false", "no")
+_MANAGE_ENABLED_ENV_DEFAULT = os.environ.get("MIKROTIK_WINDOWS_MANAGE_ENABLED", "0").strip().lower() not in ("0", "false", "no")
+
+
+def _manage_enabled() -> bool:
+    """Effective enabled/disabled state: WindowsManageSettings.manage_enabled
+    (DB, settable from this agent's UI or via Central) if explicitly set,
+    else the MIKROTIK_WINDOWS_MANAGE_ENABLED env var it replaces day to day
+    (kept as the fallback so an untouched deployment behaves exactly as
+    before this setting existed)."""
+    with SessionLocal() as db:
+        row = db.get(WindowsManageSettings, 1)
+        if row is not None and row.manage_enabled is not None:
+            return row.manage_enabled
+    return _MANAGE_ENABLED_ENV_DEFAULT
 
 CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_CHECK_TIMEOUT_SEC", "120"))
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_UPGRADE_TIMEOUT_SEC", "3600"))
@@ -72,22 +91,29 @@ def get_job_status(host_id: int) -> dict:
 # ── Settings (the one shared credential) ────────────────────────────────
 
 def get_settings() -> dict:
+    enabled = _manage_enabled()
     with SessionLocal() as db:
         row = db.get(WindowsManageSettings, 1)
         if not row or not row.credential_id:
-            return {"credential_id": None, "credential_name": None, "enabled": MANAGE_ENABLED}
+            return {"credential_id": None, "credential_name": None, "enabled": enabled}
         cred = db.get(Credential, row.credential_id)
         return {"credential_id": row.credential_id, "credential_name": cred.name if cred else None,
-                "enabled": MANAGE_ENABLED}
+                "enabled": enabled}
 
 
-def set_settings(credential_id: Optional[int]) -> dict:
+def set_settings(credential_id: Optional[int], manage_enabled: Optional[bool] = None) -> dict:
+    """manage_enabled: None means "leave the toggle as it is" (distinct
+    from False, which explicitly turns it off) — the settings form only
+    ever sends a credential change most of the time, and that shouldn't
+    silently reset the enabled toggle back to the env var fallback."""
     with SessionLocal() as db:
         row = db.get(WindowsManageSettings, 1)
         if not row:
             row = WindowsManageSettings(id=1)
             db.add(row)
         row.credential_id = credential_id
+        if manage_enabled is not None:
+            row.manage_enabled = manage_enabled
         row.updated_at = datetime.utcnow()
         db.commit()
     return get_settings()
@@ -165,7 +191,7 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
     known using ONLY the shared credential. New hosts are inserted with
     managed=False (pending) — never auto-enabled. Direct mirror of
     linux_manage.discover_linux_hosts()."""
-    if not MANAGE_ENABLED:
+    if not _manage_enabled():
         return {"skipped": "MIKROTIK_WINDOWS_MANAGE_ENABLED not set"}
 
     cred = _shared_credential()
@@ -527,7 +553,7 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
     unverified against a live Windows Server, per the plan this shipped
     from. reason is required (non-empty) — recorded in activity + the job
     status, matching restart_host's audit trail."""
-    if not MANAGE_ENABLED:
+    if not _manage_enabled():
         return {"error": "Windows management is disabled (MIKROTIK_WINDOWS_MANAGE_ENABLED)"}
     if not reason or not reason.strip():
         return {"error": "reason required"}
@@ -590,7 +616,7 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
 
 
 async def restart_host(host_id: int, reason: str) -> dict:
-    if not MANAGE_ENABLED:
+    if not _manage_enabled():
         return {"error": "Windows management is disabled (MIKROTIK_WINDOWS_MANAGE_ENABLED)"}
     if not reason or not reason.strip():
         return {"error": "reason required"}
@@ -691,7 +717,7 @@ async def run_script(host_id: int, script: str, reason: str) -> dict:
     required in addition to MANAGE_ENABLED. Never exposed through the
     Central command queue (see uplink.py) — only reachable from this
     agent's own, already login+MFA-gated UI."""
-    if not MANAGE_ENABLED:
+    if not _manage_enabled():
         return {"error": "Windows management is disabled (MIKROTIK_WINDOWS_MANAGE_ENABLED)"}
     if not reason or not reason.strip():
         return {"error": "reason required"}

@@ -604,7 +604,8 @@
     "windows": {
         "settingsTitle": "Shared credential",
         "settingsHint": "One WinRM credential used for every Windows host — no per-host selection.",
-        "disabledWarning": "Windows management is disabled on this agent (MIKROTIK_WINDOWS_MANAGE_ENABLED). Check/install/restart won't work until it's enabled in the agent's configuration.",
+        "disabledWarning": "Windows management is disabled. Install/restart won't work until you enable it above (or from Central).",
+        "manageEnabledToggle": "Windows management enabled",
         "noCredential": "— none selected —",
         "currentCredential": "Current credential",
         "scanNow": "Scan network now",

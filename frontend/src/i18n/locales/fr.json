@@ -604,7 +604,8 @@
     "windows": {
         "settingsTitle": "Identifiant partagé",
         "settingsHint": "Un seul identifiant WinRM utilisé pour tous les hôtes Windows — pas de sélection par hôte.",
-        "disabledWarning": "La gestion Windows est désactivée sur cet agent (MIKROTIK_WINDOWS_MANAGE_ENABLED). La vérification/installation/redémarrage ne fonctionnera pas tant qu'elle n'est pas activée dans la configuration de l'agent.",
+        "disabledWarning": "La gestion Windows est désactivée. L'installation/le redémarrage ne fonctionneront pas tant que vous ne l'activez pas ci-dessus (ou depuis Central).",
+        "manageEnabledToggle": "Gestion Windows activée",
         "noCredential": "— aucun sélectionné —",
         "currentCredential": "Identifiant actuel",
         "scanNow": "Scanner le réseau maintenant",

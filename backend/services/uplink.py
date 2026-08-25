@@ -282,9 +282,11 @@ async def _build_snapshot() -> dict:
     try:
         from services import windows_manage
         windows_hosts_status = windows_manage.public_summary()
+        windows_manage_enabled = windows_manage._manage_enabled()
     except Exception as e:
         print(f"[uplink] windows hosts summary error: {e}")
         windows_hosts_status = []
+        windows_manage_enabled = False
 
     try:
         from services import tunnel_monitor as tunnel_monitor_svc
@@ -311,7 +313,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.52",
+        "agent_version": "1.53",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -329,6 +331,7 @@ async def _build_snapshot() -> dict:
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
         "windows_hosts_status": windows_hosts_status,
+        "windows_manage_enabled": windows_manage_enabled,
         "tunnel_status": tunnel_status,
         "inventory_summary": inventory_summary,
     }
@@ -366,6 +369,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "supply_chain_status": snapshot.get("supply_chain_status"),
             "linux_hosts_status": snapshot.get("linux_hosts_status", []),
             "windows_hosts_status": snapshot.get("windows_hosts_status", []),
+            "windows_manage_enabled": snapshot.get("windows_manage_enabled", False),
             "tunnel_status": snapshot.get("tunnel_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
@@ -452,6 +456,8 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "windows_restart":
             host_id = int(c.get("host_id") or 0)
             parts.append(f"windows_restart:{host_id}")
+        elif isinstance(c, dict) and c.get("type") == "windows_manage_toggle":
+            parts.append(f"windows_manage_toggle:{'1' if c.get('enabled') else '0'}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -547,6 +553,12 @@ async def _handle_commands(commands: list) -> None:
         defaults OFF — opt-in, unlike Linux's default-on).
       - {"type":"windows_restart","host_id":N,"reason":str}  — restart a
         managed Windows host. Same MIKROTIK_WINDOWS_MANAGE_ENABLED gate.
+      - {"type":"windows_manage_toggle","enabled":bool}      — flips
+        WindowsManageSettings.manage_enabled locally (services/
+        windows_manage.py's DB-backed override of the env var) — lets
+        Central turn Windows management on/off for a tenant without
+        touching that agent's OS. Deliberately NOT gated on
+        _manage_enabled() itself (see below).
     """
     for cmd in commands:
         if cmd == "update":
@@ -597,9 +609,9 @@ async def _handle_commands(commands: list) -> None:
                 host_id = cmd.get("host_id")
                 reason = cmd.get("reason") or ""
                 from services import windows_manage
-                if not windows_manage.MANAGE_ENABLED:
-                    print(f"[uplink] windows_update received but MIKROTIK_WINDOWS_MANAGE_ENABLED "
-                          f"is not set locally — ignoring (host_id={host_id})")
+                if not windows_manage._manage_enabled():
+                    print(f"[uplink] windows_update received but Windows management "
+                          f"is not enabled locally — ignoring (host_id={host_id})")
                 elif host_id:
                     print(f"[uplink] received WINDOWS_UPDATE for host {host_id}")
                     asyncio.create_task(windows_manage.upgrade_host(int(host_id), reason))
@@ -609,14 +621,24 @@ async def _handle_commands(commands: list) -> None:
                 host_id = cmd.get("host_id")
                 reason = cmd.get("reason") or ""
                 from services import windows_manage
-                if not windows_manage.MANAGE_ENABLED:
-                    print(f"[uplink] windows_restart received but MIKROTIK_WINDOWS_MANAGE_ENABLED "
-                          f"is not set locally — ignoring (host_id={host_id})")
+                if not windows_manage._manage_enabled():
+                    print(f"[uplink] windows_restart received but Windows management "
+                          f"is not enabled locally — ignoring (host_id={host_id})")
                 elif host_id:
                     print(f"[uplink] received WINDOWS_RESTART for host {host_id}")
                     asyncio.create_task(windows_manage.restart_host(int(host_id), reason))
                 else:
                     print(f"[uplink] windows_restart command missing host_id: {cmd}")
+            elif cmd_type == "windows_manage_toggle":
+                # Sets the DB-backed toggle itself — deliberately NOT gated
+                # on _manage_enabled() (that would make the one command
+                # that turns it ON only work when it's already on). Still
+                # tenant-scoped and HMAC-signed like every other command.
+                enabled = bool(cmd.get("enabled"))
+                from services import windows_manage
+                current = windows_manage.get_settings()
+                windows_manage.set_settings(current["credential_id"], enabled)
+                print(f"[uplink] received WINDOWS_MANAGE_TOGGLE — set to {enabled}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

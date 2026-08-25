@@ -15,6 +15,7 @@ class ManagedIn(BaseModel):
 
 class SettingsIn(BaseModel):
     credential_id: int | None = None
+    manage_enabled: bool | None = None
 
 
 class ReasonIn(BaseModel):
@@ -39,7 +40,7 @@ class RunScriptBulkIn(BaseModel):
 
 @router.get("/hosts")
 async def list_hosts():
-    return {"hosts": windows_manage.list_hosts(), "enabled": windows_manage.MANAGE_ENABLED}
+    return {"hosts": windows_manage.list_hosts(), "enabled": windows_manage._manage_enabled()}
 
 
 @router.post("/hosts/{host_id}/managed")
@@ -138,4 +139,4 @@ async def get_settings():
 
 @router.put("/settings")
 async def set_settings(payload: SettingsIn):
-    return windows_manage.set_settings(payload.credential_id)
+    return windows_manage.set_settings(payload.credential_id, payload.manage_enabled)

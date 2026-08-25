@@ -604,7 +604,8 @@
     "windows": {
         "settingsTitle": "Gemeinsame Zugangsdaten",
         "settingsHint": "Ein WinRM-Zugangsdatensatz für alle Windows-Hosts — keine Auswahl pro Host.",
-        "disabledWarning": "Windows-Verwaltung ist auf diesem Agenten deaktiviert (MIKROTIK_WINDOWS_MANAGE_ENABLED). Prüfen/Installieren/Neustart funktioniert erst nach Aktivierung in der Agent-Konfiguration.",
+        "disabledWarning": "Windows-Verwaltung ist deaktiviert. Installieren/Neustart funktioniert erst, wenn du es oben (oder von Central aus) aktivierst.",
+        "manageEnabledToggle": "Windows-Verwaltung aktiviert",
         "noCredential": "— keine ausgewählt —",
         "currentCredential": "Aktuelle Zugangsdaten",
         "scanNow": "Netzwerk jetzt scannen",

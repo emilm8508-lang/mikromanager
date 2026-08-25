@@ -46,6 +46,11 @@ function SettingsPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-settings'] }),
   })
 
+  const toggleEnabled = useMutation({
+    mutationFn: (enabled: boolean) => windowsApi.setSettings(settings?.credential_id ?? null, enabled),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-settings'] }),
+  })
+
   const [scanning, setScanning] = useState(false)
   const [scanPhase, setScanPhase] = useState<string | null>(null)
   const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 })
@@ -101,6 +106,13 @@ function SettingsPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-slate-500">{t('windows.settingsHint')}</p>
+        {settings && (
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={settings.enabled} disabled={toggleEnabled.isPending}
+              onChange={e => toggleEnabled.mutate(e.target.checked)} />
+            {t('windows.manageEnabledToggle')}
+          </label>
+        )}
         {settings && !settings.enabled && (
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />

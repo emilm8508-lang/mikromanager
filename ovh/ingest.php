@@ -52,6 +52,8 @@ function canonical_commands(array $commands): string {
             $parts[] = 'windows_update:' . (int)($c['host_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_restart') {
             $parts[] = 'windows_restart:' . (int)($c['host_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_manage_toggle') {
+            $parts[] = 'windows_manage_toggle:' . (!empty($c['enabled']) ? '1' : '0');
         } else {
             $parts[] = 'unknown';
         }
@@ -393,6 +395,21 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_restart_delivered", ?, ?)')
                     ->execute([$tenant_header, "Restart Windows dostarczony do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3e. Windows-management enable/disable toggle (bare per-tenant flag,
+    // not per-host — enabled is encoded in the filename, not content).
+    foreach (glob($state_dir . "/win_manage_toggle_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^win_manage_toggle_.+_([01])$/', $base, $m)) {
+            $enabled = $m[1] === '1';
+            $commands[] = ['type' => 'windows_manage_toggle', 'enabled' => $enabled];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_manage_toggle_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Przelacznik zarzadzania Windows dostarczony do agenta {$tenant_header}", json_encode(['enabled'=>$enabled,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }
