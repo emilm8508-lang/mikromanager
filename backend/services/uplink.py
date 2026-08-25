@@ -286,11 +286,25 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] tunnel status summary error: {e}")
         tunnel_status = []
 
+    try:
+        from services import inventory
+        # Deliberately NOT added to _build_request_body()'s plaintext
+        # envelope fields (unlike linux_hosts_status/tunnel_status/
+        # supply_chain_status) — same reasoning as vuln_findings_summary
+        # just above: this reveals the full internal network map (every
+        # scanned host's IP, OS, open ports) plus which ones are
+        # vulnerable, the single most sensitive thing this agent sends.
+        # Stays inside the E2E-encrypted snapshot body only.
+        inventory_summary = inventory.build_inventory()
+    except Exception as e:
+        print(f"[uplink] inventory summary error: {e}")
+        inventory_summary = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.49",
+        "agent_version": "1.50",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -308,6 +322,7 @@ async def _build_snapshot() -> dict:
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
         "tunnel_status": tunnel_status,
+        "inventory_summary": inventory_summary,
     }
 
 

@@ -800,5 +800,20 @@
         "name": "Tunel",
         "status": "Status",
         "queryError": "błąd zapytania"
+    },
+    "inventoryCentral": {
+        "title": "Inwentarz — wszyscy klienci",
+        "intro": "Zagregowany, odszyfrowany po stronie przeglądarki inwentarz wszystkich hostów u każdego klienta (wymaga zaimportowanego klucza szyfrowania danego klienta — patrz Kopia kluczy). Przycisk poniżej uruchamia pełny skan sieci u wszystkich klientów naraz — to ten sam skan co w zakładce Linux.",
+        "scanAll": "Skanuj wszystkich klientów ({{count}})",
+        "empty": "Brak danych inwentarza — zaimportuj klucze klientów albo poczekaj na najbliższy skan.",
+        "groupNetwork": "Sieciowe",
+        "groupWindows": "Windows",
+        "groupLinux": "Linux",
+        "groupOther": "Inne",
+        "colGroup": "Grupa",
+        "colNameOrHost": "Nazwa / host",
+        "colDetail": "Szczegóły",
+        "colFindings": "Podatności",
+        "findingsCount": "{{count}} podatności"
     }
 }

@@ -1498,6 +1498,57 @@ export async function getAllTenantCriticalLogs(): Promise<TenantCriticalLog[]> {
   return all.sort((a, b) => (b.time ?? '').localeCompare(a.time ?? ''))
 }
 
+export interface TenantInventoryEntry {
+  tenant: string
+  group: 'network' | 'windows' | 'linux' | 'other'
+  ip: string
+  name: string | null       // network group only
+  hostname: string | null   // windows/linux/other groups only
+  os: string | null
+  model: string | null
+  vendor: string | null
+  ports: number[]
+  findings_count: number
+}
+
+/** Fetch every tenant's latest snapshot, decrypt if possible, return a flat
+ *  inventory row list tagged with tenant id — same shape as
+ *  services/inventory.py's build_inventory(), just flattened across
+ *  tenants. inventory_summary rides inside the E2E-encrypted snapshot body
+ *  only (see uplink.py) — a tenant whose key hasn't been imported here
+ *  contributes nothing, same as getAllTenantDevices() for that case. */
+export async function getAllTenantInventory(): Promise<TenantInventoryEntry[]> {
+  if (!centralConfig.load()) return []
+  let tenantsList: CentralTenantList
+  try { tenantsList = await centralApi.tenants() } catch { return [] }
+
+  const all: TenantInventoryEntry[] = []
+  await Promise.all(tenantsList.tenants.map(async (t) => {
+    try {
+      const snap = await centralApi.snapshot(t.id)
+      if (!snap || snap._encrypted || !snap.inventory_summary) return
+      const inv = snap.inventory_summary
+      for (const n of (inv.network ?? [])) {
+        all.push({
+          tenant: t.id, group: 'network', ip: n.ip, name: n.name, hostname: null,
+          os: null, model: n.model, vendor: n.vendor, ports: [],
+          findings_count: n.findings_count ?? 0,
+        })
+      }
+      for (const group of ['windows', 'linux', 'other'] as const) {
+        for (const h of (inv[group] ?? [])) {
+          all.push({
+            tenant: t.id, group, ip: h.ip, name: null, hostname: h.hostname,
+            os: h.os, model: null, vendor: null, ports: h.ports ?? [],
+            findings_count: h.findings_count ?? 0,
+          })
+        }
+      }
+    } catch { /* ignore one bad tenant */ }
+  }))
+  return all
+}
+
 // Helper to generate a fresh 32-byte key in browser (base64)
 export function generateEncKey(): string {
   const bytes = new Uint8Array(32)
