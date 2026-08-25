@@ -33,6 +33,42 @@ interface FoundLine {
   matched_credential?: string
 }
 
+const DAY_KEYS = ['scanner.dayMon', 'scanner.dayTue', 'scanner.dayWed', 'scanner.dayThu', 'scanner.dayFri', 'scanner.daySat', 'scanner.daySun']
+
+function RangeScheduleEditor({ range, onSave, saving }: {
+  range: { scan_day?: number | null; scan_hour?: number | null }
+  onSave: (args: { scan_day?: number; scan_hour?: number; clear_schedule?: boolean }) => void
+  saving: boolean
+}) {
+  const { t } = useTranslation()
+  const hasCustom = range.scan_day != null && range.scan_hour != null
+  const [day, setDay] = useState<string>(hasCustom ? String(range.scan_day) : '')
+  const [hour, setHour] = useState<number>(hasCustom ? range.scan_hour! : 2)
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select value={day} onChange={e => setDay(e.target.value)}
+        className="border border-slate-300 rounded px-1.5 py-1 text-xs">
+        <option value="">{t('scanner.scheduleGlobal')}</option>
+        {DAY_KEYS.map((key, i) => <option key={i} value={i}>{t(key)}</option>)}
+      </select>
+      {day !== '' && (
+        <select value={hour} onChange={e => setHour(parseInt(e.target.value))}
+          className="border border-slate-300 rounded px-1.5 py-1 text-xs">
+          {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h}:00</option>)}
+        </select>
+      )}
+      <button
+        onClick={() => day === '' ? onSave({ clear_schedule: true }) : onSave({ scan_day: parseInt(day), scan_hour: hour })}
+        disabled={saving}
+        className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+      >
+        {t('common.save')}
+      </button>
+    </div>
+  )
+}
+
 export function Scanner() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -78,6 +114,12 @@ export function Scanner() {
 
   const deleteRange = useMutation({
     mutationFn: scannerApi.deleteRange,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ranges'] }),
+  })
+
+  const updateRangeSchedule = useMutation({
+    mutationFn: (args: { id: number; scan_day?: number; scan_hour?: number; clear_schedule?: boolean }) =>
+      scannerApi.updateRange(args.id, args),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ranges'] }),
   })
 
@@ -175,10 +217,13 @@ export function Scanner() {
           ) : (
             <div className="space-y-2">
               {ranges.map(r => (
-                <div key={r.id} className="flex items-center gap-3 bg-slate-100 rounded-lg px-4 py-2.5">
+                <div key={r.id} className="flex items-center gap-3 bg-slate-100 rounded-lg px-4 py-2.5 flex-wrap">
                   <span className="font-mono text-sm text-slate-800">{r.cidr}</span>
                   {r.label && <span className="text-xs text-slate-500">{r.label}</span>}
                   <Badge variant={r.active ? 'green' : 'gray'}>{r.active ? t('scanner.active') : t('scanner.inactive')}</Badge>
+                  <RangeScheduleEditor range={r}
+                    saving={updateRangeSchedule.isPending}
+                    onSave={args => updateRangeSchedule.mutate({ id: r.id, ...args })} />
                   <Button size="sm" variant="danger" className="ml-auto" onClick={() => deleteRange.mutate(r.id)}>
                     <Trash2 size={13} />
                   </Button>

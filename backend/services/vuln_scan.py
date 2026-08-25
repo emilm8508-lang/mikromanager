@@ -173,13 +173,14 @@ _last_duration_sec: Optional[float] = None
 _hosts_scanned = 0
 _findings_count = 0
 _task: Optional[asyncio.Task] = None
+_range_task: Optional[asyncio.Task] = None
 _nvd_last_call = 0.0
 _vulners_last_call = 0.0
 
 
 def status() -> dict:
     now = datetime.utcnow()
-    next_dt = _next_run_datetime(now)
+    next_dt = _next_occurrence(now, SCAN_DAY, SCAN_HOUR)
     return {
         "in_progress": _in_progress,
         "last_run": _last_run.isoformat() if _last_run else None,
@@ -194,12 +195,15 @@ def status() -> dict:
 
 # ── Scheduling ────────────────────────────────────────────────────────────
 
-def _next_run_datetime(now: datetime) -> datetime:
-    """Next occurrence of SCAN_DAY (0=Mon..6=Sun) at SCAN_HOUR:00, in UTC
-    (server local time — same convention as the rest of this app)."""
-    days_ahead = (SCAN_DAY - now.weekday()) % 7
+def _next_occurrence(now: datetime, day: int, hour: int) -> datetime:
+    """Next occurrence of `day` (0=Mon..6=Sun) at `hour`:00, in UTC (server
+    local time — same convention as the rest of this app). Parameterized
+    version of what used to be _next_run_datetime(now) — SCAN_DAY/
+    SCAN_HOUR is just the global default now passed in explicitly, so the
+    same logic can compute a per-ScanRange schedule too."""
+    days_ahead = (day - now.weekday()) % 7
     candidate = (now + timedelta(days=days_ahead)).replace(
-        hour=SCAN_HOUR, minute=0, second=0, microsecond=0)
+        hour=hour, minute=0, second=0, microsecond=0)
     if candidate <= now:
         candidate += timedelta(days=7)
     return candidate
@@ -209,27 +213,75 @@ async def _loop():
     while True:
         try:
             now = datetime.utcnow()
-            sleep_sec = max(1.0, (_next_run_datetime(now) - now).total_seconds())
+            sleep_sec = max(1.0, (_next_occurrence(now, SCAN_DAY, SCAN_HOUR) - now).total_seconds())
             await asyncio.sleep(sleep_sec)
-            await run_scan()
+            # Ranges with their OWN scan_day/scan_hour are handled by
+            # _range_loop() below instead — excluded here so a range with
+            # a custom schedule isn't scanned twice (once by this global
+            # sweep, once by its own timer). A range without an override
+            # (scan_day IS NULL, true for every range that's never touched
+            # this setting) is covered here exactly as before this existed.
+            with SessionLocal() as db:
+                default_range_ids = [r.id for r in db.execute(
+                    select(ScanRange).where(ScanRange.active == True, ScanRange.scan_day.is_(None))
+                ).scalars().all()]
+            await run_scan(range_ids=default_range_ids)
         except asyncio.CancelledError:
             break
         except Exception as e:
             print(f"[vuln_scan] loop error: {e}")
 
 
+async def _range_loop():
+    """Handles ScanRange rows with their own scan_day/scan_hour — same
+    "sleep until the next occurrence" style as _loop(), but computed
+    across whichever custom-scheduled ranges exist and re-evaluated after
+    each wake so a schedule edited while sleeping takes effect on the next
+    cycle rather than waiting a full week."""
+    while True:
+        try:
+            now = datetime.utcnow()
+            with SessionLocal() as db:
+                custom = db.execute(
+                    select(ScanRange).where(ScanRange.active == True, ScanRange.scan_day.isnot(None))
+                ).scalars().all()
+            if not custom:
+                await asyncio.sleep(3600)
+                continue
+            upcoming = sorted(
+                (_next_occurrence(now, r.scan_day, r.scan_hour or 0), r.id) for r in custom
+            )
+            next_dt, due_range_id = upcoming[0]
+            sleep_sec = max(1.0, (next_dt - now).total_seconds())
+            await asyncio.sleep(sleep_sec)
+            with SessionLocal() as db:
+                r = db.get(ScanRange, due_range_id)
+            if r and r.active and r.scan_day is not None:
+                await run_scan(range_ids=[r.id])
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[vuln_scan] range loop error: {e}")
+
+
 def start():
-    global _task
+    global _task, _range_task
     if _task is None or _task.done():
         loop = asyncio.get_event_loop()
         _task = loop.create_task(_loop())
+    if _range_task is None or _range_task.done():
+        loop = asyncio.get_event_loop()
+        _range_task = loop.create_task(_range_loop())
 
 
 def stop():
-    global _task
+    global _task, _range_task
     if _task and not _task.done():
         _task.cancel()
         _task = None
+    if _range_task and not _range_task.done():
+        _range_task.cancel()
+        _range_task = None
 
 
 # ── Banner parsing (product, version) ────────────────────────────────────────
@@ -1483,7 +1535,7 @@ def _emit(on_event: Optional[Callable], event: dict) -> None:
         print(f"[vuln_scan] on_event callback error: {e}")
 
 
-async def run_scan(on_event: Optional[Callable] = None) -> dict:
+async def run_scan(on_event: Optional[Callable] = None, range_ids: Optional[list] = None) -> dict:
     """Full pass: known devices' tracked versions + live network banner-grab
     across all active ScanRange CIDRs, deduped CVE lookups, persisted results.
 
@@ -1494,7 +1546,14 @@ async def run_scan(on_event: Optional[Callable] = None) -> dict:
     a long time with zero visible feedback otherwise (confirmed: clicking
     "Skanuj sieć teraz" and seeing nothing happen for minutes). Purely
     additive — every existing caller that doesn't pass on_event behaves
-    exactly as before."""
+    exactly as before.
+
+    range_ids, if given (even an empty list), restricts the scan to just
+    the active ScanRange rows with those ids — used by _range_loop() below
+    for a range with its own scan_day/scan_hour. None (the default) means
+    every active range, exactly as before this parameter existed — no
+    existing caller (the manual "Skanuj teraz" button, linux_manage/
+    windows_manage's discovery hooks) changes behavior."""
     global _in_progress, _last_run, _last_duration_sec, _hosts_scanned, _findings_count
 
     if _in_progress:
@@ -1514,7 +1573,10 @@ async def run_scan(on_event: Optional[Callable] = None) -> dict:
                     version_pairs.setdefault(pair, []).append((d.ip, None, "device"))
 
         with SessionLocal() as db:
-            ranges = db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all()
+            ranges_query = select(ScanRange).where(ScanRange.active == True)
+            if range_ids is not None:
+                ranges_query = ranges_query.where(ScanRange.id.in_(range_ids))
+            ranges = db.execute(ranges_query).scalars().all()
             all_creds = db.execute(select(Credential)).scalars().all()
             existing_hosts = db.execute(select(VulnHost)).scalars().all()
             existing_cred_by_ip = {h.ip: h.credential_id for h in existing_hosts}

@@ -21,11 +21,25 @@ class ScanRangeCreate(BaseModel):
     active: bool = True
 
 
+class ScanRangeUpdate(BaseModel):
+    """All optional — only fields actually sent are changed. scan_day/
+    scan_hour: null/omitted means "use the global weekly schedule" (see
+    services/vuln_scan.py's _loop()/_range_loop()); set both to give this
+    one range its own day/hour instead."""
+    label: Optional[str] = None
+    active: Optional[bool] = None
+    scan_day: Optional[int] = None
+    scan_hour: Optional[int] = None
+    clear_schedule: bool = False   # explicit "go back to the global default"
+
+
 class ScanRangeOut(BaseModel):
     id: int
     cidr: str
     label: Optional[str]
     active: bool
+    scan_day: Optional[int] = None
+    scan_hour: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -45,6 +59,28 @@ async def add_range(data: ScanRangeCreate, db: Session = Depends(get_db)):
         raise HTTPException(400, f"Invalid CIDR: {data.cidr}")
     sr = ScanRange(cidr=data.cidr, label=data.label, active=data.active)
     db.add(sr)
+    db.commit()
+    db.refresh(sr)
+    return sr
+
+
+@router.put("/ranges/{range_id}", response_model=ScanRangeOut)
+async def update_range(range_id: int, data: ScanRangeUpdate, db: Session = Depends(get_db)):
+    sr = db.get(ScanRange, range_id)
+    if not sr:
+        raise HTTPException(404, "range not found")
+    if data.label is not None:
+        sr.label = data.label
+    if data.active is not None:
+        sr.active = data.active
+    if data.clear_schedule:
+        sr.scan_day = None
+        sr.scan_hour = None
+    elif data.scan_day is not None and data.scan_hour is not None:
+        if not (0 <= data.scan_day <= 6) or not (0 <= data.scan_hour <= 23):
+            raise HTTPException(400, "scan_day must be 0-6, scan_hour must be 0-23")
+        sr.scan_day = data.scan_day
+        sr.scan_hour = data.scan_hour
     db.commit()
     db.refresh(sr)
     return sr

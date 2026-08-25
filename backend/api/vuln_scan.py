@@ -194,6 +194,35 @@ async def set_host_credential(host_id: int, data: HostCredentialIn):
     return {"ok": True}
 
 
+def _recommend(finding: VulnFinding, affected: list, linux_by_ip: dict) -> str:
+    """Heuristic, computed-on-read remediation text — no new infra, no
+    external calls. Derived purely from what's already in the DB: the
+    reference link NVD/vulners/OSV already gave us, and what KIND of
+    thing is affected (a Device row means RouterOS, a VulnPackage row on
+    a known LinuxHost means an apt/dnf package we can name the exact
+    upgrade command for, anything else is a banner-grabbed network
+    service where the only real levers are "upgrade it" or "firewall it
+    off")."""
+    prefix = "Priorytetowo: " if (finding.severity or "").upper() in ("CRITICAL", "HIGH") else ""
+    ref = f"Sprawdź poprawkę: {finding.ref_url}. " if finding.ref_url else ""
+    kinds = {a["kind"] for a in affected}
+    if "device" in kinds:
+        action = "Zaktualizuj RouterOS w zakładce Urządzenia."
+    elif "package" in kinds:
+        pkg_mgr = None
+        for a in affected:
+            if a["kind"] == "package":
+                lh = linux_by_ip.get(a["ip"])
+                if lh and lh.package_manager:
+                    pkg_mgr = lh.package_manager
+                    break
+        action = (f"Zaktualizuj pakiet: {pkg_mgr} upgrade {finding.product}" if pkg_mgr
+                  else f"Zaktualizuj pakiet {finding.product} do najnowszej wersji.")
+    else:
+        action = f"Zaktualizuj {finding.product} do najnowszej wersji lub ogranicz dostęp do usługi firewallem."
+    return f"{prefix}{ref}{action}"
+
+
 def _build_findings(db, severity: Optional[str] = None) -> list:
     """Every cached CVE finding, joined against whatever currently has that
     (product, version) — live-scanned hosts (VulnService), installed
@@ -208,6 +237,7 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
     packages = db.execute(select(VulnPackage)).scalars().all()
     hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
     devices = db.execute(select(Device)).scalars().all()
+    linux_by_ip = {h.ip: h for h in db.execute(select(LinuxHost)).scalars().all()}
     remediations = {
         (r.product, r.version, r.cve_id): r
         for r in db.execute(select(VulnRemediation)).scalars().all()
@@ -252,6 +282,7 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
             "cve_id": f.cve_id, "cvss_score": f.cvss_score, "severity": f.severity,
             "summary": f.summary, "published": f.published, "ref_url": f.ref_url,
             "affected": affected,
+            "recommendation": _recommend(f, affected, linux_by_ip),
             "status": status,
             "note": r.note if r else None,
             "updated_by": r.updated_by if r else None,
@@ -342,14 +373,14 @@ async def export_findings(severity: Optional[str] = None):
     writer.writerow([
         "cve_id", "severity", "cvss_score", "product", "version", "status",
         "first_seen_at", "due_date", "overdue", "updated_by", "updated_at",
-        "note", "affected_count", "ref_url",
+        "note", "affected_count", "ref_url", "recommendation",
     ])
     for f in findings:
         writer.writerow([_csv_safe(v) for v in (
             f["cve_id"], f["severity"], f["cvss_score"], f["product"], f["version"], f["status"],
             f["first_seen_at"] or "", f["due_date"] or "", f["overdue"],
             f["updated_by"] or "", f["updated_at"] or "", f["note"] or "",
-            len(f["affected"]), f["ref_url"] or "",
+            len(f["affected"]), f["ref_url"] or "", f["recommendation"],
         )])
     buf.seek(0)
     return StreamingResponse(

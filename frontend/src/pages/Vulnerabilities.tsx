@@ -205,6 +205,11 @@ function FindingRow({ finding }: { finding: VulnFindingOut }) {
       {expanded && (
         <div className="px-4 pb-3 space-y-2 text-sm">
           {finding.summary && <p className="text-slate-700 text-xs">{finding.summary}</p>}
+          {finding.recommendation && (
+            <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded p-2">
+              {finding.recommendation}
+            </p>
+          )}
           {finding.ref_url && (
             <a href={finding.ref_url} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-500 text-xs">

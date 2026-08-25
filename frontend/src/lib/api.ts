@@ -110,6 +110,8 @@ export interface ScanRange {
   cidr: string
   label?: string
   active: boolean
+  scan_day?: number | null    // 0=Mon..6=Sun, null = use the global schedule
+  scan_hour?: number | null   // 0-23
 }
 
 // ── Credentials ──────────────────────────────────────────────────────────────
@@ -181,6 +183,8 @@ export const scannerApi = {
   addRange: (data: { cidr: string; label?: string }) =>
     api.post<ScanRange>('/scanner/ranges', data).then(r => r.data),
   deleteRange: (id: number) => api.delete(`/scanner/ranges/${id}`),
+  updateRange: (id: number, data: { label?: string; active?: boolean; scan_day?: number; scan_hour?: number; clear_schedule?: boolean }) =>
+    api.put<ScanRange>(`/scanner/ranges/${id}`, data).then(r => r.data),
   probe: (ip: string, opts?: { credentialId?: number; timeout?: number }) =>
     api.get<ScannerProbeResult>('/scanner/probe', {
       params: {
@@ -590,6 +594,7 @@ export interface VulnFindingOut {
   published: string | null
   ref_url: string | null
   affected: VulnFindingAffected[]
+  recommendation: string
   status: VulnRemediationStatus
   note: string | null
   updated_by: string | null
