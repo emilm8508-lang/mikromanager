@@ -8,6 +8,7 @@
                 "logs":  "Журналы",
                 "vulnerabilities":  "Уязвимости",
                 "linuxHosts":  "Linux",
+                "inventory":  "Инвентарь",
                 "audit":  "Аудит",
                 "security":  "Безопасность",
                 "central":  "Центр",
@@ -597,5 +598,21 @@
             "linux_refresh": "Обновление ожидающих обновлений"
         },
         "skipNotesTitle": "Найденные, но не добавленные хосты (видны, например, в Уязвимостях с другими учётными данными):"
+    },
+    "inventory": {
+        "subtitle": "Всё, что нашёл сканер, сгруппировано — сетевые устройства, хосты Windows и Linux (только серверные порты: SSH для Linux, SMB/RDP для Windows), а всё остальное — только если есть реальная уязвимость.",
+        "groupNetwork": "Сетевые устройства",
+        "groupWindows": "Хосты Windows",
+        "groupLinux": "Хосты Linux",
+        "groupOther": "Прочее (только уязвимые)",
+        "empty": "Ничего не найдено",
+        "colName": "Имя",
+        "colModel": "Модель",
+        "colVendor": "Производитель",
+        "colHostname": "Имя хоста",
+        "colOs": "ОС",
+        "colPorts": "Открытые порты",
+        "colFindings": "Уязвимости",
+        "findingsCount": "{{count}} уязвимостей"
     }
 }

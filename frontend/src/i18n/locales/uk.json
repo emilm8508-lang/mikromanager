@@ -8,6 +8,7 @@
                 "logs":  "Журнали",
                 "vulnerabilities":  "Вразливості",
                 "linuxHosts":  "Linux",
+                "inventory":  "Інвентар",
                 "audit":  "Аудит",
                 "security":  "Безпека",
                 "central":  "Центр",
@@ -597,5 +598,21 @@
             "linux_refresh": "Оновлення очікуваних оновлень"
         },
         "skipNotesTitle": "Знайдені, але не додані хости (видимі, наприклад, у Вразливостях з іншими обліковими даними):"
+    },
+    "inventory": {
+        "subtitle": "Усе, що знайшов сканер, згруповано — мережеві пристрої, хости Windows і Linux (лише серверні порти: SSH для Linux, SMB/RDP для Windows), а все інше — лише якщо є реальна вразливість.",
+        "groupNetwork": "Мережеві пристрої",
+        "groupWindows": "Хости Windows",
+        "groupLinux": "Хости Linux",
+        "groupOther": "Інше (лише вразливі)",
+        "empty": "Нічого не знайдено",
+        "colName": "Назва",
+        "colModel": "Модель",
+        "colVendor": "Виробник",
+        "colHostname": "Ім'я хоста",
+        "colOs": "ОС",
+        "colPorts": "Відкриті порти",
+        "colFindings": "Вразливості",
+        "findingsCount": "{{count}} вразливостей"
     }
 }

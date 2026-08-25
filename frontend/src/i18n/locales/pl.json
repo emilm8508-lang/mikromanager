@@ -8,6 +8,7 @@
                 "logs":  "Logi",
                 "vulnerabilities":  "Podatności",
                 "linuxHosts":  "Linux",
+                "inventory":  "Inwentarz",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
                 "central":  "Centralny",
@@ -759,6 +760,22 @@
             "linux_refresh": "Odświeżanie oczekujących aktualizacji"
         },
         "skipNotesTitle": "Znalezione, ale niedodane hosty (widoczne np. w Podatnościach z innym poświadczeniem):"
+    },
+    "inventory": {
+        "subtitle": "Wszystko, co znalazł skaner, pogrupowane — urządzenia sieciowe, hosty Windows i Linux (tylko z portami typowymi dla serwera: SSH dla Linuksa, SMB/RDP dla Windows), a wszystko inne tylko jeśli ma realną podatność.",
+        "groupNetwork": "Urządzenia sieciowe",
+        "groupWindows": "Hosty Windows",
+        "groupLinux": "Hosty Linux",
+        "groupOther": "Inne (tylko podatne)",
+        "empty": "Nic nie znaleziono",
+        "colName": "Nazwa",
+        "colModel": "Model",
+        "colVendor": "Producent",
+        "colHostname": "Nazwa hosta",
+        "colOs": "System",
+        "colPorts": "Otwarte porty",
+        "colFindings": "Podatności",
+        "findingsCount": "{{count}} podatności"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

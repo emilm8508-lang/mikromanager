@@ -8,6 +8,7 @@
                 "logs":  "Journaux",
                 "vulnerabilities":  "Vulnérabilités",
                 "linuxHosts":  "Linux",
+                "inventory":  "Inventaire",
                 "audit":  "Audit",
                 "security":  "Sécurité",
                 "central":  "Central",
@@ -597,5 +598,21 @@
             "linux_refresh": "Actualisation des mises à jour en attente"
         },
         "skipNotesTitle": "Hôtes trouvés mais non ajoutés (visibles p. ex. dans Vulnérabilités avec un autre identifiant) :"
+    },
+    "inventory": {
+        "subtitle": "Tout ce que le scanner a trouvé, groupé — appareils réseau, hôtes Windows et Linux (uniquement les ports typiques d'un serveur : SSH pour Linux, SMB/RDP pour Windows), et tout le reste uniquement s'il a une vulnérabilité réelle.",
+        "groupNetwork": "Appareils réseau",
+        "groupWindows": "Hôtes Windows",
+        "groupLinux": "Hôtes Linux",
+        "groupOther": "Autres (vulnérables uniquement)",
+        "empty": "Aucun trouvé",
+        "colName": "Nom",
+        "colModel": "Modèle",
+        "colVendor": "Fabricant",
+        "colHostname": "Nom d'hôte",
+        "colOs": "OS",
+        "colPorts": "Ports ouverts",
+        "colFindings": "Vulnérabilités",
+        "findingsCount": "{{count}} vulnérabilités"
     }
 }

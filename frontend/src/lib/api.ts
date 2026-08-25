@@ -605,6 +605,36 @@ export const vulnApi = {
     ).then(r => r.data),
 }
 
+// ── Inventory (grouped view of everything the scanner found) ─────────────────
+
+export interface InventoryNetworkEntry {
+  ip: string
+  name: string | null
+  model: string | null
+  vendor: string | null
+  version: string | null
+  findings_count: number
+}
+
+export interface InventoryHostEntry {
+  ip: string
+  hostname: string | null
+  os: string | null
+  ports: number[]
+  findings_count: number
+}
+
+export interface InventoryOut {
+  network: InventoryNetworkEntry[]
+  windows: InventoryHostEntry[]
+  linux: InventoryHostEntry[]
+  other: InventoryHostEntry[]
+}
+
+export const inventoryApi = {
+  get: () => api.get<InventoryOut>('/inventory').then(r => r.data),
+}
+
 // ── Linux host management (apt update/upgrade) ────────────────────────────────
 
 export interface LinuxHostOut {

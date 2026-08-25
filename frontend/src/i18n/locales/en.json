@@ -8,6 +8,7 @@
                 "logs":  "Logs",
                 "vulnerabilities":  "Vulnerabilities",
                 "linuxHosts":  "Linux",
+                "inventory":  "Inventory",
                 "audit":  "Audit",
                 "security":  "Security",
                 "central":  "Central",
@@ -597,5 +598,21 @@
             "linux_refresh": "Refreshing pending updates"
         },
         "skipNotesTitle": "Hosts found but not added (shown elsewhere, e.g. Vulnerabilities, with a different credential):"
+    },
+    "inventory": {
+        "subtitle": "Everything the scanner has found, grouped — network devices, Windows and Linux hosts (server-like ports only: SSH for Linux, SMB/RDP for Windows), and anything else only if it has an actual vulnerability finding.",
+        "groupNetwork": "Network devices",
+        "groupWindows": "Windows hosts",
+        "groupLinux": "Linux hosts",
+        "groupOther": "Other (vulnerable only)",
+        "empty": "None found",
+        "colName": "Name",
+        "colModel": "Model",
+        "colVendor": "Vendor",
+        "colHostname": "Hostname",
+        "colOs": "OS",
+        "colPorts": "Open ports",
+        "colFindings": "Findings",
+        "findingsCount": "{{count}} findings"
     }
 }

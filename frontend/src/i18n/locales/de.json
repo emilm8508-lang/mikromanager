@@ -8,6 +8,7 @@
                 "logs":  "Protokolle",
                 "vulnerabilities":  "Schwachstellen",
                 "linuxHosts":  "Linux",
+                "inventory":  "Inventar",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
                 "central":  "Zentral",
@@ -597,5 +598,21 @@
             "linux_refresh": "Ausstehende Updates werden aktualisiert"
         },
         "skipNotesTitle": "Gefundene, aber nicht hinzugefügte Hosts (z. B. in Schwachstellen mit anderen Zugangsdaten sichtbar):"
+    },
+    "inventory": {
+        "subtitle": "Alles, was der Scanner gefunden hat, gruppiert — Netzwerkgeräte, Windows- und Linux-Hosts (nur serverähnliche Ports: SSH für Linux, SMB/RDP für Windows), und alles andere nur bei einer tatsächlichen Schwachstelle.",
+        "groupNetwork": "Netzwerkgeräte",
+        "groupWindows": "Windows-Hosts",
+        "groupLinux": "Linux-Hosts",
+        "groupOther": "Sonstige (nur verwundbare)",
+        "empty": "Nichts gefunden",
+        "colName": "Name",
+        "colModel": "Modell",
+        "colVendor": "Hersteller",
+        "colHostname": "Hostname",
+        "colOs": "Betriebssystem",
+        "colPorts": "Offene Ports",
+        "colFindings": "Schwachstellen",
+        "findingsCount": "{{count}} Schwachstellen"
     }
 }

@@ -8,6 +8,7 @@
                 "logs":  "Registros",
                 "vulnerabilities":  "Vulnerabilidades",
                 "linuxHosts":  "Linux",
+                "inventory":  "Inventario",
                 "audit":  "Auditoría",
                 "security":  "Seguridad",
                 "central":  "Central",
@@ -597,5 +598,21 @@
             "linux_refresh": "Actualizando actualizaciones pendientes"
         },
         "skipNotesTitle": "Hosts encontrados pero no añadidos (visibles p. ej. en Vulnerabilidades con otra credencial):"
+    },
+    "inventory": {
+        "subtitle": "Todo lo que el escáner ha encontrado, agrupado — dispositivos de red, hosts Windows y Linux (solo puertos típicos de servidor: SSH para Linux, SMB/RDP para Windows), y cualquier otra cosa solo si tiene una vulnerabilidad real.",
+        "groupNetwork": "Dispositivos de red",
+        "groupWindows": "Hosts Windows",
+        "groupLinux": "Hosts Linux",
+        "groupOther": "Otros (solo vulnerables)",
+        "empty": "No se encontró nada",
+        "colName": "Nombre",
+        "colModel": "Modelo",
+        "colVendor": "Fabricante",
+        "colHostname": "Nombre de host",
+        "colOs": "SO",
+        "colPorts": "Puertos abiertos",
+        "colFindings": "Vulnerabilidades",
+        "findingsCount": "{{count}} vulnerabilidades"
     }
 }
