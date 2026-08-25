@@ -102,6 +102,19 @@ CONNECT_TIMEOUT = 1.0
 BANNER_TIMEOUT = 2.0
 SCAN_CONCURRENCY = int(os.environ.get("MIKROTIK_VULN_SCAN_CONCURRENCY", "40"))
 
+# Second-pass recheck of hosts that came back with zero open ports from
+# the main burst — low concurrency, generous timeout, run once the main
+# burst has gone quiet (see run_scan()). Mirrors scanner.py's identical
+# fix for Mikrotik device discovery. _probe_host()'s own in-place retry
+# (double the timeout, same burst) wasn't enough for a host under
+# SUSTAINED congestion for the whole scan's duration — confirmed on a
+# real host (the agent's own machine, which uniquely has to handle BOTH
+# outbound scan traffic AND inbound connections hairpinned back to itself
+# on the exact same network stack) that never got detected during a real
+# scan despite this module's own probe finding it instantly in isolation.
+RECHECK_CONCURRENCY = 5
+RECHECK_TIMEOUT = 3.0
+
 # Dedicated thread pool for this module's blocking SSH/WinRM/vulners calls —
 # NOT the process's default executor (loop.run_in_executor(None, ...) uses
 # a SHARED pool, same one Starlette/anyio reach for internally for things
@@ -1351,7 +1364,7 @@ async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:
         db.commit()
 
 
-async def _probe_host(ip: str, sem: asyncio.Semaphore) -> dict:
+async def _probe_host(ip: str, sem: asyncio.Semaphore, base_timeout: float = CONNECT_TIMEOUT) -> dict:
     """Returns {port: (service_name, banner, product, version)} for every
     open port found on this host.
 
@@ -1368,11 +1381,11 @@ async def _probe_host(ip: str, sem: asyncio.Semaphore) -> dict:
     scanner.py's), so the earlier fix there never covered this path."""
     async with sem:
         open_ports = await asyncio.gather(*[
-            scan_svc._tcp_open(ip, p, timeout=CONNECT_TIMEOUT) for p in ALL_PORTS
+            scan_svc._tcp_open(ip, p, timeout=base_timeout) for p in ALL_PORTS
         ])
         if not any(open_ports):
             open_ports = await asyncio.gather(*[
-                scan_svc._tcp_open(ip, p, timeout=CONNECT_TIMEOUT * 2) for p in ALL_PORTS
+                scan_svc._tcp_open(ip, p, timeout=base_timeout * 2) for p in ALL_PORTS
             ])
         found = {}
         for port, is_open in zip(ALL_PORTS, open_ports):
@@ -1496,6 +1509,26 @@ async def run_scan() -> dict:
 
         sem = asyncio.Semaphore(SCAN_CONCURRENCY)
         results = await asyncio.gather(*[_probe_host(ip, sem) for ip in all_ips])
+
+        # Second, low-concurrency recheck pass for hosts that came back with
+        # zero open ports from the main burst — _probe_host()'s own in-place
+        # retry (double the timeout, but still inside the SAME burst) isn't
+        # enough for a host under sustained congestion for the whole scan's
+        # duration, not just a brief blip. Confirmed on a real host (the
+        # agent's own machine — uniquely burdened, since it has to handle
+        # both outbound scan traffic AND inbound connections hairpinned
+        # back to itself on the same network stack) that this module's own
+        # probe found instantly in isolation but the real scan never did.
+        dead_indices = [i for i, r in enumerate(results) if not r]
+        if dead_indices:
+            recheck_sem = asyncio.Semaphore(RECHECK_CONCURRENCY)
+            recheck_results = await asyncio.gather(*[
+                _probe_host(all_ips[i], recheck_sem, base_timeout=RECHECK_TIMEOUT)
+                for i in dead_indices
+            ])
+            for i, r in zip(dead_indices, recheck_results):
+                if r:
+                    results[i] = r
 
         alive_ips, alive_results = [], []
         auth_by_ip: dict = {}  # ip -> auth_info dict from _auth_augment
