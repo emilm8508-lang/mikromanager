@@ -1263,6 +1263,136 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'request_windows_update':
+            // Queue a Windows Update install on a specific Windows host of
+            // a specific tenant. The agent picks it up on next heartbeat
+            // and runs windows_manage.upgrade_host — but only if that
+            // agent has MIKROTIK_WINDOWS_MANAGE_ENABLED set locally (see
+            // uplink.py's _handle_commands): this marker alone is not
+            // enough to force the action on an agent whose operator never
+            // opted in. Mirrors request_linux_apt_upgrade, with one
+            // addition: reason is required and travels as the marker
+            // file's own content (not just its filename/mtime), since
+            // ingest.php needs to hand it to the agent as command data.
+            $tenant = $_GET['tenant'] ?? '';
+            $host_id = (int)($_GET['host_id'] ?? 0);
+            $reason = trim($_GET['reason'] ?? '');
+            if ($tenant === '' || $host_id <= 0 || $reason === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, host_id and reason required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/win_update_{$safe}_{$host_id}.pending";
+            file_put_contents($marker, $reason);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'host_id' => $host_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_windows_updates':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/win_update_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // win_update_TENANT_HOSTID
+                    if (preg_match('/^win_update_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'host_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'request_windows_restart':
+            // Same marker-with-content pattern as request_windows_update
+            // above, separate command type so the agent can distinguish
+            // "install updates" from "just restart" (e.g. after an update
+            // that reported reboot_required).
+            $tenant = $_GET['tenant'] ?? '';
+            $host_id = (int)($_GET['host_id'] ?? 0);
+            $reason = trim($_GET['reason'] ?? '');
+            if ($tenant === '' || $host_id <= 0 || $reason === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, host_id and reason required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/win_restart_{$safe}_{$host_id}.pending";
+            file_put_contents($marker, $reason);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'host_id' => $host_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_windows_restarts':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/win_restart_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // win_restart_TENANT_HOSTID
+                    if (preg_match('/^win_restart_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'host_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'windows_hosts_status_all':
+            // Mirrors linux_hosts_status_all exactly — plaintext envelope
+            // metadata, only ever managed=True hosts (windows_manage.
+            // public_summary()), no E2E key needed.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $hosts = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $hosts = $meta['windows_hosts_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'windows_hosts' => $hosts,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'tunnel_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as linux_hosts_status_all: latest

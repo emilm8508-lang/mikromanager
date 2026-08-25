@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralTunnelStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -1165,6 +1165,198 @@ function LinuxCentralPanel() {
 }
 
 
+function WindowsCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; host: CentralWindowsHostStatus }>>([])
+  const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
+  const [pendingUpdates, setPendingUpdates] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
+  const [pendingRestarts, setPendingRestarts] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
+  const [tenants, setTenants] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [busyScan, setBusyScan] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const [s, ps, pu, pr] = await Promise.all([
+        centralApi.windowsHostsStatusAll(),
+        centralApi.pendingLinuxScans(),
+        centralApi.pendingWindowsUpdates(),
+        centralApi.pendingWindowsRestarts(),
+      ])
+      const flat: Array<{ tenant: string; host: CentralWindowsHostStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const h of tRow.windows_hosts) flat.push({ tenant: tRow.tenant, host: h })
+      }
+      setRows(flat)
+      setTenants(s.tenants.map(tRow => tRow.tenant))
+      setPendingScans(ps.pending ?? [])
+      setPendingUpdates(pu.pending ?? [])
+      setPendingRestarts(pr.pending ?? [])
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const scanPendingSet = new Set(pendingScans.map(p => p.tenant))
+  const updatePendingSet = new Set(pendingUpdates.map(p => `${p.tenant}:${p.host_id}`))
+  const restartPendingSet = new Set(pendingRestarts.map(p => `${p.tenant}:${p.host_id}`))
+
+  const scanNow = async (tenant: string) => {
+    setBusyScan(tenant)
+    // Windows discovery reuses the SAME "scan the network" trigger as
+    // Linux (request_linux_scan runs vuln_scan.run_scan(), which now
+    // also calls windows_manage.discover_windows_hosts() at its end) —
+    // no separate "scan for Windows hosts" command needed.
+    try { await centralApi.requestLinuxScan(tenant); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyScan(null) }
+  }
+
+  const scanAll = async () => {
+    const targets = tenants.filter(tn => !scanPendingSet.has(tn))
+    if (targets.length === 0) return
+    setBusyScan('__all__')
+    try {
+      await Promise.all(targets.map(tn => centralApi.requestLinuxScan(tn)))
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusyScan(null)
+    }
+  }
+
+  const updateNow = async (tenant: string, hostId: number) => {
+    const reason = window.prompt(t('windowsCentral.reasonPromptUpdate') as string)
+    if (reason === null) return
+    if (!reason.trim()) { alert(t('windowsCentral.reasonRequired') as string); return }
+    const key = `${tenant}:${hostId}`
+    setBusyAction(key)
+    try { await centralApi.requestWindowsUpdate(tenant, hostId, reason.trim()); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyAction(null) }
+  }
+
+  const restartNow = async (tenant: string, hostId: number) => {
+    const reason = window.prompt(t('windowsCentral.reasonPromptRestart') as string)
+    if (reason === null) return
+    if (!reason.trim()) { alert(t('windowsCentral.reasonRequired') as string); return }
+    const key = `${tenant}:${hostId}`
+    setBusyAction(key)
+    try { await centralApi.requestWindowsRestart(tenant, hostId, reason.trim()); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyAction(null) }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('windowsCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('windowsCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {tenants.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={scanAll} disabled={busyScan !== null}
+            className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+            {t('windowsCentral.scanAll', { count: tenants.length })}
+          </button>
+          <span className="text-slate-300">|</span>
+          {tenants.map(tn => {
+            const queued = scanPendingSet.has(tn)
+            return (
+              <button key={tn} onClick={() => scanNow(tn)} disabled={busyScan === tn || busyScan === '__all__' || queued}
+                className={`text-xs px-2 py-1 rounded border ${queued ? 'bg-amber-100 text-amber-700 border-amber-200' : 'border-slate-300 text-indigo-600 hover:bg-indigo-50'}`}>
+                {queued ? t('windowsCentral.scanQueued', { tenant: tn }) : t('windowsCentral.scanTenant', { tenant: tn })}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('windowsCentral.noHosts')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>Host</th>
+                <th>{t('windowsCentral.os')}</th>
+                <th>{t('windowsCentral.pending')}</th>
+                <th>{t('windowsCentral.lastUpgrade')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, host }) => {
+                const key = `${tenant}:${host.id}`
+                const updateQueued = updatePendingSet.has(key)
+                const restartQueued = restartPendingSet.has(key)
+                return (
+                  <tr key={key} className="border-b border-slate-100">
+                    <td className="py-2">{tenant}</td>
+                    <td className="font-mono text-xs">{host.hostname || host.ip}</td>
+                    <td className="text-xs text-slate-500">{host.os_name ?? '—'}</td>
+                    <td>
+                      {host.upgradable_count != null ? (
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                          {host.upgradable_count}
+                        </span>
+                      ) : <span className="text-xs text-slate-400">—</span>}
+                      {host.reboot_required && (
+                        <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('windowsCentral.rebootRequired')}</span>
+                      )}
+                    </td>
+                    <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
+                    <td className="text-right space-x-2">
+                      {updateQueued ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
+                      ) : (
+                        <button onClick={() => updateNow(tenant, host.id)} disabled={busyAction === key}
+                          className="text-xs text-indigo-600 hover:underline">
+                          {t('windowsCentral.updateNow')}
+                        </button>
+                      )}
+                      {restartQueued ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
+                      ) : (
+                        <button onClick={() => restartNow(tenant, host.id)} disabled={busyAction === key}
+                          className="text-xs text-indigo-600 hover:underline">
+                          {t('windowsCentral.restartNow')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function TunnelCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; tunnel: CentralTunnelStatus }>>([])
@@ -1350,6 +1542,7 @@ export function MonitoringPanel() {
       <TunnelCentralPanel />
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />
+      <WindowsCentralPanel />
     </div>
   )
 }

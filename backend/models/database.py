@@ -316,6 +316,47 @@ class LinuxManageSettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class WindowsHost(Base):
+    """A Windows server the operator has opted into centralized Windows
+    Update management (services/windows_manage.py) — direct analog of
+    LinuxHost above, same reasoning for being a separate table from
+    VulnHost (pruning safety, persisted identity). Discovered from
+    services/vuln_scan.py's own weekly pass (any host with an open WinRM
+    port 5985/5986 — see vuln_scan.py's WINRM_PORTS)."""
+    __tablename__ = "windows_hosts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False, unique=True, index=True)
+    hostname = Column(String, nullable=True)            # "Host Name:" from systeminfo
+    os_name = Column(String, nullable=True)              # e.g. "Microsoft Windows Server 2019 Standard"
+    os_version = Column(String, nullable=True)
+    winrm_port = Column(Integer, nullable=True)          # 5985 or 5986
+    managed = Column(Boolean, nullable=False, default=False)
+    source = Column(String, nullable=False, default="auto")   # "auto" | "manual"
+    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_check_at = Column(DateTime, nullable=True)
+    last_upgrade_at = Column(DateTime, nullable=True)
+    upgradable_count = Column(Integer, nullable=True)
+    upgradable_titles = Column(Text, nullable=True)      # JSON list of update titles, capped
+    reboot_required = Column(Boolean, nullable=False, default=False)
+    last_status = Column(String, nullable=True)           # "ok" | "error" | "timeout"
+    last_error = Column(Text, nullable=True)
+    last_restart_at = Column(DateTime, nullable=True)
+    last_restart_reason = Column(Text, nullable=True)
+
+
+class WindowsManageSettings(Base):
+    """Single-row (id always 1) global config: the ONE shared Credential used
+    for every managed Windows host — same "one credential for all" model as
+    LinuxManageSettings, per the user's explicit request to mirror Linux."""
+    __tablename__ = "windows_manage_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

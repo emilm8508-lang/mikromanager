@@ -27,7 +27,7 @@ Rules (agreed with the user):
 from typing import List
 from sqlalchemy import select
 
-from models.database import SessionLocal, Device, VulnHost, VulnService, VulnPackage, VulnFinding, LinuxHost
+from models.database import SessionLocal, Device, VulnHost, VulnService, VulnPackage, VulnFinding, LinuxHost, WindowsHost
 
 _NETWORK_VENDORS = {"mikrotik", "cisco-sb"}
 _LINUX_PORT = 22
@@ -49,10 +49,12 @@ def build_inventory() -> dict:
         packages = db.execute(select(VulnPackage)).scalars().all()
         findings = db.execute(select(VulnFinding)).scalars().all()
         linux_hosts = db.execute(select(LinuxHost)).scalars().all()
+        windows_hosts = db.execute(select(WindowsHost)).scalars().all()
 
     finding_pvs = {(f.product, f.version) for f in findings}
     hosts_by_id = {h.id: h for h in vuln_hosts}
     linux_by_ip = {h.ip: h for h in linux_hosts}
+    windows_by_ip = {h.ip: h for h in windows_hosts}
 
     # Same (product, version) -> "does a cached CVE finding exist for this"
     # matching services/vuln_scan.py's own findings pipeline relies on —
@@ -94,10 +96,11 @@ def build_inventory() -> dict:
             continue  # already covered by the network group (or excluded from it deliberately)
         ports = sorted({s.port for s in services_by_host.get(h.id, [])})
         lh = linux_by_ip.get(h.ip)
+        wh = windows_by_ip.get(h.ip)
         entry = {
             "ip": h.ip,
-            "hostname": lh.hostname if lh else None,
-            "os": lh.distro_pretty if lh else None,
+            "hostname": lh.hostname if lh else (wh.hostname if wh else None),
+            "os": lh.distro_pretty if lh else (wh.os_name if wh else None),
             "ports": ports,
             "findings_count": findings_count_by_ip.get(h.ip, 0),
         }

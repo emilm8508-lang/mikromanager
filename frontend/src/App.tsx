@@ -11,6 +11,7 @@ import { Central } from './pages/Central'
 import { CentralInventory } from './pages/CentralInventory'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
+import { WindowsHosts } from './pages/WindowsHosts'
 import { Inventory } from './pages/Inventory'
 import { AuditLog } from './pages/AuditLog'
 import { Security } from './pages/Security'
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/vulnerabilities" element={<Vulnerabilities />} />
             <Route path="/linux" element={<LinuxHosts />} />
+            <Route path="/windows" element={<WindowsHosts />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/security" element={<Security />} />

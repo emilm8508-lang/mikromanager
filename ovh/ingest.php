@@ -43,6 +43,15 @@ function canonical_commands(array $commands): string {
             $parts[] = 'fetch_logs:' . (int)($c['device_id'] ?? 0) . ':' . (int)($c['limit'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'linux_apt_upgrade') {
             $parts[] = 'linux_apt_upgrade:' . (int)($c['host_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_update') {
+            // Deliberately NOT including reason in the signed string —
+            // free-text in a signature is fragile across encodings, and
+            // the fact "someone with the right key queued host_id N" is
+            // already what matters for authenticity, same reasoning as
+            // linux_apt_upgrade above.
+            $parts[] = 'windows_update:' . (int)($c['host_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_restart') {
+            $parts[] = 'windows_restart:' . (int)($c['host_id'] ?? 0);
         } else {
             $parts[] = 'unknown';
         }
@@ -353,6 +362,37 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_apt_upgrade_delivered", ?, ?)')
                     ->execute([$tenant_header, "Aktualizacja apt dostarczona do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3c. Windows Update install commands (per host, may be multiple
+    // queued) — reason travels as the marker file's own content, since
+    // (unlike linux_upgrade's bare timestamp marker) the agent needs it
+    // as actual command data, not just a trigger.
+    foreach (glob($state_dir . "/win_update_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^win_update_.+_(\d+)$/', $base, $m)) {
+            $reason = trim(@file_get_contents($f));
+            $commands[] = ['type' => 'windows_update', 'host_id' => (int)$m[1], 'reason' => $reason];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_update_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Aktualizacja Windows dostarczona do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3d. Windows restart commands (per host, may be multiple queued)
+    foreach (glob($state_dir . "/win_restart_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^win_restart_.+_(\d+)$/', $base, $m)) {
+            $reason = trim(@file_get_contents($f));
+            $commands[] = ['type' => 'windows_restart', 'host_id' => (int)$m[1], 'reason' => $reason];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_restart_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Restart Windows dostarczony do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

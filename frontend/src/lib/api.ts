@@ -458,6 +458,18 @@ export interface CentralLinuxHostStatus {
   last_status: string | null
 }
 
+// Mirror of CentralLinuxHostStatus for windows_manage.public_summary().
+export interface CentralWindowsHostStatus {
+  id: number
+  ip: string
+  hostname: string | null
+  os_name: string | null
+  upgradable_count: number | null
+  reboot_required: boolean
+  last_upgrade_at: string | null
+  last_status: string | null
+}
+
 // Redacted per-tunnel status an agent includes in its snapshot envelope
 // (see services/tunnel_monitor.py's public_summary()) — current up/down
 // state only, same data already visible locally on the agent's own
@@ -691,6 +703,68 @@ export const linuxApi = {
   getSettings: () => api.get<LinuxSettings>('/linux/settings').then(r => r.data),
   setSettings: (credentialId: number | null) =>
     api.put<LinuxSettings>('/linux/settings', { credential_id: credentialId }).then(r => r.data),
+}
+
+// ── Windows host management (Windows Update install/restart) ──────────────────
+
+export interface WindowsHostOut {
+  id: number
+  ip: string
+  hostname: string | null
+  os_name: string | null
+  os_version: string | null
+  winrm_port: number | null
+  managed: boolean
+  source: 'auto' | 'manual'
+  first_seen_at: string | null
+  last_seen_at: string | null
+  last_check_at: string | null
+  last_upgrade_at: string | null
+  upgradable_count: number | null
+  reboot_required: boolean
+  last_status: 'ok' | 'error' | 'timeout' | null
+  last_error: string | null
+  last_restart_at: string | null
+  last_restart_reason: string | null
+}
+
+export interface WindowsJobStatus {
+  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'restarting' | 'done' | 'error' | 'timeout'
+  started_at?: string
+  finished_at?: string
+  ip?: string
+  identity?: string
+  reason?: string
+  log?: string[]
+  error?: string
+  upgradable_count?: number
+  reboot_required?: boolean
+}
+
+export interface WindowsSettings {
+  credential_id: number | null
+  credential_name: string | null
+  enabled: boolean
+}
+
+export const windowsApi = {
+  hosts: () => api.get<{ hosts: WindowsHostOut[]; enabled: boolean }>('/windows/hosts').then(r => r.data),
+  setManaged: (hostId: number, managed: boolean) =>
+    api.post<WindowsHostOut>(`/windows/hosts/${hostId}/managed`, { managed }).then(r => r.data),
+  check: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/check`).then(r => r.data),
+  upgrade: (hostId: number, reason: string) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/upgrade`, { reason }).then(r => r.data),
+  restart: (hostId: number, reason: string) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/restart`, { reason }).then(r => r.data),
+  status: (hostId: number) =>
+    api.get<WindowsJobStatus>(`/windows/hosts/${hostId}/status`).then(r => r.data),
+  upgradeBulk: (ids: number[], reason: string) =>
+    api.post<{ queued: number }>('/windows/hosts/upgrade-bulk', { ids, reason }).then(r => r.data),
+  discover: () => api.post<{ started: boolean }>('/windows/discover').then(r => r.data),
+  getSettings: () => api.get<WindowsSettings>('/windows/settings').then(r => r.data),
+  setSettings: (credentialId: number | null) =>
+    api.put<WindowsSettings>('/windows/settings', { credential_id: credentialId }).then(r => r.data),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────
@@ -1296,6 +1370,20 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_apt_upgrades'),
   linuxHostsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; linux_hosts: CentralLinuxHostStatus[] }> }>('linux_hosts_status_all'),
+  requestWindowsUpdate: (tenant: string, hostId: number, reason: string) =>
+    centralRequest<{ ok: boolean; tenant: string; host_id: number; queued_at: string; note: string }>(
+      'request_windows_update', { tenant, host_id: String(hostId), reason },
+    ),
+  pendingWindowsUpdates: () =>
+    centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_windows_updates'),
+  requestWindowsRestart: (tenant: string, hostId: number, reason: string) =>
+    centralRequest<{ ok: boolean; tenant: string; host_id: number; queued_at: string; note: string }>(
+      'request_windows_restart', { tenant, host_id: String(hostId), reason },
+    ),
+  pendingWindowsRestarts: () =>
+    centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_windows_restarts'),
+  windowsHostsStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; windows_hosts: CentralWindowsHostStatus[] }> }>('windows_hosts_status_all'),
   tunnelStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
 

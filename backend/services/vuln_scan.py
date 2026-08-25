@@ -1626,6 +1626,13 @@ async def run_scan(on_event: Optional[Callable] = None) -> dict:
         except Exception as e:
             print(f"[vuln_scan] linux host discovery error: {e}")
 
+        _emit(on_event, {"type": "phase", "phase": "windows_discovery"})
+        try:
+            from services import windows_manage
+            await windows_manage.discover_windows_hosts(on_event=on_event)
+        except Exception as e:
+            print(f"[vuln_scan] windows host discovery error: {e}")
+
         _hosts_scanned = len(alive_ips)
         _findings_count = findings_count
         _emit(on_event, {"type": "done", "hosts_scanned": len(alive_ips),

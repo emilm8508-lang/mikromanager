@@ -280,6 +280,13 @@ async def _build_snapshot() -> dict:
         linux_hosts_status = []
 
     try:
+        from services import windows_manage
+        windows_hosts_status = windows_manage.public_summary()
+    except Exception as e:
+        print(f"[uplink] windows hosts summary error: {e}")
+        windows_hosts_status = []
+
+    try:
         from services import tunnel_monitor as tunnel_monitor_svc
         tunnel_status = tunnel_monitor_svc.public_summary()
     except Exception as e:
@@ -304,7 +311,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.50",
+        "agent_version": "1.51",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -321,6 +328,7 @@ async def _build_snapshot() -> dict:
         "vuln_findings_summary": vuln_findings_summary,
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
+        "windows_hosts_status": windows_hosts_status,
         "tunnel_status": tunnel_status,
         "inventory_summary": inventory_summary,
     }
@@ -357,6 +365,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "activity_events": snapshot.get("activity_events", []),
             "supply_chain_status": snapshot.get("supply_chain_status"),
             "linux_hosts_status": snapshot.get("linux_hosts_status", []),
+            "windows_hosts_status": snapshot.get("windows_hosts_status", []),
             "tunnel_status": snapshot.get("tunnel_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
@@ -437,6 +446,12 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "linux_apt_upgrade":
             host_id = int(c.get("host_id") or 0)
             parts.append(f"linux_apt_upgrade:{host_id}")
+        elif isinstance(c, dict) and c.get("type") == "windows_update":
+            host_id = int(c.get("host_id") or 0)
+            parts.append(f"windows_update:{host_id}")
+        elif isinstance(c, dict) and c.get("type") == "windows_restart":
+            host_id = int(c.get("host_id") or 0)
+            parts.append(f"windows_restart:{host_id}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -526,6 +541,12 @@ async def _handle_commands(commands: list) -> None:
         command from central is NOT sufficient by itself to run privileged
         sudo commands on a client's servers if
         this agent's own operator never opted in.
+      - {"type":"windows_update","host_id":N,"reason":str}   — install
+        pending Windows Update on a managed Windows host. Respects
+        MIKROTIK_WINDOWS_MANAGE_ENABLED locally (services/windows_manage.py,
+        defaults OFF — opt-in, unlike Linux's default-on).
+      - {"type":"windows_restart","host_id":N,"reason":str}  — restart a
+        managed Windows host. Same MIKROTIK_WINDOWS_MANAGE_ENABLED gate.
     """
     for cmd in commands:
         if cmd == "update":
@@ -572,6 +593,30 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(linux_manage.upgrade_host(int(host_id)))
                 else:
                     print(f"[uplink] linux_apt_upgrade command missing host_id: {cmd}")
+            elif cmd_type == "windows_update":
+                host_id = cmd.get("host_id")
+                reason = cmd.get("reason") or ""
+                from services import windows_manage
+                if not windows_manage.MANAGE_ENABLED:
+                    print(f"[uplink] windows_update received but MIKROTIK_WINDOWS_MANAGE_ENABLED "
+                          f"is not set locally — ignoring (host_id={host_id})")
+                elif host_id:
+                    print(f"[uplink] received WINDOWS_UPDATE for host {host_id}")
+                    asyncio.create_task(windows_manage.upgrade_host(int(host_id), reason))
+                else:
+                    print(f"[uplink] windows_update command missing host_id: {cmd}")
+            elif cmd_type == "windows_restart":
+                host_id = cmd.get("host_id")
+                reason = cmd.get("reason") or ""
+                from services import windows_manage
+                if not windows_manage.MANAGE_ENABLED:
+                    print(f"[uplink] windows_restart received but MIKROTIK_WINDOWS_MANAGE_ENABLED "
+                          f"is not set locally — ignoring (host_id={host_id})")
+                elif host_id:
+                    print(f"[uplink] received WINDOWS_RESTART for host {host_id}")
+                    asyncio.create_task(windows_manage.restart_host(int(host_id), reason))
+                else:
+                    print(f"[uplink] windows_restart command missing host_id: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:
