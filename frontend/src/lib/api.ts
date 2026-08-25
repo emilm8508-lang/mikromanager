@@ -599,9 +599,20 @@ export interface VulnFindingOut {
   overdue: boolean
 }
 
+export interface VulnPackageOut {
+  host_id: number
+  ip: string
+  hostname: string | null
+  name: string
+  version: string
+  last_seen: string | null
+}
+
 export const vulnApi = {
   status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
   run: () => api.post('/vuln/run').then(r => r.data),
+  packages: (params?: { host_id?: number; q?: string }) =>
+    api.get<VulnPackageOut[]>('/vuln/packages', { params }).then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),
   setRemediation: (data: { product: string; version: string; cve_id: string; status: VulnRemediationStatus; note?: string }) =>
     api.put('/vuln/remediation', data).then(r => r.data),
@@ -670,11 +681,12 @@ export interface LinuxHostOut {
 }
 
 export interface LinuxJobStatus {
-  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'done' | 'error' | 'timeout'
+  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'running_script' | 'done' | 'error' | 'timeout'
   started_at?: string
   finished_at?: string
   ip?: string
   identity?: string
+  reason?: string
   log?: string[]
   error?: string
   upgradable_count?: number
@@ -699,6 +711,10 @@ export const linuxApi = {
     api.get<LinuxJobStatus>(`/linux/hosts/${hostId}/status`).then(r => r.data),
   upgradeBulk: (ids: number[]) =>
     api.post<{ queued: number }>('/linux/hosts/upgrade-bulk', { ids }).then(r => r.data),
+  runScript: (hostId: number, script: string, useSudo: boolean, reason: string) =>
+    api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/run-script`, { script, use_sudo: useSudo, reason }).then(r => r.data),
+  runScriptBulk: (ids: number[], script: string, useSudo: boolean, reason: string) =>
+    api.post<{ queued: number }>('/linux/hosts/run-script-bulk', { ids, script, use_sudo: useSudo, reason }).then(r => r.data),
   discover: () => api.post<{ started: boolean }>('/linux/discover').then(r => r.data),
   getSettings: () => api.get<LinuxSettings>('/linux/settings').then(r => r.data),
   setSettings: (credentialId: number | null) =>
@@ -729,7 +745,7 @@ export interface WindowsHostOut {
 }
 
 export interface WindowsJobStatus {
-  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'restarting' | 'done' | 'error' | 'timeout'
+  status: 'no_job' | 'starting' | 'checking' | 'updating' | 'upgrading' | 'restarting' | 'running_script' | 'done' | 'error' | 'timeout'
   started_at?: string
   finished_at?: string
   ip?: string
@@ -761,6 +777,10 @@ export const windowsApi = {
     api.get<WindowsJobStatus>(`/windows/hosts/${hostId}/status`).then(r => r.data),
   upgradeBulk: (ids: number[], reason: string) =>
     api.post<{ queued: number }>('/windows/hosts/upgrade-bulk', { ids, reason }).then(r => r.data),
+  runScript: (hostId: number, script: string, reason: string) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/run-script`, { script, reason }).then(r => r.data),
+  runScriptBulk: (ids: number[], script: string, reason: string) =>
+    api.post<{ queued: number }>('/windows/hosts/run-script-bulk', { ids, script, reason }).then(r => r.data),
   discover: () => api.post<{ started: boolean }>('/windows/discover').then(r => r.data),
   getSettings: () => api.get<WindowsSettings>('/windows/settings').then(r => r.data),
   setSettings: (credentialId: number | null) =>

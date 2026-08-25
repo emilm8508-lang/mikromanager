@@ -45,6 +45,7 @@ import json
 import os
 import re
 import time
+import uuid
 from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select
@@ -59,6 +60,7 @@ MANAGE_ENABLED = os.environ.get("MIKROTIK_LINUX_MANAGE_ENABLED", "1").strip().lo
 CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_CHECK_TIMEOUT_SEC", "120"))
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_UPGRADE_TIMEOUT_SEC", "1800"))
 MAX_OUTPUT_BYTES = 200_000
+MAX_SCRIPT_BYTES = 64_000
 
 _jobs: dict = {}   # host_id -> job status dict
 _upgrade_semaphore = asyncio.Semaphore(int(os.environ.get("MIKROTIK_LINUX_UPGRADE_CONCURRENCY", "2")))
@@ -525,7 +527,7 @@ def _fail_job(host_id: int, ip: str, error: str, output: Optional[str] = None) -
 
 # ── Actions ──────────────────────────────────────────────────────────────
 
-_ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading")
+_ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading", "running_script")
 
 
 async def check_updates(host_id: int) -> dict:
@@ -679,6 +681,162 @@ async def upgrade_bulk(host_ids: list) -> dict:
     results = {}
     for host_id in host_ids:
         results[host_id] = await upgrade_host(host_id)
+    return {"results": results}
+
+
+# ── Run an arbitrary script (opt-in feature — see run_script()'s docstring
+# for why this is gated more heavily than everything else in this module)
+
+
+def _run_script_sync(ip: str, username: str, password: str, script: str,
+                     use_sudo: bool, timeout_sec: int) -> dict:
+    """Blocking — run via loop.run_in_executor. Uploads `script` to a
+    throwaway path over SFTP (paramiko has this built in, no new
+    dependency), executes it with `bash`, then removes it — same
+    stdin-password-to-sudo mechanism as _sudo_exec_sync above when
+    use_sudo is set (never interpolated into the command line). Reads
+    stdout/stderr incrementally, capped at MAX_OUTPUT_BYTES, and returns
+    the real exit code from the channel — same {"exit_code","output"}
+    shape as _sudo_exec_sync, deliberately not reusing that function
+    directly (it always sudos; this needs both paths) to avoid touching
+    the already-relied-upon apt/dnf upgrade code path."""
+    import paramiko
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    remote_path = f"/tmp/mm_script_{uuid.uuid4().hex[:10]}.sh"
+    try:
+        client.connect(ip, port=22, username=username, password=password,
+                        timeout=10, banner_timeout=10, auth_timeout=10,
+                        look_for_keys=False, allow_agent=False)
+        sftp = client.open_sftp()
+        try:
+            with sftp.file(remote_path, "w") as f:
+                f.write(script)
+            sftp.chmod(remote_path, 0o700)
+        finally:
+            sftp.close()
+
+        cmd = f"bash {remote_path}"
+        if use_sudo:
+            stdin, stdout, stderr = client.exec_command(f"sudo -S -p '' {cmd}", timeout=timeout_sec)
+            stdin.write(password + "\n")
+            stdin.flush()
+        else:
+            stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout_sec)
+
+        channel = stdout.channel
+        chunks: list = []
+        total = 0
+        start = time.time()
+        while True:
+            got_data = False
+            if channel.recv_ready():
+                chunk = channel.recv(4096)
+                if chunk:
+                    got_data = True
+                    total += len(chunk)
+                    if total <= MAX_OUTPUT_BYTES:
+                        chunks.append(chunk)
+            if channel.recv_stderr_ready():
+                chunk = channel.recv_stderr(4096)
+                if chunk:
+                    got_data = True
+                    total += len(chunk)
+                    if total <= MAX_OUTPUT_BYTES:
+                        chunks.append(chunk)
+            if not got_data:
+                if channel.exit_status_ready():
+                    break
+                if time.time() - start > timeout_sec:
+                    raise TimeoutError(f"script timed out after {timeout_sec}s")
+                time.sleep(0.2)
+
+        exit_code = channel.recv_exit_status()
+        output = b"".join(chunks).decode("utf-8", errors="ignore")
+        if total > MAX_OUTPUT_BYTES:
+            output += "\n... [truncated]"
+        return {"exit_code": exit_code, "output": output}
+    finally:
+        try:
+            client.exec_command(f"rm -f {remote_path}", timeout=10)
+        except Exception:
+            pass
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+async def run_script(host_id: int, script: str, use_sudo: bool, reason: str) -> dict:
+    """Run an arbitrary shell script on a managed host — the single most
+    powerful action in this module (root/sudo-capable code execution on a
+    client's server, vs. the fixed apt/dnf commands everywhere else here),
+    so it's gated more heavily: a non-empty reason and a script under
+    MAX_SCRIPT_BYTES are both required in addition to the usual
+    MANAGE_ENABLED check. Never exposed through the Central command queue
+    (see uplink.py) — only reachable from this agent's own, already
+    login+MFA-gated UI."""
+    if not MANAGE_ENABLED:
+        return {"error": "Linux management is disabled (MIKROTIK_LINUX_MANAGE_ENABLED)"}
+    if not reason or not reason.strip():
+        return {"error": "reason required"}
+    if not script or not script.strip():
+        return {"error": "script required"}
+    if len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
+        return {"error": f"script exceeds {MAX_SCRIPT_BYTES} byte limit"}
+    if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
+        return {"error": f"job already in state '{_jobs[host_id]['status']}'"}
+
+    with SessionLocal() as db:
+        host = db.get(LinuxHost, host_id)
+        if not host or not host.managed:
+            return {"error": "host not found or not managed"}
+        ip = host.ip
+        identity = host.hostname or host.ip
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password = cred
+
+    _jobs[host_id] = {"status": "running_script", "started_at": datetime.utcnow().isoformat(),
+                       "ip": ip, "identity": identity, "reason": reason,
+                       "log": ["Uploading and running script..."]}
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _run_script_sync, ip, username, password,
+                                 script, use_sudo, UPGRADE_TIMEOUT_SEC),
+            timeout=UPGRADE_TIMEOUT_SEC + 15,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return _fail_job(host_id, ip, "script timed out")
+    except Exception as e:
+        return _fail_job(host_id, ip, f"script failed: {e}")
+
+    # Full (truncated) script text in the audit trail, not just the fact a
+    # script ran — this is the one action in the app where "what exactly"
+    # matters as much as "that it happened".
+    activity.record("linux_script_run", host_id=host_id, ip=ip, identity=identity,
+                     reason=reason, script=script[:2000], exit_code=result["exit_code"])
+
+    now = datetime.utcnow()
+    job = {
+        "status": "done" if result["exit_code"] == 0 else "error",
+        "finished_at": now.isoformat(), "ip": ip, "identity": identity, "reason": reason,
+        "log": [result["output"][-4000:]],
+    }
+    if result["exit_code"] != 0:
+        job["error"] = f"script exited with code {result['exit_code']}"
+    _jobs[host_id] = job
+    return {"ok": result["exit_code"] == 0, "exit_code": result["exit_code"]}
+
+
+async def run_script_bulk(host_ids: list, script: str, use_sudo: bool, reason: str) -> dict:
+    """Sequential, never parallel — same reasoning as upgrade_bulk."""
+    results = {}
+    for host_id in host_ids:
+        results[host_id] = await run_script(host_id, script, use_sudo, reason)
     return {"results": results}
 
 

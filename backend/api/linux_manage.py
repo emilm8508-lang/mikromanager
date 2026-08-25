@@ -21,6 +21,19 @@ class BulkUpgradeIn(BaseModel):
     ids: list[int]
 
 
+class RunScriptIn(BaseModel):
+    script: str
+    use_sudo: bool = False
+    reason: str
+
+
+class RunScriptBulkIn(BaseModel):
+    ids: list[int]
+    script: str
+    use_sudo: bool = False
+    reason: str
+
+
 @router.get("/hosts")
 async def list_hosts():
     return {"hosts": linux_manage.list_hosts(), "enabled": linux_manage.MANAGE_ENABLED}
@@ -51,6 +64,18 @@ async def host_status(host_id: int):
 @router.post("/hosts/upgrade-bulk")
 async def upgrade_bulk(payload: BulkUpgradeIn, background_tasks: BackgroundTasks):
     background_tasks.add_task(linux_manage.upgrade_bulk, payload.ids)
+    return {"queued": len(payload.ids), "ids": payload.ids}
+
+
+@router.post("/hosts/{host_id}/run-script")
+async def run_script(host_id: int, payload: RunScriptIn, background_tasks: BackgroundTasks):
+    background_tasks.add_task(linux_manage.run_script, host_id, payload.script, payload.use_sudo, payload.reason)
+    return {"queued": True, "host_id": host_id}
+
+
+@router.post("/hosts/run-script-bulk")
+async def run_script_bulk(payload: RunScriptBulkIn, background_tasks: BackgroundTasks):
+    background_tasks.add_task(linux_manage.run_script_bulk, payload.ids, payload.script, payload.use_sudo, payload.reason)
     return {"queued": len(payload.ids), "ids": payload.ids}
 
 

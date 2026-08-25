@@ -26,6 +26,17 @@ class BulkUpgradeIn(BaseModel):
     reason: str
 
 
+class RunScriptIn(BaseModel):
+    script: str
+    reason: str
+
+
+class RunScriptBulkIn(BaseModel):
+    ids: list[int]
+    script: str
+    reason: str
+
+
 @router.get("/hosts")
 async def list_hosts():
     return {"hosts": windows_manage.list_hosts(), "enabled": windows_manage.MANAGE_ENABLED}
@@ -62,6 +73,18 @@ async def host_status(host_id: int):
 @router.post("/hosts/upgrade-bulk")
 async def upgrade_bulk(payload: BulkUpgradeIn, background_tasks: BackgroundTasks):
     background_tasks.add_task(windows_manage.upgrade_bulk, payload.ids, payload.reason)
+    return {"queued": len(payload.ids), "ids": payload.ids}
+
+
+@router.post("/hosts/{host_id}/run-script")
+async def run_script(host_id: int, payload: RunScriptIn, background_tasks: BackgroundTasks):
+    background_tasks.add_task(windows_manage.run_script, host_id, payload.script, payload.reason)
+    return {"queued": True, "host_id": host_id}
+
+
+@router.post("/hosts/run-script-bulk")
+async def run_script_bulk(payload: RunScriptBulkIn, background_tasks: BackgroundTasks):
+    background_tasks.add_task(windows_manage.run_script_bulk, payload.ids, payload.script, payload.reason)
     return {"queued": len(payload.ids), "ids": payload.ids}
 
 

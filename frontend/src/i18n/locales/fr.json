@@ -10,6 +10,7 @@
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventaire",
+                "software":  "Logiciels",
                 "audit":  "Audit",
                 "security":  "Sécurité",
                 "central":  "Central",
@@ -646,6 +647,21 @@
         },
         "skipNotesTitle": "Hôtes trouvés mais non ajoutés (visibles p. ex. dans Vulnérabilités avec un autre identifiant) :"
     },
+    "runScript": {
+        "title": "Exécuter un script — {{target}}",
+        "warning": "Cela exécute le code fourni sur le serveur en tant que root/sudo (Linux) ou l'utilisateur WinRM configuré (Windows). Un motif est requis — il est enregistré dans le journal d'audit avec le texte du script.",
+        "scriptLabelLinux": "Script bash",
+        "scriptLabelWindows": "Script PowerShell",
+        "useSudo": "Utiliser sudo",
+        "reasonLabel": "Motif",
+        "reasonRequired": "Un motif est requis.",
+        "scriptRequired": "Un script est requis.",
+        "run": "Exécuter",
+        "button": "Exécuter un script",
+        "buttonBulk": "Exécuter sur la sélection ({{count}})",
+        "selectedCount": "{{count}} hôtes sélectionnés",
+        "selectForBulk": "Sélectionner pour une exécution groupée"
+    },
     "inventory": {
         "subtitle": "Tout ce que le scanner a trouvé, groupé — appareils réseau, hôtes Windows et Linux (uniquement les ports typiques d'un serveur : SSH pour Linux, SMB/RDP pour Windows), et tout le reste uniquement s'il a une vulnérabilité réelle.",
         "groupNetwork": "Appareils réseau",
@@ -661,5 +677,15 @@
         "colPorts": "Ports ouverts",
         "colFindings": "Vulnérabilités",
         "findingsCount": "{{count}} vulnérabilités"
+    },
+    "software": {
+        "subtitle": "Inventaire complet des logiciels installés sur tous les hôtes avec des identifiants fonctionnels — paquets dpkg/rpm pour Linux, programmes installés pour Windows.",
+        "searchPlaceholder": "Rechercher par nom...",
+        "hostsTitle": "Entrées trouvées",
+        "empty": "Pas encore de données — nécessite des identifiants fonctionnels sur au moins un hôte (le scanner de vulnérabilités les essaie automatiquement).",
+        "colHost": "Hôte",
+        "colName": "Nom",
+        "colVersion": "Version",
+        "colLastSeen": "Dernière détection"
     }
 }

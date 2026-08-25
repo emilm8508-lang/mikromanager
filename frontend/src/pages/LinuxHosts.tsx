@@ -4,7 +4,8 @@ import { linuxApi, credentialsApi, LinuxHostOut } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { RunScriptModal } from '../components/RunScriptModal'
+import { TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ScanProgressEvent {
@@ -160,7 +161,9 @@ function SettingsPanel() {
   )
 }
 
-function HostCard({ host }: { host: LinuxHostOut }) {
+function HostCard({ host, selected, onToggleSelect, onRunScript }: {
+  host: LinuxHostOut; selected: boolean; onToggleSelect: () => void; onRunScript: () => void
+}) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
@@ -171,7 +174,7 @@ function HostCard({ host }: { host: LinuxHostOut }) {
     enabled: polling,
     refetchInterval: (q) => {
       const s = q.state.data?.status
-      return (s === 'starting' || s === 'checking' || s === 'updating' || s === 'upgrading') ? 3000 : false
+      return (s === 'starting' || s === 'checking' || s === 'updating' || s === 'upgrading' || s === 'running_script') ? 3000 : false
     },
   })
 
@@ -190,7 +193,7 @@ function HostCard({ host }: { host: LinuxHostOut }) {
     onSuccess: () => setPolling(true),
   })
 
-  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading'].includes(job.status)
+  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading', 'running_script'].includes(job.status)
   const isSupported = host.package_manager === 'apt' || host.package_manager === 'dnf'
 
   return (
@@ -236,6 +239,8 @@ function HostCard({ host }: { host: LinuxHostOut }) {
             </Button>
           ) : (
             <>
+              <input type="checkbox" checked={selected} onChange={onToggleSelect}
+                title={t('runScript.selectForBulk') as string} />
               <button onClick={() => setManaged.mutate(false)} className="text-xs text-slate-500 hover:underline">
                 {t('linux.disableManagement')}
               </button>
@@ -247,6 +252,9 @@ function HostCard({ host }: { host: LinuxHostOut }) {
               }} disabled={!isSupported || !!inProgress}>
                 <Download size={12} /> {t('linux.upgradeNow')}
               </Button>
+              <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
+                <Terminal size={12} /> {t('runScript.button')}
+              </Button>
             </>
           )}
         </div>
@@ -255,6 +263,7 @@ function HostCard({ host }: { host: LinuxHostOut }) {
       {job && job.status !== 'no_job' && (
         <div className="bg-slate-100 rounded-lg p-2 text-xs space-y-1">
           <p className="font-semibold text-slate-800">{t('linux.jobStatus')}: {job.status}</p>
+          {job.reason && <p className="text-slate-600">{t('runScript.reasonLabel')}: {job.reason}</p>}
           {job.error && <p className="text-red-600">{job.error}</p>}
           {job.log && job.log.length > 0 && (
             <div className="mt-1 max-h-40 overflow-auto bg-slate-900 text-green-300 p-2 rounded text-[10px] font-mono whitespace-pre-wrap">
@@ -284,6 +293,27 @@ export function LinuxHosts() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['linux-hosts'] }),
   })
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [scriptTarget, setScriptTarget] = useState<{ hostIds: number[]; label: string } | null>(null)
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const runScriptOn = async ({ script, useSudo, reason }: { script: string; useSudo: boolean; reason: string }) => {
+    if (!scriptTarget) return
+    if (scriptTarget.hostIds.length === 1) {
+      await linuxApi.runScript(scriptTarget.hostIds[0], script, useSudo, reason)
+    } else {
+      await linuxApi.runScriptBulk(scriptTarget.hostIds, script, useSudo, reason)
+    }
+    qc.invalidateQueries({ queryKey: ['linux-hosts'] })
+  }
+
   const hosts = data?.hosts ?? []
   const managedApt = hosts.filter(h => h.managed && (h.package_manager === 'apt' || h.package_manager === 'dnf'))
 
@@ -298,21 +328,29 @@ export function LinuxHosts() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-slate-700">{t('linux.hostsTitle')}</h2>
-            {managedApt.length > 1 && (
-              <Button
-                size="sm" variant="secondary"
-                onClick={() => {
-                  if (confirm(t('linux.upgradeAllConfirm', { count: managedApt.length }) as string)) {
-                    upgradeAll.mutate(managedApt.map(h => h.id))
-                  }
-                }}
-                disabled={upgradeAll.isPending}
-              >
-                <Download size={12} /> {t('linux.upgradeAll', { count: managedApt.length })}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button size="sm" variant="secondary"
+                  onClick={() => setScriptTarget({ hostIds: [...selectedIds], label: t('runScript.selectedCount', { count: selectedIds.size }) as string })}>
+                  <Terminal size={12} /> {t('runScript.buttonBulk', { count: selectedIds.size })}
+                </Button>
+              )}
+              {managedApt.length > 1 && (
+                <Button
+                  size="sm" variant="secondary"
+                  onClick={() => {
+                    if (confirm(t('linux.upgradeAllConfirm', { count: managedApt.length }) as string)) {
+                      upgradeAll.mutate(managedApt.map(h => h.id))
+                    }
+                  }}
+                  disabled={upgradeAll.isPending}
+                >
+                  <Download size={12} /> {t('linux.upgradeAll', { count: managedApt.length })}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -321,10 +359,24 @@ export function LinuxHosts() {
           ) : hosts.length === 0 ? (
             <p className="text-sm text-slate-500">{t('linux.noHosts')}</p>
           ) : (
-            hosts.map(h => <HostCard key={h.id} host={h} />)
+            hosts.map(h => (
+              <HostCard key={h.id} host={h}
+                selected={selectedIds.has(h.id)}
+                onToggleSelect={() => toggleSelect(h.id)}
+                onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })}
+              />
+            ))
           )}
         </CardContent>
       </Card>
+
+      <RunScriptModal
+        open={scriptTarget !== null}
+        onClose={() => setScriptTarget(null)}
+        platform="linux"
+        targetLabel={scriptTarget?.label ?? ''}
+        onRun={runScriptOn}
+      />
     </div>
   )
 }

@@ -10,6 +10,7 @@
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
                 "inventory":  "Inwentarz",
+                "software":  "Oprogramowanie",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
                 "central":  "Centralny",
@@ -808,6 +809,21 @@
         },
         "skipNotesTitle": "Znalezione, ale niedodane hosty (widoczne np. w Podatnościach z innym poświadczeniem):"
     },
+    "runScript": {
+        "title": "Uruchom skrypt — {{target}}",
+        "warning": "To uruchomi podany kod na serwerze jako root/sudo (Linux) albo skonfigurowany użytkownik WinRM (Windows). Wymaga podania powodu — trafia do dziennika audytu razem z treścią skryptu.",
+        "scriptLabelLinux": "Skrypt bash",
+        "scriptLabelWindows": "Skrypt PowerShell",
+        "useSudo": "Użyj sudo",
+        "reasonLabel": "Powód",
+        "reasonRequired": "Powód jest wymagany.",
+        "scriptRequired": "Skrypt jest wymagany.",
+        "run": "Uruchom",
+        "button": "Uruchom skrypt",
+        "buttonBulk": "Uruchom skrypt na zaznaczonych ({{count}})",
+        "selectedCount": "{{count}} zaznaczonych hostów",
+        "selectForBulk": "Zaznacz do zbiorczego uruchomienia"
+    },
     "inventory": {
         "subtitle": "Wszystko, co znalazł skaner, pogrupowane — urządzenia sieciowe, hosty Windows i Linux (tylko z portami typowymi dla serwera: SSH dla Linuksa, SMB/RDP dla Windows), a wszystko inne tylko jeśli ma realną podatność.",
         "groupNetwork": "Urządzenia sieciowe",
@@ -823,6 +839,16 @@
         "colPorts": "Otwarte porty",
         "colFindings": "Podatności",
         "findingsCount": "{{count}} podatności"
+    },
+    "software": {
+        "subtitle": "Pełny inwentarz zainstalowanego oprogramowania ze wszystkich hostów z działającymi poświadczeniami — pakiety dpkg/rpm dla Linuksa, zainstalowane programy dla Windows.",
+        "searchPlaceholder": "Szukaj po nazwie...",
+        "hostsTitle": "Znalezione wpisy",
+        "empty": "Brak danych — wymaga działających poświadczeń na co najmniej jednym hoście (skaner podatności próbuje je automatycznie).",
+        "colHost": "Host",
+        "colName": "Nazwa",
+        "colVersion": "Wersja",
+        "colLastSeen": "Ostatnio widziane"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

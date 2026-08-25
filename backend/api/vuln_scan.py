@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from models.database import (
     SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, VulnRemediation, Device, Credential,
+    LinuxHost, WindowsHost,
 )
 from services import vuln_scan
 from api.auth import require_login
@@ -121,6 +122,44 @@ async def list_hosts():
             })
         out.sort(key=lambda h: [int(p) for p in h["ip"].split(".")])
         return out
+
+
+@router.get("/packages")
+async def list_packages(host_id: Optional[int] = None, q: Optional[str] = None):
+    """Flat, searchable software inventory — every VulnPackage row (already
+    collected by services/vuln_scan.py's _package_audit, independent of
+    whether a Vulners key is configured) joined with the host's IP and, if
+    known, hostname. hostname resolution mirrors services/inventory.py's
+    linux_by_ip/windows_by_ip pattern exactly (LinuxHost/WindowsHost keyed
+    by IP, same tables the Linux/Windows management pages populate)."""
+    with SessionLocal() as db:
+        packages = db.execute(select(VulnPackage)).scalars().all()
+        hosts_by_id = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
+        linux_by_ip = {h.ip: h for h in db.execute(select(LinuxHost)).scalars().all()}
+        windows_by_ip = {h.ip: h for h in db.execute(select(WindowsHost)).scalars().all()}
+
+    out = []
+    needle = q.strip().lower() if q else None
+    for p in packages:
+        if host_id is not None and p.host_id != host_id:
+            continue
+        if needle and needle not in p.name.lower():
+            continue
+        host = hosts_by_id.get(p.host_id)
+        if not host:
+            continue
+        lh = linux_by_ip.get(host.ip)
+        wh = windows_by_ip.get(host.ip)
+        out.append({
+            "host_id": p.host_id,
+            "ip": host.ip,
+            "hostname": lh.hostname if lh else (wh.hostname if wh else None),
+            "name": p.name,
+            "version": p.version,
+            "last_seen": p.last_seen.isoformat() if p.last_seen else None,
+        })
+    out.sort(key=lambda r: ([int(x) for x in r["ip"].split(".")], r["name"].lower()))
+    return out
 
 
 class HostCredentialIn(BaseModel):

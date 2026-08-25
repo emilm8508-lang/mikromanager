@@ -856,13 +856,17 @@ async def _persist_packages(host_id: int, packages: list) -> None:
 async def _package_audit(ip: str, cred, auth_info: dict, host_id: int,
                          last_audit_at: Optional[datetime]) -> None:
     """The deeper, opt-in step for a host where credentials already work:
-    pulls the full installed-package/software inventory and submits it to
-    vulners.com, instead of relying only on the OS name+version
-    _auth_augment already established. Every command run here (dpkg-query/
-    rpm -qa/Get-HotFix/registry read) is read-only — same guarantee as the
-    rest of this scanner."""
-    if not VULNERS_API_KEY:
-        return
+    pulls the full installed-package/software inventory (dpkg-query/rpm -qa
+    over SSH, or Get-HotFix + registry read over WinRM — all read-only,
+    same guarantee as the rest of this scanner) and persists it to
+    VulnPackage, feeding both the CVE-matching pipeline below AND the
+    standalone Software inventory page (GET /api/vuln/packages), which has
+    nothing to do with Vulners.
+
+    Submitting that list to vulners.com for a deeper CVE audit is a
+    SEPARATE, optional step gated on VULNERS_API_KEY — a site without a
+    (paid) Vulners key still gets the full software inventory, just not
+    the extra vulners-sourced findings on top of it."""
     if last_audit_at and (datetime.utcnow() - last_audit_at).days < PACKAGE_AUDIT_DAYS:
         return
 
@@ -879,19 +883,21 @@ async def _package_audit(ip: str, cred, auth_info: dict, host_id: int,
         if not entries:
             return
         if len(entries) > _VULNERS_MAX_PACKAGES:
-            print(f"[vuln_scan] {ip}: {len(entries)} packages exceeds vulners' "
-                  f"{_VULNERS_MAX_PACKAGES}-package limit, submitting the first {_VULNERS_MAX_PACKAGES}")
+            print(f"[vuln_scan] {ip}: {len(entries)} packages exceeds the "
+                  f"{_VULNERS_MAX_PACKAGES}-package cap, keeping the first {_VULNERS_MAX_PACKAGES}")
             entries = entries[:_VULNERS_MAX_PACKAGES]
         package_lines = [e[0] for e in entries]
         packages = [(e[1], e[2]) for e in entries]
-        findings_raw = await _vulners_linux_audit(auth_info["distro_id"], auth_info["version"], package_lines)
+        if VULNERS_API_KEY:
+            findings_raw = await _vulners_linux_audit(auth_info["distro_id"], auth_info["version"], package_lines)
     elif auth_info["winrm_port"]:
         inv = await _winrm_list_inventory(ip, auth_info["winrm_port"], cred.username, password, cred.domain)
         if not inv:
             return
-        findings_raw = await _vulners_win_audit(
-            auth_info["product"], auth_info["version"], inv["kbs"], inv["software"])
         packages = [(s["software"], s["version"]) for s in inv["software"]]
+        if VULNERS_API_KEY:
+            findings_raw = await _vulners_win_audit(
+                auth_info["product"], auth_info["version"], inv["kbs"], inv["software"])
     else:
         return
 

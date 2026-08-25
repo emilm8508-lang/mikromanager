@@ -10,6 +10,7 @@
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventory",
+                "software":  "Software",
                 "audit":  "Audit",
                 "security":  "Security",
                 "central":  "Central",
@@ -646,6 +647,21 @@
         },
         "skipNotesTitle": "Hosts found but not added (shown elsewhere, e.g. Vulnerabilities, with a different credential):"
     },
+    "runScript": {
+        "title": "Run script — {{target}}",
+        "warning": "This runs the given code on the server as root/sudo (Linux) or the configured WinRM user (Windows). A reason is required — it's logged to the audit trail together with the script text.",
+        "scriptLabelLinux": "Bash script",
+        "scriptLabelWindows": "PowerShell script",
+        "useSudo": "Use sudo",
+        "reasonLabel": "Reason",
+        "reasonRequired": "A reason is required.",
+        "scriptRequired": "A script is required.",
+        "run": "Run",
+        "button": "Run script",
+        "buttonBulk": "Run script on selected ({{count}})",
+        "selectedCount": "{{count}} selected hosts",
+        "selectForBulk": "Select for bulk run"
+    },
     "inventory": {
         "subtitle": "Everything the scanner has found, grouped — network devices, Windows and Linux hosts (server-like ports only: SSH for Linux, SMB/RDP for Windows), and anything else only if it has an actual vulnerability finding.",
         "groupNetwork": "Network devices",
@@ -661,5 +677,15 @@
         "colPorts": "Open ports",
         "colFindings": "Findings",
         "findingsCount": "{{count}} findings"
+    },
+    "software": {
+        "subtitle": "Full inventory of installed software across every host with working credentials — dpkg/rpm packages for Linux, installed programs for Windows.",
+        "searchPlaceholder": "Search by name...",
+        "hostsTitle": "Entries found",
+        "empty": "No data yet — requires working credentials on at least one host (the vulnerability scanner tries them automatically).",
+        "colHost": "Host",
+        "colName": "Name",
+        "colVersion": "Version",
+        "colLastSeen": "Last seen"
     }
 }

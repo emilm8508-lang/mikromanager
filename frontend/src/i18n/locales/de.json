@@ -10,6 +10,7 @@
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventar",
+                "software":  "Software",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
                 "central":  "Zentral",
@@ -646,6 +647,21 @@
         },
         "skipNotesTitle": "Gefundene, aber nicht hinzugefügte Hosts (z. B. in Schwachstellen mit anderen Zugangsdaten sichtbar):"
     },
+    "runScript": {
+        "title": "Skript ausführen — {{target}}",
+        "warning": "Dies führt den angegebenen Code auf dem Server als root/sudo (Linux) oder dem konfigurierten WinRM-Benutzer (Windows) aus. Ein Grund ist erforderlich — er wird zusammen mit dem Skripttext im Audit-Protokoll gespeichert.",
+        "scriptLabelLinux": "Bash-Skript",
+        "scriptLabelWindows": "PowerShell-Skript",
+        "useSudo": "sudo verwenden",
+        "reasonLabel": "Grund",
+        "reasonRequired": "Ein Grund ist erforderlich.",
+        "scriptRequired": "Ein Skript ist erforderlich.",
+        "run": "Ausführen",
+        "button": "Skript ausführen",
+        "buttonBulk": "Skript auf ausgewählten ausführen ({{count}})",
+        "selectedCount": "{{count}} ausgewählte Hosts",
+        "selectForBulk": "Für Sammelausführung auswählen"
+    },
     "inventory": {
         "subtitle": "Alles, was der Scanner gefunden hat, gruppiert — Netzwerkgeräte, Windows- und Linux-Hosts (nur serverähnliche Ports: SSH für Linux, SMB/RDP für Windows), und alles andere nur bei einer tatsächlichen Schwachstelle.",
         "groupNetwork": "Netzwerkgeräte",
@@ -661,5 +677,15 @@
         "colPorts": "Offene Ports",
         "colFindings": "Schwachstellen",
         "findingsCount": "{{count}} Schwachstellen"
+    },
+    "software": {
+        "subtitle": "Vollständige Übersicht der installierten Software über alle Hosts mit funktionierenden Zugangsdaten — dpkg/rpm-Pakete für Linux, installierte Programme für Windows.",
+        "searchPlaceholder": "Nach Name suchen...",
+        "hostsTitle": "Gefundene Einträge",
+        "empty": "Noch keine Daten — erfordert funktionierende Zugangsdaten auf mindestens einem Host (der Schwachstellen-Scanner versucht dies automatisch).",
+        "colHost": "Host",
+        "colName": "Name",
+        "colVersion": "Version",
+        "colLastSeen": "Zuletzt gesehen"
     }
 }

@@ -10,6 +10,7 @@
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventario",
+                "software":  "Software",
                 "audit":  "Auditoría",
                 "security":  "Seguridad",
                 "central":  "Central",
@@ -646,6 +647,21 @@
         },
         "skipNotesTitle": "Hosts encontrados pero no añadidos (visibles p. ej. en Vulnerabilidades con otra credencial):"
     },
+    "runScript": {
+        "title": "Ejecutar script — {{target}}",
+        "warning": "Esto ejecuta el código indicado en el servidor como root/sudo (Linux) o el usuario WinRM configurado (Windows). Se requiere un motivo — se registra en el historial de auditoría junto con el texto del script.",
+        "scriptLabelLinux": "Script bash",
+        "scriptLabelWindows": "Script PowerShell",
+        "useSudo": "Usar sudo",
+        "reasonLabel": "Motivo",
+        "reasonRequired": "Se requiere un motivo.",
+        "scriptRequired": "Se requiere un script.",
+        "run": "Ejecutar",
+        "button": "Ejecutar script",
+        "buttonBulk": "Ejecutar script en los seleccionados ({{count}})",
+        "selectedCount": "{{count}} hosts seleccionados",
+        "selectForBulk": "Seleccionar para ejecución masiva"
+    },
     "inventory": {
         "subtitle": "Todo lo que el escáner ha encontrado, agrupado — dispositivos de red, hosts Windows y Linux (solo puertos típicos de servidor: SSH para Linux, SMB/RDP para Windows), y cualquier otra cosa solo si tiene una vulnerabilidad real.",
         "groupNetwork": "Dispositivos de red",
@@ -661,5 +677,15 @@
         "colPorts": "Puertos abiertos",
         "colFindings": "Vulnerabilidades",
         "findingsCount": "{{count}} vulnerabilidades"
+    },
+    "software": {
+        "subtitle": "Inventario completo del software instalado en todos los hosts con credenciales funcionales — paquetes dpkg/rpm para Linux, programas instalados para Windows.",
+        "searchPlaceholder": "Buscar por nombre...",
+        "hostsTitle": "Entradas encontradas",
+        "empty": "Aún no hay datos — requiere credenciales funcionales en al menos un host (el escáner de vulnerabilidades las prueba automáticamente).",
+        "colHost": "Host",
+        "colName": "Nombre",
+        "colVersion": "Versión",
+        "colLastSeen": "Visto por última vez"
     }
 }

@@ -53,11 +53,12 @@ MANAGE_ENABLED = os.environ.get("MIKROTIK_WINDOWS_MANAGE_ENABLED", "0").strip().
 CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_CHECK_TIMEOUT_SEC", "120"))
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_UPGRADE_TIMEOUT_SEC", "3600"))
 MAX_TITLES = 200
+MAX_SCRIPT_BYTES = 64_000
 
 _jobs: dict = {}   # host_id -> job status dict
 _upgrade_semaphore = asyncio.Semaphore(int(os.environ.get("MIKROTIK_WINDOWS_UPGRADE_CONCURRENCY", "2")))
 
-_ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading", "restarting")
+_ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading", "restarting", "running_script")
 
 _HOSTNAME_RE = re.compile(r"^Host Name:\s*(.+)$", re.MULTILINE)
 _OS_NAME_RE = re.compile(r"^OS Name:\s*(.+)$", re.MULTILINE)
@@ -650,6 +651,106 @@ async def upgrade_bulk(host_ids: list, reason: str) -> dict:
     results = {}
     for host_id in host_ids:
         results[host_id] = await upgrade_host(host_id, reason)
+    return {"results": results}
+
+
+# ── Run an arbitrary script (opt-in feature, mirrors linux_manage.py's
+# run_script() — see its docstring for why this is gated more heavily
+# than everything else in this module)
+
+
+def _run_script_sync(ip: str, port: int, username: str, password: str, domain: Optional[str],
+                     script: str, timeout_sec: int) -> dict:
+    """Blocking — run via loop.run_in_executor. Unlike Windows Update
+    installation, an arbitrary PowerShell script has no double-hop problem
+    (it isn't touching UpdateInstaller's impersonation-sensitive COM API) —
+    a plain `session.run_ps(script)` over the normal WinRM session works
+    directly, no scheduled-task workaround needed."""
+    import winrm
+    user = f"{domain}\\{username}" if domain else username
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman",
+        auth=(user, password),
+        transport="ntlm",
+        server_cert_validation="ignore",
+        read_timeout_sec=timeout_sec + 10, operation_timeout_sec=timeout_sec,
+    )
+    result = session.run_ps(script)
+    output = (result.std_out.decode("utf-8", errors="ignore")
+              + result.std_err.decode("utf-8", errors="ignore"))
+    if len(output) > 200_000:
+        output = output[:200_000] + "\n... [truncated]"
+    return {"exit_code": result.status_code, "output": output}
+
+
+async def run_script(host_id: int, script: str, reason: str) -> dict:
+    """Run an arbitrary PowerShell script on a managed host — the single
+    most powerful action in this module, gated more heavily than the rest:
+    a non-empty reason and a script under MAX_SCRIPT_BYTES are both
+    required in addition to MANAGE_ENABLED. Never exposed through the
+    Central command queue (see uplink.py) — only reachable from this
+    agent's own, already login+MFA-gated UI."""
+    if not MANAGE_ENABLED:
+        return {"error": "Windows management is disabled (MIKROTIK_WINDOWS_MANAGE_ENABLED)"}
+    if not reason or not reason.strip():
+        return {"error": "reason required"}
+    if not script or not script.strip():
+        return {"error": "script required"}
+    if len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
+        return {"error": f"script exceeds {MAX_SCRIPT_BYTES} byte limit"}
+    if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
+        return {"error": f"job already in state '{_jobs[host_id]['status']}'"}
+
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host or not host.managed:
+            return {"error": "host not found or not managed"}
+        ip, port = host.ip, host.winrm_port
+        identity = host.hostname or host.ip
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password, domain = cred
+
+    _jobs[host_id] = {"status": "running_script", "started_at": datetime.utcnow().isoformat(),
+                       "ip": ip, "identity": identity, "reason": reason,
+                       "log": ["Running script..."]}
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _run_script_sync, ip, port, username, password,
+                                 domain, script, UPGRADE_TIMEOUT_SEC),
+            timeout=UPGRADE_TIMEOUT_SEC + 15,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return _fail_job(host_id, ip, "script timed out")
+    except Exception as e:
+        return _fail_job(host_id, ip, f"script failed: {e}")
+
+    # Full (truncated) script text in the audit trail, not just the fact a
+    # script ran — mirrors linux_manage.run_script()'s reasoning.
+    activity.record("windows_script_run", host_id=host_id, ip=ip, identity=identity,
+                     reason=reason, script=script[:2000], exit_code=result["exit_code"])
+
+    now = datetime.utcnow()
+    job = {
+        "status": "done" if result["exit_code"] == 0 else "error",
+        "finished_at": now.isoformat(), "ip": ip, "identity": identity, "reason": reason,
+        "log": [result["output"][-4000:]],
+    }
+    if result["exit_code"] != 0:
+        job["error"] = f"script exited with code {result['exit_code']}"
+    _jobs[host_id] = job
+    return {"ok": result["exit_code"] == 0, "exit_code": result["exit_code"]}
+
+
+async def run_script_bulk(host_ids: list, script: str, reason: str) -> dict:
+    """Sequential, never parallel — same reasoning as upgrade_bulk."""
+    results = {}
+    for host_id in host_ids:
+        results[host_id] = await run_script(host_id, script, reason)
     return {"results": results}
 
 

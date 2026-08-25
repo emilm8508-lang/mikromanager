@@ -4,7 +4,8 @@ import { windowsApi, credentialsApi, WindowsHostOut } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { RunScriptModal } from '../components/RunScriptModal'
+import { MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ScanProgressEvent {
@@ -152,7 +153,9 @@ function SettingsPanel() {
   )
 }
 
-function HostCard({ host }: { host: WindowsHostOut }) {
+function HostCard({ host, selected, onToggleSelect, onRunScript }: {
+  host: WindowsHostOut; selected: boolean; onToggleSelect: () => void; onRunScript: () => void
+}) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
@@ -163,7 +166,7 @@ function HostCard({ host }: { host: WindowsHostOut }) {
     enabled: polling,
     refetchInterval: (q) => {
       const s = q.state.data?.status
-      return (s === 'starting' || s === 'checking' || s === 'updating' || s === 'upgrading' || s === 'restarting') ? 3000 : false
+      return (s === 'starting' || s === 'checking' || s === 'updating' || s === 'upgrading' || s === 'restarting' || s === 'running_script') ? 3000 : false
     },
   })
 
@@ -194,7 +197,7 @@ function HostCard({ host }: { host: WindowsHostOut }) {
     mutate(reason.trim())
   }
 
-  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading', 'restarting'].includes(job.status)
+  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading', 'restarting', 'running_script'].includes(job.status)
 
   return (
     <div className="border border-slate-200 rounded-lg p-3 space-y-2">
@@ -237,6 +240,8 @@ function HostCard({ host }: { host: WindowsHostOut }) {
             </Button>
           ) : (
             <>
+              <input type="checkbox" checked={selected} onChange={onToggleSelect}
+                title={t('runScript.selectForBulk') as string} />
               <button onClick={() => setManaged.mutate(false)} className="text-xs text-slate-500 hover:underline">
                 {t('windows.disableManagement')}
               </button>
@@ -256,6 +261,9 @@ function HostCard({ host }: { host: WindowsHostOut }) {
                 }, 'windows.reasonPromptRestart')}
                 disabled={!!inProgress}>
                 <Power size={12} /> {t('windows.restartNow')}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
+                <Terminal size={12} /> {t('runScript.button')}
               </Button>
             </>
           )}
@@ -295,6 +303,27 @@ export function WindowsHosts() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
   })
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [scriptTarget, setScriptTarget] = useState<{ hostIds: number[]; label: string } | null>(null)
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const runScriptOn = async ({ script, reason }: { script: string; useSudo: boolean; reason: string }) => {
+    if (!scriptTarget) return
+    if (scriptTarget.hostIds.length === 1) {
+      await windowsApi.runScript(scriptTarget.hostIds[0], script, reason)
+    } else {
+      await windowsApi.runScriptBulk(scriptTarget.hostIds, script, reason)
+    }
+    qc.invalidateQueries({ queryKey: ['windows-hosts'] })
+  }
+
   const hosts = data?.hosts ?? []
   const managed = hosts.filter(h => h.managed)
 
@@ -318,13 +347,21 @@ export function WindowsHosts() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-slate-700">{t('windows.hostsTitle')}</h2>
-            {managed.length > 1 && (
-              <Button size="sm" variant="secondary" onClick={upgradeAllClick} disabled={upgradeAll.isPending}>
-                <Download size={12} /> {t('windows.upgradeAll', { count: managed.length })}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button size="sm" variant="secondary"
+                  onClick={() => setScriptTarget({ hostIds: [...selectedIds], label: t('runScript.selectedCount', { count: selectedIds.size }) as string })}>
+                  <Terminal size={12} /> {t('runScript.buttonBulk', { count: selectedIds.size })}
+                </Button>
+              )}
+              {managed.length > 1 && (
+                <Button size="sm" variant="secondary" onClick={upgradeAllClick} disabled={upgradeAll.isPending}>
+                  <Download size={12} /> {t('windows.upgradeAll', { count: managed.length })}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -333,10 +370,24 @@ export function WindowsHosts() {
           ) : hosts.length === 0 ? (
             <p className="text-sm text-slate-500">{t('windows.noHosts')}</p>
           ) : (
-            hosts.map(h => <HostCard key={h.id} host={h} />)
+            hosts.map(h => (
+              <HostCard key={h.id} host={h}
+                selected={selectedIds.has(h.id)}
+                onToggleSelect={() => toggleSelect(h.id)}
+                onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })}
+              />
+            ))
           )}
         </CardContent>
       </Card>
+
+      <RunScriptModal
+        open={scriptTarget !== null}
+        onClose={() => setScriptTarget(null)}
+        platform="windows"
+        targetLabel={scriptTarget?.label ?? ''}
+        onRun={runScriptOn}
+      />
     </div>
   )
 }
