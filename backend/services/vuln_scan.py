@@ -741,17 +741,18 @@ async def _apply_credentials(auth_results: dict) -> None:
         db.commit()
 
 
-# ── Full package/software audit via vulners (credentialed hosts only) ───────
+# ── Full package/software audit (credentialed hosts only) ───────────────────
 # Runs AFTER a credential is confirmed working (_auth_augment) and the
 # lightweight OS-version identification already succeeded — this goes one
 # level deeper: submits the ACTUAL installed package/software list, so we
 # catch vulnerabilities in specific outdated libraries, not just "this is
-# Ubuntu 22.04". Requires MIKROTIK_VULNERS_API_KEY (NVD has no equivalent
-# audit-by-package-list endpoint) — skipped entirely without a key, same as
-# the passive vulners.com CVE source elsewhere in this file. Gated per-host
-# by PACKAGE_AUDIT_DAYS since a single call here can submit thousands of
-# packages — much "heavier" than the weekly scan's usual per-(product,
-# version) lookups, so it runs far less often.
+# Ubuntu 22.04". The vulners.com audit below still requires
+# MIKROTIK_VULNERS_API_KEY (skipped entirely without one) — but package
+# COLLECTION itself doesn't (see _package_audit), and for apt-family Linux
+# hosts OSV.dev (below) checks the collected list for free, no key needed.
+# Gated per-host by PACKAGE_AUDIT_DAYS since a single call here can submit
+# thousands of packages — much "heavier" than the weekly scan's usual
+# per-(product, version) lookups, so it runs far less often.
 
 PACKAGE_AUDIT_DAYS = int(os.environ.get("MIKROTIK_VULN_PACKAGE_AUDIT_DAYS", "7"))
 _VULNERS_MAX_PACKAGES = 2500  # vulners' own documented limit per audit call
@@ -832,6 +833,111 @@ async def _vulners_linux_audit(os_name: str, os_version: str, package_lines: lis
     except Exception as e:
         print(f"[vuln_scan] vulners linux_audit failed for {os_name} {os_version}: {e}")
         return []
+
+
+_OSV_ECOSYSTEM_BY_DISTRO = {"ubuntu": "Ubuntu", "debian": "Debian"}
+OSV_MIN_INTERVAL = float(os.environ.get("MIKROTIK_OSV_MIN_INTERVAL", "0.5"))
+_OSV_BATCH_SIZE = 500  # OSV.dev documents a 1000/batch limit; halved for margin
+_osv_last_call = 0.0
+
+
+async def _osv_throttle() -> None:
+    global _osv_last_call
+    wait = OSV_MIN_INTERVAL - (time.time() - _osv_last_call)
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _osv_last_call = time.time()
+
+
+_OSV_DATABASE_SEVERITY = {"LOW": "LOW", "MODERATE": "MEDIUM", "HIGH": "HIGH", "CRITICAL": "CRITICAL"}
+
+
+async def _osv_linux_audit(distro_id: str, packages: list) -> list:
+    """Third, free (no API key) CVE source — reused specifically for the
+    Linux package audit, where NVD's CPE-based searchCPE matches poorly
+    against raw dpkg/rpm package names (different naming convention).
+    OSV.dev is designed for exactly this: package name + ecosystem +
+    version. Deliberately scoped to apt-family distros (Debian/Ubuntu) —
+    OSV's RPM-family ecosystem coverage is much weaker, not worth the
+    extra queries for CentOS/RHEL/Fedora/etc. Runs unconditionally
+    (no API key gate) for every Linux package audit, unlike the vulners
+    audit above.
+
+    `packages` is the same list of (name, version) tuples _package_audit
+    already built for _persist_packages — never fetched or parsed twice."""
+    ecosystem = _OSV_ECOSYSTEM_BY_DISTRO.get((distro_id or "").lower())
+    if not ecosystem or not packages:
+        return []
+    try:
+        return await _osv_query_batch(ecosystem, packages)
+    except Exception as e:
+        print(f"[vuln_scan] OSV audit failed for {ecosystem}: {e}")
+        return []
+
+
+async def _osv_query_batch(ecosystem: str, packages: list) -> list:
+    findings = []
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for i in range(0, len(packages), _OSV_BATCH_SIZE):
+            chunk = packages[i:i + _OSV_BATCH_SIZE]
+            queries = [{"package": {"name": name, "ecosystem": ecosystem}, "version": version}
+                       for name, version in chunk]
+            await _osv_throttle()
+            try:
+                async with session.post("https://api.osv.dev/v1/querybatch",
+                                        json={"queries": queries}) as resp:
+                    if resp.status != 200:
+                        continue
+                    batch_result = await resp.json()
+            except Exception:
+                continue
+
+            results = batch_result.get("results") or []
+            # Map each vuln id back to the (name, version) that triggered
+            # it — a batch query only returns bare ids, never enough
+            # detail (summary/severity/references) to build a finding.
+            ids_for_pkg: dict = {}
+            for (name, version), r in zip(chunk, results):
+                for v in (r.get("vulns") or []) if isinstance(r, dict) else []:
+                    vid = v.get("id") if isinstance(v, dict) else None
+                    if vid:
+                        ids_for_pkg.setdefault(vid, (name, version))
+
+            for vid, (name, version) in ids_for_pkg.items():
+                await _osv_throttle()
+                try:
+                    async with session.get(f"https://api.osv.dev/v1/vulns/{vid}") as resp:
+                        if resp.status != 200:
+                            continue
+                        detail = await resp.json()
+                except Exception:
+                    continue
+                if not isinstance(detail, dict):
+                    continue
+                try:
+                    db_specific = detail.get("database_specific") or {}
+                    severity = _OSV_DATABASE_SEVERITY.get((db_specific.get("severity") or "").upper())
+                    refs = detail.get("references") or []
+                    ref_url = next((r.get("url") for r in refs if isinstance(r, dict) and r.get("url")), None)
+                    findings.append({
+                        "package": name, "package_version": version,
+                        "cve_id": vid,
+                        # OSV stores CVSS as a raw vector string (e.g.
+                        # "CVSS:3.1/AV:N/..."), not a computed numeric
+                        # score — deliberately NOT hand-rolling the CVSS
+                        # formula to derive one (real risk of a subtle bug
+                        # in a security-relevant score). severity comes
+                        # from database_specific.severity when present
+                        # (common on GHSA-sourced entries) instead.
+                        "cvss_score": None, "severity": severity,
+                        "summary": (detail.get("summary") or detail.get("details") or "")[:1000],
+                        "published": detail.get("published"),
+                        "ref_url": ref_url,
+                    })
+                except Exception:
+                    continue
+    return findings
 
 
 def _vulners_win_audit_sync(os_name: str, os_version: str, kbs: list, software: list) -> list:
@@ -941,7 +1047,13 @@ async def _package_audit(ip: str, cred, auth_info: dict, host_id: int,
         package_lines = [e[0] for e in entries]
         packages = [(e[1], e[2]) for e in entries]
         if VULNERS_API_KEY:
-            findings_raw = await _vulners_linux_audit(auth_info["distro_id"], auth_info["version"], package_lines)
+            findings_raw.extend(await _vulners_linux_audit(auth_info["distro_id"], auth_info["version"], package_lines))
+        # OSV.dev — free, no key required, runs unconditionally for
+        # apt-family distros (see _osv_linux_audit's docstring for scope).
+        # Merges with whatever vulners found above; VulnFinding's unique
+        # constraint on (product, version, cve_id) naturally dedupes a CVE
+        # both sources happen to report.
+        findings_raw.extend(await _osv_linux_audit(auth_info["distro_id"], packages))
     elif auth_info["winrm_port"]:
         inv = await _winrm_list_inventory(ip, auth_info["winrm_port"], cred.username, password, cred.domain)
         if not inv:
