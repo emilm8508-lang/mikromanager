@@ -484,13 +484,35 @@ async def _ssh_identity(ip: str, port: int, username: str, password: str) -> tup
 
 # ── Optional authenticated Windows identity check (SSH's counterpart) ───────
 
+def _ntlm_user(username: str, domain: Optional[str]) -> str:
+    """WinRM/NTLM login identifier for a (username, domain) pair — shared
+    by every WinRM connection in this file and in windows_manage.py.
+
+    UPN format ("user@fqdn.example.com") when `domain` looks like a DNS
+    name (contains a dot). NTLM's classic "DOMAIN\\user" format wants the
+    short NetBIOS domain name specifically (e.g. "MCPROJEKT") — using an
+    FQDN there (confirmed as the actual cause of a real report: every
+    Windows host rejecting a credential with Credential.domain set to
+    "mcprojekt.local" rather than the NetBIOS "MCPROJEKT") gets silently
+    rejected by the target even with a correct password. Falls back to
+    the classic "DOMAIN\\user" form for a NetBIOS-looking domain (the
+    case this always worked for), and to a bare username for a local
+    account (domain left blank)."""
+    if not domain:
+        return username
+    if "." in domain:
+        return f"{username}@{domain}"
+    return f"{domain}\\{username}"
+
+
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
                          domain: Optional[str]) -> Optional[dict]:
     """Blocking — run via loop.run_in_executor. Read-only: only ever runs
     `systeminfo`, nothing that changes device state. `domain` set → domain
-    account (DOMAIN\\user via NTLM); left blank → local Windows account."""
+    account (DOMAIN\\user or user@fqdn via NTLM, see _ntlm_user); left
+    blank → local Windows account."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     try:
         session = winrm.Session(
@@ -616,7 +638,7 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
     effect just from enumerating it, which would violate the read-only
     guarantee the rest of this scanner holds to."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     try:
         session = winrm.Session(

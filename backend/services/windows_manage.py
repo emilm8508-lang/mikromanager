@@ -145,7 +145,7 @@ def _identify_host_sync(ip: str, port: int, username: str, password: str, domain
     own _identify_host_sync being separate from vuln_scan's SSH identity
     check. Always returns a dict with an "error" key (None on success)."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     try:
         session = winrm.Session(
@@ -315,7 +315,7 @@ def _check_updates_sync(ip: str, port: int, username: str, password: str, domain
     never Download()/Install() — no double-hop issue, works over a plain
     WinRM session same as _identify_host_sync above."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
         f"{scheme}://{ip}:{port}/wsman",
@@ -400,7 +400,7 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
     task finishes, reads the JSON result file, then cleans up the task
     and both temp files regardless of outcome."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
         f"{scheme}://{ip}:{port}/wsman",
@@ -492,7 +492,7 @@ def _restart_sync(ip: str, port: int, username: str, password: str, domain: Opti
     reason code ("Planned, Application: Installation") shown alongside our
     own /c comment in Event Viewer (EventID 1074)."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
         f"{scheme}://{ip}:{port}/wsman",
@@ -702,7 +702,7 @@ def _run_script_sync(ip: str, port: int, username: str, password: str, domain: O
     a plain `session.run_ps(script)` over the normal WinRM session works
     directly, no scheduled-task workaround needed."""
     import winrm
-    user = f"{domain}\\{username}" if domain else username
+    user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
         f"{scheme}://{ip}:{port}/wsman",
