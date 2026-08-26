@@ -260,10 +260,10 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
             select(LinuxHost).where(LinuxHost.managed == True,  # noqa: E712
                                      LinuxHost.package_manager.in_(SUPPORTED_PACKAGE_MANAGERS))
         ).scalars().all()
-        managed_snapshot = [(h.id, h.ip, h.package_manager) for h in managed_hosts]
+        managed_snapshot = [(h.id, h.ip, h.package_manager, h.last_compliance_check_at) for h in managed_hosts]
 
     vs._emit(on_event, {"type": "phase", "phase": "linux_refresh", "total": len(managed_snapshot)})
-    for idx, (host_id, ip, pkg_mgr) in enumerate(managed_snapshot, 1):
+    for idx, (host_id, ip, pkg_mgr, last_compliance_at) in enumerate(managed_snapshot, 1):
         vs._emit(on_event, {"type": "progress", "phase": "linux_refresh",
                             "completed": idx, "total": len(managed_snapshot), "ip": ip})
         if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
@@ -278,7 +278,24 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
         except Exception as e:
             print(f"[linux_manage] discovery refresh error for {ip}: {e}")
 
+        # Compliance hardening checks — same weekly cadence as the rest of
+        # this refresh pass, TTL-gated separately (mirrors last_package_
+        # audit_at's reasoning: no point re-running this on every scan).
+        if not last_compliance_at or (datetime.utcnow() - last_compliance_at).days >= _COMPLIANCE_CHECK_DAYS():
+            try:
+                from services import compliance
+                await compliance.run_linux_checks(host_id)
+            except Exception as e:
+                print(f"[linux_manage] compliance check error for {ip}: {e}")
+
     return {"candidates": len(candidate_ips), "discovered": discovered, "refreshed": checked}
+
+
+def _COMPLIANCE_CHECK_DAYS() -> int:
+    # Lazy import to avoid a module-load-time circular import with
+    # services.compliance (which itself imports linux_manage).
+    from services import compliance
+    return compliance.COMPLIANCE_CHECK_DAYS
 
 
 async def full_network_scan_and_discover(on_event: Optional[Callable] = None) -> dict:

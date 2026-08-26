@@ -11,6 +11,7 @@
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventar",
                 "software":  "Software",
+                "compliance":  "Compliance",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
                 "central":  "Zentral",
@@ -696,5 +697,20 @@
         "colName": "Name",
         "colVersion": "Version",
         "colLastSeen": "Zuletzt gesehen"
+    },
+    "compliance": {
+        "subtitle": "Konfigurations-Härtungsprüfungen (nicht CVE-basiert) — Linux, Windows und RouterOS, ein kleiner Startsatz der wichtigsten Prüfungen, einmal wöchentlich automatisch ausgeführt für bereits verwaltete/bekannte Hosts und Geräte.",
+        "targetsTitle": "Geprüfte Hosts und Geräte",
+        "empty": "Noch keine Ergebnisse — sie erscheinen nach der ersten automatischen Prüfung verwalteter Linux/Windows-Hosts und bekannter Mikrotik-Geräte.",
+        "targetLinux": "Linux",
+        "targetWindows": "Windows",
+        "targetMikrotik": "Mikrotik",
+        "runNow": "Jetzt prüfen",
+        "passedCount": "{{count}} bestanden",
+        "failedCount": "{{count}} nicht bestanden",
+        "unknownCount": "{{count}} unbekannt",
+        "pass": "Bestanden",
+        "fail": "Nicht bestanden",
+        "unknown": "Unbekannt"
     }
 }

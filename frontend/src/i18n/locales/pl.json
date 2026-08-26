@@ -11,6 +11,7 @@
                 "windowsHosts":  "Windows",
                 "inventory":  "Inwentarz",
                 "software":  "Oprogramowanie",
+                "compliance":  "Zgodność",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
                 "central":  "Centralny",
@@ -858,6 +859,21 @@
         "colName": "Nazwa",
         "colVersion": "Wersja",
         "colLastSeen": "Ostatnio widziane"
+    },
+    "compliance": {
+        "subtitle": "Sprawdzenia bezpiecznej konfiguracji (nie CVE) — Linux, Windows i RouterOS, mały startowy zestaw najważniejszych sprawdzeń, wykonywany automatycznie co tydzień dla już zarządzanych/znanych hostów i urządzeń.",
+        "targetsTitle": "Sprawdzone hosty i urządzenia",
+        "empty": "Brak wyników — pojawią się po pierwszym automatycznym sprawdzeniu zarządzanych hostów Linux/Windows i znanych urządzeń Mikrotik.",
+        "targetLinux": "Linux",
+        "targetWindows": "Windows",
+        "targetMikrotik": "Mikrotik",
+        "runNow": "Sprawdź teraz",
+        "passedCount": "{{count}} zgodnych",
+        "failedCount": "{{count}} niezgodnych",
+        "unknownCount": "{{count}} nieokreślonych",
+        "pass": "Zgodne",
+        "fail": "Niezgodne",
+        "unknown": "Nieokreślone"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

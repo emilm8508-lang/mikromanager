@@ -14,6 +14,7 @@ import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
 import { Inventory } from './pages/Inventory'
 import { Software } from './pages/Software'
+import { Compliance } from './pages/Compliance'
 import { AuditLog } from './pages/AuditLog'
 import { Security } from './pages/Security'
 import { AuthGate } from './pages/Login'
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/windows" element={<WindowsHosts />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/software" element={<Software />} />
+            <Route path="/compliance" element={<Compliance />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />

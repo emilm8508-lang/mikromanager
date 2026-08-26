@@ -228,6 +228,19 @@ async def _refresh_one(dev_id: int) -> bool:
                 setattr(device, k, v)
                 updated = True
         db.commit()
+        device_vendor = device.vendor
+
+    # Compliance hardening checks (services/compliance.py) — RouterOS only
+    # for now (Cisco SB out of scope this round). No separate TTL: this
+    # whole function already only runs once per MIKROTIK_REFRESH_MIN
+    # (default once a day) per device, which is a low enough cadence on
+    # its own for a config check that isn't time-sensitive like a CVE.
+    if online_now and device_vendor == "mikrotik":
+        try:
+            from services import compliance
+            await compliance.run_mikrotik_checks(dev_id)
+        except Exception as e:
+            print(f"[refresher] compliance check error for device {dev_id}: {e}")
 
     return updated or online_now
 

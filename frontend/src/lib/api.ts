@@ -633,6 +633,42 @@ export const vulnApi = {
     ).then(r => r.data),
 }
 
+// ── Compliance (configuration-hardening checks, not CVE-based) ────────────────
+
+export type ComplianceTargetType = 'linux' | 'windows' | 'mikrotik'
+
+export interface ComplianceResult {
+  id: number
+  target_type: ComplianceTargetType
+  target_id: number
+  check_id: string
+  title: string
+  severity: 'high' | 'medium' | 'low'
+  passed: boolean | null
+  detail: string | null
+  checked_at: string | null
+}
+
+export interface ComplianceSummaryRow {
+  target_type: ComplianceTargetType
+  target_id: number
+  label: string
+  passed: number
+  failed: number
+  unknown: number
+  total: number
+}
+
+export const complianceApi = {
+  summary: () => api.get<ComplianceSummaryRow[]>('/compliance/summary').then(r => r.data),
+  results: (targetType?: ComplianceTargetType, targetId?: number) =>
+    api.get<ComplianceResult[]>('/compliance/results', {
+      params: { target_type: targetType, target_id: targetId },
+    }).then(r => r.data),
+  run: (targetType: ComplianceTargetType, targetId: number) =>
+    api.post<{ queued: boolean }>(`/compliance/run/${targetType}/${targetId}`).then(r => r.data),
+}
+
 // ── Inventory (grouped view of everything the scanner found) ─────────────────
 
 export interface InventoryNetworkEntry {

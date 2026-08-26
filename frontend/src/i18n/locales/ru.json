@@ -11,6 +11,7 @@
                 "windowsHosts":  "Windows",
                 "inventory":  "Инвентарь",
                 "software":  "ПО",
+                "compliance":  "Соответствие",
                 "audit":  "Аудит",
                 "security":  "Безопасность",
                 "central":  "Центр",
@@ -696,5 +697,20 @@
         "colName": "Название",
         "colVersion": "Версия",
         "colLastSeen": "Последнее обнаружение"
+    },
+    "compliance": {
+        "subtitle": "Проверки безопасной конфигурации (не связанные с CVE) — Linux, Windows и RouterOS, небольшой стартовый набор самых важных проверок, выполняется автоматически раз в неделю для уже управляемых/известных хостов и устройств.",
+        "targetsTitle": "Проверенные хосты и устройства",
+        "empty": "Результатов пока нет — они появятся после первой автоматической проверки управляемых хостов Linux/Windows и известных устройств Mikrotik.",
+        "targetLinux": "Linux",
+        "targetWindows": "Windows",
+        "targetMikrotik": "Mikrotik",
+        "runNow": "Проверить сейчас",
+        "passedCount": "{{count}} пройдено",
+        "failedCount": "{{count}} не пройдено",
+        "unknownCount": "{{count}} неизвестно",
+        "pass": "Пройдено",
+        "fail": "Не пройдено",
+        "unknown": "Неизвестно"
     }
 }

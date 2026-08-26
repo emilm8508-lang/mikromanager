@@ -250,11 +250,11 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
     # per host, one host's WinRM failure never aborts the rest of the pass.
     with SessionLocal() as db:
         managed_hosts = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
-        managed_snapshot = [(h.id, h.ip, h.winrm_port) for h in managed_hosts]
+        managed_snapshot = [(h.id, h.ip, h.winrm_port, h.last_compliance_check_at) for h in managed_hosts]
 
     checked = 0
     vs._emit(on_event, {"type": "phase", "phase": "windows_refresh", "total": len(managed_snapshot)})
-    for idx, (host_id, ip, port) in enumerate(managed_snapshot, 1):
+    for idx, (host_id, ip, port, last_compliance_at) in enumerate(managed_snapshot, 1):
         vs._emit(on_event, {"type": "progress", "phase": "windows_refresh",
                             "completed": idx, "total": len(managed_snapshot), "ip": ip})
         if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
@@ -268,6 +268,15 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
                 _persist_check_result(host_id, ok=False, error=result["error"])
         except Exception as e:
             print(f"[windows_manage] discovery refresh error for {ip}: {e}")
+
+        # Compliance hardening checks — same weekly cadence, own TTL (see
+        # linux_manage.discover_linux_hosts()'s identical block).
+        from services import compliance
+        if not last_compliance_at or (datetime.utcnow() - last_compliance_at).days >= compliance.COMPLIANCE_CHECK_DAYS:
+            try:
+                await compliance.run_windows_checks(host_id)
+            except Exception as e:
+                print(f"[windows_manage] compliance check error for {ip}: {e}")
 
     return {"candidates": len(port_by_ip), "discovered": discovered, "refreshed": checked}
 

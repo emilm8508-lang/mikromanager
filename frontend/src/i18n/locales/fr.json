@@ -11,6 +11,7 @@
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventaire",
                 "software":  "Logiciels",
+                "compliance":  "Conformité",
                 "audit":  "Audit",
                 "security":  "Sécurité",
                 "central":  "Central",
@@ -696,5 +697,20 @@
         "colName": "Nom",
         "colVersion": "Version",
         "colLastSeen": "Dernière détection"
+    },
+    "compliance": {
+        "subtitle": "Vérifications de durcissement de la configuration (pas basées sur les CVE) — Linux, Windows et RouterOS, un petit ensemble initial des vérifications les plus importantes, exécuté automatiquement chaque semaine pour les hôtes et appareils déjà gérés/connus.",
+        "targetsTitle": "Hôtes et appareils vérifiés",
+        "empty": "Pas encore de résultats — ils apparaîtront après la première vérification automatique des hôtes Linux/Windows gérés et des appareils Mikrotik connus.",
+        "targetLinux": "Linux",
+        "targetWindows": "Windows",
+        "targetMikrotik": "Mikrotik",
+        "runNow": "Vérifier maintenant",
+        "passedCount": "{{count}} conformes",
+        "failedCount": "{{count}} non conformes",
+        "unknownCount": "{{count}} indéterminées",
+        "pass": "Conforme",
+        "fail": "Non conforme",
+        "unknown": "Indéterminé"
     }
 }

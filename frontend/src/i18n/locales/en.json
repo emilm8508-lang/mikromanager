@@ -11,6 +11,7 @@
                 "windowsHosts":  "Windows",
                 "inventory":  "Inventory",
                 "software":  "Software",
+                "compliance":  "Compliance",
                 "audit":  "Audit",
                 "security":  "Security",
                 "central":  "Central",
@@ -696,5 +697,20 @@
         "colName": "Name",
         "colVersion": "Version",
         "colLastSeen": "Last seen"
+    },
+    "compliance": {
+        "subtitle": "Configuration-hardening checks (not CVE-based) — Linux, Windows, and RouterOS, a small starting set of the most important checks, run automatically once a week for already-managed/known hosts and devices.",
+        "targetsTitle": "Checked hosts and devices",
+        "empty": "No results yet — they'll appear after the first automatic check of managed Linux/Windows hosts and known Mikrotik devices.",
+        "targetLinux": "Linux",
+        "targetWindows": "Windows",
+        "targetMikrotik": "Mikrotik",
+        "runNow": "Check now",
+        "passedCount": "{{count}} passed",
+        "failedCount": "{{count}} failed",
+        "unknownCount": "{{count}} unknown",
+        "pass": "Pass",
+        "fail": "Fail",
+        "unknown": "Unknown"
     }
 }
