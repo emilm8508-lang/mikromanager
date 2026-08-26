@@ -185,6 +185,38 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
             out.append({"tunnel_type": tunnel_type, "tunnel_name": "_query_",
                         "status": "error", "detail": err})
 
+    # Collapse duplicate per-type query-failure placeholders into a single
+    # row. A single broken connection (e.g. mikrotik_client.py's api-ssl
+    # circuit breaker, "api-ssl previously failed for X, skipping retry")
+    # fails EVERY type's query with the exact same message — WireGuard,
+    # IPsec, and all four simple-tunnel types each add their own "_query_"
+    # placeholder above, so a device that's simply unreachable ends up
+    # with up to 6 near-identical "błąd zapytania" rows that look exactly
+    # like 6 real (but broken) tunnels. Reported directly: "tunele
+    # których nie ma na urządzeniach" — that's this, not an actual stale/
+    # removed tunnel. Errors that genuinely differ (e.g. WireGuard simply
+    # unsupported on RouterOS v6 vs. a real IPsec query error) still show
+    # as separate rows — only identical messages get merged.
+    error_rows = [t for t in out if t.get("tunnel_name") == "_query_"]
+    if len(error_rows) > 1:
+        other_rows = [t for t in out if t.get("tunnel_name") != "_query_"]
+        seen_details = set()
+        deduped_errors = []
+        for e in error_rows:
+            detail = e.get("detail")
+            if detail in seen_details:
+                continue
+            seen_details.add(detail)
+            deduped_errors.append(e)
+        # More than one distinct error collapsed into fewer rows than
+        # types that failed — relabel so "wireguard" (just the first type
+        # to fail, an accident of iteration order) doesn't read as if the
+        # problem were WireGuard-specific.
+        if len(deduped_errors) < len(error_rows):
+            for e in deduped_errors:
+                e["tunnel_type"] = "connection"
+        out = other_rows + deduped_errors
+
     for t in out:
         t["device_id"] = device.id
         t["device_name"] = device_name
