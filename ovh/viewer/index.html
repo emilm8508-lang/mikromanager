@@ -510,8 +510,26 @@ document.getElementById('btn-export-keys').addEventListener('click', () => {
 document.getElementById('btn-import-keys').addEventListener('click', () => {
   const msg = document.getElementById('keys-msg');
   msg.classList.remove('hidden');
+  const raw = document.getElementById('import-keys').value.trim();
   try {
-    const parsed = JSON.parse(document.getElementById('import-keys').value);
+    if (!raw) throw new Error('pole jest puste — wklej najpierw wyeksportowany JSON');
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseErr) {
+      // "Unexpected EOF"/"Unexpected end of JSON input" from JSON.parse
+      // means the pasted text is INCOMPLETE (cut off partway through) —
+      // the classic cause on a phone is a paste that lost characters
+      // (message-app length limits, partial selection, autocorrect).
+      // Only override the raw parser error with this hint when the shape
+      // actually looks cut off (missing the closing brace) — a complete
+      // but wrong-shaped paste (e.g. a JSON array) still parses fine and
+      // never reaches this catch at all, so it keeps its own message below.
+      if (!raw.startsWith('{') || !raw.endsWith('}')) {
+        throw new Error(`tekst wygląda na niepełny (${raw.length} znaków, zaczyna się od "${raw.slice(0, 1)}", kończy na "${raw.slice(-1)}") — powinien zaczynać się od { i kończyć na }. Wklej całą zawartość jeszcze raz.`);
+      }
+      throw parseErr;
+    }
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('oczekiwano obiektu JSON {tenant: klucz}');
     const cfg = loadConfig();
     if (!cfg) throw new Error('najpierw skonfiguruj URL/hasło');
@@ -520,7 +538,7 @@ document.getElementById('btn-import-keys').addEventListener('click', () => {
     msg.textContent = `Zaimportowano ${Object.keys(parsed).length} kluczy.`;
     refreshAll();
   } catch (e) {
-    msg.textContent = 'Błąd: ' + e.message;
+    msg.textContent = 'Błąd: ' + e.message + (raw ? ` (odebrano ${raw.length} znaków)` : '');
   }
 });
 
