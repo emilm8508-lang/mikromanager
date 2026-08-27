@@ -861,7 +861,9 @@
         "importTitle": "Import z Centrali",
         "importHint": "Ściąga Twoje dotychczasowe mapowania klientów i sesje z panelu \"Czas pracy\" na OVH do tej lokalnej listy — dane z OVH zostają nietknięte, można importować wielokrotnie bez duplikatów, a lokalna klasyfikacja nigdy nie jest nadpisywana.",
         "importNow": "Importuj z Centrali",
-        "importResult": "Zaimportowano/zaktualizowano {{sessions}} sesji, {{labels}} nowych etykiet."
+        "importResult": "Zaimportowano/zaktualizowano {{sessions}} sesji, {{labels}} nowych etykiet.",
+        "importSessionExpired": "Twoja sesja konta Centrali wygasła — zaloguj się ponownie w zakładce Centralny → Użytkownicy, a potem wróć tutaj i spróbuj jeszcze raz.",
+        "importGoToLogin": "Przejdź do logowania →"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

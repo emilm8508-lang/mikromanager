@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { anydeskApi, centralAnydeskApi, centralConfig, AnydeskSessionOut, AnydeskCategory, AnydeskLabel } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -132,6 +133,7 @@ function ClassifyCell({ session }: { session: AnydeskSessionOut }) {
 function ImportFromCentralBar() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const configured = !!centralConfig.load()
 
   const runImport = useMutation({
@@ -182,7 +184,16 @@ function ImportFromCentralBar() {
         </p>
       )}
       {runImport.isError && (
-        <p className="w-full text-xs text-red-600">{(runImport.error as Error).message}</p>
+        (runImport.error as Error).message.includes('invalid_or_expired_session') ? (
+          <div className="w-full text-xs text-red-600 flex items-center gap-2 flex-wrap">
+            <span>{t('anydesk.importSessionExpired')}</span>
+            <button onClick={() => navigate('/central')} className="text-indigo-600 hover:underline font-medium">
+              {t('anydesk.importGoToLogin')}
+            </button>
+          </div>
+        ) : (
+          <p className="w-full text-xs text-red-600">{(runImport.error as Error).message}</p>
+        )
       )}
     </div>
   )
