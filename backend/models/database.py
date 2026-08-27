@@ -430,6 +430,12 @@ class AnydeskSession(Base):
     auth_method = Column(String, nullable=True)    # "User" | "Passwd" | "Token" | None (ad_svc-only row)
     rejected = Column(Boolean, nullable=False, default=False)
     source = Column(String, nullable=False, default="connection_trace")  # "connection_trace" | "ad_svc_trace" | "merged"
+    # Billing/time-tracking classification — added so this ONE local table
+    # covers both "which sessions happened" and "which of them are billable
+    # work", instead of a separate OVH panel (removed) that needed its own
+    # login on top of the local agent's. NULL = not yet classified.
+    category = Column(String, nullable=True)        # "billable" | "training" | "internal" | None
+    note = Column(Text, nullable=True)
     synced_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("cid", "started_at", name="uq_anydesk_session"),)
@@ -512,6 +518,14 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "manage_enabled" not in wms_cols:
                 conn.execute(text("ALTER TABLE windows_manage_settings ADD COLUMN manage_enabled BOOLEAN"))
+
+    if "anydesk_sessions" in inspector.get_table_names():
+        as_cols = {c["name"] for c in inspector.get_columns("anydesk_sessions")}
+        with engine.begin() as conn:
+            if "category" not in as_cols:
+                conn.execute(text("ALTER TABLE anydesk_sessions ADD COLUMN category VARCHAR"))
+            if "note" not in as_cols:
+                conn.execute(text("ALTER TABLE anydesk_sessions ADD COLUMN note TEXT"))
 
 
 def init_db():

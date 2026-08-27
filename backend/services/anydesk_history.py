@@ -41,10 +41,14 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional
 
+from collections import defaultdict
+
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 
 from models.database import SessionLocal, AnydeskSession, AnydeskCidLabel
+
+CATEGORIES = {"billable", "training", "internal"}
 
 # Overridable via env because AnyDesk's install mode (per-machine service vs
 # per-user "portable") changes where these files live — the two ProgramData
@@ -288,7 +292,75 @@ def list_sessions(cid: Optional[str] = None, q: Optional[str] = None,
             "ended_at": r.ended_at.isoformat() if r.ended_at else None,
             "duration_sec": r.duration_sec,
             "auth_method": r.auth_method, "rejected": r.rejected, "source": r.source,
+            "category": r.category, "note": r.note,
         })
+    return out
+
+
+def classify(session_id: int, category: Optional[str], note: Optional[str] = None) -> dict:
+    if category is not None and category not in CATEGORIES:
+        raise ValueError(f"invalid category: {category!r}")
+    with SessionLocal() as db:
+        row = db.get(AnydeskSession, session_id)
+        if not row:
+            raise ValueError("session not found")
+        row.category = category
+        if note is not None:
+            row.note = note
+        db.commit()
+        db.refresh(row)
+        label = None
+        lr = db.get(AnydeskCidLabel, row.cid)
+        if lr:
+            label = lr.label
+        return {
+            "id": row.id, "cid": row.cid, "label": label,
+            "started_at": row.started_at.isoformat(),
+            "ended_at": row.ended_at.isoformat() if row.ended_at else None,
+            "duration_sec": row.duration_sec,
+            "auth_method": row.auth_method, "rejected": row.rejected, "source": row.source,
+            "category": row.category, "note": row.note,
+        }
+
+
+def summary(from_date: Optional[str] = None, to_date: Optional[str] = None) -> list[dict]:
+    """One row per (client, month): total minutes rounded up to whole
+    minutes per session (never truncated to zero for a short-but-real
+    session — mirrors how AnyDesk-based billing is normally rounded), split
+    across billable/training/internal/unclassified, plus a session count.
+    Rejected connection attempts and sessions with no known duration
+    (connection_trace.txt-only, ad_svc.trace already rotated past them)
+    contribute to session_count for visibility but 0 minutes — there is no
+    honest way to guess how long they lasted.
+
+    "client" groups by AnydeskCidLabel.label when set, else falls back to
+    the raw cid — no separate multi-cid-per-client concept yet; give
+    several cids matching label text if you want them to roll up together."""
+    with SessionLocal() as db:
+        labels = {row.cid: row.label for row in db.execute(select(AnydeskCidLabel)).scalars().all()}
+        stmt = select(AnydeskSession).where(AnydeskSession.rejected == False)  # noqa: E712
+        if from_date:
+            stmt = stmt.where(AnydeskSession.started_at >= datetime.strptime(from_date, "%Y-%m-%d"))
+        if to_date:
+            stmt = stmt.where(AnydeskSession.started_at < datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1))
+        rows = db.execute(stmt).scalars().all()
+
+    agg: dict[tuple, dict] = defaultdict(lambda: {
+        "billable_minutes": 0, "training_minutes": 0, "internal_minutes": 0,
+        "unclassified_minutes": 0, "session_count": 0,
+    })
+    for r in rows:
+        client = labels.get(r.cid) or r.cid
+        month = r.started_at.strftime("%Y-%m")
+        entry = agg[(client, month)]
+        entry["session_count"] += 1
+        if r.duration_sec:
+            minutes = max(1, -(-r.duration_sec // 60))  # ceil, min 1 minute for any real connection
+            key = f"{r.category}_minutes" if r.category in CATEGORIES else "unclassified_minutes"
+            entry[key] += minutes
+
+    out = [{"client": client, "month": month, **vals} for (client, month), vals in agg.items()]
+    out.sort(key=lambda x: (x["client"], x["month"]))
     return out
 
 
