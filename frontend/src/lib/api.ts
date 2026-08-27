@@ -1139,24 +1139,45 @@ async function centralRequest<T>(
   }
 
   const method = opts.method ?? 'GET'
-  const headers: Record<string, string> = {}
+  const baseHeaders: Record<string, string> = {}
+  let body: string | undefined
+  if (opts.body !== undefined) {
+    baseHeaders['Content-Type'] = 'application/json'
+    body = JSON.stringify(opts.body)
+  }
+  const doFetch = (authHeaders: Record<string, string>) =>
+    fetch(url.toString(), { method, headers: { ...baseHeaders, ...authHeaders }, body })
+
   // Prefer a per-user account session token (recommended path) over the
   // legacy shared password — `login`/logged-out state doesn't have one yet,
   // so this falls back to the legacy password if that's all that's configured.
   const session = centralSession.load()
+  let resp: Response
   if (session) {
-    headers.Authorization = `Bearer ${session.token}`
+    resp = await doFetch({ Authorization: `Bearer ${session.token}` })
+    // The token in sessionStorage can go stale independently of anything
+    // the browser knows (server-side expiry, e.g. after
+    // user_session_ttl_sec, or a revoked session) — confirmed in practice:
+    // a one-click action like AnyDesk's "Importuj z Centrali" would
+    // otherwise just fail with a raw 401 until the user manually re-logs
+    // into the "Użytkownicy" tab. Self-heal instead: drop the dead session
+    // and retry once with the legacy shared password (counts as global
+    // admin server-side, same as every other already-established fallback
+    // in this app) if one is configured.
+    if (resp.status === 401 && cfg.password) {
+      centralSession.clear()
+      const fallbackHeaders: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
+      if (cfg.totpSecret) fallbackHeaders['X-Totp'] = await totpCode(cfg.totpSecret)
+      resp = await doFetch(fallbackHeaders)
+    }
   } else if (cfg.password) {
-    headers.Authorization = `Bearer ${cfg.password}`
+    const headers: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
     if (cfg.totpSecret) headers['X-Totp'] = await totpCode(cfg.totpSecret)
-  }
-  let body: string | undefined
-  if (opts.body !== undefined) {
-    headers['Content-Type'] = 'application/json'
-    body = JSON.stringify(opts.body)
+    resp = await doFetch(headers)
+  } else {
+    resp = await doFetch({})
   }
 
-  const resp = await fetch(url.toString(), { method, headers, body })
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`)
   return resp.json()
 }
