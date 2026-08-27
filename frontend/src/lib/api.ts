@@ -824,6 +824,9 @@ export const anydeskApi = {
     api.put<AnydeskSessionOut>(`/anydesk/sessions/${sessionId}/classify`, { category, note }).then(r => r.data),
   summary: (params?: { from_date?: string; to_date?: string }) =>
     api.get<{ summary: AnydeskSummaryRow[] }>('/anydesk/summary', { params }).then(r => r.data.summary),
+  import: (sessions: Record<string, unknown>[], labels: Record<string, unknown>[]) =>
+    api.post<{ sessions_inserted: number; sessions_updated: number; sessions_skipped: number; labels_applied: number }>(
+      '/anydesk/import', { sessions, labels }).then(r => r.data),
 }
 
 // ── Windows host management (Windows Update install/restart) ──────────────────
@@ -1194,18 +1197,16 @@ export const centralUsersApi = {
   totpReset: (id: number) => centralRequest<{ secret: string; otpauth_uri: string }>('user_totp_reset', { id: String(id) }, { method: 'POST' }),
 }
 
-// ── AnyDesk time tracking (Centrala, global-admin only) ─────────────────────
-// Session data comes from AnyDesk's own REST API, synced server-side by
-// ovh/anydesk.php — this app never talks to AnyDesk directly, only to the
-// usual central-proxy relay. Restored after an earlier merge attempt
-// deleted this and the local trace-file feature (anydeskApi above) turned
-// out NOT to be a substitute — this one holds the user's existing OVH
-// data (client mappings + already-classified sessions), which the local
-// SQLite-backed feature has no way to see or migrate from this sandbox.
-// AnydeskCategory/AnydeskStatus/AnydeskSummaryRow would collide by name
-// with the local feature's own types above, so the two that actually
-// clash are prefixed Central*; AnydeskCategory is identical in both and
-// shared as-is (declared once, above).
+// ── AnyDesk on OVH (read-only, used only for the one-time/repeatable
+// "Importuj z Centrali" pull into the local AnyDesk tab below) ─────────────
+// This used to be a whole standalone Central panel (classification,
+// mapping CRUD, CSV import, monthly summary) with its own OVH per-user
+// login on top of the local agent's — removed because the local
+// trace-file feature covers all of that with richer data and no extra
+// login. What's kept here is the minimum needed to pull the user's
+// EXISTING OVH data (client-ID mappings + already-classified sessions,
+// e.g. from earlier manual CSV imports) down into the local table once —
+// see anydeskApi.import() below, which is where the actual merge happens.
 
 export interface AnydeskSession {
   id: number
@@ -1236,47 +1237,10 @@ export interface AnydeskClientMap {
   created_at: string
 }
 
-export interface CentralAnydeskSummaryRow {
-  tenant: string
-  month: string
-  billable_minutes: number
-  training_minutes: number
-  internal_minutes: number
-  unclassified_minutes: number
-  session_count: number
-}
-
-export interface CentralAnydeskStatus {
-  configured: boolean
-  last_sync_at: string | null
-  last_error: string | null
-  sessions_total: number
-  sessions_unclassified: number
-  sessions_unassigned: number
-}
-
-export interface AnydeskUnassignedRow {
-  cid: string
-  alias: string | null
-  session_count: number
-  last_seen: string
-}
-
 export const centralAnydeskApi = {
-  status: () => centralRequest<CentralAnydeskStatus>('anydesk_status'),
-  syncNow: () => centralRequest<{ ok: boolean; error: string | null; synced: number; skipped?: number }>('anydesk_sync_now', {}, { method: 'POST' }),
-  importCsv: (csv: string) => centralRequest<{ ok: boolean; imported: number; skipped: number }>('anydesk_import_csv', {}, { method: 'POST', body: { csv } }),
   mappingList: () => centralRequest<{ mappings: AnydeskClientMap[] }>('anydesk_client_map_list'),
-  mappingAdd: (data: { tenant: string; anydesk_cid: string; label?: string }) =>
-    centralRequest<{ ok: boolean; id: number; retroactively_assigned: number }>('anydesk_client_map_add', {}, { method: 'POST', body: data }),
-  mappingDelete: (id: number) => centralRequest<{ ok: boolean; deleted: number }>('anydesk_client_map_delete', { id: String(id) }, { method: 'DELETE' }),
   sessions: (filters: { tenant?: string; category?: AnydeskCategory | 'unclassified'; from?: string; to?: string } = {}) =>
     centralRequest<{ sessions: AnydeskSession[] }>('anydesk_sessions', filters as Record<string, string>),
-  classify: (id: number, category: AnydeskCategory | null, note?: string) =>
-    centralRequest<{ ok: boolean }>('anydesk_session_classify', {}, { method: 'POST', body: { id, category, note } }),
-  summary: (filters: { from?: string; to?: string } = {}) =>
-    centralRequest<{ summary: CentralAnydeskSummaryRow[] }>('anydesk_summary', filters as Record<string, string>),
-  unassigned: () => centralRequest<{ unassigned: AnydeskUnassignedRow[] }>('anydesk_unassigned'),
 }
 
 // ── Alert + edge types ─────────────────────────────────────────────────────

@@ -16,6 +16,11 @@ class ClassifyIn(BaseModel):
     note: str | None = None
 
 
+class ImportIn(BaseModel):
+    sessions: list[dict] = []
+    labels: list[dict] = []
+
+
 @router.get("/status")
 async def get_status():
     return anydesk_history.status()
@@ -58,3 +63,8 @@ async def classify(session_id: int, payload: ClassifyIn):
 @router.get("/summary")
 async def summary(from_date: str | None = None, to_date: str | None = None):
     return {"summary": anydesk_history.summary(from_date=from_date, to_date=to_date)}
+
+
+@router.post("/import")
+async def import_external(payload: ImportIn):
+    return anydesk_history.import_external(payload.sessions, payload.labels)

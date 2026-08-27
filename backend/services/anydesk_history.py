@@ -163,11 +163,18 @@ def _parse_service_trace(path: str) -> list[dict]:
 
 def _upsert_session(db, cid: str, started_at: datetime, ended_at=None,
                      duration_sec=None, auth_method=None, rejected=False,
-                     source="connection_trace") -> str:
+                     source="connection_trace", category=None, note=None) -> str:
     """Insert, or upgrade-in-place a row already synced for the same
     (cid, minute) — this is what makes sync() idempotent AND lets a
     duration discovered later (while ad_svc.trace still has it) backfill a
-    row that was first synced from connection_trace.txt alone."""
+    row that was first synced from connection_trace.txt alone. Also the
+    merge point for import_external(): an OVH-imported session for the
+    same cid+minute as an already-locally-parsed one updates it in place
+    instead of creating a duplicate — this is the actual "dane powinny się
+    połączyć" mechanism, not a separate reconciliation pass.
+
+    category/note only ever FILL an empty field, never overwrite — an
+    import must never clobber a classification already made locally."""
     minute = started_at.replace(second=0, microsecond=0)
     existing = db.execute(
         select(AnydeskSession).where(
@@ -187,13 +194,18 @@ def _upsert_session(db, cid: str, started_at: datetime, ended_at=None,
             existing.auth_method = auth_method
         if rejected:
             existing.rejected = True
+        if category is not None and existing.category is None:
+            existing.category = category
+        if note and not existing.note:
+            existing.note = note
         if source != "connection_trace":
             existing.source = "merged" if existing.source != source else existing.source
         existing.synced_at = datetime.utcnow()
         return "updated"
     row = AnydeskSession(cid=cid, started_at=started_at, ended_at=ended_at,
                           duration_sec=duration_sec, auth_method=auth_method,
-                          rejected=rejected, source=source)
+                          rejected=rejected, source=source,
+                          category=category, note=note)
     db.add(row)
     try:
         db.flush()
@@ -389,3 +401,85 @@ def delete_label(cid: str) -> dict:
         db.execute(delete(AnydeskCidLabel).where(AnydeskCidLabel.cid == cid))
         db.commit()
     return {"deleted": cid}
+
+
+def import_external(sessions: list[dict], labels: list[dict]) -> dict:
+    """One-time (but safely repeatable) merge of data already sitting on
+    OVH — the "Czas pracy" panel's anydesk_client_map (client-ID -> tenant
+    mappings) and anydesk_sessions (sessions already classified there,
+    imported from AnyDesk's own CSV export) — into this local table, so
+    the two no-longer-separate AnyDesk views actually end up sharing one
+    data set. The caller (the browser) fetches these from OVH via the
+    existing central-proxy + centralAnydeskApi — this function itself
+    never talks to OVH, it only merges whatever payload it's given.
+
+    Expected shapes (looser than the OVH response — extra fields ignored):
+    sessions: [{cid, started_at (ISO), ended_at (ISO|null), duration_sec,
+                category, note}, ...]
+    labels: [{cid, label}, ...]
+
+    Idempotent: safe to run more than once (e.g. after classifying more
+    sessions on OVH later) — reuses _upsert_session's same cid+minute
+    matching, so a session already pulled in from local trace files
+    merges with the matching OVH-imported one instead of duplicating, and
+    an OVH classification only fills a still-empty local category/note,
+    never overwrites one already set locally."""
+    labels_applied = 0
+    with SessionLocal() as db:
+        for lab in labels:
+            cid = str(lab.get("cid") or "").strip()
+            label = str(lab.get("label") or "").strip()
+            if not cid or not label:
+                continue
+            existing = db.get(AnydeskCidLabel, cid)
+            if existing:
+                if not existing.label:
+                    existing.label = label
+                    existing.updated_at = datetime.utcnow()
+                    labels_applied += 1
+            else:
+                db.add(AnydeskCidLabel(cid=cid, label=label))
+                labels_applied += 1
+        db.commit()
+
+        inserted = updated = skipped = 0
+        for s in sessions:
+            cid = str(s.get("cid") or "").strip()
+            if not cid:
+                skipped += 1
+                continue
+            try:
+                started_at = datetime.fromisoformat(str(s["started_at"]))
+            except (KeyError, ValueError, TypeError):
+                skipped += 1
+                continue
+            ended_at = None
+            if s.get("ended_at"):
+                try:
+                    ended_at = datetime.fromisoformat(str(s["ended_at"]))
+                except ValueError:
+                    ended_at = None
+            duration_sec = s.get("duration_sec")
+            if not isinstance(duration_sec, int):
+                duration_sec = None
+            category = s.get("category")
+            if category not in CATEGORIES:
+                category = None
+            note = s.get("note") or None
+
+            result = _upsert_session(
+                db, cid, started_at, ended_at=ended_at, duration_sec=duration_sec,
+                source="ovh_import", category=category, note=note,
+            )
+            if result == "inserted":
+                inserted += 1
+            elif result == "updated":
+                updated += 1
+            else:
+                skipped += 1
+        db.commit()
+
+    return {
+        "sessions_inserted": inserted, "sessions_updated": updated, "sessions_skipped": skipped,
+        "labels_applied": labels_applied,
+    }

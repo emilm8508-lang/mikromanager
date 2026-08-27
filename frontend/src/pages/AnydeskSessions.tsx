@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { anydeskApi, AnydeskSessionOut, AnydeskCategory } from '../lib/api'
+import { anydeskApi, centralAnydeskApi, centralConfig, AnydeskSessionOut, AnydeskCategory, AnydeskLabel } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { History, RefreshCw, Search, AlertTriangle, Tag, FileDown } from 'lucide-react'
+import { History, RefreshCw, Search, AlertTriangle, Tag, FileDown, Download, Trash2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 function formatDuration(sec: number | null): string {
@@ -119,6 +119,162 @@ function ClassifyCell({ session }: { session: AnydeskSessionOut }) {
         className="text-xs border border-slate-300 rounded px-1.5 py-0.5 w-28"
       />
     </div>
+  )
+}
+
+// One-time (but safely repeatable) pull of whatever the user already has
+// on OVH — client-ID mappings + already-classified sessions from the old
+// "Czas pracy" panel — into the local table below, so the two AnyDesk
+// views this app used to have actually end up sharing one data set
+// instead of the old one going dark. Only shown when a Central config
+// (OVH API URL/password, from the "Centralny" tab) is already saved —
+// this never asks for a separate login of its own.
+function ImportFromCentralBar() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const configured = !!centralConfig.load()
+
+  const runImport = useMutation({
+    mutationFn: async () => {
+      const [mapRes, sessRes] = await Promise.all([
+        centralAnydeskApi.mappingList(),
+        centralAnydeskApi.sessions({}),
+      ])
+      const labels = (mapRes.mappings ?? []).map(m => ({
+        cid: m.anydesk_cid,
+        label: m.label ? `${m.tenant} - ${m.label}` : m.tenant,
+      }))
+      const sessions = (sessRes.sessions ?? []).map(s => ({
+        cid: s.to_cid,
+        started_at: s.start_time,
+        ended_at: s.end_time,
+        duration_sec: s.duration_sec,
+        category: s.category,
+        note: s.note,
+      }))
+      return anydeskApi.import(sessions, labels)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['anydesk-sessions'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-labels'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-summary'] })
+    },
+  })
+
+  if (!configured) return null
+
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+      <div className="text-xs text-indigo-800">
+        <p className="font-medium">{t('anydesk.importTitle')}</p>
+        <p className="text-indigo-700/80 mt-0.5">{t('anydesk.importHint')}</p>
+      </div>
+      <Button variant="secondary" onClick={() => runImport.mutate()} disabled={runImport.isPending}>
+        <Download size={13} className={runImport.isPending ? 'animate-pulse' : ''} />
+        {t('anydesk.importNow')}
+      </Button>
+      {runImport.data && (
+        <p className="w-full text-xs text-indigo-700">
+          {t('anydesk.importResult', {
+            sessions: runImport.data.sessions_inserted + runImport.data.sessions_updated,
+            labels: runImport.data.labels_applied,
+          })}
+        </p>
+      )}
+      {runImport.isError && (
+        <p className="w-full text-xs text-red-600">{(runImport.error as Error).message}</p>
+      )}
+    </div>
+  )
+}
+
+function LabelRow({ item }: { item: AnydeskLabel }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [value, setValue] = useState(item.label)
+
+  const save = useMutation({
+    mutationFn: () => anydeskApi.setLabel(item.cid, value.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['anydesk-labels'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-sessions'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-summary'] })
+    },
+  })
+  const del = useMutation({
+    mutationFn: () => anydeskApi.deleteLabel(item.cid),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['anydesk-labels'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-sessions'] })
+      qc.invalidateQueries({ queryKey: ['anydesk-summary'] })
+    },
+  })
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-slate-100 text-sm">
+      <span className="font-mono text-xs text-slate-500 w-28 shrink-0">{item.cid}</span>
+      <input
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={() => { if (value.trim() && value !== item.label) save.mutate() }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+        className="border border-slate-300 rounded px-1.5 py-0.5 text-xs flex-1"
+      />
+      <button onClick={() => { if (confirm(t('anydesk.confirmDeleteLabel', { cid: item.cid }) as string)) del.mutate() }}
+        className="text-slate-400 hover:text-red-600">
+        <Trash2 size={13} />
+      </button>
+    </div>
+  )
+}
+
+function LabelsTab() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: labels = [], isLoading } = useQuery({ queryKey: ['anydesk-labels'], queryFn: anydeskApi.labels })
+  const [newCid, setNewCid] = useState('')
+  const [newLabel, setNewLabel] = useState('')
+
+  const add = useMutation({
+    mutationFn: () => anydeskApi.setLabel(newCid, newLabel),
+    onSuccess: () => {
+      setNewCid(''); setNewLabel('')
+      qc.invalidateQueries({ queryKey: ['anydesk-labels'] })
+    },
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-sm font-semibold text-slate-700">{t('anydesk.labelsTitle')} {!isLoading && `(${labels.length})`}</h2>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            value={newCid}
+            onChange={e => setNewCid(e.target.value.replace(/\D/g, ''))}
+            placeholder={t('anydesk.cidPlaceholder') as string}
+            className="border border-slate-300 rounded px-2 py-1.5 text-xs w-28"
+          />
+          <input
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            placeholder={t('anydesk.labelPlaceholder') as string}
+            className="border border-slate-300 rounded px-2 py-1.5 text-xs flex-1"
+          />
+          <Button size="sm" variant="secondary" onClick={() => add.mutate()} disabled={!newCid || !newLabel.trim() || add.isPending}>
+            <Plus size={13} /> {t('anydesk.addLabel')}
+          </Button>
+        </div>
+        {isLoading ? (
+          <p className="text-sm text-slate-500">{t('common.loading')}</p>
+        ) : labels.length === 0 ? (
+          <p className="text-sm text-slate-500">{t('anydesk.noLabels')}</p>
+        ) : (
+          labels.map(l => <LabelRow key={l.cid} item={l} />)
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -312,7 +468,7 @@ function SummaryTab() {
 
 export function AnydeskSessions() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'sessions' | 'summary'>('sessions')
+  const [tab, setTab] = useState<'sessions' | 'labels' | 'summary'>('sessions')
   const [query, setQuery] = useState('')
 
   return (
@@ -323,10 +479,16 @@ export function AnydeskSessions() {
       </div>
       <p className="text-sm text-slate-500">{t('anydesk.subtitle')}</p>
 
+      <ImportFromCentralBar />
+
       <div className="flex gap-1 border-b border-slate-200 text-sm">
         <button onClick={() => setTab('sessions')}
           className={`px-3 py-1.5 border-b-2 -mb-px ${tab === 'sessions' ? 'border-indigo-600 text-indigo-600 font-medium' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
           {t('anydesk.tabSessions')}
+        </button>
+        <button onClick={() => setTab('labels')}
+          className={`px-3 py-1.5 border-b-2 -mb-px ${tab === 'labels' ? 'border-indigo-600 text-indigo-600 font-medium' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          {t('anydesk.tabLabels')}
         </button>
         <button onClick={() => setTab('summary')}
           className={`px-3 py-1.5 border-b-2 -mb-px ${tab === 'summary' ? 'border-indigo-600 text-indigo-600 font-medium' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
@@ -334,7 +496,9 @@ export function AnydeskSessions() {
         </button>
       </div>
 
-      {tab === 'sessions' ? <SessionsTab query={query} setQuery={setQuery} /> : <SummaryTab />}
+      {tab === 'sessions' ? <SessionsTab query={query} setQuery={setQuery} />
+        : tab === 'labels' ? <LabelsTab />
+        : <SummaryTab />}
     </div>
   )
 }
