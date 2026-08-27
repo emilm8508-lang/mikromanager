@@ -762,6 +762,52 @@ export const linuxApi = {
     api.put<LinuxSettings>('/linux/settings', { credential_id: credentialId }).then(r => r.data),
 }
 
+// ── AnyDesk local connection history (connection_trace.txt + ad_svc.trace) ────
+
+export interface AnydeskSessionOut {
+  id: number
+  cid: string
+  label: string | null
+  started_at: string
+  ended_at: string | null
+  duration_sec: number | null
+  auth_method: string | null
+  rejected: boolean
+  source: 'connection_trace' | 'ad_svc_trace' | 'merged'
+}
+
+export interface AnydeskStatus {
+  connection_trace_path: string
+  connection_trace_found: boolean
+  service_trace_path: string | null
+  service_trace_found: boolean
+}
+
+export interface AnydeskSyncResult extends AnydeskStatus {
+  inserted: number
+  updated: number
+  skipped: number
+  connection_trace_lines: number
+  service_trace_pairs: number
+}
+
+export interface AnydeskLabel {
+  cid: string
+  label: string
+}
+
+export const anydeskApi = {
+  status: () => api.get<AnydeskStatus>('/anydesk/status').then(r => r.data),
+  sync: () => api.post<AnydeskSyncResult>('/anydesk/sync').then(r => r.data),
+  sessions: (params?: { cid?: string; q?: string; from_date?: string; to_date?: string }) =>
+    api.get<{ sessions: AnydeskSessionOut[] }>('/anydesk/sessions', { params }).then(r => r.data.sessions),
+  labels: () => api.get<{ labels: AnydeskLabel[] }>('/anydesk/labels').then(r => r.data.labels),
+  setLabel: (cid: string, label: string) =>
+    api.put<AnydeskLabel>('/anydesk/labels', { cid, label }).then(r => r.data),
+  deleteLabel: (cid: string) =>
+    api.delete<{ deleted: string }>(`/anydesk/labels/${cid}`).then(r => r.data),
+}
+
 // ── Windows host management (Windows Update install/restart) ──────────────────
 
 export interface WindowsHostOut {

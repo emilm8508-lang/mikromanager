@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -257,6 +257,10 @@ export function Sidebar() {
     // link + surprise 403 in the nav).
     ...(role === 'admin' ? [{ to: '/audit', label: t('nav.audit'), icon: ClipboardList }] : []),
     ...(role === 'admin' ? [{ to: '/security', label: t('nav.security'), icon: ShieldCheck }] : []),
+    // Personal tool for the one control machine used to connect to clients
+    // via AnyDesk — gated the same as audit/security (admin-only), not
+    // something every tenant deployment's operator needs to see.
+    ...(role === 'admin' ? [{ to: '/anydesk', label: t('nav.anydeskSessions'), icon: History }] : []),
   ]
   const centralNavItem = { to: '/central', label: t('nav.central'), icon: Cloud }
   const centralInventoryNavItem = { to: '/central/inventory', label: t('nav.inventory'), icon: Boxes }

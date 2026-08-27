@@ -395,6 +395,57 @@ class ComplianceCheckResult(Base):
                                         name="uq_compliance_check"),)
 
 
+class AnydeskSession(Base):
+    """One AnyDesk outgoing connection, reconstructed from LOCAL trace files
+    on the control machine — not the AnyDesk REST API (that requires a
+    Standard-or-above license; this user's account is Solo/Lite, confirmed
+    with them directly, so the API is not an option). Two different local
+    log files feed this table, merged by (cid, minute-truncated start):
+
+    - connection_trace.txt: one line per connection attempt, minute
+      precision, no end time, but retains MONTHS of history (confirmed on
+      this user's machine: ~8 months in a 135 KB file) — the durable
+      long-term record, source of `auth_method`/`rejected`.
+    - ad.trace/ad_svc.trace: verbose service log with exact (ms-precision)
+      "Received outgoing connection request"/"Stop monitoring" pairs, but
+      rotates out after only a few days on this machine — the source of
+      `ended_at`/`duration_sec` when it's still available at sync time.
+
+    A session synced from connection_trace.txt alone (the common case for
+    anything older than a few days) has ended_at/duration_sec = NULL —
+    there is no way to know how long it lasted once the trace log has
+    rotated past it. started_at is upgraded from minute- to ms-precision
+    the moment a matching ad_svc.trace pair is found for it.
+
+    cid is the numeric AnyDesk Client-ID of the OTHER party (the machine
+    connected to) — a human label is looked up separately via
+    AnydeskCidLabel, not stored redundantly here."""
+    __tablename__ = "anydesk_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cid = Column(String, nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False, index=True)
+    ended_at = Column(DateTime, nullable=True)
+    duration_sec = Column(Integer, nullable=True)
+    auth_method = Column(String, nullable=True)    # "User" | "Passwd" | "Token" | None (ad_svc-only row)
+    rejected = Column(Boolean, nullable=False, default=False)
+    source = Column(String, nullable=False, default="connection_trace")  # "connection_trace" | "ad_svc_trace" | "merged"
+    synced_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("cid", "started_at", name="uq_anydesk_session"),)
+
+
+class AnydeskCidLabel(Base):
+    """Operator-entered label for an AnyDesk numeric Client-ID, e.g.
+    "1268917895" -> "sanmed - R3". Purely local, purely cosmetic — never
+    sent anywhere, just makes AnydeskSession.cid readable in the UI."""
+    __tablename__ = "anydesk_cid_labels"
+
+    cid = Column(String, primary_key=True)
+    label = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""
