@@ -223,12 +223,23 @@ async function decryptEnvelope(envelope, keyB64) {
   return JSON.parse(new TextDecoder().decode(pt));
 }
 
+// Accepts a URL typed with or without a scheme (e.g. "webshot.pl/api.php")
+// and defaults it to https:// — without this, `new URL()` below throws the
+// bare, hard-to-diagnose "X cannot be parsed as a URL" straight from the
+// browser the moment someone forgets the "https://" prefix while typing on
+// a phone keyboard (confirmed: exactly this happened in practice).
+function normalizeApiUrl(u) {
+  const trimmed = (u || '').trim();
+  if (!trimmed) return trimmed;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 // ── API — direct fetch to api.php (this page is hosted on the same OVH
 // server, so no local-agent proxy is needed or used).
 async function apiRequest(action, params, opts) {
   const cfg = loadConfig();
   if (!cfg) throw new Error('not configured');
-  const url = new URL(cfg.apiUrl);
+  const url = new URL(normalizeApiUrl(cfg.apiUrl));
   url.searchParams.set('action', action);
   for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v);
 
@@ -447,7 +458,7 @@ document.getElementById('btn-mode-legacy').addEventListener('click', () => setLo
 setLoginMode('account');
 
 document.getElementById('btn-account-login').addEventListener('click', async () => {
-  const apiUrl = document.getElementById('cfg-url').value.trim();
+  const apiUrl = normalizeApiUrl(document.getElementById('cfg-url').value);
   const username = document.getElementById('acc-username').value.trim();
   const password = document.getElementById('acc-password').value;
   const totp_code = document.getElementById('acc-totp').value.trim();
@@ -473,7 +484,7 @@ document.getElementById('btn-account-login').addEventListener('click', async () 
 });
 
 document.getElementById('btn-login').addEventListener('click', () => {
-  const apiUrl = document.getElementById('cfg-url').value.trim();
+  const apiUrl = normalizeApiUrl(document.getElementById('cfg-url').value);
   const password = document.getElementById('cfg-pass').value;
   const totpSecret = document.getElementById('cfg-totp').value.trim();
   const errEl = document.getElementById('login-error');
