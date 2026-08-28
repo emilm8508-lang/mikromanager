@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
+import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import { Search, Plus, Trash2, CheckCircle2, AlertCircle, KeyRound, Activity, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -195,6 +196,12 @@ export function Scanner() {
         <h1 className="text-xl font-bold text-slate-900">{t('scanner.title')}</h1>
         <p className="text-sm text-slate-500 mt-0.5">{t('scanner.subtitle')}</p>
       </div>
+
+      {/* Full scan (CVE + Linux + Windows discovery + device version refresh) —
+          consolidated here so every scanner is triggerable from one page,
+          even though it and the device-discovery scan below run on their
+          own separate schedules. */}
+      <VulnScanStatusPanel hint={t('scanner.fullScanHintText') as string} />
 
       {/* Ranges */}
       <Card>

@@ -1181,6 +1181,18 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
         candidates = nvdlib.searchCPE(keywordSearch=f"{product} {version}", key=key, limit=20) or []
     except Exception:
         candidates = []
+    if not candidates:
+        # The product+version combo can be over-specific for NVD's own CPE
+        # dictionary title text (e.g. a device's tracked product string
+        # like "MikroTik RouterOS" may not appear verbatim in the CPE
+        # title even though the vendor/product itself is well-known there)
+        # — retry with just the product name before giving up on CPE
+        # matching entirely. Version filtering still happens below, so
+        # this only widens the net, never picks a wrong-version CPE.
+        try:
+            candidates = nvdlib.searchCPE(keywordSearch=product, key=key, limit=20) or []
+        except Exception:
+            candidates = []
 
     cpe_name = None
     for c in candidates:
@@ -1696,6 +1708,26 @@ async def run_scan(on_event: Optional[Callable] = None, range_ids: Optional[list
     start_time = datetime.utcnow()
 
     try:
+        # Refresh known Mikrotik/Cisco devices' identity/version BEFORE
+        # reading them below — Device.ros_version is otherwise only ever
+        # updated by services/refresher.py's own, independent daily cycle
+        # (MIKROTIK_REFRESH_MIN, default once a day). A device added since
+        # the last refresher run, or one whose refresh happened to fail
+        # right before this scan, would silently contribute NOTHING to the
+        # CVE check below — not "no known CVEs", just never checked at all.
+        # This is the actual root cause behind "urządzenia sieciowe nie są
+        # sprawdzane pod kątem podatności": the version data this whole
+        # step depends on could be stale or missing at scan time. A full
+        # refresh pass is the same authenticated cost refresher.py already
+        # pays daily — doing it once more during the (weekly, or manually
+        # triggered) vuln scan is negligible on top of that.
+        _emit(on_event, {"type": "phase", "phase": "device_refresh"})
+        try:
+            from services import refresher
+            await refresher.refresh_all_devices()
+        except Exception as e:
+            print(f"[vuln_scan] device refresh error: {e}")
+
         version_pairs: dict = {}  # (product, version) -> list of (ip, port, source)
         known_device_ips: frozenset = frozenset()
         with SessionLocal() as db:

@@ -192,7 +192,8 @@
                     "dayFri":  "Fr",
                     "daySat":  "Sa",
                     "daySun":  "So",
-                    "runTitle":  "Scan starten",
+                    "runTitle":  "Geräte scannen (Mikrotik/Cisco)",
+                    "fullScanHintText":  "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Windows-Hosts und die Aktualisierung der RouterOS-Version bekannter Geräte ab — es ist ein gemeinsamer Mechanismus.",
                     "credsInfo":  "Der Scan verwendet alle gespeicherten Zugangsdaten",
                     "credsInfoSuffix":  "— probiert jede gegen jedes Gerät und weist die zu, die sich authentifiziert",
                     "noCredsWarn":  "Keine Zugangsdaten gespeichert — der Scan erkennt nur Ports, ohne Geräteidentifikation.",
@@ -569,6 +570,7 @@
             "resolved": "Behoben"
         },
         "scanPhase": {
+            "device_refresh": "Gerätedaten werden aktualisiert (Identität, RouterOS-Version)",
             "probing": "Ports werden geprüft",
             "rechecking": "Nicht reagierende Hosts werden erneut geprüft",
             "credentials": "Zugangsdaten werden getestet",
@@ -577,7 +579,8 @@
             "findings": "CVEs werden nachgeschlagen",
             "linux_discovery": "Linux-Hosts werden erkannt",
             "linux_identify": "Neue Hosts werden identifiziert",
-            "linux_refresh": "Ausstehende Updates werden aktualisiert"
+            "linux_refresh": "Ausstehende Updates werden aktualisiert",
+            "windows_discovery": "Windows-Hosts werden erkannt"
         }
     },
     "linux": {

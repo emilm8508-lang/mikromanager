@@ -195,7 +195,8 @@
                     "dayFri":  "Pt",
                     "daySat":  "Sob",
                     "daySun":  "Ndz",
-                    "runTitle":  "Uruchom skan",
+                    "runTitle":  "Skanuj urządzenia (Mikrotik/Cisco)",
+                    "fullScanHintText":  "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Windows i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm.",
                     "credsInfo":  "Skan użyje wszystkich zapisanych poświadczeń",
                     "credsInfoSuffix":  "— dla każdego urządzenia próbuje każde po kolei i przypisuje te które zadziałają",
                     "noCredsWarn":  "Brak zapisanych poświadczeń — skan wykryje tylko porty, bez identyfikacji urządzeń.",
@@ -683,6 +684,7 @@
             "resolved": "Naprawione"
         },
         "scanPhase": {
+            "device_refresh": "Odświeżanie danych urządzeń (tożsamość, wersja RouterOS)",
             "probing": "Sprawdzanie portów",
             "rechecking": "Ponowne sprawdzanie nieodpowiadających hostów",
             "credentials": "Testowanie poświadczeń",
@@ -691,7 +693,8 @@
             "findings": "Wyszukiwanie CVE",
             "linux_discovery": "Wykrywanie hostów Linux",
             "linux_identify": "Identyfikacja nowych hostów",
-            "linux_refresh": "Odświeżanie oczekujących aktualizacji"
+            "linux_refresh": "Odświeżanie oczekujących aktualizacji",
+            "windows_discovery": "Wykrywanie hostów Windows"
         }
     },
     "linux": {

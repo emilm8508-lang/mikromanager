@@ -192,7 +192,8 @@
                     "dayFri":  "Ven",
                     "daySat":  "Sam",
                     "daySun":  "Dim",
-                    "runTitle":  "Lancer le scan",
+                    "runTitle":  "Rechercher des appareils (Mikrotik/Cisco)",
+                    "fullScanHintText":  "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Windows et la mise à jour de la version RouterOS des appareils connus — c'est un mécanisme unique et partagé.",
                     "credsInfo":  "Le scan utilisera tous les identifiants enregistrés",
                     "credsInfoSuffix":  "— essaie chacun contre chaque appareil et attribue celui qui s\u0027authentifie",
                     "noCredsWarn":  "Aucun identifiant enregistré — le scan ne détectera que les ports, sans identifier les appareils.",
@@ -569,6 +570,7 @@
             "resolved": "Résolu"
         },
         "scanPhase": {
+            "device_refresh": "Actualisation des données des appareils (identité, version RouterOS)",
             "probing": "Vérification des ports",
             "rechecking": "Nouvelle vérification des hôtes sans réponse",
             "credentials": "Test des identifiants",
@@ -577,7 +579,8 @@
             "findings": "Recherche des CVE",
             "linux_discovery": "Détection des hôtes Linux",
             "linux_identify": "Identification des nouveaux hôtes",
-            "linux_refresh": "Actualisation des mises à jour en attente"
+            "linux_refresh": "Actualisation des mises à jour en attente",
+            "windows_discovery": "Détection des hôtes Windows"
         }
     },
     "linux": {

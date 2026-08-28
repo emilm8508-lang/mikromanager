@@ -192,7 +192,8 @@
                     "dayFri":  "Fri",
                     "daySat":  "Sat",
                     "daySun":  "Sun",
-                    "runTitle":  "Run scan",
+                    "runTitle":  "Scan for devices (Mikrotik/Cisco)",
+                    "fullScanHintText":  "This scan also covers CVE vulnerabilities, Linux/Windows host discovery, and refreshing RouterOS versions on known devices — it's one shared mechanism.",
                     "credsInfo":  "Scan will use all saved credentials",
                     "credsInfoSuffix":  "— tries each one against every device and assigns whichever authenticates",
                     "noCredsWarn":  "No credentials saved — scan will only detect ports, without device identification.",
@@ -569,6 +570,7 @@
             "resolved": "Resolved"
         },
         "scanPhase": {
+            "device_refresh": "Refreshing device data (identity, RouterOS version)",
             "probing": "Checking ports",
             "rechecking": "Rechecking unresponsive hosts",
             "credentials": "Testing credentials",
@@ -577,7 +579,8 @@
             "findings": "Looking up CVEs",
             "linux_discovery": "Discovering Linux hosts",
             "linux_identify": "Identifying new hosts",
-            "linux_refresh": "Refreshing pending updates"
+            "linux_refresh": "Refreshing pending updates",
+            "windows_discovery": "Discovering Windows hosts"
         }
     },
     "linux": {
