@@ -148,8 +148,15 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "Tunele L2",
+                                      "network":  "Sieć",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Próg przeciążenia łącza",
+                         "ifaceThresholdHint":  "Alarm Telegram, gdy dowolny interfejs przekroczy tę przepustowość (Mbps) — puste pole = bez sprawdzania przepustowości (błędy/drops nadal sprawdzane).",
+                         "ifaceThresholdPlaceholder":  "np. 800",
+                         "ifaceName":  "Interfejs",
+                         "ifaceErrors":  "Błędy RX/TX",
+                         "ifaceDrops":  "Drops RX/TX"
                      },
     "credentials":  {
                         "title":  "Poświadczenia",
@@ -418,6 +425,10 @@
                     "eventVulnOverdue":  "Podatności po terminie SLA",
                     "eventTunnelDown":  "Tunel VPN padl (WireGuard/IPsec)",
                     "eventTunnelUp":  "Tunel VPN wrocil (WireGuard/IPsec)",
+                    "eventDiskSpaceLow":  "Dysk prawie pelny",
+                    "eventMemoryHigh":  "Wysokie zuzycie pamieci",
+                    "eventInterfaceErrors":  "Bledy/drops na porcie switcha/routera",
+                    "eventInterfaceOverload":  "Przeciazenie lacza (przekroczony prog Mbps)",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",
@@ -707,6 +718,11 @@
         "upgradeAll": "Aktualizuj wszystkie zarządzane ({{count}})",
         "upgradeAllConfirm": "Uruchomić aktualizację sekwencyjnie na {{count}} zarządzanych hostach?",
         "jobStatus": "Status zadania",
+        "disksTitle": "Dyski",
+        "disksToggle": "Dyski",
+        "lastResourcesCheck": "Ostatnie sprawdzenie zasobów",
+        "checkResourcesNow": "Sprawdź teraz",
+        "noDisks": "Brak jeszcze danych o dyskach.",
         "scanPhase": {
             "probing": "Sprawdzanie portów",
             "rechecking": "Ponowne sprawdzanie nieodpowiadających hostów",
@@ -769,6 +785,11 @@
         "lastServicesCheck": "Ostatnie sprawdzenie usług",
         "workstationPortsTitle": "Dozwolone porty dla stacji roboczych",
         "workstationPortsHint": "Porty uznawane za normalne na stacji roboczej — rozdziel przecinkami. Pozostałe otwarte porty zostaną oznaczone jako nietypowe.",
+        "disksTitle": "Dyski",
+        "disksToggle": "Dyski",
+        "lastResourcesCheck": "Ostatnie sprawdzenie zasobów",
+        "checkResourcesNow": "Sprawdź teraz",
+        "noDisks": "Brak jeszcze danych o dyskach.",
         "scanPhase": {
             "probing": "Sprawdzanie portów",
             "rechecking": "Ponowne sprawdzanie nieodpowiadających hostów",

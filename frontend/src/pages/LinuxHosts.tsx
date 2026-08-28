@@ -5,8 +5,12 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
-import { TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal } from 'lucide-react'
+import {
+  TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal,
+  ChevronDown, ChevronUp, HardDrive, MemoryStick,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatBytes } from '../lib/utils'
 
 interface ScanProgressEvent {
   type: 'phase' | 'progress' | 'done' | 'result' | 'error'
@@ -161,12 +165,70 @@ function SettingsPanel() {
   )
 }
 
+function pctBadgeVariant(pct: number | null | undefined): 'red' | 'yellow' | 'green' | 'gray' {
+  if (pct == null) return 'gray'
+  if (pct >= 90) return 'red'
+  if (pct >= 75) return 'yellow'
+  return 'green'
+}
+
+function DisksSection({ host }: { host: LinuxHostOut }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: disks = [] } = useQuery({
+    queryKey: ['linux-disks', host.id],
+    queryFn: () => linuxApi.listDisks(host.id),
+  })
+
+  const check = useMutation({
+    mutationFn: () => linuxApi.checkResources(host.id),
+    onSuccess: () => setTimeout(() => {
+      qc.invalidateQueries({ queryKey: ['linux-disks', host.id] })
+      qc.invalidateQueries({ queryKey: ['linux-hosts'] })
+    }, 5000),
+  })
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-1">
+        <p className="text-xs font-semibold text-slate-700">{t('linux.disksTitle')}</p>
+        <div className="flex items-center gap-2">
+          {host.last_resources_check_at && (
+            <span className="text-[10px] text-slate-400">
+              {t('linux.lastResourcesCheck')}: {new Date(host.last_resources_check_at).toLocaleString()}
+            </span>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending}>
+            <RefreshCw size={11} className={check.isPending ? 'animate-spin' : ''} /> {t('linux.checkResourcesNow')}
+          </Button>
+        </div>
+      </div>
+      {disks.length === 0 ? (
+        <p className="text-xs text-slate-400">{t('linux.noDisks')}</p>
+      ) : (
+        <div className="space-y-1">
+          {disks.map(d => (
+            <div key={d.id} className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded px-2 py-1">
+              <span className="font-mono text-slate-700">{d.mount_point}</span>
+              <div className="flex items-center gap-2 text-slate-500">
+                <span>{formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}</span>
+                <Badge variant={pctBadgeVariant(d.pct)} className="text-[10px]">{d.pct}%</Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   host: LinuxHostOut; selected: boolean; onToggleSelect: () => void; onRunScript: () => void
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
+  const [showDisks, setShowDisks] = useState(false)
 
   const { data: job } = useQuery({
     queryKey: ['linux-job', host.id],
@@ -224,6 +286,11 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
           {host.reboot_required && (
             <Badge variant="red" className="text-[10px]">{t('linux.rebootRequired')}</Badge>
           )}
+          {host.mem_used_pct != null && (
+            <Badge variant={pctBadgeVariant(host.mem_used_pct)} className="text-[10px]">
+              <MemoryStick size={10} /> {host.mem_used_pct}%
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -255,10 +322,15 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
                 <Terminal size={12} /> {t('runScript.button')}
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowDisks(s => !s)}>
+                {showDisks ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <HardDrive size={12} /> {t('linux.disksToggle')}
+              </Button>
             </>
           )}
         </div>
       </div>
+
+      {host.managed && showDisks && <DisksSection host={host} />}
 
       {job && job.status !== 'no_job' && (
         <div className="bg-slate-100 rounded-lg p-2 text-xs space-y-1">

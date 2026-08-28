@@ -145,8 +145,15 @@
                                       "wireless":  "Inalámbrica",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "Túneles L2",
+                                      "network":  "Red",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Umbral de saturación del enlace",
+                         "ifaceThresholdHint":  "Alerta de Telegram cuando cualquier interfaz supere este caudal (Mbps) — déjalo en blanco para omitir la comprobación de ancho de banda (los contadores de errores/descartes se siguen vigilando).",
+                         "ifaceThresholdPlaceholder":  "p. ej. 800",
+                         "ifaceName":  "Interfaz",
+                         "ifaceErrors":  "Errores RX/TX",
+                         "ifaceDrops":  "Descartes RX/TX"
                      },
     "credentials":  {
                         "title":  "Credenciales",
@@ -597,6 +604,11 @@
         "upgradeAll": "Actualizar todos los gestionados ({{count}})",
         "upgradeAllConfirm": "¿Ejecutar la actualización secuencialmente en {{count}} hosts gestionados?",
         "jobStatus": "Estado del trabajo",
+        "disksTitle": "Discos",
+        "disksToggle": "Discos",
+        "lastResourcesCheck": "Última comprobación de recursos",
+        "checkResourcesNow": "Comprobar ahora",
+        "noDisks": "Aún no hay datos de disco.",
         "scanPhase": {
             "probing": "Comprobando puertos",
             "rechecking": "Volviendo a comprobar hosts sin respuesta",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Última comprobación de servicios",
         "workstationPortsTitle": "Puertos permitidos para estaciones de trabajo",
         "workstationPortsHint": "Puertos considerados normales en una estación de trabajo — separados por comas. Cualquier otro puerto abierto se marcará como inusual.",
+        "disksTitle": "Discos",
+        "disksToggle": "Discos",
+        "lastResourcesCheck": "Última comprobación de recursos",
+        "checkResourcesNow": "Comprobar ahora",
+        "noDisks": "Aún no hay datos de disco.",
         "scanPhase": {
             "probing": "Comprobando puertos",
             "rechecking": "Volviendo a comprobar hosts sin respuesta",

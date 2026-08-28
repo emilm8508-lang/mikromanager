@@ -5,7 +5,7 @@ import { devicesApi } from '../lib/api'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle, Download, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle, Download, RefreshCw, Gauge, MemoryStick, HardDrive, Cpu } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
 import axios from 'axios'
@@ -21,7 +21,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource' | 'firmware'
+type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource' | 'firmware' | 'network'
 
 function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; emptyLabel: string }) {
   if (!data || data.length === 0) return <p className="text-sm text-slate-500 py-4 text-center">{emptyLabel}</p>
@@ -159,10 +159,99 @@ function FirmwareTab({ deviceId }: { deviceId: number }) {
   )
 }
 
+function NetworkMonitoringTab({ deviceId }: { deviceId: number }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+
+  const { data: device } = useQuery({ queryKey: ['device', deviceId], queryFn: () => devicesApi.get(deviceId) })
+  const threshold = device?.iface_mbps_threshold
+  const [thresholdInput, setThresholdInput] = useState<string>('')
+  const [touched, setTouched] = useState(false)
+  const displayValue = touched ? thresholdInput : (threshold != null ? String(threshold) : '')
+
+  const { data: interfaces = [], isLoading } = useQuery({
+    queryKey: ['device', deviceId, 'interface-stats'],
+    queryFn: () => devicesApi.interfaceStats(deviceId),
+    refetchInterval: 30_000,
+  })
+
+  const saveThreshold = useMutation({
+    mutationFn: (mbps: number | null) => devicesApi.setIfaceThreshold(deviceId, mbps),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['device', deviceId] }); setTouched(false) },
+  })
+
+  return (
+    <div className="space-y-4 py-2">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+        <p className="text-xs font-semibold text-slate-700">{t('deviceDetail.ifaceThresholdTitle')}</p>
+        <p className="text-xs text-slate-500">{t('deviceDetail.ifaceThresholdHint')}</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number" min={0} step={1}
+            value={displayValue}
+            onChange={e => { setTouched(true); setThresholdInput(e.target.value) }}
+            placeholder={t('deviceDetail.ifaceThresholdPlaceholder') as string}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-40 font-mono"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => saveThreshold.mutate(displayValue.trim() === '' ? null : parseFloat(displayValue))}
+            disabled={saveThreshold.isPending}
+          >
+            {t('common.save')}
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('common.loading')}</p>
+      ) : interfaces.length === 0 ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('common.noData')}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="px-3 py-2 text-left text-slate-500 font-medium">{t('deviceDetail.ifaceName')}</th>
+                <th className="px-3 py-2 text-left text-slate-500 font-medium">RX Mbps</th>
+                <th className="px-3 py-2 text-left text-slate-500 font-medium">TX Mbps</th>
+                <th className="px-3 py-2 text-left text-slate-500 font-medium">{t('deviceDetail.ifaceErrors')}</th>
+                <th className="px-3 py-2 text-left text-slate-500 font-medium">{t('deviceDetail.ifaceDrops')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {interfaces.map(i => {
+                const overThreshold = threshold != null && Math.max(i.rx_mbps ?? 0, i.tx_mbps ?? 0) >= threshold
+                const hasErrors = (i.rx_errors ?? 0) > 0 || (i.tx_errors ?? 0) > 0
+                return (
+                  <tr key={i.iface_name} className="border-b border-slate-200 hover:bg-slate-50">
+                    <td className="px-3 py-2 text-slate-700 font-mono">{i.iface_name}</td>
+                    <td className={cn('px-3 py-2 font-mono', overThreshold ? 'text-red-600 font-semibold' : 'text-slate-700')}>
+                      {i.rx_mbps != null ? i.rx_mbps.toFixed(1) : '—'}
+                    </td>
+                    <td className={cn('px-3 py-2 font-mono', overThreshold ? 'text-red-600 font-semibold' : 'text-slate-700')}>
+                      {i.tx_mbps != null ? i.tx_mbps.toFixed(1) : '—'}
+                    </td>
+                    <td className={cn('px-3 py-2 font-mono', hasErrors ? 'text-red-600 font-semibold' : 'text-slate-700')}>
+                      {(i.rx_errors ?? 0)} / {(i.tx_errors ?? 0)}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-slate-700">{(i.rx_drops ?? 0)} / {(i.tx_drops ?? 0)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
   const { t } = useTranslation()
   if (tab === 'firmware') return <FirmwareTab deviceId={deviceId} />
-  const queries: Record<Exclude<Tab, 'firmware'>, () => Promise<unknown>> = {
+  if (tab === 'network') return <NetworkMonitoringTab deviceId={deviceId} />
+  const queries: Record<Exclude<Tab, 'firmware' | 'network'>, () => Promise<unknown>> = {
     interfaces: () => devicesApi.interfaces(deviceId),
     addresses: () => devicesApi.addresses(deviceId),
     routes: () => devicesApi.routes(deviceId),
@@ -175,7 +264,7 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['device', deviceId, tab],
-    queryFn: queries[tab as Exclude<Tab, 'firmware'>],
+    queryFn: queries[tab as Exclude<Tab, 'firmware' | 'network'>],
     retry: false,
   })
 
@@ -269,6 +358,7 @@ export function DeviceDetail() {
     { id: 'wireless', label: t('deviceDetail.tabs.wireless'), icon: Wifi },
     { id: 'dhcp', label: t('deviceDetail.tabs.dhcp'), icon: Server },
     { id: 'tunnels', label: t('deviceDetail.tabs.tunnels'), icon: Network },
+    { id: 'network', label: t('deviceDetail.tabs.network'), icon: Gauge },
     { id: 'firmware', label: t('deviceDetail.tabs.firmware'), icon: Download },
   ]
 
@@ -293,11 +383,26 @@ export function DeviceDetail() {
       </div>
 
       {/* Capability badges */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {device.has_api && <Badge variant="blue">API :{device.api_port}</Badge>}
         {device.has_ssh && <Badge variant="gray">SSH :{device.ssh_port}</Badge>}
         {device.has_web && <Badge variant="yellow">Web :{device.web_port}</Badge>}
         {device.has_snmp && <Badge variant="purple">SNMP :{device.snmp_port}</Badge>}
+        {device.mem_used_pct != null && (
+          <Badge variant={device.mem_used_pct >= 90 ? 'red' : device.mem_used_pct >= 75 ? 'yellow' : 'green'}>
+            <MemoryStick size={12} /> {device.mem_used_pct}%
+          </Badge>
+        )}
+        {device.disk_used_pct != null && (
+          <Badge variant={device.disk_used_pct >= 90 ? 'red' : device.disk_used_pct >= 75 ? 'yellow' : 'green'}>
+            <HardDrive size={12} /> {device.disk_used_pct}%
+          </Badge>
+        )}
+        {device.cpu_load_pct != null && (
+          <Badge variant={device.cpu_load_pct >= 90 ? 'red' : device.cpu_load_pct >= 75 ? 'yellow' : 'gray'}>
+            <Cpu size={12} /> {device.cpu_load_pct}%
+          </Badge>
+        )}
         {!device.credential_id && <Badge variant="red">{t('deviceDetail.noCredsBadge')}</Badge>}
       </div>
 

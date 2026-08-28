@@ -145,8 +145,15 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2 tunnels",
+                                      "network":  "Network",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Link overload threshold",
+                         "ifaceThresholdHint":  "Telegram alert when any interface exceeds this throughput (Mbps) — leave blank to skip bandwidth checking (error/drop counters are still watched).",
+                         "ifaceThresholdPlaceholder":  "e.g. 800",
+                         "ifaceName":  "Interface",
+                         "ifaceErrors":  "RX/TX errors",
+                         "ifaceDrops":  "RX/TX drops"
                      },
     "credentials":  {
                         "title":  "Credentials",
@@ -597,6 +604,11 @@
         "upgradeAll": "Upgrade all managed ({{count}})",
         "upgradeAllConfirm": "Run the upgrade sequentially on {{count}} managed hosts?",
         "jobStatus": "Job status",
+        "disksTitle": "Disks",
+        "disksToggle": "Disks",
+        "lastResourcesCheck": "Last resources check",
+        "checkResourcesNow": "Check now",
+        "noDisks": "No disk data yet.",
         "scanPhase": {
             "probing": "Checking ports",
             "rechecking": "Rechecking unresponsive hosts",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Last services check",
         "workstationPortsTitle": "Workstation port allowlist",
         "workstationPortsHint": "Ports considered normal on a workstation — comma-separated. Anything else found open is flagged as unusual.",
+        "disksTitle": "Disks",
+        "disksToggle": "Disks",
+        "lastResourcesCheck": "Last resources check",
+        "checkResourcesNow": "Check now",
+        "noDisks": "No disk data yet.",
         "scanPhase": {
             "probing": "Checking ports",
             "rechecking": "Rechecking unresponsive hosts",

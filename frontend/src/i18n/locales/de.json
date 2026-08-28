@@ -145,8 +145,15 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-Tunnel",
+                                      "network":  "Netzwerk",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Schwellwert für Link-Überlastung",
+                         "ifaceThresholdHint":  "Telegram-Alarm, wenn eine Schnittstelle diesen Durchsatz (Mbps) überschreitet — leer lassen, um die Bandbreitenprüfung zu überspringen (Fehler-/Drop-Zähler werden weiterhin beobachtet).",
+                         "ifaceThresholdPlaceholder":  "z. B. 800",
+                         "ifaceName":  "Schnittstelle",
+                         "ifaceErrors":  "RX/TX-Fehler",
+                         "ifaceDrops":  "RX/TX-Drops"
                      },
     "credentials":  {
                         "title":  "Zugangsdaten",
@@ -597,6 +604,11 @@
         "upgradeAll": "Alle verwalteten aktualisieren ({{count}})",
         "upgradeAllConfirm": "Update sequenziell auf {{count}} verwalteten Hosts ausführen?",
         "jobStatus": "Job-Status",
+        "disksTitle": "Laufwerke",
+        "disksToggle": "Laufwerke",
+        "lastResourcesCheck": "Letzte Ressourcenprüfung",
+        "checkResourcesNow": "Jetzt prüfen",
+        "noDisks": "Noch keine Laufwerksdaten.",
         "scanPhase": {
             "probing": "Ports werden geprüft",
             "rechecking": "Nicht reagierende Hosts werden erneut geprüft",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Letzte Dienstprüfung",
         "workstationPortsTitle": "Erlaubte Ports für Arbeitsstationen",
         "workstationPortsHint": "Ports, die auf einer Arbeitsstation als normal gelten — durch Komma getrennt. Alle anderen offenen Ports werden als ungewöhnlich markiert.",
+        "disksTitle": "Laufwerke",
+        "disksToggle": "Laufwerke",
+        "lastResourcesCheck": "Letzte Ressourcenprüfung",
+        "checkResourcesNow": "Jetzt prüfen",
+        "noDisks": "Noch keine Laufwerksdaten.",
         "scanPhase": {
             "probing": "Ports werden geprüft",
             "rechecking": "Nicht reagierende Hosts werden erneut geprüft",

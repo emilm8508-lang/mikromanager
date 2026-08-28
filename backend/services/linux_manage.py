@@ -50,7 +50,7 @@ from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select
 
-from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxManageSettings
+from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxHostDisk, LinuxManageSettings
 from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
@@ -857,6 +857,138 @@ async def run_script_bulk(host_ids: list, script: str, use_sudo: bool, reason: s
     return {"results": results}
 
 
+# ── Disk + memory monitoring (own slow loop — see services/resource_monitor.py) ─
+#
+# Deliberately NOT part of discover_linux_hosts()'s per-host refresh loop
+# above (which runs at vuln_scan's weekly cadence) — resource_monitor.py
+# calls refresh_managed_hosts_resources() on its own, much tighter
+# schedule (MIKROTIK_RESOURCE_CHECK_MIN, default 30 min) without touching
+# the apt-check/compliance cadence at all.
+
+# Real block-device filesystems only — pseudo/virtual mounts would either
+# report a meaningless 100% (tmpfs sized to RAM) or just be noise.
+_DF_EXCLUDE_TYPES = ("tmpfs", "devtmpfs", "squashfs", "overlay", "proc", "sysfs",
+                     "cgroup", "cgroup2", "tracefs", "debugfs", "mqueue", "hugetlbfs")
+_MEM_TOTAL_RE = re.compile(r'^MemTotal:\s*(\d+)\s*kB', re.MULTILINE)
+_MEM_AVAILABLE_RE = re.compile(r'^MemAvailable:\s*(\d+)\s*kB', re.MULTILINE)
+_MEM_FREE_RE = re.compile(r'^MemFree:\s*(\d+)\s*kB', re.MULTILINE)
+
+
+def _resources_command() -> str:
+    excludes = " ".join(f"-x {t}" for t in _DF_EXCLUDE_TYPES)
+    return f"df -B1 -P {excludes} 2>/dev/null; echo '@@MEM@@'; cat /proc/meminfo"
+
+
+def _parse_resources_output(output: str) -> dict:
+    """Returns {"disks": [{"mount_point","total_bytes","used_bytes","pct"}],
+    "mem_total_bytes", "mem_used_pct"} — any piece that fails to parse is
+    just omitted (never raises), same defensive style as _identify_host's
+    regex parsing."""
+    df_part, _, mem_part = output.partition("@@MEM@@")
+    disks = []
+    lines = df_part.strip().splitlines()
+    for line in lines[1:]:  # skip header
+        fields = line.split()
+        if len(fields) < 6:
+            continue
+        try:
+            total_bytes = int(fields[1])
+            used_bytes = int(fields[2])
+        except ValueError:
+            continue
+        if total_bytes <= 0:
+            continue
+        mount_point = " ".join(fields[5:])
+        disks.append({
+            "mount_point": mount_point, "total_bytes": total_bytes, "used_bytes": used_bytes,
+            "pct": round(used_bytes / total_bytes * 100, 1),
+        })
+
+    mem_total_bytes = mem_used_pct = None
+    total_m = _MEM_TOTAL_RE.search(mem_part)
+    if total_m:
+        total_kb = int(total_m.group(1))
+        avail_m = _MEM_AVAILABLE_RE.search(mem_part) or _MEM_FREE_RE.search(mem_part)
+        if avail_m and total_kb > 0:
+            avail_kb = int(avail_m.group(1))
+            mem_total_bytes = total_kb * 1024
+            mem_used_pct = round((total_kb - avail_kb) / total_kb * 100, 1)
+
+    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct}
+
+
+async def check_host_resources(host_id: int) -> dict:
+    """Disk (per real mount) + memory usage for one host — read-only, no
+    sudo needed (df/proc are world-readable)."""
+    with SessionLocal() as db:
+        host = db.get(LinuxHost, host_id)
+        if not host:
+            return {"error": "host not found"}
+        ip = host.ip
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password = cred
+
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _plain_exec_sync, ip, username, password,
+                                 _resources_command(), 20),
+            timeout=30,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return {"error": "timeout"}
+    except Exception as e:
+        return {"error": str(e)}
+
+    parsed = _parse_resources_output(result.get("output", ""))
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        host = db.get(LinuxHost, host_id)
+        if not host:
+            return {"error": "host not found"}
+        if parsed["mem_used_pct"] is not None:
+            host.mem_used_pct = parsed["mem_used_pct"]
+            host.mem_total_bytes = parsed["mem_total_bytes"]
+        host.last_resources_check_at = now
+
+        seen_mounts = set()
+        for d in parsed["disks"]:
+            seen_mounts.add(d["mount_point"])
+            row = db.execute(
+                select(LinuxHostDisk).where(
+                    LinuxHostDisk.host_id == host_id, LinuxHostDisk.mount_point == d["mount_point"],
+                )
+            ).scalar_one_or_none()
+            if not row:
+                row = LinuxHostDisk(host_id=host_id, mount_point=d["mount_point"])
+                db.add(row)
+            row.total_bytes, row.used_bytes, row.pct = d["total_bytes"], d["used_bytes"], d["pct"]
+            row.last_seen_at = now
+        db.commit()
+    return {"ok": True, "disks": parsed["disks"], "mem_used_pct": parsed["mem_used_pct"]}
+
+
+async def refresh_managed_hosts_resources() -> dict:
+    """Called from resource_monitor.py's own slow loop — every managed
+    host, one at a time (this isn't time-sensitive enough to need the
+    concurrency of a discovery pass, and keeps SSH connection bursts low
+    on a network with many managed hosts)."""
+    with SessionLocal() as db:
+        ids = [h.id for h in db.execute(select(LinuxHost).where(LinuxHost.managed == True)).scalars().all()]  # noqa: E712
+    checked = 0
+    for host_id in ids:
+        try:
+            result = await check_host_resources(host_id)
+            if result.get("ok"):
+                checked += 1
+        except Exception as e:
+            print(f"[linux_manage] resource check error for host {host_id}: {e}")
+    return {"checked": checked, "total": len(ids)}
+
+
 # ── Listing / admin ──────────────────────────────────────────────────────
 
 def _host_to_dict(h: LinuxHost) -> dict:
@@ -871,7 +1003,21 @@ def _host_to_dict(h: LinuxHost) -> dict:
         "upgradable_count": h.upgradable_count,
         "reboot_required": h.reboot_required,
         "last_status": h.last_status, "last_error": h.last_error,
+        "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
+        "last_resources_check_at": h.last_resources_check_at.isoformat() if h.last_resources_check_at else None,
     }
+
+
+def list_host_disks(host_id: int) -> list:
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(LinuxHostDisk).where(LinuxHostDisk.host_id == host_id).order_by(LinuxHostDisk.mount_point)
+        ).scalars().all()
+        return [{
+            "id": d.id, "mount_point": d.mount_point, "total_bytes": d.total_bytes,
+            "used_bytes": d.used_bytes, "pct": d.pct,
+            "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
+        } for d in rows]
 
 
 def list_hosts() -> list:

@@ -103,6 +103,22 @@ export interface Device {
   y_pos: number
   owner?: string | null
   criticality?: string | null  // 'low' | 'medium' | 'high' | 'critical'
+  mem_used_pct?: number | null
+  disk_used_pct?: number | null
+  cpu_load_pct?: number | null
+  last_resources_check_at?: string | null
+  iface_mbps_threshold?: number | null
+}
+
+export interface DeviceInterfaceStat {
+  iface_name: string
+  rx_mbps: number | null
+  tx_mbps: number | null
+  rx_errors: number | null
+  tx_errors: number | null
+  rx_drops: number | null
+  tx_drops: number | null
+  last_sample_at: string | null
 }
 
 export interface ScanRange {
@@ -162,6 +178,10 @@ export const devicesApi = {
   firmwareStatuses: (ids: number[]) =>
     api.get(`/devices/firmware/statuses`, { params: { ids: ids.join(',') } }).then(r => r.data),
   backups: (id: number) => api.get(`/devices/${id}/backups`).then(r => r.data),
+  interfaceStats: (id: number) =>
+    api.get<{ interfaces: DeviceInterfaceStat[] }>(`/devices/${id}/interface-stats`).then(r => r.data.interfaces),
+  setIfaceThreshold: (id: number, mbps: number | null) =>
+    api.put<{ iface_mbps_threshold: number | null }>(`/devices/${id}/iface-threshold`, { mbps }).then(r => r.data),
 }
 
 // ── Scanner ──────────────────────────────────────────────────────────────────
@@ -719,6 +739,19 @@ export interface LinuxHostOut {
   reboot_required: boolean
   last_status: 'ok' | 'error' | 'timeout' | null
   last_error: string | null
+  mem_used_pct: number | null
+  mem_total_bytes: number | null
+  last_resources_check_at: string | null
+}
+
+export interface HostDisk {
+  id: number
+  total_bytes: number | null
+  used_bytes: number | null
+  pct: number | null
+  last_seen_at: string | null
+  mount_point?: string    // Linux
+  drive_letter?: string   // Windows
 }
 
 export interface LinuxJobStatus {
@@ -760,6 +793,10 @@ export const linuxApi = {
   getSettings: () => api.get<LinuxSettings>('/linux/settings').then(r => r.data),
   setSettings: (credentialId: number | null) =>
     api.put<LinuxSettings>('/linux/settings', { credential_id: credentialId }).then(r => r.data),
+  listDisks: (hostId: number) =>
+    api.get<{ disks: HostDisk[] }>(`/linux/hosts/${hostId}/disks`).then(r => r.data.disks),
+  checkResources: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/resources/check`).then(r => r.data),
 }
 
 // ── AnyDesk local connection history (connection_trace.txt + ad_svc.trace) ────
@@ -854,6 +891,9 @@ export interface WindowsHostOut {
   last_restart_reason: string | null
   last_services_check_at: string | null
   unexpected_ports: number[] | null
+  mem_used_pct: number | null
+  mem_total_bytes: number | null
+  last_resources_check_at: string | null
 }
 
 export interface WindowsHostService {
@@ -920,6 +960,10 @@ export const windowsApi = {
     api.get<{ ports: number[] }>('/windows/settings/workstation-ports').then(r => r.data.ports),
   setWorkstationPorts: (ports: number[]) =>
     api.put<{ ports: number[] }>('/windows/settings/workstation-ports', { ports }).then(r => r.data.ports),
+  listDisks: (hostId: number) =>
+    api.get<{ disks: HostDisk[] }>(`/windows/hosts/${hostId}/disks`).then(r => r.data.disks),
+  checkResources: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/resources/check`).then(r => r.data),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────

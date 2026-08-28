@@ -49,7 +49,7 @@ from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select
 
-from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsManageSettings
+from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsHostDisk, WindowsManageSettings
 from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
@@ -1021,6 +1021,166 @@ def set_host_type(host_id: int, host_type: str) -> dict:
         return _host_to_dict(host)
 
 
+# ── Disk + memory monitoring (own slow loop — see services/resource_monitor.py) ─
+#
+# Deliberately NOT part of discover_windows_hosts()'s per-host refresh loop
+# above (weekly cadence) — resource_monitor.py calls
+# refresh_managed_hosts_resources() on its own, much tighter schedule
+# (MIKROTIK_RESOURCE_CHECK_MIN, default 30 min), same split as
+# linux_manage.py's identical addition.
+
+_RESOURCES_SCRIPT = r"""
+$disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,Size,FreeSpace
+$os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
+[PSCustomObject]@{ Disks = $disks; Mem = $os } | ConvertTo-Json -Compress -Depth 4
+"""
+
+
+def _check_resources_sync(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
+    """Blocking — run via loop.run_in_executor. Read-only WMI/CIM query,
+    no admin rights beyond the shared credential's own WinRM access
+    needed."""
+    import winrm
+    user = vs._ntlm_user(username, domain)
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman",
+        auth=(user, password),
+        transport="ntlm",
+        server_cert_validation="ignore",
+        read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
+    )
+    result = session.run_ps(_RESOURCES_SCRIPT)
+    if result.status_code != 0:
+        return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+    raw = result.std_out.decode("utf-8", errors="ignore").strip()
+    if not raw:
+        return {"ok": False, "error": "empty response"}
+    try:
+        parsed = json.loads(raw)
+    except Exception as e:
+        return {"ok": False, "error": f"couldn't parse resources JSON: {e}"}
+    return {"ok": True, "parsed": parsed}
+
+
+def _parse_resources(parsed: dict) -> dict:
+    """Same defensive shape as _check_updates_sync's ConvertTo-Json
+    single-result quirk handling: a lone disk comes back as a bare object,
+    not a 1-element array."""
+    disks_raw = parsed.get("Disks")
+    if isinstance(disks_raw, dict):
+        disks_raw = [disks_raw]
+    disks = []
+    for d in disks_raw or []:
+        if not isinstance(d, dict):
+            continue
+        try:
+            size = int(d.get("Size"))
+            free = int(d.get("FreeSpace"))
+        except (TypeError, ValueError):
+            continue
+        if size <= 0:
+            continue
+        used = size - free
+        disks.append({
+            "drive_letter": d.get("DeviceID") or "?", "total_bytes": size,
+            "used_bytes": used, "pct": round(used / size * 100, 1),
+        })
+
+    mem = parsed.get("Mem") or {}
+    mem_total_bytes = mem_used_pct = None
+    try:
+        total_kb = int(mem.get("TotalVisibleMemorySize"))
+        free_kb = int(mem.get("FreePhysicalMemory"))
+        if total_kb > 0:
+            mem_total_bytes = total_kb * 1024
+            mem_used_pct = round((total_kb - free_kb) / total_kb * 100, 1)
+    except (TypeError, ValueError):
+        pass
+
+    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct}
+
+
+async def check_host_resources(host_id: int) -> dict:
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host:
+            return {"error": "host not found"}
+        ip, port = host.ip, host.winrm_port
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password, domain = cred
+
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _check_resources_sync, ip, port, username, password, domain),
+            timeout=CHECK_TIMEOUT_SEC + 15,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return {"error": "timeout"}
+    except Exception as e:
+        return {"error": str(e)}
+
+    if not result["ok"]:
+        return {"error": result["error"]}
+
+    parsed = _parse_resources(result["parsed"])
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host:
+            return {"error": "host not found"}
+        if parsed["mem_used_pct"] is not None:
+            host.mem_used_pct = parsed["mem_used_pct"]
+            host.mem_total_bytes = parsed["mem_total_bytes"]
+        host.last_resources_check_at = now
+
+        for d in parsed["disks"]:
+            row = db.execute(
+                select(WindowsHostDisk).where(
+                    WindowsHostDisk.host_id == host_id, WindowsHostDisk.drive_letter == d["drive_letter"],
+                )
+            ).scalar_one_or_none()
+            if not row:
+                row = WindowsHostDisk(host_id=host_id, drive_letter=d["drive_letter"])
+                db.add(row)
+            row.total_bytes, row.used_bytes, row.pct = d["total_bytes"], d["used_bytes"], d["pct"]
+            row.last_seen_at = now
+        db.commit()
+    return {"ok": True, "disks": parsed["disks"], "mem_used_pct": parsed["mem_used_pct"]}
+
+
+async def refresh_managed_hosts_resources() -> dict:
+    """Called from resource_monitor.py's own slow loop — mirrors
+    linux_manage.refresh_managed_hosts_resources(), one host at a time."""
+    with SessionLocal() as db:
+        ids = [h.id for h in db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()]  # noqa: E712
+    checked = 0
+    for host_id in ids:
+        try:
+            result = await check_host_resources(host_id)
+            if result.get("ok"):
+                checked += 1
+        except Exception as e:
+            print(f"[windows_manage] resource check error for host {host_id}: {e}")
+    return {"checked": checked, "total": len(ids)}
+
+
+def list_host_disks(host_id: int) -> list:
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(WindowsHostDisk).where(WindowsHostDisk.host_id == host_id).order_by(WindowsHostDisk.drive_letter)
+        ).scalars().all()
+        return [{
+            "id": d.id, "drive_letter": d.drive_letter, "total_bytes": d.total_bytes,
+            "used_bytes": d.used_bytes, "pct": d.pct,
+            "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
+        } for d in rows]
+
+
 # ── Listing / admin ──────────────────────────────────────────────────────
 
 def _host_to_dict(h: WindowsHost) -> dict:
@@ -1039,6 +1199,8 @@ def _host_to_dict(h: WindowsHost) -> dict:
         "last_restart_at": h.last_restart_at.isoformat() if h.last_restart_at else None,
         "last_restart_reason": h.last_restart_reason,
         "last_services_check_at": h.last_services_check_at.isoformat() if h.last_services_check_at else None,
+        "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
+        "last_resources_check_at": h.last_resources_check_at.isoformat() if h.last_resources_check_at else None,
     }
 
 

@@ -7,9 +7,17 @@ import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
 import {
   MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal,
-  ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop,
+  ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop, HardDrive, MemoryStick,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatBytes } from '../lib/utils'
+
+function pctBadgeVariant(pct: number | null | undefined): 'red' | 'yellow' | 'green' | 'gray' {
+  if (pct == null) return 'gray'
+  if (pct >= 90) return 'red'
+  if (pct >= 75) return 'yellow'
+  return 'green'
+}
 
 interface ScanProgressEvent {
   type: 'phase' | 'progress' | 'done' | 'result' | 'error'
@@ -293,6 +301,56 @@ function ServicesSection({ host }: { host: WindowsHostOut }) {
   )
 }
 
+function DisksSection({ host }: { host: WindowsHostOut }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: disks = [] } = useQuery({
+    queryKey: ['windows-disks', host.id],
+    queryFn: () => windowsApi.listDisks(host.id),
+  })
+
+  const check = useMutation({
+    mutationFn: () => windowsApi.checkResources(host.id),
+    onSuccess: () => setTimeout(() => {
+      qc.invalidateQueries({ queryKey: ['windows-disks', host.id] })
+      qc.invalidateQueries({ queryKey: ['windows-hosts'] })
+    }, 5000),
+  })
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-1">
+        <p className="text-xs font-semibold text-slate-700">{t('windows.disksTitle')}</p>
+        <div className="flex items-center gap-2">
+          {host.last_resources_check_at && (
+            <span className="text-[10px] text-slate-400">
+              {t('windows.lastResourcesCheck')}: {new Date(host.last_resources_check_at).toLocaleString()}
+            </span>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending}>
+            <RefreshCw size={11} className={check.isPending ? 'animate-spin' : ''} /> {t('windows.checkResourcesNow')}
+          </Button>
+        </div>
+      </div>
+      {disks.length === 0 ? (
+        <p className="text-xs text-slate-400">{t('windows.noDisks')}</p>
+      ) : (
+        <div className="space-y-1">
+          {disks.map(d => (
+            <div key={d.id} className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded px-2 py-1">
+              <span className="font-mono text-slate-700">{d.drive_letter}</span>
+              <div className="flex items-center gap-2 text-slate-500">
+                <span>{formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}</span>
+                <Badge variant={pctBadgeVariant(d.pct)} className="text-[10px]">{d.pct}%</Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   host: WindowsHostOut; selected: boolean; onToggleSelect: () => void; onRunScript: () => void
 }) {
@@ -300,6 +358,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
   const [showServices, setShowServices] = useState(false)
+  const [showDisks, setShowDisks] = useState(false)
 
   const { data: job } = useQuery({
     queryKey: ['windows-job', host.id],
@@ -386,6 +445,11 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <ShieldAlert size={10} /> {t('windows.unexpectedPorts', { ports: host.unexpected_ports.join(', ') })}
             </Badge>
           )}
+          {host.mem_used_pct != null && (
+            <Badge variant={pctBadgeVariant(host.mem_used_pct)} className="text-[10px]">
+              <MemoryStick size={10} /> {host.mem_used_pct}%
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -438,12 +502,16 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <Button size="sm" variant="secondary" onClick={() => setShowServices(s => !s)}>
                 {showServices ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {t('windows.servicesToggle')}
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowDisks(s => !s)}>
+                {showDisks ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <HardDrive size={12} /> {t('windows.disksToggle')}
+              </Button>
             </>
           )}
         </div>
       </div>
 
       {host.managed && showServices && <ServicesSection host={host} />}
+      {host.managed && showDisks && <DisksSection host={host} />}
 
       {job && job.status !== 'no_job' && (
         <div className="bg-slate-100 rounded-lg p-2 text-xs space-y-1">

@@ -325,6 +325,10 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="vuln_overdue">{t('alerts.eventVulnOverdue')}</option>
                 <option value="tunnel_down">{t('alerts.eventTunnelDown')}</option>
                 <option value="tunnel_up">{t('alerts.eventTunnelUp')}</option>
+                <option value="disk_space_low">{t('alerts.eventDiskSpaceLow')}</option>
+                <option value="memory_high">{t('alerts.eventMemoryHigh')}</option>
+                <option value="interface_errors">{t('alerts.eventInterfaceErrors')}</option>
+                <option value="interface_overload">{t('alerts.eventInterfaceOverload')}</option>
               </select>
             </label>
             <label className="text-sm">

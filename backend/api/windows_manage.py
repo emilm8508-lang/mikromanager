@@ -188,3 +188,14 @@ async def get_workstation_ports():
 @router.put("/settings/workstation-ports")
 async def set_workstation_ports(payload: WorkstationPortsIn):
     return {"ports": windows_manage.set_workstation_port_policy(payload.ports)}
+
+
+@router.get("/hosts/{host_id}/disks")
+async def list_host_disks(host_id: int):
+    return {"disks": windows_manage.list_host_disks(host_id)}
+
+
+@router.post("/hosts/{host_id}/resources/check")
+async def check_resources(host_id: int, background_tasks: BackgroundTasks):
+    background_tasks.add_task(windows_manage.check_host_resources, host_id)
+    return {"queued": True, "host_id": host_id}

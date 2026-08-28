@@ -145,8 +145,15 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-туннели",
+                                      "network":  "Сеть",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Порог перегрузки канала",
+                         "ifaceThresholdHint":  "Алерт в Telegram, когда любой интерфейс превысит эту пропускную способность (Мбит/с) — оставьте пустым, чтобы не проверять пропускную способность (счётчики ошибок/потерь всё равно отслеживаются).",
+                         "ifaceThresholdPlaceholder":  "напр. 800",
+                         "ifaceName":  "Интерфейс",
+                         "ifaceErrors":  "Ошибки RX/TX",
+                         "ifaceDrops":  "Потери RX/TX"
                      },
     "credentials":  {
                         "title":  "Учётные данные",
@@ -597,6 +604,11 @@
         "upgradeAll": "Обновить все управляемые ({{count}})",
         "upgradeAllConfirm": "Запустить обновление последовательно на {{count}} управляемых хостах?",
         "jobStatus": "Статус задачи",
+        "disksTitle": "Диски",
+        "disksToggle": "Диски",
+        "lastResourcesCheck": "Последняя проверка ресурсов",
+        "checkResourcesNow": "Проверить сейчас",
+        "noDisks": "Пока нет данных о дисках.",
         "scanPhase": {
             "probing": "Проверка портов",
             "rechecking": "Повторная проверка не отвечающих хостов",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Последняя проверка служб",
         "workstationPortsTitle": "Разрешённые порты для рабочих станций",
         "workstationPortsHint": "Порты, считающиеся нормальными для рабочей станции — через запятую. Остальные открытые порты будут отмечены как необычные.",
+        "disksTitle": "Диски",
+        "disksToggle": "Диски",
+        "lastResourcesCheck": "Последняя проверка ресурсов",
+        "checkResourcesNow": "Проверить сейчас",
+        "noDisks": "Пока нет данных о дисках.",
         "scanPhase": {
             "probing": "Проверка портов",
             "rechecking": "Повторная проверка не отвечающих хостов",

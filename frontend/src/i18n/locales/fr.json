@@ -145,8 +145,15 @@
                                       "wireless":  "Sans fil",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "Tunnels L2",
+                                      "network":  "Réseau",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Seuil de saturation du lien",
+                         "ifaceThresholdHint":  "Alerte Telegram quand une interface dépasse ce débit (Mbps) — laisser vide pour ignorer la vérification du débit (les compteurs erreurs/pertes restent surveillés).",
+                         "ifaceThresholdPlaceholder":  "ex. 800",
+                         "ifaceName":  "Interface",
+                         "ifaceErrors":  "Erreurs RX/TX",
+                         "ifaceDrops":  "Pertes RX/TX"
                      },
     "credentials":  {
                         "title":  "Identifiants",
@@ -597,6 +604,11 @@
         "upgradeAll": "Mettre à jour tous les hôtes gérés ({{count}})",
         "upgradeAllConfirm": "Lancer la mise à jour séquentiellement sur {{count}} hôtes gérés ?",
         "jobStatus": "Statut de la tâche",
+        "disksTitle": "Disques",
+        "disksToggle": "Disques",
+        "lastResourcesCheck": "Dernière vérification des ressources",
+        "checkResourcesNow": "Vérifier maintenant",
+        "noDisks": "Pas encore de données de disque.",
         "scanPhase": {
             "probing": "Vérification des ports",
             "rechecking": "Nouvelle vérification des hôtes sans réponse",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Dernière vérification des services",
         "workstationPortsTitle": "Ports autorisés pour les postes de travail",
         "workstationPortsHint": "Ports considérés comme normaux sur un poste de travail — séparés par des virgules. Tout autre port ouvert sera signalé comme inhabituel.",
+        "disksTitle": "Disques",
+        "disksToggle": "Disques",
+        "lastResourcesCheck": "Dernière vérification des ressources",
+        "checkResourcesNow": "Vérifier maintenant",
+        "noDisks": "Pas encore de données de disque.",
         "scanPhase": {
             "probing": "Vérification des ports",
             "rechecking": "Nouvelle vérification des hôtes sans réponse",

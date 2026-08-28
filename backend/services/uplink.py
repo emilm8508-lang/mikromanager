@@ -232,6 +232,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] tunnel monitor error: {e}")
 
     try:
+        from services import resource_monitor
+        alert_events += await resource_monitor.collect_resource_events()
+    except Exception as e:
+        print(f"[uplink] resource monitor error: {e}")
+
+    try:
         edge_ips = await edge_discovery.collect_public_ips()
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")
@@ -313,7 +319,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.67",
+        "agent_version": "1.68",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),

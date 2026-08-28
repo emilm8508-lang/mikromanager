@@ -141,3 +141,14 @@ async def get_settings():
 @router.put("/settings")
 async def set_settings(payload: SettingsIn):
     return linux_manage.set_settings(payload.credential_id)
+
+
+@router.get("/hosts/{host_id}/disks")
+async def list_host_disks(host_id: int):
+    return {"disks": linux_manage.list_host_disks(host_id)}
+
+
+@router.post("/hosts/{host_id}/resources/check")
+async def check_resources(host_id: int, background_tasks: BackgroundTasks):
+    background_tasks.add_task(linux_manage.check_host_resources, host_id)
+    return {"queued": True, "host_id": host_id}

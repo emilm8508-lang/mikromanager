@@ -145,8 +145,15 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-тунелі",
+                                      "network":  "Мережа",
                                       "firmware":  "Firmware"
-                                  }
+                                  },
+                         "ifaceThresholdTitle":  "Поріг перевантаження каналу",
+                         "ifaceThresholdHint":  "Алерт у Telegram, коли будь-який інтерфейс перевищить цю пропускну здатність (Мбіт/с) — залиште порожнім, щоб не перевіряти пропускну здатність (лічильники помилок/втрат все одно відстежуються).",
+                         "ifaceThresholdPlaceholder":  "напр. 800",
+                         "ifaceName":  "Інтерфейс",
+                         "ifaceErrors":  "Помилки RX/TX",
+                         "ifaceDrops":  "Втрати RX/TX"
                      },
     "credentials":  {
                         "title":  "Облікові дані",
@@ -597,6 +604,11 @@
         "upgradeAll": "Оновити всі керовані ({{count}})",
         "upgradeAllConfirm": "Запустити оновлення послідовно на {{count}} керованих хостах?",
         "jobStatus": "Статус завдання",
+        "disksTitle": "Диски",
+        "disksToggle": "Диски",
+        "lastResourcesCheck": "Остання перевірка ресурсів",
+        "checkResourcesNow": "Перевірити зараз",
+        "noDisks": "Поки що немає даних про диски.",
         "scanPhase": {
             "probing": "Перевірка портів",
             "rechecking": "Повторна перевірка хостів без відповіді",
@@ -659,6 +671,11 @@
         "lastServicesCheck": "Остання перевірка служб",
         "workstationPortsTitle": "Дозволені порти для робочих станцій",
         "workstationPortsHint": "Порти, які вважаються нормальними для робочої станції — через кому. Інші відкриті порти будуть позначені як незвичні.",
+        "disksTitle": "Диски",
+        "disksToggle": "Диски",
+        "lastResourcesCheck": "Остання перевірка ресурсів",
+        "checkResourcesNow": "Перевірити зараз",
+        "noDisks": "Поки що немає даних про диски.",
         "scanPhase": {
             "probing": "Перевірка портів",
             "rechecking": "Повторна перевірка хостів без відповіді",

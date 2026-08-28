@@ -33,6 +33,7 @@ class DeviceUpdate(BaseModel):
     y_pos: Optional[float] = None
     owner: Optional[str] = None
     criticality: Optional[str] = None
+    iface_mbps_threshold: Optional[float] = None
 
 
 class DeviceOut(BaseModel):
@@ -61,9 +62,22 @@ class DeviceOut(BaseModel):
     y_pos: float
     owner: Optional[str] = None
     criticality: Optional[str] = None
+    mem_used_pct: Optional[float] = None
+    disk_used_pct: Optional[float] = None
+    cpu_load_pct: Optional[int] = None
+    last_resources_check_at: Optional[datetime] = None
+    iface_mbps_threshold: Optional[float] = None
 
     class Config:
         from_attributes = True
+
+
+class IfaceThresholdIn(BaseModel):
+    # Explicit null clears it (switches interface_overload checking back
+    # off) — a plain DeviceUpdate can't do that: update_device() below
+    # uses exclude_none=True so a null there is silently ignored, same as
+    # every other field on that endpoint.
+    mbps: Optional[float] = None
 
 
 @router.get("", response_model=List[DeviceOut])
@@ -147,6 +161,31 @@ async def update_device(device_id: int, data: DeviceUpdate, db: Session = Depend
     db.commit()
     db.refresh(device)
     return device
+
+
+@router.put("/{device_id}/iface-threshold")
+async def set_iface_threshold(device_id: int, data: IfaceThresholdIn, db: Session = Depends(get_db)):
+    device = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
+    if not device:
+        raise HTTPException(404, "Not found")
+    device.iface_mbps_threshold = data.mbps
+    db.commit()
+    return {"iface_mbps_threshold": device.iface_mbps_threshold}
+
+
+@router.get("/{device_id}/interface-stats")
+async def interface_stats(device_id: int, db: Session = Depends(get_db)):
+    from models.database import DeviceInterfaceStats
+    rows = db.execute(
+        select(DeviceInterfaceStats).where(DeviceInterfaceStats.device_id == device_id)
+        .order_by(DeviceInterfaceStats.iface_name)
+    ).scalars().all()
+    return {"interfaces": [{
+        "iface_name": r.iface_name, "rx_mbps": r.rx_mbps, "tx_mbps": r.tx_mbps,
+        "rx_errors": r.rx_errors, "tx_errors": r.tx_errors,
+        "rx_drops": r.rx_drops, "tx_drops": r.tx_drops,
+        "last_sample_at": r.last_sample_at.isoformat() if r.last_sample_at else None,
+    } for r in rows]}
 
 
 @router.delete("/{device_id}")

@@ -30,6 +30,7 @@ from services import agent_backup
 from services import supply_chain
 from services import updater as updater_svc
 from services import audit as audit_svc
+from services import resource_monitor
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
     agent_backup.start()
     supply_chain.start()
     updater_svc.start_auto_update()
+    resource_monitor.start()
     try:
         yield
     finally:
@@ -56,6 +58,7 @@ async def lifespan(app: FastAPI):
         agent_backup.stop()
         supply_chain.stop()
         updater_svc.stop_auto_update()
+        resource_monitor.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

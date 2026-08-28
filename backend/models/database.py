@@ -64,6 +64,20 @@ class Device(Base):
     owner = Column(String, nullable=True)
     criticality = Column(String, nullable=True)  # 'low' | 'medium' | 'high' | 'critical', free-text (no DB-level enum)
 
+    # Resource monitoring (services/resource_monitor.py) — from RouterOS's
+    # own /system/resource, already fetched elsewhere in the app but never
+    # persisted until now.
+    mem_used_pct = Column(Float, nullable=True)
+    disk_used_pct = Column(Float, nullable=True)
+    cpu_load_pct = Column(Integer, nullable=True)
+    last_resources_check_at = Column(DateTime, nullable=True)
+    # Per-device, manually-set bandwidth ceiling (Mbps) for the
+    # interface_overload alert — NULL (default) means "don't check
+    # bandwidth on this device", only error/drop counters are watched.
+    # Deliberately per-device rather than a single global default: link
+    # capacity varies wildly between a WAN uplink and a switch trunk.
+    iface_mbps_threshold = Column(Float, nullable=True)
+
     credential = relationship("Credential", back_populates="devices")
 
 
@@ -82,6 +96,30 @@ class Credential(Base):
     domain = Column(String, nullable=True)
 
     devices = relationship("Device", back_populates="credential")
+
+
+class DeviceInterfaceStats(Base):
+    """Latest per-interface sample from services/resource_monitor.py's
+    Mikrotik polling — both the "previous sample" used to compute the next
+    delta (rate/error-count changes), and what the UI reads to show current
+    throughput/error counts per port. One row per (device, interface),
+    overwritten on every poll (no history kept, same as LinuxHostDisk)."""
+    __tablename__ = "device_interface_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False)
+    iface_name = Column(String, nullable=False)
+    rx_bytes = Column(Integer, nullable=True)
+    tx_bytes = Column(Integer, nullable=True)
+    rx_errors = Column(Integer, nullable=True)
+    tx_errors = Column(Integer, nullable=True)
+    rx_drops = Column(Integer, nullable=True)
+    tx_drops = Column(Integer, nullable=True)
+    rx_mbps = Column(Float, nullable=True)
+    tx_mbps = Column(Float, nullable=True)
+    last_sample_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("device_id", "iface_name", name="uq_device_iface_stats"),)
 
 
 class ScanRange(Base):
@@ -306,6 +344,27 @@ class LinuxHost(Base):
     last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
     last_error = Column(Text, nullable=True)
     last_compliance_check_at = Column(DateTime, nullable=True)
+    mem_used_pct = Column(Float, nullable=True)
+    mem_total_bytes = Column(Integer, nullable=True)
+    last_resources_check_at = Column(DateTime, nullable=True)
+
+
+class LinuxHostDisk(Base):
+    """One mounted filesystem's usage on a managed Linux host — a host can
+    have several real mounts, hence a separate table rather than columns on
+    LinuxHost (mirrors WindowsHostService's "per-host list" shape). One row
+    per (host, mount), overwritten on every resource check."""
+    __tablename__ = "linux_host_disks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("linux_hosts.id"), nullable=False)
+    mount_point = Column(String, nullable=False)
+    total_bytes = Column(Integer, nullable=True)
+    used_bytes = Column(Integer, nullable=True)
+    pct = Column(Float, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("host_id", "mount_point", name="uq_linux_host_disk"),)
 
 
 class LinuxManageSettings(Base):
@@ -354,6 +413,26 @@ class WindowsHost(Base):
     domain = Column(String, nullable=True)               # "WORKGROUP" or AD domain, from systeminfo
     host_type = Column(String, nullable=False, default="server")  # "server" | "workstation" — auto-detected, overridable
     last_services_check_at = Column(DateTime, nullable=True)
+    mem_used_pct = Column(Float, nullable=True)
+    mem_total_bytes = Column(Integer, nullable=True)
+    last_resources_check_at = Column(DateTime, nullable=True)
+
+
+class WindowsHostDisk(Base):
+    """One local fixed drive's usage on a managed Windows host — mirrors
+    LinuxHostDisk. One row per (host, drive letter), overwritten on every
+    resource check."""
+    __tablename__ = "windows_host_disks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=False)
+    drive_letter = Column(String, nullable=False)
+    total_bytes = Column(Integer, nullable=True)
+    used_bytes = Column(Integer, nullable=True)
+    pct = Column(Float, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("host_id", "drive_letter", name="uq_windows_host_disk"),)
 
 
 class WindowsHostService(Base):
@@ -510,6 +589,16 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN owner TEXT"))
             if "criticality" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN criticality VARCHAR(32)"))
+            if "mem_used_pct" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN mem_used_pct FLOAT"))
+            if "disk_used_pct" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN disk_used_pct FLOAT"))
+            if "cpu_load_pct" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN cpu_load_pct INTEGER"))
+            if "last_resources_check_at" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN last_resources_check_at DATETIME"))
+            if "iface_mbps_threshold" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN iface_mbps_threshold FLOAT"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}
@@ -530,6 +619,12 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "last_compliance_check_at" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_compliance_check_at DATETIME"))
+            if "mem_used_pct" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN mem_used_pct FLOAT"))
+            if "mem_total_bytes" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN mem_total_bytes INTEGER"))
+            if "last_resources_check_at" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_resources_check_at DATETIME"))
 
     if "windows_hosts" in inspector.get_table_names():
         wh_cols = {c["name"] for c in inspector.get_columns("windows_hosts")}
@@ -542,6 +637,12 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN host_type VARCHAR DEFAULT 'server'"))
             if "last_services_check_at" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_services_check_at DATETIME"))
+            if "mem_used_pct" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN mem_used_pct FLOAT"))
+            if "mem_total_bytes" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN mem_total_bytes INTEGER"))
+            if "last_resources_check_at" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_resources_check_at DATETIME"))
 
     if "windows_manage_settings" in inspector.get_table_names():
         wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}
