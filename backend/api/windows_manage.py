@@ -38,6 +38,18 @@ class RunScriptBulkIn(BaseModel):
     reason: str
 
 
+class AddServiceIn(BaseModel):
+    service_name: str
+
+
+class HostTypeIn(BaseModel):
+    host_type: str
+
+
+class WorkstationPortsIn(BaseModel):
+    ports: list[int]
+
+
 @router.get("/hosts")
 async def list_hosts():
     return {"hosts": windows_manage.list_hosts(), "enabled": windows_manage._manage_enabled()}
@@ -140,3 +152,39 @@ async def get_settings():
 @router.put("/settings")
 async def set_settings(payload: SettingsIn):
     return windows_manage.set_settings(payload.credential_id, payload.manage_enabled)
+
+
+@router.post("/hosts/{host_id}/host-type")
+async def set_host_type(host_id: int, payload: HostTypeIn):
+    return windows_manage.set_host_type(host_id, payload.host_type)
+
+
+@router.get("/hosts/{host_id}/services")
+async def list_services(host_id: int):
+    return {"services": windows_manage.list_host_services(host_id)}
+
+
+@router.post("/hosts/{host_id}/services")
+async def add_service(host_id: int, payload: AddServiceIn):
+    return windows_manage.add_host_service(host_id, payload.service_name)
+
+
+@router.delete("/hosts/{host_id}/services/{service_id}")
+async def delete_service(host_id: int, service_id: int):
+    return windows_manage.remove_host_service(service_id)
+
+
+@router.post("/hosts/{host_id}/services/check")
+async def check_services(host_id: int, background_tasks: BackgroundTasks):
+    background_tasks.add_task(windows_manage.check_host_services, host_id)
+    return {"queued": True, "host_id": host_id}
+
+
+@router.get("/settings/workstation-ports")
+async def get_workstation_ports():
+    return {"ports": windows_manage.get_workstation_port_policy()}
+
+
+@router.put("/settings/workstation-ports")
+async def set_workstation_ports(payload: WorkstationPortsIn):
+    return {"ports": windows_manage.set_workstation_port_policy(payload.ports)}

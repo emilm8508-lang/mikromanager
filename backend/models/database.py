@@ -351,6 +351,26 @@ class WindowsHost(Base):
     last_restart_at = Column(DateTime, nullable=True)
     last_restart_reason = Column(Text, nullable=True)
     last_compliance_check_at = Column(DateTime, nullable=True)
+    domain = Column(String, nullable=True)               # "WORKGROUP" or AD domain, from systeminfo
+    host_type = Column(String, nullable=False, default="server")  # "server" | "workstation" — auto-detected, overridable
+    last_services_check_at = Column(DateTime, nullable=True)
+
+
+class WindowsHostService(Base):
+    """One Windows service the operator wants watched on a specific host —
+    per-host list (not global), per the user's explicit choice. Status is
+    refreshed alongside the rest of discover_windows_hosts()'s per-host
+    pass; shown in the UI only — no Telegram alert, per the user's choice."""
+    __tablename__ = "windows_host_services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=False)
+    service_name = Column(String, nullable=False)    # Win32_Service/Get-Service "Name" (short key, not display name)
+    display_name = Column(String, nullable=True)
+    status = Column(String, nullable=True)             # "Running" | "Stopped" | ... | None = not yet checked
+    last_checked_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("host_id", "service_name", name="uq_windows_host_service"),)
 
 
 class WindowsManageSettings(Base):
@@ -370,6 +390,10 @@ class WindowsManageSettings(Base):
     id = Column(Integer, primary_key=True, default=1)
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
     manage_enabled = Column(Boolean, nullable=True)
+    # JSON list of ints — the "normal" ports a workstation is allowed to have
+    # open; anything else found open (via the existing weekly vuln-scan port
+    # data) is flagged as unexpected. NULL = use the built-in default list.
+    workstation_allowed_ports = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -512,12 +536,20 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "last_compliance_check_at" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_compliance_check_at DATETIME"))
+            if "domain" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN domain TEXT"))
+            if "host_type" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN host_type VARCHAR DEFAULT 'server'"))
+            if "last_services_check_at" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_services_check_at DATETIME"))
 
     if "windows_manage_settings" in inspector.get_table_names():
         wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}
         with engine.begin() as conn:
             if "manage_enabled" not in wms_cols:
                 conn.execute(text("ALTER TABLE windows_manage_settings ADD COLUMN manage_enabled BOOLEAN"))
+            if "workstation_allowed_ports" not in wms_cols:
+                conn.execute(text("ALTER TABLE windows_manage_settings ADD COLUMN workstation_allowed_ports TEXT"))
 
     if "anydesk_sessions" in inspector.get_table_names():
         as_cols = {c["name"] for c in inspector.get_columns("anydesk_sessions")}

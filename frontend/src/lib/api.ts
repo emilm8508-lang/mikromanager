@@ -840,6 +840,8 @@ export interface WindowsHostOut {
   winrm_port: number | null
   managed: boolean
   source: 'auto' | 'manual'
+  domain: string | null
+  host_type: 'server' | 'workstation'
   first_seen_at: string | null
   last_seen_at: string | null
   last_check_at: string | null
@@ -850,6 +852,17 @@ export interface WindowsHostOut {
   last_error: string | null
   last_restart_at: string | null
   last_restart_reason: string | null
+  last_services_check_at: string | null
+  unexpected_ports: number[] | null
+}
+
+export interface WindowsHostService {
+  id: number
+  host_id: number
+  service_name: string
+  display_name: string | null
+  status: string | null
+  last_checked_at: string | null
 }
 
 export interface WindowsJobStatus {
@@ -893,6 +906,20 @@ export const windowsApi = {
   getSettings: () => api.get<WindowsSettings>('/windows/settings').then(r => r.data),
   setSettings: (credentialId: number | null, manageEnabled?: boolean) =>
     api.put<WindowsSettings>('/windows/settings', { credential_id: credentialId, manage_enabled: manageEnabled }).then(r => r.data),
+  setHostType: (hostId: number, hostType: 'server' | 'workstation') =>
+    api.post<WindowsHostOut>(`/windows/hosts/${hostId}/host-type`, { host_type: hostType }).then(r => r.data),
+  listServices: (hostId: number) =>
+    api.get<{ services: WindowsHostService[] }>(`/windows/hosts/${hostId}/services`).then(r => r.data.services),
+  addService: (hostId: number, serviceName: string) =>
+    api.post<WindowsHostService>(`/windows/hosts/${hostId}/services`, { service_name: serviceName }).then(r => r.data),
+  removeService: (hostId: number, serviceId: number) =>
+    api.delete<{ ok: boolean }>(`/windows/hosts/${hostId}/services/${serviceId}`).then(r => r.data),
+  checkServices: (hostId: number) =>
+    api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/services/check`).then(r => r.data),
+  getWorkstationPorts: () =>
+    api.get<{ ports: number[] }>('/windows/settings/workstation-ports').then(r => r.data.ports),
+  setWorkstationPorts: (ports: number[]) =>
+    api.put<{ ports: number[] }>('/windows/settings/workstation-ports', { ports }).then(r => r.data.ports),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────

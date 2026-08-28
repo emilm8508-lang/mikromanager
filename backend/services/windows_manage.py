@@ -49,7 +49,7 @@ from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select
 
-from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsManageSettings
+from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsManageSettings
 from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
@@ -82,6 +82,21 @@ _ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading", "restarting
 _HOSTNAME_RE = re.compile(r"^Host Name:\s*(.+)$", re.MULTILINE)
 _OS_NAME_RE = re.compile(r"^OS Name:\s*(.+)$", re.MULTILINE)
 _OS_VERSION_RE = re.compile(r"^OS Version:\s*(.+)$", re.MULTILINE)
+_DOMAIN_RE = re.compile(r"^Domain:\s*(.+)$", re.MULTILINE)
+
+# Default "normal" ports for a workstation — RPC endpoint mapper, NetBIOS,
+# SMB, RDP, and our own WinRM management ports. Anything else found open
+# (via the existing weekly vuln-scan port data) is flagged as unexpected.
+DEFAULT_WORKSTATION_PORTS = [135, 139, 445, 3389, 5985, 5986]
+
+
+def _detect_host_type(os_name: Optional[str]) -> str:
+    """"server" if the systeminfo OS Name line mentions it (e.g. "Microsoft
+    Windows Server 2019 Standard"), else "workstation" — a starting guess,
+    always overridable via set_host_type()."""
+    if os_name and "server" in os_name.lower():
+        return "server"
+    return "workstation"
 
 
 def get_job_status(host_id: int) -> dict:
@@ -167,19 +182,21 @@ async def _identify_host(ip: str, port: int, username: str, password: str, domai
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(vs._EXECUTOR, _identify_host_sync, ip, port, username, password, domain)
     if result["error"]:
-        return {"hostname": None, "os_name": None, "os_version": None, "error": result["error"]}
+        return {"hostname": None, "os_name": None, "os_version": None, "domain": None, "error": result["error"]}
     output = result["output"]
     host_m = _HOSTNAME_RE.search(output)
     name_m = _OS_NAME_RE.search(output)
     ver_m = _OS_VERSION_RE.search(output)
+    dom_m = _DOMAIN_RE.search(output)
     if not name_m:
-        return {"hostname": None, "os_name": None, "os_version": None,
+        return {"hostname": None, "os_name": None, "os_version": None, "domain": None,
                 "error": "WinRM login succeeded but systeminfo output didn't look like Windows "
                          "(unexpected locale/format, or not actually Windows)"}
     return {
         "hostname": host_m.group(1).strip() if host_m else None,
         "os_name": name_m.group(1).strip(),
         "os_version": ver_m.group(1).strip() if ver_m else None,
+        "domain": dom_m.group(1).strip() if dom_m else None,
         "error": None,
     }
 
@@ -190,10 +207,15 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
     weekly pass, vs.WINRM_PORTS = {5985, 5986}), identify any not yet
     known using ONLY the shared credential. New hosts are inserted with
     managed=False (pending) — never auto-enabled. Direct mirror of
-    linux_manage.discover_linux_hosts()."""
-    if not _manage_enabled():
-        return {"skipped": "MIKROTIK_WINDOWS_MANAGE_ENABLED not set"}
+    linux_manage.discover_linux_hosts().
 
+    Deliberately NOT gated on _manage_enabled() — that flag exists to gate
+    the install/restart/run-script *mutating* actions (see their own
+    checks below), never plain visibility. Blocking discovery here too
+    used to mean a default-off install capability silently hid Windows
+    hosts, watched services and update counts from the UI entirely,
+    contradicting this module's own docstring. Credentials are still
+    required (nothing to identify hosts with otherwise)."""
     cred = _shared_credential()
     if not cred:
         return {"skipped": "no shared credential configured"}
@@ -241,6 +263,7 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
             db.add(WindowsHost(
                 ip=ip, hostname=info["hostname"], os_name=info["os_name"],
                 os_version=info["os_version"], winrm_port=port, managed=False, source="auto",
+                domain=info.get("domain"), host_type=_detect_host_type(info["os_name"]),
                 first_seen_at=now, last_seen_at=now,
             ))
             db.commit()
@@ -277,6 +300,14 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
                 await compliance.run_windows_checks(host_id)
             except Exception as e:
                 print(f"[windows_manage] compliance check error for {ip}: {e}")
+
+        # Watched-services status — same per-pass cadence as the update
+        # count above, only runs a query when the host actually has any
+        # services configured (list_host_services/add_host_service).
+        try:
+            await check_host_services(host_id)
+        except Exception as e:
+            print(f"[windows_manage] services check error for {ip}: {e}")
 
     return {"candidates": len(port_by_ip), "discovered": discovered, "refreshed": checked}
 
@@ -573,6 +604,8 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
         host = db.get(WindowsHost, host_id)
         if not host or not host.managed:
             return {"error": "host not found or not managed"}
+        if host.host_type == "workstation":
+            return {"error": "workstations are check/visibility-only — update installation is limited to servers"}
         ip, port = host.ip, host.winrm_port
         identity = host.hostname or host.ip
 
@@ -636,6 +669,8 @@ async def restart_host(host_id: int, reason: str) -> dict:
         host = db.get(WindowsHost, host_id)
         if not host or not host.managed:
             return {"error": "host not found or not managed"}
+        if host.host_type == "workstation":
+            return {"error": "workstations are check/visibility-only — remote restart is limited to servers"}
         ip, port = host.ip, host.winrm_port
         identity = host.hostname or host.ip
 
@@ -789,6 +824,203 @@ async def run_script_bulk(host_ids: list, script: str, reason: str) -> dict:
     return {"results": results}
 
 
+# ── Watched services (per-host list, UI-only status — no Telegram alert) ──
+
+def _check_services_sync(ip: str, port: int, username: str, password: str, domain: Optional[str],
+                         service_names: list) -> dict:
+    """Blocking — run via loop.run_in_executor. One batched Get-Service
+    call for every watched service name on this host. Names not found on
+    the target are simply absent from the output (-ErrorAction
+    SilentlyContinue) — the caller treats "asked for but missing from the
+    result" as "not_found", distinct from an actual Stopped service."""
+    import winrm
+    user = vs._ntlm_user(username, domain)
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman",
+        auth=(user, password),
+        transport="ntlm",
+        server_cert_validation="ignore",
+        read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
+    )
+    names_ps = ",".join("'" + n.replace("'", "''") + "'" for n in service_names)
+    script = (
+        f"Get-Service -Name {names_ps} -ErrorAction SilentlyContinue | "
+        "Select-Object Name,DisplayName,Status | ConvertTo-Json -Compress"
+    )
+    result = session.run_ps(script)
+    if result.status_code != 0:
+        return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+    raw = result.std_out.decode("utf-8", errors="ignore").strip()
+    if not raw:
+        return {"ok": True, "services": []}
+    try:
+        parsed = json.loads(raw)
+    except Exception as e:
+        return {"ok": False, "error": f"couldn't parse service list: {e}"}
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    return {"ok": True, "services": [
+        {"name": s.get("Name"), "display_name": s.get("DisplayName"), "status": s.get("Status")}
+        for s in parsed if s.get("Name")
+    ]}
+
+
+async def _run_services_check(ip: str, port: int, username: str, password: str, domain: Optional[str],
+                               service_names: list) -> dict:
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _check_services_sync, ip, port, username, password,
+                                 domain, service_names),
+            timeout=CHECK_TIMEOUT_SEC + 15,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return {"ok": False, "error": "timeout"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _service_to_dict(s: WindowsHostService) -> dict:
+    return {
+        "id": s.id, "host_id": s.host_id, "service_name": s.service_name,
+        "display_name": s.display_name, "status": s.status,
+        "last_checked_at": s.last_checked_at.isoformat() if s.last_checked_at else None,
+    }
+
+
+def list_host_services(host_id: int) -> list:
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(WindowsHostService).where(WindowsHostService.host_id == host_id)
+            .order_by(WindowsHostService.service_name)
+        ).scalars().all()
+        return [_service_to_dict(s) for s in rows]
+
+
+def add_host_service(host_id: int, service_name: str) -> dict:
+    service_name = (service_name or "").strip()
+    if not service_name:
+        return {"error": "service_name required"}
+    with SessionLocal() as db:
+        if not db.get(WindowsHost, host_id):
+            return {"error": "host not found"}
+        existing = db.execute(
+            select(WindowsHostService).where(
+                WindowsHostService.host_id == host_id,
+                WindowsHostService.service_name == service_name,
+            )
+        ).scalar_one_or_none()
+        if existing:
+            return {"error": "already watched"}
+        row = WindowsHostService(host_id=host_id, service_name=service_name)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return _service_to_dict(row)
+
+
+def remove_host_service(service_id: int) -> dict:
+    with SessionLocal() as db:
+        row = db.get(WindowsHostService, service_id)
+        if not row:
+            return {"error": "not found"}
+        db.delete(row)
+        db.commit()
+        return {"ok": True}
+
+
+async def check_host_services(host_id: int) -> dict:
+    """Manual or discovery-loop trigger — refreshes every watched service's
+    status for one host in a single batched WinRM call. No-op (not an
+    error) when the host has no watched services configured yet."""
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host:
+            return {"error": "host not found"}
+        ip, port = host.ip, host.winrm_port
+        service_names = [s.service_name for s in db.execute(
+            select(WindowsHostService).where(WindowsHostService.host_id == host_id)
+        ).scalars().all()]
+
+    if not service_names:
+        return {"ok": True, "checked": 0}
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password, domain = cred
+
+    result = await _run_services_check(ip, port, username, password, domain, service_names)
+    now = datetime.utcnow()
+    if not result["ok"]:
+        with SessionLocal() as db:
+            host = db.get(WindowsHost, host_id)
+            if host:
+                host.last_services_check_at = now
+                db.commit()
+        return {"error": result["error"]}
+
+    found = {s["name"].lower(): s for s in result["services"] if s.get("name")}
+    with SessionLocal() as db:
+        rows = db.execute(select(WindowsHostService).where(WindowsHostService.host_id == host_id)).scalars().all()
+        for row in rows:
+            match = found.get(row.service_name.lower())
+            if match:
+                row.status = match.get("status")
+                if match.get("display_name"):
+                    row.display_name = match["display_name"]
+            else:
+                row.status = "not_found"
+            row.last_checked_at = now
+        host = db.get(WindowsHost, host_id)
+        if host:
+            host.last_services_check_at = now
+        db.commit()
+    return {"ok": True, "checked": len(service_names)}
+
+
+# ── Workstation port policy ("unusual open ports") ────────────────────────
+
+def get_workstation_port_policy() -> list:
+    with SessionLocal() as db:
+        row = db.get(WindowsManageSettings, 1)
+        if row and row.workstation_allowed_ports:
+            try:
+                return sorted(json.loads(row.workstation_allowed_ports))
+            except Exception:
+                pass
+    return list(DEFAULT_WORKSTATION_PORTS)
+
+
+def set_workstation_port_policy(ports: list) -> list:
+    try:
+        clean = sorted({int(p) for p in ports})
+    except (TypeError, ValueError):
+        return get_workstation_port_policy()
+    with SessionLocal() as db:
+        row = db.get(WindowsManageSettings, 1)
+        if not row:
+            row = WindowsManageSettings(id=1)
+            db.add(row)
+        row.workstation_allowed_ports = json.dumps(clean)
+        row.updated_at = datetime.utcnow()
+        db.commit()
+    return clean
+
+
+def set_host_type(host_id: int, host_type: str) -> dict:
+    if host_type not in ("server", "workstation"):
+        return {"error": "invalid host_type"}
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host:
+            return {"error": "not found"}
+        host.host_type = host_type
+        db.commit()
+        return _host_to_dict(host)
+
+
 # ── Listing / admin ──────────────────────────────────────────────────────
 
 def _host_to_dict(h: WindowsHost) -> dict:
@@ -796,6 +1028,7 @@ def _host_to_dict(h: WindowsHost) -> dict:
         "id": h.id, "ip": h.ip, "hostname": h.hostname,
         "os_name": h.os_name, "os_version": h.os_version, "winrm_port": h.winrm_port,
         "managed": h.managed, "source": h.source,
+        "domain": h.domain, "host_type": h.host_type,
         "first_seen_at": h.first_seen_at.isoformat() if h.first_seen_at else None,
         "last_seen_at": h.last_seen_at.isoformat() if h.last_seen_at else None,
         "last_check_at": h.last_check_at.isoformat() if h.last_check_at else None,
@@ -805,13 +1038,38 @@ def _host_to_dict(h: WindowsHost) -> dict:
         "last_status": h.last_status, "last_error": h.last_error,
         "last_restart_at": h.last_restart_at.isoformat() if h.last_restart_at else None,
         "last_restart_reason": h.last_restart_reason,
+        "last_services_check_at": h.last_services_check_at.isoformat() if h.last_services_check_at else None,
     }
 
 
 def list_hosts() -> list:
+    """Adds one computed field beyond _host_to_dict's plain columns:
+    unexpected_ports (workstation hosts only, None for servers) — open
+    ports from the existing weekly vuln-scan port data (joined by IP) that
+    aren't in the configured workstation allowlist. Computed here, not
+    stored, and batched in one join instead of per-host queries."""
     with SessionLocal() as db:
         hosts = db.execute(select(WindowsHost).order_by(WindowsHost.ip)).scalars().all()
-        return [_host_to_dict(h) for h in hosts]
+        allowed = set(get_workstation_port_policy())
+        ws_ips = [h.ip for h in hosts if h.host_type == "workstation"]
+        ports_by_ip: dict = {}
+        if ws_ips:
+            rows = db.execute(
+                select(VulnHost.ip, VulnService.port)
+                .join(VulnService, VulnService.host_id == VulnHost.id)
+                .where(VulnHost.ip.in_(ws_ips))
+            ).all()
+            for ip, port in rows:
+                ports_by_ip.setdefault(ip, set()).add(port)
+        result = []
+        for h in hosts:
+            d = _host_to_dict(h)
+            if h.host_type == "workstation":
+                d["unexpected_ports"] = sorted(p for p in ports_by_ip.get(h.ip, set()) if p not in allowed)
+            else:
+                d["unexpected_ports"] = None
+            result.append(d)
+        return result
 
 
 def set_managed(host_id: int, managed: bool) -> dict:

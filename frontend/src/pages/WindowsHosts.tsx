@@ -5,7 +5,10 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
-import { MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal } from 'lucide-react'
+import {
+  MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal,
+  ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ScanProgressEvent {
@@ -165,12 +168,138 @@ function SettingsPanel() {
   )
 }
 
+function WorkstationPortsPanel() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: ports } = useQuery({ queryKey: ['windows-workstation-ports'], queryFn: windowsApi.getWorkstationPorts })
+  const [text, setText] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: (list: number[]) => windowsApi.setWorkstationPorts(list),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['windows-workstation-ports'] })
+      qc.invalidateQueries({ queryKey: ['windows-hosts'] })
+      setText(null)
+    },
+  })
+
+  const current = text ?? (ports ?? []).join(', ')
+
+  const submit = () => {
+    const parsed = current.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0 && n < 65536)
+    save.mutate(Array.from(new Set(parsed)))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ShieldAlert size={15} className="text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-700">{t('windows.workstationPortsTitle')}</h2>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-slate-500">{t('windows.workstationPortsHint')}</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={current}
+            onChange={e => setText(e.target.value)}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm flex-1 font-mono"
+            placeholder="135, 139, 445, 3389, 5985, 5986"
+          />
+          <Button variant="secondary" onClick={submit} disabled={save.isPending}>{t('common.save')}</Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ServicesSection({ host }: { host: WindowsHostOut }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: services = [] } = useQuery({
+    queryKey: ['windows-services', host.id],
+    queryFn: () => windowsApi.listServices(host.id),
+  })
+  const [newName, setNewName] = useState('')
+
+  const add = useMutation({
+    mutationFn: (name: string) => windowsApi.addService(host.id, name),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['windows-services', host.id] }); setNewName('') },
+  })
+  const remove = useMutation({
+    mutationFn: (serviceId: number) => windowsApi.removeService(host.id, serviceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-services', host.id] }),
+  })
+  const check = useMutation({
+    mutationFn: () => windowsApi.checkServices(host.id),
+    onSuccess: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['windows-services', host.id] }), 4000),
+  })
+
+  const statusBadge = (status: string | null) => {
+    if (!status) return <span className="text-slate-400">—</span>
+    if (status === 'not_found') return <Badge variant="gray" className="text-[10px]">{t('windows.serviceNotFound')}</Badge>
+    if (status === 'Running') return <Badge variant="green" className="text-[10px]">{status}</Badge>
+    return <Badge variant="red" className="text-[10px]">{status}</Badge>
+  }
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-1">
+        <p className="text-xs font-semibold text-slate-700">{t('windows.servicesTitle')}</p>
+        <div className="flex items-center gap-2">
+          {host.last_services_check_at && (
+            <span className="text-[10px] text-slate-400">
+              {t('windows.lastServicesCheck')}: {new Date(host.last_services_check_at).toLocaleString()}
+            </span>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending || services.length === 0}>
+            <RefreshCw size={11} className={check.isPending ? 'animate-spin' : ''} /> {t('windows.checkServicesNow')}
+          </Button>
+        </div>
+      </div>
+      {services.length === 0 ? (
+        <p className="text-xs text-slate-400">{t('windows.noServices')}</p>
+      ) : (
+        <div className="space-y-1">
+          {services.map(s => (
+            <div key={s.id} className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded px-2 py-1">
+              <span className="font-mono text-slate-700">{s.display_name || s.service_name}</span>
+              <div className="flex items-center gap-2">
+                {statusBadge(s.status)}
+                <button onClick={() => remove.mutate(s.id)} className="text-slate-400 hover:text-red-600">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          placeholder={t('windows.addServicePlaceholder') as string}
+          className="border border-slate-300 rounded-lg px-2 py-1 text-xs flex-1"
+          onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) add.mutate(newName.trim()) }}
+        />
+        <Button size="sm" variant="secondary" onClick={() => newName.trim() && add.mutate(newName.trim())} disabled={add.isPending}>
+          <Plus size={11} /> {t('windows.addService')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   host: WindowsHostOut; selected: boolean; onToggleSelect: () => void; onRunScript: () => void
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
+  const [showServices, setShowServices] = useState(false)
 
   const { data: job } = useQuery({
     queryKey: ['windows-job', host.id],
@@ -184,6 +313,11 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
 
   const setManaged = useMutation({
     mutationFn: (managed: boolean) => windowsApi.setManaged(host.id, managed),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
+  })
+
+  const setHostType = useMutation({
+    mutationFn: (hostType: 'server' | 'workstation') => windowsApi.setHostType(host.id, hostType),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
   })
 
@@ -217,11 +351,22 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
         <div>
           <span className="font-mono text-sm text-slate-800">{host.ip}</span>
           {host.hostname && <span className="text-xs text-slate-500 ml-2">{host.hostname}</span>}
+          {host.domain && <span className="text-xs text-slate-400 ml-2">({host.domain})</span>}
           {host.source === 'auto' && !host.managed && (
             <Badge variant="gray" className="text-[10px] ml-2">{t('windows.pending')}</Badge>
           )}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => setHostType.mutate(host.host_type === 'server' ? 'workstation' : 'server')}
+            disabled={setHostType.isPending}
+            title={t(host.host_type === 'server' ? 'windows.markAsWorkstation' : 'windows.markAsServer') as string}
+          >
+            <Badge variant={host.host_type === 'server' ? 'purple' : 'gray'} className="text-[10px] cursor-pointer">
+              {host.host_type === 'server' ? <Server size={10} /> : <Laptop size={10} />}
+              {t(host.host_type === 'server' ? 'windows.hostTypeServer' : 'windows.hostTypeWorkstation')}
+            </Badge>
+          </button>
           {host.os_name ? (
             <Badge variant="blue" className="text-[10px]">{host.os_name}</Badge>
           ) : (
@@ -236,8 +381,17 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
           {host.reboot_required && (
             <Badge variant="red" className="text-[10px]">{t('windows.rebootRequired')}</Badge>
           )}
+          {host.unexpected_ports != null && host.unexpected_ports.length > 0 && (
+            <Badge variant="red" className="text-[10px]">
+              <ShieldAlert size={10} /> {t('windows.unexpectedPorts', { ports: host.unexpected_ports.join(', ') })}
+            </Badge>
+          )}
         </div>
       </div>
+
+      {host.host_type === 'workstation' && host.managed && (
+        <p className="text-[11px] text-slate-400">{t('windows.workstationOnlyNote')}</p>
+      )}
 
       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
         <div>
@@ -260,27 +414,36 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <Button size="sm" variant="secondary" onClick={() => runCheck.mutate()} disabled={!!inProgress}>
                 <RefreshCw size={12} className={inProgress ? 'animate-spin' : ''} /> {t('windows.checkUpdates')}
               </Button>
-              <Button size="sm" variant="danger"
-                onClick={() => askReasonAndRun(reason => {
-                  if (confirm(t('windows.upgradeConfirm', { ip: host.ip }) as string)) runUpgrade.mutate(reason)
-                }, 'windows.reasonPromptUpgrade')}
-                disabled={!!inProgress}>
-                <Download size={12} /> {t('windows.upgradeNow')}
-              </Button>
-              <Button size="sm" variant="danger"
-                onClick={() => askReasonAndRun(reason => {
-                  if (confirm(t('windows.restartConfirm', { ip: host.ip }) as string)) runRestart.mutate(reason)
-                }, 'windows.reasonPromptRestart')}
-                disabled={!!inProgress}>
-                <Power size={12} /> {t('windows.restartNow')}
-              </Button>
+              {host.host_type !== 'workstation' && (
+                <>
+                  <Button size="sm" variant="danger"
+                    onClick={() => askReasonAndRun(reason => {
+                      if (confirm(t('windows.upgradeConfirm', { ip: host.ip }) as string)) runUpgrade.mutate(reason)
+                    }, 'windows.reasonPromptUpgrade')}
+                    disabled={!!inProgress}>
+                    <Download size={12} /> {t('windows.upgradeNow')}
+                  </Button>
+                  <Button size="sm" variant="danger"
+                    onClick={() => askReasonAndRun(reason => {
+                      if (confirm(t('windows.restartConfirm', { ip: host.ip }) as string)) runRestart.mutate(reason)
+                    }, 'windows.reasonPromptRestart')}
+                    disabled={!!inProgress}>
+                    <Power size={12} /> {t('windows.restartNow')}
+                  </Button>
+                </>
+              )}
               <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
                 <Terminal size={12} /> {t('runScript.button')}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowServices(s => !s)}>
+                {showServices ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {t('windows.servicesToggle')}
               </Button>
             </>
           )}
         </div>
       </div>
+
+      {host.managed && showServices && <ServicesSection host={host} />}
 
       {job && job.status !== 'no_job' && (
         <div className="bg-slate-100 rounded-lg p-2 text-xs space-y-1">
@@ -356,6 +519,7 @@ export function WindowsHosts() {
       </div>
 
       <SettingsPanel />
+      <WorkstationPortsPanel />
 
       <Card>
         <CardHeader>
