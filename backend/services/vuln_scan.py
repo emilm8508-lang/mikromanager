@@ -505,6 +505,29 @@ def _ntlm_user(username: str, domain: Optional[str]) -> str:
     return f"{domain}\\{username}"
 
 
+def _close_winrm_session(session) -> None:
+    """winrm.Session has no public close() — it only ever exposes the
+    connection through session.protocol.transport, whose requests.Session
+    (and that Session's HTTP connection pool) otherwise sits open until
+    garbage collection. Call this in a finally block after every
+    winrm.Session use, shared by every WinRM call site in this file and in
+    windows_manage.py. pywinrm 0.5.0 (the version this was verified
+    against) exposes Transport.close_session() for exactly this; older
+    versions (this repo pins only pywinrm>=0.4.3) may lack it, so fall back
+    to closing the underlying requests.Session directly."""
+    try:
+        transport = session.protocol.transport
+    except AttributeError:
+        return
+    close_session = getattr(transport, "close_session", None)
+    if callable(close_session):
+        close_session()
+        return
+    requests_session = getattr(transport, "session", None)
+    if requests_session is not None:
+        requests_session.close()
+
+
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
                          domain: Optional[str]) -> Optional[dict]:
     """Blocking — run via loop.run_in_executor. Read-only: only ever runs
@@ -514,6 +537,7 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
     import winrm
     user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
+    session = None
     try:
         session = winrm.Session(
             f"{scheme}://{ip}:{port}/wsman",
@@ -528,6 +552,9 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
         return {"output": result.std_out.decode("utf-8", errors="ignore")}
     except Exception:
         return None
+    finally:
+        if session is not None:
+            _close_winrm_session(session)
 
 
 async def _winrm_identity(ip: str, port: int, username: str, password: str,
@@ -640,6 +667,7 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
     import winrm
     user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
+    session = None
     try:
         session = winrm.Session(
             f"{scheme}://{ip}:{port}/wsman",
@@ -653,6 +681,9 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
         output = result.std_out.decode("utf-8", errors="ignore")
     except Exception:
         return None
+    finally:
+        if session is not None:
+            _close_winrm_session(session)
 
     if "---SOFTWARE---" not in output:
         return None
