@@ -79,11 +79,11 @@ async def backup_device(device_id: int, trigger: str = "manual") -> dict:
         # Legacy API path
         try:
             loop = asyncio.get_event_loop()
-            import librouteros
+            from services.mikrotik_client import _connect_and_login
             def _run():
-                api = librouteros.connect(
-                    device.ip, username=cred.username,
-                    password=client.password, port=device.api_port, timeout=8)
+                api = _connect_and_login(
+                    device.ip, cred.username, client.password,
+                    port=device.api_port, timeout=8)
                 try:
                     tuple(api("/system/backup/save", **{"name": name}))
                 finally:

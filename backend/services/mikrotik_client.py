@@ -15,6 +15,7 @@ import ssl
 import time
 from typing import Any, Optional
 import librouteros
+from librouteros import login as librouteros_login
 from services.snmp_client import SnmpClient
 
 # WireGuard peer considered "up" if it handshook within this many seconds —
@@ -100,6 +101,43 @@ def _mark_api_ssl_ok(ip: str) -> None:
     _api_ssl_broken.pop(ip, None)
 
 
+def _connect_and_login(host: str, username: str, password: str, *, port: int,
+                       timeout: float, ssl_wrapper=None) -> librouteros.Api:
+    """Same as librouteros.connect(), except it closes the transport on ANY
+    login failure — not just (ConnectionClosed, FatalError).
+
+    librouteros==4.2.0's own connect() (the latest release on PyPI, checked)
+    only closes the socket it just opened when login raises ConnectionClosed
+    or FatalError:
+        try:
+            login_method(api, username, password)
+            return api
+        except (ConnectionClosed, FatalError):
+            transport.close()
+            raise
+    RouterOS answers bad credentials with a `!trap`, which the library raises
+    as TrapError — a plain ProtocolError, not a FatalError — so that except
+    clause never fires and the raw TCP socket is leaked with nothing left to
+    close it (connect() never returns the transport on failure). Confirmed
+    on a production agent: repeated login attempts against a device with a
+    stale/rotated password (e.g. from the periodic refresher, or worse, the
+    live-logs SSE stream polling every 3s) exhausted the process's file
+    descriptors within a working day, eventually crashing with 'Too many
+    open files' on socket.accept(). This reimplements connect()'s few lines
+    locally with a broad `except Exception` instead."""
+    transport = librouteros.create_transport(
+        host=host, port=port, saddr=None, timeout=timeout, ssl_wrapper=ssl_wrapper,
+    )
+    protocol = librouteros.ApiProtocol(transport=transport, encoding="ASCII")
+    api = librouteros.Api(protocol=protocol)
+    try:
+        librouteros_login.plain(api, username, password)
+        return api
+    except Exception:
+        transport.close()
+        raise
+
+
 class MikrotikClient:
     def __init__(self, ip: str, username: str, password: str,
                  api_port: int = 8728, web_port: int = 80,
@@ -183,8 +221,8 @@ class MikrotikClient:
                     pass
                 ssl_wrapper = ctx.wrap_socket
             try:
-                api = librouteros.connect(
-                    self.ip, username=self.username, password=self.password,
+                api = _connect_and_login(
+                    self.ip, self.username, self.password,
                     port=self.api_port, timeout=8, ssl_wrapper=ssl_wrapper,
                 )
             except Exception:
@@ -486,9 +524,8 @@ class MikrotikClient:
         except Exception:
             loop = asyncio.get_event_loop()
             def _run():
-                api = librouteros.connect(self.ip, username=self.username,
-                                          password=self.password,
-                                          port=self.api_port, timeout=8)
+                api = _connect_and_login(self.ip, self.username, self.password,
+                                         port=self.api_port, timeout=8)
                 try:
                     api("/system/identity/set", **{"name": name})
                 finally:
