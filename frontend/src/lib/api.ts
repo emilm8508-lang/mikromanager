@@ -1331,8 +1331,13 @@ export interface AnydeskClientMap {
 
 export const centralAnydeskApi = {
   mappingList: () => centralRequest<{ mappings: AnydeskClientMap[] }>('anydesk_client_map_list'),
-  sessions: (filters: { tenant?: string; category?: AnydeskCategory | 'unclassified'; from?: string; to?: string } = {}) =>
-    centralRequest<{ sessions: AnydeskSession[] }>('anydesk_sessions', filters as Record<string, string>),
+  sessions: (filters: { tenant?: string; category?: AnydeskCategory | 'unclassified'; from?: string; to?: string; limit?: number; offset?: number } = {}) => {
+    const params: Record<string, string> = {}
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined) params[k] = String(v)
+    }
+    return centralRequest<{ sessions: AnydeskSession[] }>('anydesk_sessions', params)
+  },
 }
 
 // ── Alert + edge types ─────────────────────────────────────────────────────

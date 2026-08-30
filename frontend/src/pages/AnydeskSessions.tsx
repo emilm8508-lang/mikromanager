@@ -135,32 +135,60 @@ function ImportFromCentralBar() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const configured = !!centralConfig.load()
+  const [pageProgress, setPageProgress] = useState<{ page: number; sessionsSoFar: number } | null>(null)
 
   const runImport = useMutation({
     mutationFn: async () => {
-      const [mapRes, sessRes] = await Promise.all([
-        centralAnydeskApi.mappingList(),
-        centralAnydeskApi.sessions({}),
-      ])
+      setPageProgress({ page: 0, sessionsSoFar: 0 })
+      const mapRes = await centralAnydeskApi.mappingList()
       const labels = (mapRes.mappings ?? []).map(m => ({
         cid: m.anydesk_cid,
         label: m.label ? `${m.tenant} - ${m.label}` : m.tenant,
       }))
-      const sessions = (sessRes.sessions ?? []).map(s => ({
-        cid: s.to_cid,
-        started_at: s.start_time,
-        ended_at: s.end_time,
-        duration_sec: s.duration_sec,
-        category: s.category,
-        note: s.note,
-      }))
-      return anydeskApi.import(sessions, labels)
+
+      // OVH caps a single anydesk_sessions response (500 rows by default) —
+      // page through with offset so a history longer than that isn't
+      // silently truncated to just the newest batch. Each page is merged
+      // into the local table right away (import() is idempotent), so a
+      // slow/large import still makes visible progress if interrupted.
+      const PAGE_SIZE = 500
+      let sessionsInserted = 0, sessionsUpdated = 0, sessionsSkipped = 0, labelsApplied = 0
+      for (let offset = 0, page = 1; ; offset += PAGE_SIZE, page++) {
+        const sessRes = await centralAnydeskApi.sessions({ limit: PAGE_SIZE, offset })
+        const batch = sessRes.sessions ?? []
+        if (batch.length === 0) break
+        setPageProgress({ page, sessionsSoFar: offset + batch.length })
+        const sessions = batch.map(s => ({
+          cid: s.to_cid,
+          started_at: s.start_time,
+          ended_at: s.end_time,
+          duration_sec: s.duration_sec,
+          category: s.category,
+          note: s.note,
+        }))
+        // Sending the full label list on every page is redundant but
+        // harmless — import_external() only ever counts/applies a label
+        // once (it fills an empty AnydeskCidLabel row, or skips an
+        // already-labeled one), so labelsApplied only grows on the page
+        // that actually introduces each new label, never double-counts.
+        const result = await anydeskApi.import(sessions, labels)
+        sessionsInserted += result.sessions_inserted
+        sessionsUpdated += result.sessions_updated
+        sessionsSkipped += result.sessions_skipped
+        labelsApplied += result.labels_applied
+        if (batch.length < PAGE_SIZE) break
+      }
+      return {
+        sessions_inserted: sessionsInserted, sessions_updated: sessionsUpdated,
+        sessions_skipped: sessionsSkipped, labels_applied: labelsApplied,
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['anydesk-sessions'] })
       qc.invalidateQueries({ queryKey: ['anydesk-labels'] })
       qc.invalidateQueries({ queryKey: ['anydesk-summary'] })
     },
+    onSettled: () => setPageProgress(null),
   })
 
   if (!configured) return null
@@ -175,6 +203,11 @@ function ImportFromCentralBar() {
         <Download size={13} className={runImport.isPending ? 'animate-pulse' : ''} />
         {t('anydesk.importNow')}
       </Button>
+      {pageProgress && (
+        <p className="w-full text-xs text-indigo-700">
+          {t('anydesk.importProgress', { page: pageProgress.page, count: pageProgress.sessionsSoFar })}
+        </p>
+      )}
       {runImport.data && (
         <p className="w-full text-xs text-indigo-700">
           {t('anydesk.importResult', {

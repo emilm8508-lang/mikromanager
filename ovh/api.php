@@ -694,9 +694,16 @@ try {
                     $where[] = 'start_time <= ?';
                     $params[] = $to;
                 }
+                // limit/offset let a caller page through a history longer
+                // than one batch (e.g. a full-history import) instead of
+                // being silently capped at the newest 500 rows forever —
+                // same int-clamp-then-concatenate pattern as alert_history
+                // below (LIMIT/OFFSET can't be bound as PDO placeholders).
+                $limit = min(2000, max(1, (int)($_GET['limit'] ?? 500)));
+                $offset = max(0, (int)($_GET['offset'] ?? 0));
                 $sql = 'SELECT * FROM anydesk_sessions';
                 if (!empty($where)) $sql .= ' WHERE ' . implode(' AND ', $where);
-                $sql .= ' ORDER BY start_time DESC LIMIT 500';
+                $sql .= ' ORDER BY start_time DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute($params);
                 echo json_encode(['sessions' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
