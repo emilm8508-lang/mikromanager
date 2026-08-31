@@ -9,6 +9,49 @@ Pure-Python (puresnmp) — no C extensions, works on Python 3.14.
 from typing import Optional
 import asyncio
 from puresnmp import Client, V2C, PyWrapper
+from puresnmp.transport import Endpoint, SNMPClientProtocol
+from puresnmp.exc import Timeout as _SnmpTimeout
+
+
+async def _send_udp_and_close(endpoint: Endpoint, packet: bytes, timeout: int = 1,
+                              loop=None, retries: int = 10) -> bytes:
+    """Drop-in replacement for puresnmp.transport.send_udp (confirmed via
+    its installed source), passed explicitly as Client(..., sender=...)
+    below — the real one leaks a UDP socket every time OUR OWN outer
+    asyncio.wait_for() (see _get/_walk below) cancels it mid-flight, which
+    happens whenever a configured SNMP device doesn't answer within our
+    timeout: SNMPClientProtocol.get_data() only closes its transport on
+    (asyncio.TimeoutError, socket.timeout) — asyncio.CancelledError is a
+    BaseException, not an Exception, so that except clause never catches
+    it, and a cancellation from outside skips the cleanup entirely.
+    Confirmed live on a production agent: dozens of accumulating UDP
+    sockets, all to configured-but-slow-to-answer SNMP devices, one per
+    poll. Fixed the same way as this session's librouteros/winrm leaks —
+    an unconditional `finally: transport.close()` around the whole
+    per-attempt body, which runs regardless of exception type."""
+    if loop is None:
+        loop = asyncio.get_event_loop()
+    response = None
+    while retries > 0:
+        transport, protocol = await loop.create_datagram_endpoint(
+            lambda: SNMPClientProtocol(packet),
+            remote_addr=(str(endpoint.ip), endpoint.port),
+        )
+        try:
+            response = await protocol.get_data(timeout)
+            break
+        except _SnmpTimeout:
+            if retries == 1:
+                raise
+            retries -= 1
+        finally:
+            # get_data() already closes/aborts the transport on its own
+            # (asyncio.TimeoutError, socket.timeout) or a real response —
+            # transport.close() on an already-closed transport is a no-op,
+            # so unconditionally closing here too is always safe and is
+            # what actually catches the CancelledError case.
+            transport.close()
+    return response
 
 # ── Standard MIB-2 OIDs ──────────────────────────────────────────────────────
 OID_SYS_DESCR = "1.3.6.1.2.1.1.1.0"
@@ -69,7 +112,7 @@ class SnmpClient:
         self.community = community
         self.port = port
         self.timeout = timeout
-        self._client = PyWrapper(Client(ip, V2C(community), port=port))
+        self._client = PyWrapper(Client(ip, V2C(community), port=port, sender=_send_udp_and_close))
 
     async def _get(self, oid: str):
         return await asyncio.wait_for(self._client.get(oid), timeout=self.timeout)
