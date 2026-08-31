@@ -505,6 +505,19 @@ def _ntlm_user(username: str, domain: Optional[str]) -> str:
     return f"{domain}\\{username}"
 
 
+def _close_winrm(session) -> None:
+    """pywinrm's Session has no public close() — its Protocol/Transport
+    lazily builds a real requests.Session (its own HTTP connection pool,
+    holding real sockets) on first use, which nothing ever released
+    otherwise. Safe to call even if no request was ever made (Transport.
+    close_session() no-ops when .session is still None) and even if this
+    is the only reference (nothing else needs the session afterward)."""
+    try:
+        session.protocol.transport.close_session()
+    except Exception:
+        pass
+
+
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
                          domain: Optional[str]) -> Optional[dict]:
     """Blocking — run via loop.run_in_executor. Read-only: only ever runs
@@ -514,6 +527,7 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
     import winrm
     user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
+    session = None
     try:
         session = winrm.Session(
             f"{scheme}://{ip}:{port}/wsman",
@@ -528,6 +542,9 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
         return {"output": result.std_out.decode("utf-8", errors="ignore")}
     except Exception:
         return None
+    finally:
+        if session is not None:
+            _close_winrm(session)
 
 
 async def _winrm_identity(ip: str, port: int, username: str, password: str,
@@ -640,6 +657,7 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
     import winrm
     user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
+    session = None
     try:
         session = winrm.Session(
             f"{scheme}://{ip}:{port}/wsman",
@@ -653,6 +671,9 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
         output = result.std_out.decode("utf-8", errors="ignore")
     except Exception:
         return None
+    finally:
+        if session is not None:
+            _close_winrm(session)
 
     if "---SOFTWARE---" not in output:
         return None

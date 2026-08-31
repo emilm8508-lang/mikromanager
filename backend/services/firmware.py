@@ -79,7 +79,7 @@ async def backup_device(device_id: int, trigger: str = "manual") -> dict:
         # Legacy API path
         try:
             loop = asyncio.get_event_loop()
-            from services.mikrotik_client import _connect_and_login
+            from services.mikrotik_client import _connect_and_login, _API_EXECUTOR
             def _run():
                 api = _connect_and_login(
                     device.ip, cred.username, client.password,
@@ -88,7 +88,7 @@ async def backup_device(device_id: int, trigger: str = "manual") -> dict:
                     tuple(api("/system/backup/save", **{"name": name}))
                 finally:
                     api.close()
-            await loop.run_in_executor(None, _run)
+            await loop.run_in_executor(_API_EXECUTOR, _run)
         except Exception as e:
             return {"error": f"backup save failed: {type(e).__name__}: {e}"}
 

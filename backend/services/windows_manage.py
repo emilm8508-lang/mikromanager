@@ -162,6 +162,7 @@ def _identify_host_sync(ip: str, port: int, username: str, password: str, domain
     import winrm
     user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
+    session = None
     try:
         session = winrm.Session(
             f"{scheme}://{ip}:{port}/wsman",
@@ -176,6 +177,9 @@ def _identify_host_sync(ip: str, port: int, username: str, password: str, domain
         return {"output": result.std_out.decode("utf-8", errors="ignore"), "error": None}
     except Exception as e:
         return {"output": "", "error": f"{type(e).__name__}: {e}"}
+    finally:
+        if session is not None:
+            vs._close_winrm(session)
 
 
 async def _identify_host(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
@@ -355,20 +359,23 @@ def _check_updates_sync(ip: str, port: int, username: str, password: str, domain
         server_cert_validation="ignore",
         read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
     )
-    result = session.run_ps(_CHECK_SCRIPT)
-    if result.status_code != 0:
-        return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
-    raw = result.std_out.decode("utf-8", errors="ignore").strip()
-    if not raw:
-        return {"ok": True, "count": 0, "titles": []}
     try:
-        parsed = json.loads(raw)
-    except Exception as e:
-        return {"ok": False, "error": f"couldn't parse update list: {e}"}
-    if isinstance(parsed, dict):
-        parsed = [parsed]
-    titles = [f"{u.get('Title', '?')}" + (f" (KB{u['KB']})" if u.get("KB") else "") for u in parsed]
-    return {"ok": True, "count": len(titles), "titles": titles[:MAX_TITLES]}
+        result = session.run_ps(_CHECK_SCRIPT)
+        if result.status_code != 0:
+            return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+        raw = result.std_out.decode("utf-8", errors="ignore").strip()
+        if not raw:
+            return {"ok": True, "count": 0, "titles": []}
+        try:
+            parsed = json.loads(raw)
+        except Exception as e:
+            return {"ok": False, "error": f"couldn't parse update list: {e}"}
+        if isinstance(parsed, dict):
+            parsed = [parsed]
+        titles = [f"{u.get('Title', '?')}" + (f" (KB{u['KB']})" if u.get("KB") else "") for u in parsed]
+        return {"ok": True, "count": len(titles), "titles": titles[:MAX_TITLES]}
+    finally:
+        vs._close_winrm(session)
 
 
 async def _run_check(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
@@ -513,6 +520,7 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
             session.run_ps(f'Remove-Item -Path "{script_path}","{result_path}" -ErrorAction SilentlyContinue')
         except Exception:
             pass
+        vs._close_winrm(session)
 
 
 def _restart_sync(ip: str, port: int, username: str, password: str, domain: Optional[str], reason: str) -> dict:
@@ -532,10 +540,13 @@ def _restart_sync(ip: str, port: int, username: str, password: str, domain: Opti
         server_cert_validation="ignore",
         read_timeout_sec=15, operation_timeout_sec=10,
     )
-    r = session.run_cmd("shutdown", ["/r", "/t", "60", "/c", reason, "/d", "p:4:1"])
-    if r.status_code != 0:
-        return {"ok": False, "error": r.std_err.decode("utf-8", errors="ignore")[-1000:]}
-    return {"ok": True}
+    try:
+        r = session.run_cmd("shutdown", ["/r", "/t", "60", "/c", reason, "/d", "p:4:1"])
+        if r.status_code != 0:
+            return {"ok": False, "error": r.std_err.decode("utf-8", errors="ignore")[-1000:]}
+        return {"ok": True}
+    finally:
+        vs._close_winrm(session)
 
 
 def _fail_job(host_id: int, ip: str, error: str) -> dict:
@@ -746,12 +757,15 @@ def _run_script_sync(ip: str, port: int, username: str, password: str, domain: O
         server_cert_validation="ignore",
         read_timeout_sec=timeout_sec + 10, operation_timeout_sec=timeout_sec,
     )
-    result = session.run_ps(script)
-    output = (result.std_out.decode("utf-8", errors="ignore")
-              + result.std_err.decode("utf-8", errors="ignore"))
-    if len(output) > 200_000:
-        output = output[:200_000] + "\n... [truncated]"
-    return {"exit_code": result.status_code, "output": output}
+    try:
+        result = session.run_ps(script)
+        output = (result.std_out.decode("utf-8", errors="ignore")
+                  + result.std_err.decode("utf-8", errors="ignore"))
+        if len(output) > 200_000:
+            output = output[:200_000] + "\n... [truncated]"
+        return {"exit_code": result.status_code, "output": output}
+    finally:
+        vs._close_winrm(session)
 
 
 async def run_script(host_id: int, script: str, reason: str) -> dict:
@@ -848,22 +862,25 @@ def _check_services_sync(ip: str, port: int, username: str, password: str, domai
         f"Get-Service -Name {names_ps} -ErrorAction SilentlyContinue | "
         "Select-Object Name,DisplayName,Status | ConvertTo-Json -Compress"
     )
-    result = session.run_ps(script)
-    if result.status_code != 0:
-        return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
-    raw = result.std_out.decode("utf-8", errors="ignore").strip()
-    if not raw:
-        return {"ok": True, "services": []}
     try:
-        parsed = json.loads(raw)
-    except Exception as e:
-        return {"ok": False, "error": f"couldn't parse service list: {e}"}
-    if isinstance(parsed, dict):
-        parsed = [parsed]
-    return {"ok": True, "services": [
-        {"name": s.get("Name"), "display_name": s.get("DisplayName"), "status": s.get("Status")}
-        for s in parsed if s.get("Name")
-    ]}
+        result = session.run_ps(script)
+        if result.status_code != 0:
+            return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+        raw = result.std_out.decode("utf-8", errors="ignore").strip()
+        if not raw:
+            return {"ok": True, "services": []}
+        try:
+            parsed = json.loads(raw)
+        except Exception as e:
+            return {"ok": False, "error": f"couldn't parse service list: {e}"}
+        if isinstance(parsed, dict):
+            parsed = [parsed]
+        return {"ok": True, "services": [
+            {"name": s.get("Name"), "display_name": s.get("DisplayName"), "status": s.get("Status")}
+            for s in parsed if s.get("Name")
+        ]}
+    finally:
+        vs._close_winrm(session)
 
 
 async def _run_services_check(ip: str, port: int, username: str, password: str, domain: Optional[str],
@@ -1050,17 +1067,20 @@ def _check_resources_sync(ip: str, port: int, username: str, password: str, doma
         server_cert_validation="ignore",
         read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
     )
-    result = session.run_ps(_RESOURCES_SCRIPT)
-    if result.status_code != 0:
-        return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
-    raw = result.std_out.decode("utf-8", errors="ignore").strip()
-    if not raw:
-        return {"ok": False, "error": "empty response"}
     try:
-        parsed = json.loads(raw)
-    except Exception as e:
-        return {"ok": False, "error": f"couldn't parse resources JSON: {e}"}
-    return {"ok": True, "parsed": parsed}
+        result = session.run_ps(_RESOURCES_SCRIPT)
+        if result.status_code != 0:
+            return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+        raw = result.std_out.decode("utf-8", errors="ignore").strip()
+        if not raw:
+            return {"ok": False, "error": "empty response"}
+        try:
+            parsed = json.loads(raw)
+        except Exception as e:
+            return {"ok": False, "error": f"couldn't parse resources JSON: {e}"}
+        return {"ok": True, "parsed": parsed}
+    finally:
+        vs._close_winrm(session)
 
 
 def _parse_resources(parsed: dict) -> dict:

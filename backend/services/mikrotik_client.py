@@ -10,13 +10,43 @@ If all three fail (or aren't configured), raises with the last error.
 """
 import asyncio
 import aiohttp
+import os
 import re
 import ssl
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 import librouteros
 from librouteros import login as librouteros_login
 from services.snmp_client import SnmpClient
+
+# Dedicated pool for the binary-API's blocking librouteros calls — NOT the
+# asyncio default executor (loop.run_in_executor(None, ...)), which is
+# shared process-wide with agent_backup.py/firmware.py/scanner.py/
+# supply_chain.py/updater.py and Starlette/anyio's own internals, and
+# defaults to only min(32, os.cpu_count() + 4) workers — on a small VPS
+# with 1-2 CPUs that can be as few as 5-6. tunnel_monitor.py and (as of
+# this session) resource_monitor.py both poll every Mikrotik device's
+# get_resource()/get_interfaces() every 2 minutes, each call falling back
+# to this blocking path for any device whose REST is broken; confirmed on
+# a production agent that adding the second poller was enough to starve
+# that small shared pool — calls queued longer than their own 8s timeout,
+# the calling coroutine gave up and moved on, but the now-orphaned thread
+# (asyncio.wait_for cannot actually stop an already-running executor
+# thread — concurrent.futures.Future.cancel() is a no-op once RUNNING)
+# kept running and eventually opened its socket anyway, arriving later
+# than any caller was still waiting for it. Submission outpacing drain on
+# a starved pool meant more of these orphaned-but-still-socket-holding
+# threads existed at any given moment than the pool could clear, which is
+# what actually grew the process's open-fd count over hours until it hit
+# the OS limit — not a single unclosed socket, a backlog of them. Sized
+# generously (I/O-bound blocking calls, not CPU-bound work, so more
+# threads than cpu_count is fine and expected) and independent of
+# os.cpu_count() specifically to not repeat the same mistake.
+_API_EXECUTOR = ThreadPoolExecutor(
+    max_workers=int(os.environ.get("MIKROTIK_API_EXECUTOR_WORKERS", "32")),
+    thread_name_prefix="mikrotik-api",
+)
 
 # WireGuard peer considered "up" if it handshook within this many seconds —
 # RouterOS/community convention: persistent-keepalive (when configured)
@@ -240,7 +270,7 @@ class MikrotikClient:
             finally:
                 api.close()
 
-        return await loop.run_in_executor(None, _run)
+        return await loop.run_in_executor(_API_EXECUTOR, _run)
 
     # ── Fallback orchestrator ─────────────────────────────────────────────────
 
@@ -530,4 +560,4 @@ class MikrotikClient:
                     api("/system/identity/set", **{"name": name})
                 finally:
                     api.close()
-            await loop.run_in_executor(None, _run)
+            await loop.run_in_executor(_API_EXECUTOR, _run)
