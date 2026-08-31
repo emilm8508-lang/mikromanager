@@ -22,6 +22,7 @@ interface DellScanEvent {
   completed?: number
   total?: number
   ip?: string
+  detail?: string | null
   message?: string
 }
 
@@ -48,6 +49,7 @@ function DiscoverPanel() {
   const [scanPhase, setScanPhase] = useState<string | null>(null)
   const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 })
   const [scanIp, setScanIp] = useState<string | null>(null)
+  const [skipNotes, setSkipNotes] = useState<Array<{ ip: string; detail: string }>>([])
   const esRef = useRef<EventSource | null>(null)
 
   const runDiscoverStream = () => {
@@ -55,6 +57,7 @@ function DiscoverPanel() {
     setScanPhase(null)
     setScanProgress({ completed: 0, total: 0 })
     setScanIp(null)
+    setSkipNotes([])
     const es = new EventSource('/api/dell/discover-stream')
     esRef.current = es
     es.onmessage = (e) => {
@@ -67,6 +70,13 @@ function DiscoverPanel() {
         setScanPhase(ev.phase ?? null)
         setScanProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
         setScanIp(ev.ip ?? null)
+        // dell_local_discovery's "detail" explains WHY a known Windows host
+        // wasn't registered as a Dell server (e.g. neither iDRAC Service
+        // Module nor RACADM reachable) — without this it silently vanished,
+        // exactly the confusion the user hit ("nie wiem czy jest dostępny").
+        if (ev.phase === 'dell_local_discovery' && ev.detail && ev.ip) {
+          setSkipNotes(prev => [...prev, { ip: ev.ip!, detail: ev.detail! }])
+        }
       } else if (ev.type === 'result' || ev.type === 'error') {
         es.close()
         esRef.current = null
@@ -90,6 +100,16 @@ function DiscoverPanel() {
       </Button>
       {scanning && (
         <DellScanProgressBar phase={scanPhase ?? ''} completed={scanProgress.completed} total={scanProgress.total} ip={scanIp} />
+      )}
+      {skipNotes.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+          <p className="text-xs font-semibold text-amber-800">{t('dell.skipNotesTitle')}</p>
+          {skipNotes.map((n, i) => (
+            <p key={i} className="text-xs text-amber-700">
+              <span className="font-mono">{n.ip}</span>: {n.detail}
+            </p>
+          ))}
+        </div>
       )}
     </div>
   )

@@ -744,6 +744,7 @@
             "dell_network_discovery": "Netzwerksuche (Redfish)",
             "dell_local_discovery": "Lokale Suche (WinRM)"
         },
+        "skipNotesTitle": "Windows-Hosts, auf denen kein Dell-Server erkannt werden konnte (iSM/RACADM-Fehler):",
         "serversTitle": "Server",
         "noServers": "Noch keine Dell-Server hinzugefügt.",
         "addTitle": "Dell-Server hinzufügen",
