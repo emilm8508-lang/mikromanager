@@ -505,7 +505,7 @@ export interface CentralDellServerStatus {
   health_rollup: 'OK' | 'Warning' | 'Critical' | null
   power_state: string | null
   components: {
-    cpu?: string | null; memory?: string | null; power?: string | null
+    system?: string | null; cpu?: string | null; memory?: string | null; power?: string | null
     fans_temperature?: string | null; storage?: string | null
   }
   last_check_at: string | null
@@ -1005,7 +1005,7 @@ export interface DellServerOut {
   bios_version: string | null
   power_state: string | null
   components: {
-    cpu?: DellHealth; memory?: DellHealth; power?: DellHealth
+    system?: DellHealth; cpu?: DellHealth; memory?: DellHealth; power?: DellHealth
     fans_temperature?: DellHealth; storage?: DellHealth
   }
 }

@@ -22,7 +22,9 @@ from typing import List, Optional
 
 from sqlalchemy import select
 
-from models.database import SessionLocal, DellServer, DellServerSelEntry, Credential
+from models.database import (
+    SessionLocal, DellServer, DellServerSelEntry, Credential, VulnHost, VulnService, WindowsHost,
+)
 from services.crypto import decrypt
 from services import idrac_client
 from services import dell_local
@@ -251,6 +253,142 @@ def stop():
     if _loop_task and not _loop_task.done():
         _loop_task.cancel()
         _loop_task = None
+
+
+def _emit(on_event, event: dict) -> None:
+    """Local mirror of vuln_scan._emit — kept here instead of importing
+    vuln_scan at module level to avoid a circular import (vuln_scan.py's
+    own run_scan() lazily imports THIS module to trigger discovery at the
+    end of its weekly pass, symmetric to how it already does for
+    linux_manage/windows_manage)."""
+    if on_event is None:
+        return
+    try:
+        on_event(event)
+    except Exception as e:
+        print(f"[dell_monitor] on_event callback error: {e}")
+
+
+async def discover_network_servers(on_event=None) -> dict:
+    """Finds Dell (or other Redfish-capable) BMCs reachable directly over
+    the network — reuses the vuln scanner's OWN port-443 findings
+    (VulnHost/VulnService, already collected by its regular weekly pass)
+    instead of running a second port scan. A bare "port 443 open" is much
+    too common a signal on its own (any HTTPS server matches, RouterOS's
+    WebFig included) — idrac_client.probe_redfish_root() confirms the
+    host actually speaks Redfish (checks for the RedfishVersion key on
+    the service root, typically unauthenticated) before it's registered.
+
+    Registration itself doesn't require a WORKING credential — it only
+    confirms the host IS a BMC. If Dell's factory root/calvin default (or
+    whatever credential is later assigned) turns out wrong, that surfaces
+    exactly like it already does for a manually-added server: a clear
+    "could not reach Redfish ..." error on the server's own card, not a
+    failure to discover it in the first place."""
+    with SessionLocal() as db:
+        candidate_ips = list(db.execute(
+            select(VulnHost.ip)
+            .join(VulnService, VulnService.host_id == VulnHost.id)
+            .where(VulnService.port == 443)
+        ).scalars().all())
+        known_idrac_ips = {
+            ip for ip in db.execute(
+                select(DellServer.idrac_ip).where(DellServer.idrac_ip.isnot(None))
+            ).scalars().all()
+        }
+
+    new_ips = [ip for ip in candidate_ips if ip not in known_idrac_ips]
+    _emit(on_event, {"type": "phase", "phase": "dell_network_discovery", "total": len(new_ips)})
+    discovered = 0
+    for idx, ip in enumerate(new_ips, 1):
+        try:
+            is_redfish = await idrac_client.probe_redfish_root(ip, 443)
+        except Exception as e:
+            is_redfish = False
+            print(f"[dell_monitor] redfish probe error for {ip}: {e}")
+        _emit(on_event, {"type": "progress", "phase": "dell_network_discovery",
+                         "completed": idx, "total": len(new_ips), "ip": ip})
+        if not is_redfish:
+            continue
+        with SessionLocal() as db:
+            if db.execute(select(DellServer).where(DellServer.idrac_ip == ip)).scalar_one_or_none():
+                continue  # discovered concurrently, skip
+            server = DellServer(name=None, idrac_ip=ip, idrac_port=443)
+            db.add(server)
+            try:
+                db.commit()
+                discovered += 1
+            except Exception as e:
+                db.rollback()
+                print(f"[dell_monitor] failed to register discovered BMC {ip}: {e}")
+    return {"discovered": discovered, "candidates": len(new_ips)}
+
+
+async def discover_local_servers(on_event=None) -> dict:
+    """Finds Dell servers whose iDRAC has NO routable address, only
+    reachable locally via WinRM into the companion Windows host (see
+    services/dell_local.py's docstring) — tries every known WindowsHost
+    not already linked to a DellServer. Uses the shared WinRM credential
+    already configured for Windows management (windows_manage's own
+    settings) — never a separate credential, same reuse as dell_local.py
+    itself already does for the manual/single-server path."""
+    with SessionLocal() as db:
+        linked_host_ids = {
+            hid for hid in db.execute(
+                select(DellServer.windows_host_id).where(DellServer.windows_host_id.isnot(None))
+            ).scalars().all()
+        }
+        candidates = db.execute(select(WindowsHost)).scalars().all()
+        candidate_ids = [(h.id, h.hostname or h.ip) for h in candidates if h.id not in linked_host_ids]
+
+    _emit(on_event, {"type": "phase", "phase": "dell_local_discovery", "total": len(candidate_ids)})
+    discovered = 0
+    for idx, (host_id, label) in enumerate(candidate_ids, 1):
+        try:
+            health = await dell_local.collect_local_health(host_id)
+        except Exception as e:
+            health = {"ok": False, "error": str(e)}
+        _emit(on_event, {"type": "progress", "phase": "dell_local_discovery",
+                         "completed": idx, "total": len(candidate_ids), "ip": label,
+                         "detail": health.get("error")})
+        if not health.get("ok"):
+            continue
+        with SessionLocal() as db:
+            if db.execute(
+                select(DellServer).where(DellServer.windows_host_id == host_id)
+            ).scalar_one_or_none():
+                continue  # discovered concurrently, skip
+            server = DellServer(
+                name=label, idrac_ip=None, idrac_port=443, windows_host_id=host_id,
+                access_method=health.get("access_method"),
+                health_rollup=health.get("health_rollup"),
+                service_tag=health.get("service_tag"), model=health.get("model"),
+                bios_version=health.get("bios_version"), power_state=health.get("power_state"),
+                components_json=json.dumps(health.get("components") or {}),
+                last_status="ok", last_check_at=datetime.utcnow(),
+            )
+            db.add(server)
+            try:
+                db.commit()
+                discovered += 1
+            except Exception as e:
+                db.rollback()
+                print(f"[dell_monitor] failed to register discovered local server on host {host_id}: {e}")
+    return {"discovered": discovered, "candidates": len(candidate_ids)}
+
+
+async def discover_servers(on_event=None) -> dict:
+    """Combined entry point (POST /api/dell/discover) — mirrors
+    linux_manage.py/windows_manage.py's own discover_*_hosts(): a single
+    button ("Skanuj w poszukiwaniu serwerów Dell") that covers both access
+    paths, matching the "one place, click to scan" consolidation already
+    applied to Mikrotik/Linux/Windows discovery earlier in this project."""
+    network_result = await discover_network_servers(on_event=on_event)
+    local_result = await discover_local_servers(on_event=on_event)
+    return {
+        "discovered": network_result["discovered"] + local_result["discovered"],
+        "network": network_result, "local": local_result,
+    }
 
 
 # ── CRUD ─────────────────────────────────────────────────────────────────

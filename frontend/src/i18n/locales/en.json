@@ -739,6 +739,11 @@
     },
     "dell": {
         "subtitle": "Dell server health monitoring via iDRAC — over the network (Redfish), or locally through a companion Windows host (iDRAC Service Module / RACADM) when iDRAC has no network address of its own.",
+        "scanNow": "Scan for Dell servers",
+        "scanPhase": {
+            "dell_network_discovery": "Network discovery (Redfish)",
+            "dell_local_discovery": "Local discovery (WinRM)"
+        },
         "serversTitle": "Servers",
         "noServers": "No Dell servers added yet.",
         "addTitle": "Add Dell server",
@@ -767,6 +772,7 @@
             "local_racadm": "local (RACADM)"
         },
         "component": {
+            "system": "Overall (system)",
             "cpu": "CPU",
             "memory": "Memory",
             "power": "Power",

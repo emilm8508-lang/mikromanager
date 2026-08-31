@@ -65,6 +65,31 @@ async def _get(base_url: str, path: str, username: str, password: str) -> Option
         return None
 
 
+async def probe_redfish_root(ip: str, port: int = 443) -> bool:
+    """Used only by dell_monitor.discover_network_servers() to decide
+    whether a host with an open port 443 is actually a Redfish-speaking
+    BMC before registering it as a DellServer — NOT just "port 443 open",
+    which is far too common a signal on its own (any HTTPS server,
+    RouterOS's own WebFig included, would match that). The Redfish service
+    root (/redfish/v1/) is a standard, typically UNAUTHENTICATED resource
+    on every conformant implementation (Dell/HP/Lenovo alike) and always
+    carries a "RedfishVersion" key — that key's presence is the actual
+    signal, not just a 200 status (some servers 200 an arbitrary page for
+    any path)."""
+    url = f"https://{ip}:{port}/redfish/v1/"
+    try:
+        timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SEC)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, ssl=_ssl_context(), timeout=timeout,
+                                    headers={"Accept": "application/json"}) as resp:
+                if resp.status != 200:
+                    return False
+                data = await resp.json(content_type=None)
+                return isinstance(data, dict) and bool(data.get("RedfishVersion"))
+    except Exception:
+        return False
+
+
 async def _first_member(base_url: str, collection_path: str, username: str, password: str) -> Optional[str]:
     """Standard Redfish pattern: a collection resource ({"Members": [{"@odata.id":
     "..."}]}) at a well-known path, whose first (and on nearly every real
@@ -83,14 +108,22 @@ async def _first_member(base_url: str, collection_path: str, username: str, pass
 
 def _health(status_obj) -> Optional[str]:
     """Redfish's ubiquitous {"Status": {"Health": "OK"|"Warning"|"Critical",
-    "State": "Enabled"|...}} shape — pulls Health defensively regardless of
-    exactly which resource it came from."""
+    "HealthRollup": "OK"|..., "State": "Enabled"|...}} shape. Prefers
+    HealthRollup over Health when both are present — Health is this one
+    resource's own state, HealthRollup is the aggregate across everything
+    IT manages (sub-components a caller may not separately enumerate:
+    network adapters, PCIe devices, batteries, etc.). Confirmed as the
+    right read on a real server: a PowerEdge showed overall "Warning" with
+    every one of this module's own tracked components (CPU/memory/power/
+    fans/storage) reading "OK" — the discrepancy was exactly this field,
+    previously not read at all, so the UI had no way to explain the
+    mismatch."""
     if not isinstance(status_obj, dict):
         return None
     status = status_obj.get("Status")
     if not isinstance(status, dict):
         return None
-    return status.get("Health")
+    return status.get("HealthRollup") or status.get("Health")
 
 
 def _worst(*healths: Optional[str]) -> Optional[str]:
@@ -264,13 +297,22 @@ async def collect_health(base_url: str, username: str, password: str) -> dict:
         sel = []
 
     components = {
+        # "system" makes the System resource's own aggregate visible on its
+        # own — confirmed necessary on a real server: health_rollup showed
+        # "Warning" while every OTHER tracked component read "OK", with no
+        # way to tell why. HealthRollup (see _health()) aggregates things
+        # this module doesn't separately enumerate (network adapters,
+        # PCIe, batteries, etc.), so a mismatch here is the visible clue
+        # that something outside the other 5 components needs attention —
+        # check iDRAC's own web UI for specifics in that case.
+        "system": summary.get("overall_health"),
         "cpu": summary.get("cpu_health"),
         "memory": summary.get("memory_health"),
         "power": power,
         "fans_temperature": thermal,
         "storage": storage,
     }
-    rollup = _worst(summary.get("overall_health"), *components.values())
+    rollup = _worst(*components.values())
 
     return {
         "ok": True,

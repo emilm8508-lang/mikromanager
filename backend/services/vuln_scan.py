@@ -1888,6 +1888,13 @@ async def run_scan(on_event: Optional[Callable] = None, range_ids: Optional[list
         except Exception as e:
             print(f"[vuln_scan] windows host discovery error: {e}")
 
+        _emit(on_event, {"type": "phase", "phase": "dell_discovery"})
+        try:
+            from services import dell_monitor
+            await dell_monitor.discover_servers(on_event=on_event)
+        except Exception as e:
+            print(f"[vuln_scan] dell server discovery error: {e}")
+
         _hosts_scanned = len(alive_ips)
         _findings_count = findings_count
         _emit(on_event, {"type": "done", "hosts_scanned": len(alive_ips),

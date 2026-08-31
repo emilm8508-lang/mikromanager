@@ -739,6 +739,11 @@
     },
     "dell": {
         "subtitle": "Моніторинг стану серверів Dell через iDRAC — по мережі (Redfish) або локально через пов'язаний хост Windows (iDRAC Service Module / RACADM), якщо iDRAC не має власної мережевої адреси.",
+        "scanNow": "Шукати сервери Dell",
+        "scanPhase": {
+            "dell_network_discovery": "Мережевий пошук (Redfish)",
+            "dell_local_discovery": "Локальний пошук (WinRM)"
+        },
         "serversTitle": "Сервери",
         "noServers": "Серверів Dell ще не додано.",
         "addTitle": "Додати сервер Dell",
@@ -767,6 +772,7 @@
             "local_racadm": "локально (RACADM)"
         },
         "component": {
+            "system": "Загальний (система)",
             "cpu": "CPU",
             "memory": "Пам'ять",
             "power": "Живлення",

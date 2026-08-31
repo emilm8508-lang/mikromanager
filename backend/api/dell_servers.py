@@ -1,4 +1,8 @@
+import asyncio
+import json
+
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from services import dell_monitor
@@ -55,3 +59,51 @@ async def check_server(server_id: int, background_tasks: BackgroundTasks):
 @router.get("/servers/{server_id}/sel")
 async def sel_entries(server_id: int, limit: int = 50):
     return {"entries": dell_monitor.list_sel_entries(server_id, limit)}
+
+
+@router.post("/discover")
+async def discover(background_tasks: BackgroundTasks):
+    # Mirrors /api/linux/discover, /api/windows/discover — one button
+    # covering both access paths (network Redfish + WinRM-local), per the
+    # user's explicit ask that this be discoverable the same way as the
+    # other scanners ("miało się to skanowac z centrali samo").
+    background_tasks.add_task(dell_monitor.discover_servers)
+    return {"started": True}
+
+
+@router.get("/discover-stream")
+async def discover_stream():
+    """Same scan as POST /discover, but as an SSE stream reporting live
+    progress — mirrors /api/linux/discover-stream and
+    /api/windows/discover-stream exactly."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+
+    def emit(event: dict):
+        try:
+            queue.put_nowait(event)
+        except asyncio.QueueFull:
+            pass
+
+    async def _run():
+        try:
+            result = await dell_monitor.discover_servers(on_event=emit)
+            emit({"type": "result", **result})
+        except Exception as e:
+            emit({"type": "error", "message": str(e)})
+        finally:
+            queue.put_nowait(None)  # sentinel = end stream
+
+    async def event_generator():
+        task = asyncio.create_task(_run())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

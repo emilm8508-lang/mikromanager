@@ -245,6 +245,7 @@ async def collect_local_health(host_id: int) -> dict:
         parsed = _parse_ism(ism["raw"])
         return {"ok": True, "access_method": "local_ism", **parsed,
                 "power_state": None, "components": {
+                    "system": parsed.get("health_rollup"),
                     "cpu": None, "memory": None, "power": None,
                     "fans_temperature": None, "storage": None,
                 }, "sel_entries": []}
@@ -262,6 +263,7 @@ async def collect_local_health(host_id: int) -> dict:
         return {"ok": True, "access_method": "local_racadm", **parsed,
                 "power_state": None, "service_tag": parsed.get("service_tag"),
                 "components": {
+                    "system": parsed.get("health_rollup"),
                     "cpu": None, "memory": None,
                     "power": parsed.get("power"), "fans_temperature": parsed.get("fans_temperature"),
                     "storage": None,

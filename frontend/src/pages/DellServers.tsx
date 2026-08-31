@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dellApi, windowsApi, credentialsApi, DellServerOut, DellHealth, DellServerInput } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Pencil } from 'lucide-react'
+import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Pencil, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 function healthBadgeVariant(h: DellHealth): 'red' | 'yellow' | 'green' | 'gray' {
@@ -14,6 +14,85 @@ function healthBadgeVariant(h: DellHealth): 'red' | 'yellow' | 'green' | 'gray' 
   if (h === 'Warning') return 'yellow'
   if (h === 'OK') return 'green'
   return 'gray'
+}
+
+interface DellScanEvent {
+  type: 'phase' | 'progress' | 'done' | 'result' | 'error'
+  phase?: string
+  completed?: number
+  total?: number
+  ip?: string
+  message?: string
+}
+
+function DellScanProgressBar({ phase, completed, total, ip }: { phase: string; completed: number; total: number; ip: string | null }) {
+  const { t } = useTranslation()
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+  return (
+    <div className="space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-slate-700">{t(`dell.scanPhase.${phase}`, phase)}{ip && <span className="text-slate-500 font-mono"> — {ip}</span>}</span>
+        <span className="text-slate-600 font-mono">{completed}/{total} ({pct}%)</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function DiscoverPanel() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [scanning, setScanning] = useState(false)
+  const [scanPhase, setScanPhase] = useState<string | null>(null)
+  const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 })
+  const [scanIp, setScanIp] = useState<string | null>(null)
+  const esRef = useRef<EventSource | null>(null)
+
+  const runDiscoverStream = () => {
+    setScanning(true)
+    setScanPhase(null)
+    setScanProgress({ completed: 0, total: 0 })
+    setScanIp(null)
+    const es = new EventSource('/api/dell/discover-stream')
+    esRef.current = es
+    es.onmessage = (e) => {
+      const ev: DellScanEvent = JSON.parse(e.data)
+      if (ev.type === 'phase') {
+        setScanPhase(ev.phase ?? null)
+        setScanProgress({ completed: 0, total: ev.total ?? 0 })
+        setScanIp(null)
+      } else if (ev.type === 'progress') {
+        setScanPhase(ev.phase ?? null)
+        setScanProgress({ completed: ev.completed ?? 0, total: ev.total ?? 0 })
+        setScanIp(ev.ip ?? null)
+      } else if (ev.type === 'result' || ev.type === 'error') {
+        es.close()
+        esRef.current = null
+        setScanning(false)
+        qc.invalidateQueries({ queryKey: ['dell-servers'] })
+      }
+    }
+    es.onerror = () => {
+      es.close()
+      esRef.current = null
+      setScanning(false)
+      qc.invalidateQueries({ queryKey: ['dell-servers'] })
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Button variant="secondary" onClick={runDiscoverStream} disabled={scanning}>
+        <Search size={13} className={scanning ? 'animate-spin' : ''} />
+        {t('dell.scanNow')}
+      </Button>
+      {scanning && (
+        <DellScanProgressBar phase={scanPhase ?? ''} completed={scanProgress.completed} total={scanProgress.total} ip={scanIp} />
+      )}
+    </div>
+  )
 }
 
 function ServerForm({ initial, onSave, onCancel }: {
@@ -174,7 +253,7 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
               {t('dell.overallHealth')}: {server.health_rollup}
             </Badge>
           )}
-          {(['cpu', 'memory', 'power', 'fans_temperature', 'storage'] as const).map(k => (
+          {(['system', 'cpu', 'memory', 'power', 'fans_temperature', 'storage'] as const).map(k => (
             components[k] ? (
               <Badge key={k} variant={healthBadgeVariant(components[k] as DellHealth)} className="text-[10px]">
                 {t(`dell.component.${k}`)}: {components[k]}
@@ -245,6 +324,8 @@ export function DellServers() {
         </Button>
       </div>
       <p className="text-sm text-slate-500 -mt-2">{t('dell.subtitle')}</p>
+
+      <DiscoverPanel />
 
       <Card>
         <CardHeader>

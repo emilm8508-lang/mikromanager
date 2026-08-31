@@ -854,6 +854,11 @@
     },
     "dell": {
         "subtitle": "Monitorowanie zdrowia serwerów Dell przez iDRAC — sieciowo (Redfish) albo lokalnie przez hosta Windows (iDRAC Service Module / RACADM), gdy iDRAC nie ma własnego adresu w sieci.",
+        "scanNow": "Skanuj w poszukiwaniu serwerów Dell",
+        "scanPhase": {
+            "dell_network_discovery": "Wyszukiwanie sieciowe (Redfish)",
+            "dell_local_discovery": "Wyszukiwanie lokalne (WinRM)"
+        },
         "serversTitle": "Serwery",
         "noServers": "Brak dodanych serwerów Dell.",
         "addTitle": "Dodaj serwer Dell",
@@ -882,6 +887,7 @@
             "local_racadm": "lokalnie (RACADM)"
         },
         "component": {
+            "system": "Ogólny (system)",
             "cpu": "CPU",
             "memory": "Pamięć",
             "power": "Zasilanie",
