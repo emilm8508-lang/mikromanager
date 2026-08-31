@@ -12,6 +12,7 @@
                 "inventory":  "Inventario",
                 "software":  "Software",
                 "compliance":  "Cumplimiento",
+                "dellServers":  "Servidores Dell",
                 "audit":  "Auditoría",
                 "security":  "Seguridad",
                 "central":  "Central",
@@ -735,6 +736,43 @@
         "colName": "Nombre",
         "colVersion": "Versión",
         "colLastSeen": "Visto por última vez"
+    },
+    "dell": {
+        "subtitle": "Monitorización de salud de servidores Dell vía iDRAC — por red (Redfish), o localmente a través de un host Windows asociado (iDRAC Service Module / RACADM) cuando iDRAC no tiene dirección de red propia.",
+        "serversTitle": "Servidores",
+        "noServers": "Aún no se han añadido servidores Dell.",
+        "addTitle": "Añadir servidor Dell",
+        "editTitle": "Editar servidor Dell",
+        "nameLabel": "Nombre",
+        "namePlaceholder": "p. ej. Servidor de archivos 1",
+        "idracIpLabel": "Dirección IP de iDRAC",
+        "idracPortLabel": "Puerto",
+        "idracIpHint": "Déjalo en blanco si iDRAC no tiene dirección de red propia — entonces elige abajo un host Windows asociado para consultas locales.",
+        "windowsHostLabel": "Host Windows asociado (para consultas locales)",
+        "windowsHostNone": "— ninguno —",
+        "windowsHostHint": "Se usa cuando iDRAC no tiene dirección de red — el agente se conectará por WinRM a este host e intentará localmente iDRAC Service Module y luego RACADM.",
+        "credentialLabel": "Credencial de iDRAC",
+        "credentialDefault": "— predeterminada (root/calvin) —",
+        "credentialHint": "Si no seleccionas ninguna, se usará la cuenta predeterminada de fábrica de Dell (root/calvin). Haz clic en el botón de al lado para añadir una al instante.",
+        "checkNow": "Comprobar ahora",
+        "lastCheck": "Última comprobación",
+        "selToggle": "Registro de eventos",
+        "selTitle": "Registro de eventos de hardware (SEL)",
+        "noSelEntries": "Sin eventos.",
+        "deleteConfirm": "¿Eliminar este servidor de la monitorización?",
+        "overallHealth": "Estado general",
+        "accessMethod": {
+            "redfish": "Redfish (red)",
+            "local_ism": "local (iDRAC Service Module)",
+            "local_racadm": "local (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Memoria",
+            "power": "Alimentación",
+            "fans_temperature": "Ventiladores/temp.",
+            "storage": "Almacenamiento/RAID"
+        }
     },
     "compliance": {
         "subtitle": "Comprobaciones de endurecimiento de configuración (no basadas en CVE) — Linux, Windows y RouterOS, un pequeño conjunto inicial de las comprobaciones más importantes, ejecutado automáticamente una vez por semana para hosts y dispositivos ya gestionados/conocidos.",

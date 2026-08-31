@@ -12,6 +12,7 @@
                 "inventory":  "Inwentarz",
                 "software":  "Oprogramowanie",
                 "compliance":  "Zgodność",
+                "dellServers":  "Serwery Dell",
                 "anydeskSessions":  "AnyDesk",
                 "audit":  "Audyt",
                 "security":  "Bezpieczeństwo",
@@ -430,6 +431,7 @@
                     "eventMemoryHigh":  "Wysokie zuzycie pamieci",
                     "eventInterfaceErrors":  "Bledy/drops na porcie switcha/routera",
                     "eventInterfaceOverload":  "Przeciazenie lacza (przekroczony prog Mbps)",
+                    "eventIdracHealthDegraded":  "Pogorszenie stanu serwera Dell (iDRAC)",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",
@@ -850,6 +852,43 @@
         "colVersion": "Wersja",
         "colLastSeen": "Ostatnio widziane"
     },
+    "dell": {
+        "subtitle": "Monitorowanie zdrowia serwerów Dell przez iDRAC — sieciowo (Redfish) albo lokalnie przez hosta Windows (iDRAC Service Module / RACADM), gdy iDRAC nie ma własnego adresu w sieci.",
+        "serversTitle": "Serwery",
+        "noServers": "Brak dodanych serwerów Dell.",
+        "addTitle": "Dodaj serwer Dell",
+        "editTitle": "Edytuj serwer Dell",
+        "nameLabel": "Nazwa",
+        "namePlaceholder": "np. Serwer plików 1",
+        "idracIpLabel": "Adres IP iDRAC",
+        "idracPortLabel": "Port",
+        "idracIpHint": "Zostaw puste, jeśli iDRAC nie ma własnego adresu w sieci — wtedy wybierz poniżej powiązany host Windows do odpytywania lokalnego.",
+        "windowsHostLabel": "Powiązany host Windows (do odpytywania lokalnego)",
+        "windowsHostNone": "— brak —",
+        "windowsHostHint": "Używane, gdy iDRAC nie ma adresu sieciowego — agent połączy się przez WinRM z tym hostem i spróbuje lokalnie iDRAC Service Module oraz RACADM.",
+        "credentialLabel": "Poświadczenie iDRAC",
+        "credentialDefault": "— domyślne (root/calvin) —",
+        "credentialHint": "Jeśli nie wybierzesz, użyte zostanie fabryczne domyślne konto Della (root/calvin). Kliknij przycisk obok, żeby od razu dodać takie poświadczenie.",
+        "checkNow": "Sprawdź teraz",
+        "lastCheck": "Ostatnie sprawdzenie",
+        "selToggle": "Log zdarzeń",
+        "selTitle": "Log zdarzeń sprzętowych (SEL)",
+        "noSelEntries": "Brak zdarzeń.",
+        "deleteConfirm": "Usunąć ten serwer z monitorowania?",
+        "overallHealth": "Stan ogólny",
+        "accessMethod": {
+            "redfish": "Redfish (sieć)",
+            "local_ism": "lokalnie (iDRAC Service Module)",
+            "local_racadm": "lokalnie (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Pamięć",
+            "power": "Zasilanie",
+            "fans_temperature": "Wentylatory/temp.",
+            "storage": "Dyski/RAID"
+        }
+    },
     "compliance": {
         "subtitle": "Sprawdzenia bezpiecznej konfiguracji (nie CVE) — Linux, Windows i RouterOS, mały startowy zestaw najważniejszych sprawdzeń, wykonywany automatycznie co tydzień dla już zarządzanych/znanych hostów i urządzeń.",
         "targetsTitle": "Sprawdzone hosty i urządzenia",
@@ -949,6 +988,16 @@
         "name": "Tunel",
         "status": "Status",
         "queryError": "błąd zapytania"
+    },
+    "dellCentral": {
+        "title": "Serwery Dell (iDRAC) — wszyscy klienci",
+        "intro": "Ogólny stan sprzętowy serwerów Dell u każdego klienta (iDRAC) — zdrowie ogólne, CPU, zasilanie, dyski/RAID. Dane odświeżane rzadziej niż inne panele (co ~30 min na agencie), nie na bieżąco.",
+        "noServers": "Brak dodanych serwerów Dell u żadnego klienta.",
+        "server": "Serwer",
+        "health": "Stan ogólny",
+        "power": "Zasilanie",
+        "storage": "Dyski/RAID",
+        "lastCheck": "Ostatnie sprawdzenie"
     },
     "inventoryCentral": {
         "title": "Inwentarz — wszyscy klienci",

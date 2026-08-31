@@ -555,6 +555,83 @@ class AnydeskCidLabel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class DellServer(Base):
+    """One physical Dell server's iDRAC (out-of-band management/health
+    monitoring — CPU, memory, power, fans, storage/RAID, hardware event
+    log), reachable one of two ways depending on how the site's network is
+    set up (confirmed with the user: not every server has iDRAC on its own
+    routable IP):
+
+      - idrac_ip set: talked to directly over the network via Redfish
+        (services/idrac_client.py) — clean, no dependency on what's
+        installed on the server's own OS.
+      - idrac_ip NULL, windows_host_id set: iDRAC has no routable address
+        (the common case when only "Shared LOM"/the internal USB NIC is
+        configured) — reached instead by WinRM-ing into the companion
+        Windows Server host itself and running a LOCAL query there
+        (services/dell_local.py tries iDRAC Service Module's WMI provider,
+        then RACADM CLI — "different servers have different things
+        installed" per the user, so both are tried rather than requiring
+        one specific tool).
+
+    Both fields may be set (some sites might want the local path to also
+    confirm what the network path reports) but at least one must be for
+    this row to be checkable at all — enforced in the service layer, not
+    the schema, so a row can be added before either is configured yet."""
+    __tablename__ = "dell_servers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=True)
+    idrac_ip = Column(String, nullable=True, unique=True)
+    idrac_port = Column(Integer, nullable=False, default=443)
+    windows_host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=True)
+    # iDRAC has its own local account, separate from the Windows/domain
+    # credential used for the WinRM local-fallback path — reuses the same
+    # Credential model/encryption as everything else, just a different row.
+    credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    # Which path last actually worked — "redfish" | "local_ism" |
+    # "local_racadm" — shown in the UI so an operator can tell which of
+    # the two-or-three methods this server is actually using, not just
+    # that a health check ran.
+    access_method = Column(String, nullable=True)
+    last_check_at = Column(DateTime, nullable=True)
+    last_status = Column(String, nullable=True)          # "ok" | "error"
+    last_error = Column(Text, nullable=True)
+    health_rollup = Column(String, nullable=True)          # "OK" | "Warning" | "Critical"
+    service_tag = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    bios_version = Column(String, nullable=True)
+    power_state = Column(String, nullable=True)             # "On" | "Off"
+    # {"cpu": "OK", "memory": "OK", "storage": "Warning", "power": "OK",
+    #  "fans": "OK", "temperature": "OK"} — one JSON blob rather than a
+    # column per component: Redfish/racadm/iSM don't all expose exactly
+    # the same component set, and this avoids a schema change every time
+    # coverage grows.
+    components_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    credential = relationship("Credential")
+
+
+class DellServerSelEntry(Base):
+    """One System Event Log (hardware event log) entry — the server's own
+    record of things like a failed PSU, a DIMM ECC error, a degraded RAID
+    disk. Deduped by (server, message + logged_at) so re-checking the same
+    server doesn't re-insert entries the device already reported before;
+    kept (not pruned) so the log view has real history, unlike the
+    live-only health fields above."""
+    __tablename__ = "dell_server_sel_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    server_id = Column(Integer, ForeignKey("dell_servers.id"), nullable=False)
+    severity = Column(String, nullable=True)         # "OK" | "Warning" | "Critical"
+    message = Column(Text, nullable=False)
+    logged_at = Column(DateTime, nullable=True)
+    seen_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("server_id", "message", "logged_at", name="uq_dell_sel_entry"),)
+
+
 def _migrate_add_columns():
     """Add new columns to existing tables without dropping data.
     SQLite ALTER TABLE ADD COLUMN is safe and idempotent (we check first)."""

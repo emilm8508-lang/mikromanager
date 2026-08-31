@@ -302,6 +302,13 @@ async def _build_snapshot() -> dict:
         tunnel_status = []
 
     try:
+        from services import dell_monitor
+        dell_servers_status = dell_monitor.public_summary()
+    except Exception as e:
+        print(f"[uplink] dell servers summary error: {e}")
+        dell_servers_status = []
+
+    try:
         from services import inventory
         # Deliberately NOT added to _build_request_body()'s plaintext
         # envelope fields (unlike linux_hosts_status/tunnel_status/
@@ -319,7 +326,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.72",
+        "agent_version": "1.73",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -339,6 +346,7 @@ async def _build_snapshot() -> dict:
         "windows_hosts_status": windows_hosts_status,
         "windows_manage_enabled": windows_manage_enabled,
         "tunnel_status": tunnel_status,
+        "dell_servers_status": dell_servers_status,
         "inventory_summary": inventory_summary,
     }
 
@@ -377,6 +385,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "windows_hosts_status": snapshot.get("windows_hosts_status", []),
             "windows_manage_enabled": snapshot.get("windows_manage_enabled", False),
             "tunnel_status": snapshot.get("tunnel_status", []),
+            "dell_servers_status": snapshot.get("dell_servers_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus } from '../lib/api'
 
 function formatDate(iso: string): string {
   try {
@@ -329,6 +329,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="memory_high">{t('alerts.eventMemoryHigh')}</option>
                 <option value="interface_errors">{t('alerts.eventInterfaceErrors')}</option>
                 <option value="interface_overload">{t('alerts.eventInterfaceOverload')}</option>
+                <option value="idrac_health_degraded">{t('alerts.eventIdracHealthDegraded')}</option>
               </select>
             </label>
             <label className="text-sm">
@@ -1482,6 +1483,95 @@ function TunnelCentralPanel() {
 }
 
 
+function dellHealthClass(h: string | null): string {
+  if (h === 'Critical') return 'bg-red-100 text-red-700'
+  if (h === 'Warning') return 'bg-amber-100 text-amber-700'
+  if (h === 'OK') return 'bg-green-100 text-green-700'
+  return 'bg-slate-100 text-slate-500'
+}
+
+function DellCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; server: CentralDellServerStatus }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.dellServersStatusAll()
+      const flat: Array<{ tenant: string; server: CentralDellServerStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const srv of tRow.dell_servers) flat.push({ tenant: tRow.tenant, server: srv })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    // Underlying data only refreshes every MIKROTIK_DELL_CHECK_MIN
+    // (default 30 min) on the agent itself — polling this panel more
+    // often than that just re-reads the same snapshot, so a longer
+    // interval than the other Central panels is deliberate here.
+    const iv = setInterval(reload, 5 * 60_000)
+    return () => clearInterval(iv)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('dellCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('dellCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('dellCentral.noServers')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>{t('dellCentral.server')}</th>
+                <th>{t('dellCentral.health')}</th>
+                <th>CPU</th>
+                <th>{t('dellCentral.power')}</th>
+                <th>{t('dellCentral.storage')}</th>
+                <th>{t('dellCentral.lastCheck')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, server }) => (
+                <tr key={`${tenant}:${server.id}`} className="border-b border-slate-100">
+                  <td className="py-2">{tenant}</td>
+                  <td className="font-mono text-xs">{server.name || '—'}{server.model && <span className="text-slate-400"> ({server.model})</span>}</td>
+                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.health_rollup)}`}>{server.health_rollup || '—'}</span></td>
+                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.cpu ?? null)}`}>{server.components?.cpu || '—'}</span></td>
+                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.power ?? null)}`}>{server.components?.power || '—'}</span></td>
+                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.storage ?? null)}`}>{server.components?.storage || '—'}</span></td>
+                  <td className="text-xs text-slate-500">{server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export function AlertsPanel() {
   const { t } = useTranslation()
   const [channels, setChannels] = useState<AlertChannel[]>([])
@@ -1580,6 +1670,7 @@ export function MonitoringPanel() {
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />
       <WindowsCentralPanel />
+      <DellCentralPanel />
     </div>
   )
 }

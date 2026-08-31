@@ -12,6 +12,7 @@
                 "inventory":  "Inventar",
                 "software":  "Software",
                 "compliance":  "Compliance",
+                "dellServers":  "Dell-Server",
                 "audit":  "Audit",
                 "security":  "Sicherheit",
                 "central":  "Zentral",
@@ -735,6 +736,43 @@
         "colName": "Name",
         "colVersion": "Version",
         "colLastSeen": "Zuletzt gesehen"
+    },
+    "dell": {
+        "subtitle": "Dell-Server-Gesundheitsüberwachung über iDRAC — übers Netzwerk (Redfish) oder lokal über einen zugehörigen Windows-Host (iDRAC Service Module / RACADM), wenn iDRAC keine eigene Netzwerkadresse hat.",
+        "serversTitle": "Server",
+        "noServers": "Noch keine Dell-Server hinzugefügt.",
+        "addTitle": "Dell-Server hinzufügen",
+        "editTitle": "Dell-Server bearbeiten",
+        "nameLabel": "Name",
+        "namePlaceholder": "z. B. Dateiserver 1",
+        "idracIpLabel": "iDRAC-IP-Adresse",
+        "idracPortLabel": "Port",
+        "idracIpHint": "Leer lassen, wenn iDRAC keine eigene Netzwerkadresse hat — dann unten einen zugehörigen Windows-Host für die lokale Abfrage wählen.",
+        "windowsHostLabel": "Zugehöriger Windows-Host (für lokale Abfrage)",
+        "windowsHostNone": "— keiner —",
+        "windowsHostHint": "Wird verwendet, wenn iDRAC keine Netzwerkadresse hat — der Agent verbindet sich per WinRM mit diesem Host und versucht lokal iDRAC Service Module, dann RACADM.",
+        "credentialLabel": "iDRAC-Zugangsdaten",
+        "credentialDefault": "— Standard (root/calvin) —",
+        "credentialHint": "Ohne Auswahl wird Dells werkseitiges Standardkonto (root/calvin) verwendet. Klicke daneben, um sofort solche Zugangsdaten anzulegen.",
+        "checkNow": "Jetzt prüfen",
+        "lastCheck": "Letzte Prüfung",
+        "selToggle": "Ereignisprotokoll",
+        "selTitle": "Hardware-Ereignisprotokoll (SEL)",
+        "noSelEntries": "Keine Ereignisse.",
+        "deleteConfirm": "Diesen Server aus der Überwachung entfernen?",
+        "overallHealth": "Gesamtzustand",
+        "accessMethod": {
+            "redfish": "Redfish (Netzwerk)",
+            "local_ism": "lokal (iDRAC Service Module)",
+            "local_racadm": "lokal (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Arbeitsspeicher",
+            "power": "Stromversorgung",
+            "fans_temperature": "Lüfter/Temp.",
+            "storage": "Speicher/RAID"
+        }
     },
     "compliance": {
         "subtitle": "Konfigurations-Härtungsprüfungen (nicht CVE-basiert) — Linux, Windows und RouterOS, ein kleiner Startsatz der wichtigsten Prüfungen, einmal wöchentlich automatisch ausgeführt für bereits verwaltete/bekannte Hosts und Geräte.",

@@ -12,6 +12,7 @@
                 "inventory":  "Inventaire",
                 "software":  "Logiciels",
                 "compliance":  "Conformité",
+                "dellServers":  "Serveurs Dell",
                 "audit":  "Audit",
                 "security":  "Sécurité",
                 "central":  "Central",
@@ -735,6 +736,43 @@
         "colName": "Nom",
         "colVersion": "Version",
         "colLastSeen": "Dernière détection"
+    },
+    "dell": {
+        "subtitle": "Surveillance de l'état des serveurs Dell via iDRAC — sur le réseau (Redfish), ou localement via un hôte Windows associé (iDRAC Service Module / RACADM) quand iDRAC n'a pas sa propre adresse réseau.",
+        "serversTitle": "Serveurs",
+        "noServers": "Aucun serveur Dell ajouté pour l'instant.",
+        "addTitle": "Ajouter un serveur Dell",
+        "editTitle": "Modifier le serveur Dell",
+        "nameLabel": "Nom",
+        "namePlaceholder": "ex. Serveur de fichiers 1",
+        "idracIpLabel": "Adresse IP iDRAC",
+        "idracPortLabel": "Port",
+        "idracIpHint": "Laisser vide si iDRAC n'a pas sa propre adresse réseau — choisissez alors ci-dessous un hôte Windows associé pour l'interrogation locale.",
+        "windowsHostLabel": "Hôte Windows associé (pour interrogation locale)",
+        "windowsHostNone": "— aucun —",
+        "windowsHostHint": "Utilisé quand iDRAC n'a pas d'adresse réseau — l'agent se connectera en WinRM à cet hôte et essaiera localement iDRAC Service Module puis RACADM.",
+        "credentialLabel": "Identifiant iDRAC",
+        "credentialDefault": "— par défaut (root/calvin) —",
+        "credentialHint": "Sans sélection, le compte par défaut d'usine de Dell (root/calvin) sera utilisé. Cliquez sur le bouton à côté pour en ajouter un immédiatement.",
+        "checkNow": "Vérifier maintenant",
+        "lastCheck": "Dernière vérification",
+        "selToggle": "Journal des événements",
+        "selTitle": "Journal des événements matériels (SEL)",
+        "noSelEntries": "Aucun événement.",
+        "deleteConfirm": "Retirer ce serveur du monitoring ?",
+        "overallHealth": "État général",
+        "accessMethod": {
+            "redfish": "Redfish (réseau)",
+            "local_ism": "local (iDRAC Service Module)",
+            "local_racadm": "local (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Mémoire",
+            "power": "Alimentation",
+            "fans_temperature": "Ventilateurs/temp.",
+            "storage": "Stockage/RAID"
+        }
     },
     "compliance": {
         "subtitle": "Vérifications de durcissement de la configuration (pas basées sur les CVE) — Linux, Windows et RouterOS, un petit ensemble initial des vérifications les plus importantes, exécuté automatiquement chaque semaine pour les hôtes et appareils déjà gérés/connus.",

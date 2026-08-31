@@ -12,6 +12,7 @@
                 "inventory":  "Inventory",
                 "software":  "Software",
                 "compliance":  "Compliance",
+                "dellServers":  "Dell servers",
                 "audit":  "Audit",
                 "security":  "Security",
                 "central":  "Central",
@@ -735,6 +736,43 @@
         "colName": "Name",
         "colVersion": "Version",
         "colLastSeen": "Last seen"
+    },
+    "dell": {
+        "subtitle": "Dell server health monitoring via iDRAC — over the network (Redfish), or locally through a companion Windows host (iDRAC Service Module / RACADM) when iDRAC has no network address of its own.",
+        "serversTitle": "Servers",
+        "noServers": "No Dell servers added yet.",
+        "addTitle": "Add Dell server",
+        "editTitle": "Edit Dell server",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. File server 1",
+        "idracIpLabel": "iDRAC IP address",
+        "idracPortLabel": "Port",
+        "idracIpHint": "Leave blank if iDRAC has no network address of its own — then pick a companion Windows host below for local querying.",
+        "windowsHostLabel": "Companion Windows host (for local querying)",
+        "windowsHostNone": "— none —",
+        "windowsHostHint": "Used when iDRAC has no network address — the agent will WinRM into this host and try iDRAC Service Module then RACADM locally.",
+        "credentialLabel": "iDRAC credential",
+        "credentialDefault": "— default (root/calvin) —",
+        "credentialHint": "If left unselected, Dell's factory default account (root/calvin) is used. Click the button next to it to add one right away.",
+        "checkNow": "Check now",
+        "lastCheck": "Last check",
+        "selToggle": "Event log",
+        "selTitle": "Hardware event log (SEL)",
+        "noSelEntries": "No events.",
+        "deleteConfirm": "Remove this server from monitoring?",
+        "overallHealth": "Overall health",
+        "accessMethod": {
+            "redfish": "Redfish (network)",
+            "local_ism": "local (iDRAC Service Module)",
+            "local_racadm": "local (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Memory",
+            "power": "Power",
+            "fans_temperature": "Fans/temp",
+            "storage": "Storage/RAID"
+        }
     },
     "compliance": {
         "subtitle": "Configuration-hardening checks (not CVE-based) — Linux, Windows, and RouterOS, a small starting set of the most important checks, run automatically once a week for already-managed/known hosts and devices.",

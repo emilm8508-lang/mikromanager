@@ -494,6 +494,24 @@ export interface CentralWindowsHostStatus {
   last_status: string | null
 }
 
+// Redacted per-server iDRAC health an agent includes in its snapshot
+// envelope (see services/dell_monitor.py's public_summary()) — never the
+// iDRAC IP or credential, just what's needed for the at-a-glance rollup
+// the user asked for in Central (CPU/power/disk load, alerts).
+export interface CentralDellServerStatus {
+  id: number
+  name: string | null
+  model: string | null
+  health_rollup: 'OK' | 'Warning' | 'Critical' | null
+  power_state: string | null
+  components: {
+    cpu?: string | null; memory?: string | null; power?: string | null
+    fans_temperature?: string | null; storage?: string | null
+  }
+  last_check_at: string | null
+  last_status: string | null
+}
+
 // Redacted per-tunnel status an agent includes in its snapshot envelope
 // (see services/tunnel_monitor.py's public_summary()) — current up/down
 // state only, same data already visible locally on the agent's own
@@ -964,6 +982,58 @@ export const windowsApi = {
     api.get<{ disks: HostDisk[] }>(`/windows/hosts/${hostId}/disks`).then(r => r.data.disks),
   checkResources: (hostId: number) =>
     api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/resources/check`).then(r => r.data),
+}
+
+// ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
+
+export type DellHealth = 'OK' | 'Warning' | 'Critical' | null
+
+export interface DellServerOut {
+  id: number
+  name: string | null
+  idrac_ip: string | null
+  idrac_port: number
+  windows_host_id: number | null
+  credential_id: number | null
+  access_method: 'redfish' | 'local_ism' | 'local_racadm' | null
+  last_check_at: string | null
+  last_status: 'ok' | 'error' | null
+  last_error: string | null
+  health_rollup: DellHealth
+  service_tag: string | null
+  model: string | null
+  bios_version: string | null
+  power_state: string | null
+  components: {
+    cpu?: DellHealth; memory?: DellHealth; power?: DellHealth
+    fans_temperature?: DellHealth; storage?: DellHealth
+  }
+}
+
+export interface DellSelEntry {
+  id: number
+  severity: string | null
+  message: string
+  logged_at: string | null
+}
+
+export interface DellServerInput {
+  name?: string
+  idrac_ip?: string
+  idrac_port?: number
+  windows_host_id?: number | null
+  credential_id?: number | null
+}
+
+export const dellApi = {
+  servers: () => api.get<{ servers: DellServerOut[] }>('/dell/servers').then(r => r.data.servers),
+  add: (data: DellServerInput) => api.post<DellServerOut>('/dell/servers', data).then(r => r.data),
+  update: (id: number, data: Partial<DellServerInput>) =>
+    api.put<DellServerOut>(`/dell/servers/${id}`, data).then(r => r.data),
+  delete: (id: number) => api.delete(`/dell/servers/${id}`),
+  check: (id: number) => api.post<{ queued: boolean }>(`/dell/servers/${id}/check`).then(r => r.data),
+  sel: (id: number, limit = 50) =>
+    api.get<{ entries: DellSelEntry[] }>(`/dell/servers/${id}/sel`, { params: { limit } }).then(r => r.data.entries),
 }
 
 // ── Audit log ────────────────────────────────────────────────────────────────
@@ -1584,6 +1654,8 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; enabled: boolean; queued_at: string }> }>('pending_windows_manage_toggles'),
   tunnelStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
+  dellServersStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
 
   // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
   // checks here; the server enforces it independently.

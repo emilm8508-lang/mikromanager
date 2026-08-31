@@ -12,6 +12,7 @@
                 "inventory":  "Інвентар",
                 "software":  "ПЗ",
                 "compliance":  "Відповідність",
+                "dellServers":  "Сервери Dell",
                 "audit":  "Аудит",
                 "security":  "Безпека",
                 "central":  "Центр",
@@ -735,6 +736,43 @@
         "colName": "Назва",
         "colVersion": "Версія",
         "colLastSeen": "Останнє виявлення"
+    },
+    "dell": {
+        "subtitle": "Моніторинг стану серверів Dell через iDRAC — по мережі (Redfish) або локально через пов'язаний хост Windows (iDRAC Service Module / RACADM), якщо iDRAC не має власної мережевої адреси.",
+        "serversTitle": "Сервери",
+        "noServers": "Серверів Dell ще не додано.",
+        "addTitle": "Додати сервер Dell",
+        "editTitle": "Редагувати сервер Dell",
+        "nameLabel": "Назва",
+        "namePlaceholder": "напр. Файловий сервер 1",
+        "idracIpLabel": "IP-адреса iDRAC",
+        "idracPortLabel": "Порт",
+        "idracIpHint": "Залиште порожнім, якщо iDRAC не має власної мережевої адреси — тоді виберіть нижче пов'язаний хост Windows для локального опитування.",
+        "windowsHostLabel": "Пов'язаний хост Windows (для локального опитування)",
+        "windowsHostNone": "— немає —",
+        "windowsHostHint": "Використовується, коли iDRAC не має мережевої адреси — агент підключиться через WinRM до цього хоста і спробує локально iDRAC Service Module, потім RACADM.",
+        "credentialLabel": "Облікові дані iDRAC",
+        "credentialDefault": "— за замовчуванням (root/calvin) —",
+        "credentialHint": "Якщо не вибрано, використовується заводський обліковий запис Dell за замовчуванням (root/calvin). Натисніть кнопку поруч, щоб одразу додати такі дані.",
+        "checkNow": "Перевірити зараз",
+        "lastCheck": "Остання перевірка",
+        "selToggle": "Журнал подій",
+        "selTitle": "Журнал апаратних подій (SEL)",
+        "noSelEntries": "Немає подій.",
+        "deleteConfirm": "Видалити цей сервер з моніторингу?",
+        "overallHealth": "Загальний стан",
+        "accessMethod": {
+            "redfish": "Redfish (мережа)",
+            "local_ism": "локально (iDRAC Service Module)",
+            "local_racadm": "локально (RACADM)"
+        },
+        "component": {
+            "cpu": "CPU",
+            "memory": "Пам'ять",
+            "power": "Живлення",
+            "fans_temperature": "Вентилятори/темп.",
+            "storage": "Диски/RAID"
+        }
     },
     "compliance": {
         "subtitle": "Перевірки безпечної конфігурації (не пов'язані з CVE) — Linux, Windows і RouterOS, невеликий стартовий набір найважливіших перевірок, виконується автоматично раз на тиждень для вже керованих/відомих хостів і пристроїв.",

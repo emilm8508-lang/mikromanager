@@ -1407,6 +1407,46 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'dell_servers_status_all':
+            // Mirrors linux_hosts_status_all/windows_hosts_status_all
+            // exactly — plaintext envelope metadata (services/dell_monitor.
+            // py's public_summary(): name, overall + per-component health,
+            // power state, last check time — never the iDRAC IP or
+            // credential), no E2E key needed. Per the user's explicit ask:
+            // a general view of client server health (CPU/power/disk load,
+            // alerts) in Central, refreshed on whatever cadence the agent
+            // itself already checks at (here: every 2-min snapshot, but the
+            // underlying data only actually changes every
+            // MIKROTIK_DELL_CHECK_MIN, default 30 min — comfortably within
+            // the "even hourly is fine" they allowed for).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $servers = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) {
+                        $servers = $meta['dell_servers_status'] ?? [];
+                    }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'dell_servers' => $servers,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_windows_manage_toggle':
             // Flip windows_manage.py's DB-backed MANAGE_ENABLED override
             // for a whole tenant's agent — bare tenant-scoped marker like

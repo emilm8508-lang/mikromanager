@@ -12,6 +12,7 @@ import { CentralInventory } from './pages/CentralInventory'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
+import { DellServers } from './pages/DellServers'
 import { Inventory } from './pages/Inventory'
 import { Software } from './pages/Software'
 import { Compliance } from './pages/Compliance'
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/vulnerabilities" element={<Vulnerabilities />} />
             <Route path="/linux" element={<LinuxHosts />} />
             <Route path="/windows" element={<WindowsHosts />} />
+            <Route path="/dell-servers" element={<DellServers />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
