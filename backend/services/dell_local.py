@@ -45,7 +45,7 @@ try {
     $cs = Get-CimInstance -Namespace root\cimv2\dell -ClassName DCIM_ComputerSystem -ErrorAction Stop
     $cs | Select-Object * | ConvertTo-Json -Compress -Depth 4
 } catch {
-    ""
+    "@@ERROR@@" + $_.Exception.Message
 }
 """
 
@@ -53,8 +53,14 @@ try {
 def _check_ism_sync(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
     """Blocking — run via loop.run_in_executor. Best-effort: a missing
     namespace/class (iSM not installed, or a different version exposing a
-    different class) surfaces as an empty PowerShell result, treated the
-    same as "not available" rather than an error."""
+    different class under a different name) is expected and treated as
+    "not available", but the UNDERLYING PowerShell/WMI error is always
+    kept in "error" — needed to tell "iSM genuinely not installed" apart
+    from "iSM IS installed (confirmed via its own web UI showing 'Status:
+    Running') but this module's guessed namespace/class name is wrong for
+    this version", which is exactly the kind of mismatch this whole
+    function is least verified against (no real Dell hardware in the dev
+    environment) and needs a real error message from the field to fix."""
     import winrm
     user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
@@ -68,18 +74,21 @@ def _check_ism_sync(ip: str, port: int, username: str, password: str, domain: Op
     try:
         result = session.run_ps(_ISM_SCRIPT)
         if result.status_code != 0:
-            return {"ok": False, "available": False}
+            return {"ok": False, "available": False,
+                    "error": result.std_err.decode("utf-8", errors="ignore")[-500:] or "PowerShell exited non-zero"}
         raw = result.std_out.decode("utf-8", errors="ignore").strip()
+        if raw.startswith("@@ERROR@@"):
+            return {"ok": False, "available": False, "error": raw[len("@@ERROR@@"):][:500]}
         if not raw:
-            return {"ok": False, "available": False}
+            return {"ok": False, "available": False, "error": "empty response (no error, no data)"}
         try:
             parsed = json.loads(raw)
         except Exception:
-            return {"ok": False, "available": False}
+            return {"ok": False, "available": False, "error": f"non-JSON response: {raw[:300]}"}
         if isinstance(parsed, list):
             parsed = parsed[0] if parsed else {}
         if not isinstance(parsed, dict) or not parsed:
-            return {"ok": False, "available": False}
+            return {"ok": False, "available": False, "error": "query succeeded but returned no properties"}
         return {"ok": True, "available": True, "raw": parsed}
     finally:
         vs._close_winrm(session)
@@ -269,5 +278,12 @@ async def collect_local_health(host_id: int) -> dict:
                     "storage": None,
                 }, "sel_entries": []}
 
-    return {"ok": False, "error": "neither iDRAC Service Module nor RACADM CLI could be reached "
-                                   "on the companion Windows host — is one of them installed?"}
+    # Surface BOTH underlying errors instead of one generic "is one of them
+    # installed?" message — confirmed necessary live: a host can show iSM
+    # as "Status: Running" in its own web UI yet still fail here, meaning
+    # the real problem is this module's guessed WMI namespace/class name
+    # (or racadm.exe's path), not absence of the tool. Without the actual
+    # per-method error there was no way to tell those apart.
+    return {"ok": False, "error": (
+        f"iSM: {ism.get('error', 'unknown error')} | RACADM: {racadm.get('error', 'unknown error')}"
+    )}
