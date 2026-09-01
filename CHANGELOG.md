@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.78 — 2026-09-01
+- Add an "affected_ips" column to the vulnerability CSV export — findings were only ever a bare affected_count number, so opening the export gave no way to tell which machine to go fix
+
 ## 1.77 — 2026-09-01
 - Add an in-app changelog (Sidebar version footer → "Historia zmian"), sourced from this very file — single source of truth for both the reported agent_version and the UI history
 

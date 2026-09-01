@@ -361,6 +361,22 @@ def _csv_safe(value) -> str:
     return s
 
 
+def _affected_ips(affected: list) -> str:
+    """De-duplicated, semicolon-joined list of IPs (with device name when
+    known) a finding actually applies to — the on-screen page already
+    groups findings by host IP, but the CSV export only ever had a bare
+    affected_count number, so opening the export gave no way to tell
+    which machine to go fix without cross-referencing the UI separately."""
+    seen: dict = {}
+    for a in affected:
+        ip = a.get("ip")
+        if not ip or ip in seen:
+            continue
+        name = a.get("device_name")
+        seen[ip] = f"{ip} ({name})" if name else ip
+    return "; ".join(seen.values())
+
+
 @router.get("/findings/export")
 async def export_findings(severity: Optional[str] = None):
     """CSV export of the current findings list — evidence of regular
@@ -373,14 +389,14 @@ async def export_findings(severity: Optional[str] = None):
     writer.writerow([
         "cve_id", "severity", "cvss_score", "product", "version", "status",
         "first_seen_at", "due_date", "overdue", "updated_by", "updated_at",
-        "note", "affected_count", "ref_url", "recommendation",
+        "note", "affected_count", "affected_ips", "ref_url", "recommendation",
     ])
     for f in findings:
         writer.writerow([_csv_safe(v) for v in (
             f["cve_id"], f["severity"], f["cvss_score"], f["product"], f["version"], f["status"],
             f["first_seen_at"] or "", f["due_date"] or "", f["overdue"],
             f["updated_by"] or "", f["updated_at"] or "", f["note"] or "",
-            len(f["affected"]), f["ref_url"] or "", f["recommendation"],
+            len(f["affected"]), _affected_ips(f["affected"]), f["ref_url"] or "", f["recommendation"],
         )])
     buf.seek(0)
     return StreamingResponse(
