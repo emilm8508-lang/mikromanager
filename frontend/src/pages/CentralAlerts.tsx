@@ -1493,17 +1493,23 @@ function dellHealthClass(h: string | null): string {
 function DellCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; server: CentralDellServerStatus }>>([])
+  const [pendingChecks, setPendingChecks] = useState<Array<{ tenant: string; server_id: number; queued_at: string }>>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [busyCheck, setBusyCheck] = useState<string | null>(null)
 
   const reload = async () => {
     try {
-      const s = await centralApi.dellServersStatusAll()
+      const [s, pc] = await Promise.all([
+        centralApi.dellServersStatusAll(),
+        centralApi.pendingDellChecks(),
+      ])
       const flat: Array<{ tenant: string; server: CentralDellServerStatus }> = []
       for (const tRow of s.tenants) {
         for (const srv of tRow.dell_servers) flat.push({ tenant: tRow.tenant, server: srv })
       }
       setRows(flat)
+      setPendingChecks(pc.pending ?? [])
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
@@ -1521,6 +1527,16 @@ function DellCentralPanel() {
     const iv = setInterval(reload, 5 * 60_000)
     return () => clearInterval(iv)
   }, [])
+
+  const checkPendingSet = new Set(pendingChecks.map(p => `${p.tenant}:${p.server_id}`))
+
+  const checkNow = async (tenant: string, serverId: number) => {
+    const key = `${tenant}:${serverId}`
+    setBusyCheck(key)
+    try { await centralApi.requestDellCheck(tenant, serverId); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyCheck(null) }
+  }
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
@@ -1549,11 +1565,15 @@ function DellCentralPanel() {
                 <th>{t('dellCentral.power')}</th>
                 <th>{t('dellCentral.storage')}</th>
                 <th>{t('dellCentral.lastCheck')}</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ tenant, server }) => (
-                <tr key={`${tenant}:${server.id}`} className="border-b border-slate-100">
+              {rows.map(({ tenant, server }) => {
+                const key = `${tenant}:${server.id}`
+                const queued = checkPendingSet.has(key)
+                return (
+                <tr key={key} className="border-b border-slate-100">
                   <td className="py-2">{tenant}</td>
                   <td className="font-mono text-xs">{server.name || '—'}{server.model && <span className="text-slate-400"> ({server.model})</span>}</td>
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.health_rollup)}`}>{server.health_rollup || '—'}</span></td>
@@ -1561,8 +1581,19 @@ function DellCentralPanel() {
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.power ?? null)}`}>{server.components?.power || '—'}</span></td>
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.storage ?? null)}`}>{server.components?.storage || '—'}</span></td>
                   <td className="text-xs text-slate-500">{server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}</td>
+                  <td className="text-right">
+                    {queued ? (
+                      <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('dellCentral.queued')}</span>
+                    ) : (
+                      <button onClick={() => checkNow(tenant, server.id)} disabled={busyCheck === key}
+                        className="text-xs text-indigo-600 hover:underline">
+                        {t('dellCentral.checkNow')}
+                      </button>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

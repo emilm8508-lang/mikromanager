@@ -326,7 +326,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.75",
+        "agent_version": "1.76",
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),
@@ -473,6 +473,9 @@ def _canonical_commands(commands: list) -> str:
             parts.append(f"windows_restart:{host_id}")
         elif isinstance(c, dict) and c.get("type") == "windows_manage_toggle":
             parts.append(f"windows_manage_toggle:{'1' if c.get('enabled') else '0'}")
+        elif isinstance(c, dict) and c.get("type") == "dell_check":
+            server_id = int(c.get("server_id") or 0)
+            parts.append(f"dell_check:{server_id}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -574,6 +577,12 @@ async def _handle_commands(commands: list) -> None:
         Central turn Windows management on/off for a tenant without
         touching that agent's OS. Deliberately NOT gated on
         _manage_enabled() itself (see below).
+      - {"type":"dell_check","server_id":N}                 — re-run an
+        iDRAC health check for one DellServer now (Redfish GET or a local
+        WinRM iSM/RACADM query — never a write to the server), so Central
+        can force a fresh read instead of waiting up to
+        MIKROTIK_DELL_CHECK_MIN (default 30 min). Read-only, so unlike
+        linux_apt_upgrade/windows_update there is no MANAGE_ENABLED gate.
     """
     for cmd in commands:
         if cmd == "update":
@@ -654,6 +663,14 @@ async def _handle_commands(commands: list) -> None:
                 current = windows_manage.get_settings()
                 windows_manage.set_settings(current["credential_id"], enabled)
                 print(f"[uplink] received WINDOWS_MANAGE_TOGGLE — set to {enabled}")
+            elif cmd_type == "dell_check":
+                server_id = cmd.get("server_id")
+                if server_id:
+                    print(f"[uplink] received DELL_CHECK for server {server_id}")
+                    from services import dell_monitor
+                    asyncio.create_task(dell_monitor.check_server(int(server_id)))
+                else:
+                    print(f"[uplink] dell_check command missing server_id: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

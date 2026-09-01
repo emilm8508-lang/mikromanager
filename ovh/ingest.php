@@ -54,6 +54,8 @@ function canonical_commands(array $commands): string {
             $parts[] = 'windows_restart:' . (int)($c['host_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_manage_toggle') {
             $parts[] = 'windows_manage_toggle:' . (!empty($c['enabled']) ? '1' : '0');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'dell_check') {
+            $parts[] = 'dell_check:' . (int)($c['server_id'] ?? 0);
         } else {
             $parts[] = 'unknown';
         }
@@ -410,6 +412,21 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_manage_toggle_delivered", ?, ?)')
                     ->execute([$tenant_header, "Przelacznik zarzadzania Windows dostarczony do agenta {$tenant_header}", json_encode(['enabled'=>$enabled,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3f. On-demand Dell iDRAC health re-check (per server, may be multiple
+    // queued) — read-only, so unlike the win_update/win_restart markers
+    // above there's no MANAGE_ENABLED gate to worry about on the agent side.
+    foreach (glob($state_dir . "/dell_check_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^dell_check_.+_(\d+)$/', $base, $m)) {
+            $commands[] = ['type' => 'dell_check', 'server_id' => (int)$m[1]];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "dell_check_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Sprawdzenie iDRAC dostarczone do agenta {$tenant_header}", json_encode(['server_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

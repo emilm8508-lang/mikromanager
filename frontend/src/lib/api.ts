@@ -1656,6 +1656,12 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
+  requestDellCheck: (tenant: string, serverId: number) =>
+    centralRequest<{ ok: boolean; tenant: string; server_id: number; queued_at: string; note: string }>(
+      'request_dell_check', { tenant, server_id: String(serverId) },
+    ),
+  pendingDellChecks: () =>
+    centralRequest<{ pending: Array<{ tenant: string; server_id: number; queued_at: string }> }>('pending_dell_checks'),
 
   // Agent self-backup (BCP) — admin-only on the OVH side regardless of role
   // checks here; the server enforces it independently.

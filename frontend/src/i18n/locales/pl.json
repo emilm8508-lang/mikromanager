@@ -1004,7 +1004,9 @@
         "health": "Stan ogólny",
         "power": "Zasilanie",
         "storage": "Dyski/RAID",
-        "lastCheck": "Ostatnie sprawdzenie"
+        "lastCheck": "Ostatnie sprawdzenie",
+        "checkNow": "Sprawdź teraz",
+        "queued": "W kolejce…"
     },
     "inventoryCentral": {
         "title": "Inwentarz — wszyscy klienci",

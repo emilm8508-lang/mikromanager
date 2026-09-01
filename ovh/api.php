@@ -1447,6 +1447,55 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'request_dell_check':
+            // Queue an on-demand iDRAC health re-check for one server of one
+            // tenant — mirrors request_linux_apt_upgrade's marker shape
+            // exactly (tenant+id in the filename, no content needed).
+            // Unlike apt-upgrade/windows-update this is READ-ONLY (Redfish
+            // GETs or a local WinRM iSM/RACADM query, never a write to the
+            // server) so there is no MIKROTIK_*_MANAGE_ENABLED gate on the
+            // agent side — same reasoning as linux_scan being ungated.
+            $tenant = $_GET['tenant'] ?? '';
+            $server_id = (int)($_GET['server_id'] ?? 0);
+            if ($tenant === '' || $server_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and server_id required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/dell_check_{$safe}_{$server_id}.pending";
+            file_put_contents($marker, date('c'));
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'server_id' => $server_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_dell_checks':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/dell_check_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // dell_check_TENANT_SERVERID
+                    if (preg_match('/^dell_check_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'server_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'request_windows_manage_toggle':
             // Flip windows_manage.py's DB-backed MANAGE_ENABLED override
             // for a whole tenant's agent — bare tenant-scoped marker like
