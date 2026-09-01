@@ -337,10 +337,62 @@ export function Sidebar() {
       <LanguageSwitcher />
       <AccountPanel />
 
-      <div className="px-5 py-3 border-t border-slate-200">
-        <p className="text-[10px] text-slate-400">MikroManager v1.3</p>
-      </div>
+      <VersionFooter />
     </aside>
+  )
+}
+
+function ChangelogModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const { data, isLoading } = useQuery({
+    queryKey: ['changelog'],
+    queryFn: systemApi.changelog,
+    enabled: open,
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('sidebar.changelogTitle')}>
+      <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
+        {isLoading ? (
+          <p className="text-sm text-slate-500">{t('common.loading')}</p>
+        ) : (
+          data?.entries.map(entry => (
+            <div key={entry.version}>
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-sm font-semibold text-slate-900">{entry.version}</span>
+                <span className="text-xs text-slate-400">{entry.date}</span>
+              </div>
+              <ul className="mt-1 list-disc list-inside text-xs text-slate-600 space-y-0.5">
+                {entry.changes.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function VersionFooter() {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const { data } = useQuery({
+    queryKey: ['changelog-current'],
+    queryFn: systemApi.changelog,
+    staleTime: 5 * 60_000,
+  })
+
+  return (
+    <div className="px-5 py-3 border-t border-slate-200">
+      <button
+        onClick={() => setOpen(true)}
+        className="text-[10px] text-slate-400 hover:text-indigo-600 flex items-center gap-1"
+      >
+        <History size={10} />
+        MikroManager v{data?.current_version ?? '…'} — {t('sidebar.changelogLink')}
+      </button>
+      <ChangelogModal open={open} onClose={() => setOpen(false)} />
+    </div>
   )
 }
 

@@ -31,6 +31,7 @@ from services import alerts
 from services import edge_discovery
 from services import firmware_status
 from services import activity
+from services import changelog
 
 
 # Config — can be overridden via UI/env vars
@@ -326,7 +327,7 @@ async def _build_snapshot() -> dict:
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
         "sent_at_iso": datetime.utcnow().isoformat(),
-        "agent_version": "1.76",
+        "agent_version": changelog.current_version(),
         "agent_commit": git_info.get("commit"),
         "agent_commit_time": git_info.get("commit_time"),
         "agent_branch": git_info.get("branch"),

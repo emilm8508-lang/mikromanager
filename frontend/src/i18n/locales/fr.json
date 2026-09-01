@@ -354,7 +354,9 @@
                     "updateAppTooltip":  "Mettre a jour MikroManager depuis GitHub",
                     "updating":  "Mise a jour...",
                     "updateConfirm":  "Mettre a jour l app? La derniere version sera recuperee de GitHub et l app redemarree (~2 min).",
-                    "updateError":  "Echec de la derniere mise a jour"
+                    "updateError":  "Echec de la derniere mise a jour",
+                    "changelogLink":  "journal des modifications",
+                    "changelogTitle":  "Journal des modifications"
                 },
     "firmware":  {
                      "check":  "Verifier les MAJ",

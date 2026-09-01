@@ -13,6 +13,7 @@ from services import versions as ver_svc
 from services import uplink as uplink_svc
 from services import updater as updater_svc
 from services import crypto as crypto_svc
+from services import changelog as changelog_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -311,6 +312,16 @@ async def uplink_get_enc_key():
     Gated by the same require_login as the rest of this router; OVH never
     sees this value regardless."""
     return {"enc_key": uplink_svc.get_enc_key()}
+
+
+@router.get("/changelog")
+async def get_changelog():
+    """In-app "Historia zmian" view — every entry ever added to
+    CHANGELOG.md, newest first. current_version is the same value this
+    agent reports to Central in its snapshot (services/changelog.py is
+    the single source both read from)."""
+    entries = changelog_svc.get_entries()
+    return {"current_version": changelog_svc.current_version(), "entries": entries}
 
 
 # ── Self-version + self-updater ──────────────────────────────────────────────

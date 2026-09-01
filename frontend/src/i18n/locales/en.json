@@ -354,7 +354,9 @@
                     "updateAppTooltip":  "Update MikroManager from GitHub",
                     "updating":  "Updating...",
                     "updateConfirm":  "Update the app? It will pull the latest from GitHub and restart (~2 min).",
-                    "updateError":  "Last update failed"
+                    "updateError":  "Last update failed",
+                    "changelogLink":  "changelog",
+                    "changelogTitle":  "Changelog"
                 },
     "firmware":  {
                      "check":  "Check updates",

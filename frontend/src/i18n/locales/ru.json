@@ -354,7 +354,9 @@
                     "updateAppTooltip":  "Obnovit MikroManager s GitHub",
                     "updating":  "Obnovlenie...",
                     "updateConfirm":  "Obnovit prilozhenie? Poluchit versiyu s GitHub i perezapustit (~2 min).",
-                    "updateError":  "Poslednee obnovlenie ne udalos"
+                    "updateError":  "Poslednee obnovlenie ne udalos",
+                    "changelogLink":  "istoriya izmeneniy",
+                    "changelogTitle":  "Istoriya izmeneniy"
                 },
     "firmware":  {
                      "check":  "Proverit obnovleniya",

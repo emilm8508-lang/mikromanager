@@ -319,6 +319,17 @@ export interface SelfVersion {
   branch: string | null
 }
 
+export interface ChangelogEntry {
+  version: string
+  date: string
+  changes: string[]
+}
+
+export interface Changelog {
+  current_version: string
+  entries: ChangelogEntry[]
+}
+
 export const systemApi = {
   refreshStatus: () => api.get<RefreshStatus>('/system/refresh/status').then(r => r.data),
   runRefresh: () => api.post('/system/refresh/run').then(r => r.data),
@@ -328,6 +339,7 @@ export const systemApi = {
   refreshVersions: () => api.post<{ latest: VersionStatus['latest']; fetch_status: VersionFetchStatus }>('/system/versions/refresh').then(r => r.data),
   criticalLogs: (limit = 20) => api.get<CriticalLogEntry[]>('/system/critical-logs', { params: { limit } }).then(r => r.data),
   selfVersion: () => api.get<SelfVersion>('/system/self-version').then(r => r.data),
+  changelog: () => api.get<Changelog>('/system/changelog').then(r => r.data),
   uplinkStatus: () => api.get<UplinkStatus>('/system/uplink/status').then(r => r.data),
   uplinkConfigure: (data: { url: string; tenant: string; api_key: string; interval_sec: number; enc_key?: string }) =>
     api.post<UplinkStatus>('/system/uplink/config', data).then(r => r.data),

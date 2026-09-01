@@ -379,7 +379,9 @@
                     "updateAppTooltip":  "Zaktualizuj MikroManager z GitHub",
                     "updating":  "Aktualizacja w toku...",
                     "updateConfirm":  "Zaktualizowac aplikacje? Aplikacja pobierze najnowsza wersje z GitHub i zrestartuje sie (~2 min).",
-                    "updateError":  "Blad ostatniej aktualizacji"
+                    "updateError":  "Blad ostatniej aktualizacji",
+                    "changelogLink":  "historia zmian",
+                    "changelogTitle":  "Historia zmian"
                 },
     "firmware":  {
                      "check":  "Sprawdz aktualizacje",

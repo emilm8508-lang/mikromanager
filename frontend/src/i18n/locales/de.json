@@ -354,7 +354,9 @@
                     "updateAppTooltip":  "MikroManager von GitHub aktualisieren",
                     "updating":  "Aktualisiere...",
                     "updateConfirm":  "App aktualisieren? Neueste Version von GitHub wird geladen und die App neu gestartet (~2 min).",
-                    "updateError":  "Letztes Update fehlgeschlagen"
+                    "updateError":  "Letztes Update fehlgeschlagen",
+                    "changelogLink":  "Änderungsprotokoll",
+                    "changelogTitle":  "Änderungsprotokoll"
                 },
     "firmware":  {
                      "check":  "Updates pruefen",
