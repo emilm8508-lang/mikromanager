@@ -194,7 +194,7 @@
                     "daySat":  "Sáb",
                     "daySun":  "Dom",
                     "runTitle":  "Buscar dispositivos (Mikrotik/Cisco)",
-                    "fullScanHintText":  "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Linux/Windows y actualización de la versión de RouterOS en dispositivos conocidos — es un único mecanismo compartido.",
+                    "fullScanHintText":  "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Linux/Windows/Dell, dispositivos Mikrotik/Cisco y actualización de la versión de RouterOS en dispositivos conocidos — es un único mecanismo compartido para toda la red.",
                     "credsInfo":  "El escaneo usará todas las credenciales guardadas",
                     "credsInfoSuffix":  "— prueba cada una contra cada dispositivo y asigna la que autentique",
                     "noCredsWarn":  "Sin credenciales guardadas — el escaneo solo detectará puertos, sin identificar dispositivos.",
@@ -587,6 +587,7 @@
         }
     },
     "linux": {
+        "fullScanHintText": "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Windows/Dell, dispositivos Mikrotik/Cisco y actualización de la versión de RouterOS en dispositivos conocidos — un mecanismo compartido para toda la red, no solo Linux.",
         "settingsTitle": "Credencial compartida",
         "settingsHint": "Una credencial SSH usada para todos los hosts Linux — sin selección por host.",
         "disabledWarning": "La gestión de Linux está deshabilitada en este agente (MIKROTIK_LINUX_MANAGE_ENABLED). Comprobar/actualizar no funcionará hasta que se habilite en la configuración del agente.",
@@ -629,6 +630,7 @@
         "skipNotesTitle": "Hosts encontrados pero no añadidos (visibles p. ej. en Vulnerabilidades con otra credencial):"
     },
     "windows": {
+        "fullScanHintText": "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Linux/Dell, dispositivos Mikrotik/Cisco y actualización de la versión de RouterOS en dispositivos conocidos — un mecanismo compartido para toda la red, no solo Windows.",
         "settingsTitle": "Credencial compartida",
         "settingsHint": "Una credencial WinRM usada para todos los hosts Windows — sin selección por host.",
         "disabledWarning": "La gestión de Windows está deshabilitada. Instalar/reiniciar no funcionará hasta que la habilites arriba (o desde Central).",
@@ -741,6 +743,7 @@
     },
     "dell": {
         "subtitle": "Monitorización de salud de servidores Dell vía iDRAC — por red (Redfish), o localmente a través de un host Windows asociado (iDRAC Service Module / RACADM) cuando iDRAC no tiene dirección de red propia.",
+        "fullScanHintText": "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Linux/Windows, dispositivos Mikrotik/Cisco y actualización de la versión de RouterOS en dispositivos conocidos — un mecanismo compartido para toda la red, no solo servidores Dell.",
         "scanNow": "Buscar servidores Dell",
         "scanPhase": {
             "dell_network_discovery": "Búsqueda en red (Redfish)",

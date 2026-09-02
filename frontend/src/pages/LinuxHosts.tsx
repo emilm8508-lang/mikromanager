@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
+import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal,
   ChevronDown, ChevronUp, HardDrive, MemoryStick,
@@ -395,6 +396,13 @@ export function LinuxHosts() {
         <TerminalSquare size={20} className="text-indigo-600" />
         <h1 className="text-lg font-semibold text-slate-900">{t('nav.linuxHosts')}</h1>
       </div>
+
+      {/* One shared "scan everything" trigger (CVE + Linux/Windows/Dell
+          discovery + Mikrotik/Cisco RouterOS refresh), same component as
+          Scanner/Vulnerabilities — sits above this page's OWN narrower
+          "just Linux, from already-known ports" button below, so both
+          options are visible together instead of scattered per page. */}
+      <VulnScanStatusPanel hint={t('linux.fullScanHintText') as string} />
 
       <SettingsPanel />
 

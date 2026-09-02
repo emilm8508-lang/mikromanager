@@ -194,7 +194,7 @@
                     "daySat":  "Sa",
                     "daySun":  "So",
                     "runTitle":  "Geräte scannen (Mikrotik/Cisco)",
-                    "fullScanHintText":  "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Windows-Hosts und die Aktualisierung der RouterOS-Version bekannter Geräte ab — es ist ein gemeinsamer Mechanismus.",
+                    "fullScanHintText":  "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Windows/Dell-Hosts, Mikrotik/Cisco-Geräte und die Aktualisierung der RouterOS-Version bekannter Geräte ab — es ist ein gemeinsamer Mechanismus für das gesamte Netzwerk.",
                     "credsInfo":  "Der Scan verwendet alle gespeicherten Zugangsdaten",
                     "credsInfoSuffix":  "— probiert jede gegen jedes Gerät und weist die zu, die sich authentifiziert",
                     "noCredsWarn":  "Keine Zugangsdaten gespeichert — der Scan erkennt nur Ports, ohne Geräteidentifikation.",
@@ -587,6 +587,7 @@
         }
     },
     "linux": {
+        "fullScanHintText": "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Windows/Dell-Hosts, Mikrotik/Cisco-Geräte und die Aktualisierung der RouterOS-Version bekannter Geräte ab — ein gemeinsamer Mechanismus für das gesamte Netzwerk, nicht nur Linux.",
         "settingsTitle": "Gemeinsame Zugangsdaten",
         "settingsHint": "Ein SSH-Zugangsdatensatz für alle Linux-Hosts — keine Auswahl pro Host.",
         "disabledWarning": "Linux-Verwaltung ist auf diesem Agenten deaktiviert (MIKROTIK_LINUX_MANAGE_ENABLED). Prüfen/Aktualisieren funktioniert erst nach Aktivierung in der Agent-Konfiguration.",
@@ -629,6 +630,7 @@
         "skipNotesTitle": "Gefundene, aber nicht hinzugefügte Hosts (z. B. in Schwachstellen mit anderen Zugangsdaten sichtbar):"
     },
     "windows": {
+        "fullScanHintText": "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Dell-Hosts, Mikrotik/Cisco-Geräte und die Aktualisierung der RouterOS-Version bekannter Geräte ab — ein gemeinsamer Mechanismus für das gesamte Netzwerk, nicht nur Windows.",
         "settingsTitle": "Gemeinsame Zugangsdaten",
         "settingsHint": "Ein WinRM-Zugangsdatensatz für alle Windows-Hosts — keine Auswahl pro Host.",
         "disabledWarning": "Windows-Verwaltung ist deaktiviert. Installieren/Neustart funktioniert erst, wenn du es oben (oder von Central aus) aktivierst.",
@@ -741,6 +743,7 @@
     },
     "dell": {
         "subtitle": "Dell-Server-Gesundheitsüberwachung über iDRAC — übers Netzwerk (Redfish) oder lokal über einen zugehörigen Windows-Host (iDRAC Service Module / RACADM), wenn iDRAC keine eigene Netzwerkadresse hat.",
+        "fullScanHintText": "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Windows-Hosts, Mikrotik/Cisco-Geräte und die Aktualisierung der RouterOS-Version bekannter Geräte ab — ein gemeinsamer Mechanismus für das gesamte Netzwerk, nicht nur Dell-Server.",
         "scanNow": "Nach Dell-Servern suchen",
         "scanPhase": {
             "dell_network_discovery": "Netzwerksuche (Redfish)",

@@ -197,7 +197,7 @@
                     "daySat":  "Sob",
                     "daySun":  "Ndz",
                     "runTitle":  "Skanuj urządzenia (Mikrotik/Cisco)",
-                    "fullScanHintText":  "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Windows i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm.",
+                    "fullScanHintText":  "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Windows/Dell, urządzenia Mikrotik/Cisco i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm dla całej sieci.",
                     "credsInfo":  "Skan użyje wszystkich zapisanych poświadczeń",
                     "credsInfoSuffix":  "— dla każdego urządzenia próbuje każde po kolei i przypisuje te które zadziałają",
                     "noCredsWarn":  "Brak zapisanych poświadczeń — skan wykryje tylko porty, bez identyfikacji urządzeń.",
@@ -702,6 +702,7 @@
         }
     },
     "linux": {
+        "fullScanHintText": "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Windows/Dell, urządzenia Mikrotik/Cisco i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm dla całej sieci, nie tylko Linuksa.",
         "settingsTitle": "Wspólne poświadczenie",
         "settingsHint": "Jedno poświadczenie SSH używane do wszystkich hostów Linux — bez wyboru per-host.",
         "disabledWarning": "Zarządzanie Linuksem jest wyłączone na tym agencie (MIKROTIK_LINUX_MANAGE_ENABLED). Sprawdzanie/aktualizacja nie zadziałają, dopóki nie zostanie włączone w konfiguracji agenta.",
@@ -744,6 +745,7 @@
         "skipNotesTitle": "Znalezione, ale niedodane hosty (widoczne np. w Podatnościach z innym poświadczeniem):"
     },
     "windows": {
+        "fullScanHintText": "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Dell, urządzenia Mikrotik/Cisco i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm dla całej sieci, nie tylko Windows.",
         "settingsTitle": "Wspólne poświadczenie",
         "settingsHint": "Jedno poświadczenie WinRM używane do wszystkich hostów Windows — bez wyboru per-host.",
         "disabledWarning": "Zarządzanie Windows jest wyłączone. Instalacja aktualizacji/restart nie zadziałają, dopóki nie włączysz go powyżej (albo z Centrali).",
@@ -856,6 +858,7 @@
     },
     "dell": {
         "subtitle": "Monitorowanie zdrowia serwerów Dell przez iDRAC — sieciowo (Redfish) albo lokalnie przez hosta Windows (iDRAC Service Module / RACADM), gdy iDRAC nie ma własnego adresu w sieci.",
+        "fullScanHintText": "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Windows, urządzenia Mikrotik/Cisco i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm dla całej sieci, nie tylko serwerów Dell.",
         "scanNow": "Skanuj w poszukiwaniu serwerów Dell",
         "scanPhase": {
             "dell_network_discovery": "Wyszukiwanie sieciowe (Redfish)",

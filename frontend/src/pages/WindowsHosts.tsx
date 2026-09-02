@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
+import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal,
   ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop, HardDrive, MemoryStick,
@@ -585,6 +586,12 @@ export function WindowsHosts() {
         <MonitorSmartphone size={20} className="text-indigo-600" />
         <h1 className="text-lg font-semibold text-slate-900">{t('nav.windowsHosts')}</h1>
       </div>
+
+      {/* One shared "scan everything" trigger (CVE + Linux/Windows/Dell
+          discovery + Mikrotik/Cisco RouterOS refresh), same component as
+          Scanner/Vulnerabilities — sits above this page's OWN narrower
+          "just Windows, from already-known ports" button below. */}
+      <VulnScanStatusPanel hint={t('windows.fullScanHintText') as string} />
 
       <SettingsPanel />
       <WorkstationPortsPanel />

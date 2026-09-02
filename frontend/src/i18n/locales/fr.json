@@ -194,7 +194,7 @@
                     "daySat":  "Sam",
                     "daySun":  "Dim",
                     "runTitle":  "Rechercher des appareils (Mikrotik/Cisco)",
-                    "fullScanHintText":  "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Windows et la mise à jour de la version RouterOS des appareils connus — c'est un mécanisme unique et partagé.",
+                    "fullScanHintText":  "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Windows/Dell, les appareils Mikrotik/Cisco et la mise à jour de la version RouterOS des appareils connus — un mécanisme unique et partagé pour tout le réseau.",
                     "credsInfo":  "Le scan utilisera tous les identifiants enregistrés",
                     "credsInfoSuffix":  "— essaie chacun contre chaque appareil et attribue celui qui s\u0027authentifie",
                     "noCredsWarn":  "Aucun identifiant enregistré — le scan ne détectera que les ports, sans identifier les appareils.",
@@ -587,6 +587,7 @@
         }
     },
     "linux": {
+        "fullScanHintText": "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Windows/Dell, les appareils Mikrotik/Cisco et la mise à jour de la version RouterOS des appareils connus — un mécanisme partagé pour tout le réseau, pas seulement Linux.",
         "settingsTitle": "Identifiant partagé",
         "settingsHint": "Un seul identifiant SSH utilisé pour tous les hôtes Linux — pas de sélection par hôte.",
         "disabledWarning": "La gestion Linux est désactivée sur cet agent (MIKROTIK_LINUX_MANAGE_ENABLED). La vérification/mise à jour ne fonctionnera pas tant qu'elle n'est pas activée dans la configuration de l'agent.",
@@ -629,6 +630,7 @@
         "skipNotesTitle": "Hôtes trouvés mais non ajoutés (visibles p. ex. dans Vulnérabilités avec un autre identifiant) :"
     },
     "windows": {
+        "fullScanHintText": "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Dell, les appareils Mikrotik/Cisco et la mise à jour de la version RouterOS des appareils connus — un mécanisme partagé pour tout le réseau, pas seulement Windows.",
         "settingsTitle": "Identifiant partagé",
         "settingsHint": "Un seul identifiant WinRM utilisé pour tous les hôtes Windows — pas de sélection par hôte.",
         "disabledWarning": "La gestion Windows est désactivée. L'installation/le redémarrage ne fonctionneront pas tant que vous ne l'activez pas ci-dessus (ou depuis Central).",
@@ -741,6 +743,7 @@
     },
     "dell": {
         "subtitle": "Surveillance de l'état des serveurs Dell via iDRAC — sur le réseau (Redfish), ou localement via un hôte Windows associé (iDRAC Service Module / RACADM) quand iDRAC n'a pas sa propre adresse réseau.",
+        "fullScanHintText": "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Windows, les appareils Mikrotik/Cisco et la mise à jour de la version RouterOS des appareils connus — un mécanisme partagé pour tout le réseau, pas seulement les serveurs Dell.",
         "scanNow": "Rechercher des serveurs Dell",
         "scanPhase": {
             "dell_network_discovery": "Recherche réseau (Redfish)",

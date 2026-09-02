@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
 import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Pencil, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 
 function healthBadgeVariant(h: DellHealth): 'red' | 'yellow' | 'green' | 'gray' {
   if (h === 'Critical') return 'red'
@@ -344,6 +345,12 @@ export function DellServers() {
         </Button>
       </div>
       <p className="text-sm text-slate-500 -mt-2">{t('dell.subtitle')}</p>
+
+      {/* One shared "scan everything" trigger (CVE + Linux/Windows/Dell
+          discovery + Mikrotik/Cisco RouterOS refresh), same component as
+          Scanner/Vulnerabilities — sits above this page's OWN narrower
+          "just Dell, from already-known Windows hosts/ports" button below. */}
+      <VulnScanStatusPanel hint={t('dell.fullScanHintText') as string} />
 
       <DiscoverPanel />
 

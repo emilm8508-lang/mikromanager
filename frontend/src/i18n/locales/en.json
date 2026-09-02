@@ -194,7 +194,7 @@
                     "daySat":  "Sat",
                     "daySun":  "Sun",
                     "runTitle":  "Scan for devices (Mikrotik/Cisco)",
-                    "fullScanHintText":  "This scan also covers CVE vulnerabilities, Linux/Windows host discovery, and refreshing RouterOS versions on known devices — it's one shared mechanism.",
+                    "fullScanHintText":  "This scan also covers CVE vulnerabilities, Linux/Windows/Dell host discovery, Mikrotik/Cisco devices, and refreshing RouterOS versions on known devices — it's one shared mechanism for the whole network.",
                     "credsInfo":  "Scan will use all saved credentials",
                     "credsInfoSuffix":  "— tries each one against every device and assigns whichever authenticates",
                     "noCredsWarn":  "No credentials saved — scan will only detect ports, without device identification.",
@@ -587,6 +587,7 @@
         }
     },
     "linux": {
+        "fullScanHintText": "This scan also covers CVE vulnerabilities, Windows/Dell host discovery, Mikrotik/Cisco devices, and refreshing RouterOS versions on known devices — it's one shared mechanism for the whole network, not just Linux.",
         "settingsTitle": "Shared credential",
         "settingsHint": "One SSH credential used for every Linux host — no per-host selection.",
         "disabledWarning": "Linux management is disabled on this agent (MIKROTIK_LINUX_MANAGE_ENABLED). Check/upgrade won't work until it's enabled in the agent's configuration.",
@@ -629,6 +630,7 @@
         "skipNotesTitle": "Hosts found but not added (shown elsewhere, e.g. Vulnerabilities, with a different credential):"
     },
     "windows": {
+        "fullScanHintText": "This scan also covers CVE vulnerabilities, Linux/Dell host discovery, Mikrotik/Cisco devices, and refreshing RouterOS versions on known devices — it's one shared mechanism for the whole network, not just Windows.",
         "settingsTitle": "Shared credential",
         "settingsHint": "One WinRM credential used for every Windows host — no per-host selection.",
         "disabledWarning": "Windows management is disabled. Install/restart won't work until you enable it above (or from Central).",
@@ -741,6 +743,7 @@
     },
     "dell": {
         "subtitle": "Dell server health monitoring via iDRAC — over the network (Redfish), or locally through a companion Windows host (iDRAC Service Module / RACADM) when iDRAC has no network address of its own.",
+        "fullScanHintText": "This scan also covers CVE vulnerabilities, Linux/Windows host discovery, Mikrotik/Cisco devices, and refreshing RouterOS versions on known devices — it's one shared mechanism for the whole network, not just Dell servers.",
         "scanNow": "Scan for Dell servers",
         "scanPhase": {
             "dell_network_discovery": "Network discovery (Redfish)",

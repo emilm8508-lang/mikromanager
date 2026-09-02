@@ -32,13 +32,16 @@ function ScanProgressBar({ phase, completed, total, ip }: { phase: string; compl
 }
 
 // Single trigger for the full network pass: CVE lookup (banners + known
-// device versions, refreshed right before reading them) + Linux host
-// discovery + Windows host discovery all run from this ONE scan — see
-// services/vuln_scan.py's run_scan() docstring. Shown on both the
-// Vulnerabilities page (in context) and the Scanner page (consolidated
-// with device discovery) so there's one place to see/trigger every
-// scanner, even though scanner.py's own device-discovery CIDR scan runs on
-// its own separate, manual-only schedule.
+// device versions, refreshed right before reading them) + Linux/Windows/
+// Dell host discovery all run from this ONE scan — see services/
+// vuln_scan.py's run_scan() docstring. Shown on the Vulnerabilities,
+// Scanner, Linux, Windows, and Dell pages so wherever the operator is,
+// there's a "scan everything" option right next to that page's own
+// narrower, page-specific scan button — not a replacement for it, both
+// stay available (confirmed with the user: several separate scan buttons
+// were confusing without a consolidated "scan all" option alongside them).
+// scanner.py's own device-discovery CIDR scan runs on its own separate,
+// manual-only schedule regardless.
 export function VulnScanStatusPanel({ hint }: { hint?: string }) {
   const { t, i18n } = useTranslation()
   const qc = useQueryClient()
@@ -83,6 +86,7 @@ export function VulnScanStatusPanel({ hint }: { hint?: string }) {
         qc.invalidateQueries({ queryKey: ['vuln-findings'] })
         qc.invalidateQueries({ queryKey: ['linux-hosts'] })
         qc.invalidateQueries({ queryKey: ['windows-hosts'] })
+        qc.invalidateQueries({ queryKey: ['dell-servers'] })
         qc.invalidateQueries({ queryKey: ['devices'] })
       }
     }
@@ -93,6 +97,7 @@ export function VulnScanStatusPanel({ hint }: { hint?: string }) {
       qc.invalidateQueries({ queryKey: ['vuln-status'] })
       qc.invalidateQueries({ queryKey: ['vuln-hosts'] })
       qc.invalidateQueries({ queryKey: ['vuln-findings'] })
+      qc.invalidateQueries({ queryKey: ['dell-servers'] })
     }
   }
 

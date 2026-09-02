@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.80 — 2026-09-02
+- Show the shared "scan everything" panel (CVE + Linux/Windows/Dell discovery + Mikrotik/Cisco refresh) on the Linux, Windows, and Dell Servers pages too, alongside each page's own narrower scan button — previously only on Vulnerabilities/Scanner, so covering the whole network meant clicking several separate buttons across different pages
+
 ## 1.79 — 2026-09-02
 - Skip virtual machines when discovering local Dell (iDRAC) servers — a VM can never have its own physical iDRAC, so trying iSM/RACADM on one just wasted a WinRM round trip and produced a confusing "not found" note every scan
 
