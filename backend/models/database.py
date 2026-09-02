@@ -416,6 +416,14 @@ class WindowsHost(Base):
     mem_used_pct = Column(Float, nullable=True)
     mem_total_bytes = Column(Integer, nullable=True)
     last_resources_check_at = Column(DateTime, nullable=True)
+    # "System Model:" from systeminfo — e.g. "Virtual Machine" for a
+    # Hyper-V guest, "PowerEdge R640" for real Dell hardware. Lets
+    # services/dell_monitor.py's discover_local_servers() skip VMs
+    # entirely instead of wasting a WinRM+iSM/RACADM round trip (and a
+    # confusing "not found" note) on a host that can never have its own
+    # physical iDRAC — confirmed live: several Windows hosts at one site
+    # turned out to be Hyper-V guests, not the physical hypervisor itself.
+    system_model = Column(String, nullable=True)
 
 
 class WindowsHostDisk(Base):
@@ -720,6 +728,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN mem_total_bytes INTEGER"))
             if "last_resources_check_at" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_resources_check_at DATETIME"))
+            if "system_model" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN system_model TEXT"))
 
     if "windows_manage_settings" in inspector.get_table_names():
         wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}

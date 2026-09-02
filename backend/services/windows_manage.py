@@ -83,6 +83,19 @@ _HOSTNAME_RE = re.compile(r"^Host Name:\s*(.+)$", re.MULTILINE)
 _OS_NAME_RE = re.compile(r"^OS Name:\s*(.+)$", re.MULTILINE)
 _OS_VERSION_RE = re.compile(r"^OS Version:\s*(.+)$", re.MULTILINE)
 _DOMAIN_RE = re.compile(r"^Domain:\s*(.+)$", re.MULTILINE)
+# Free — already in the same `systeminfo` output _identify_host_sync
+# already fetches for hostname/os_name, just never parsed before. On a
+# Hyper-V guest this line reads "System Model:    Virtual Machine" —
+# confirmed live (a real Windows host under Hyper-V, this project's only
+# hypervisor per the user) — the signal services/dell_monitor.py's
+# discover_local_servers() needs to stop wasting a WinRM+iSM/RACADM
+# round trip (and a confusing "not found" note) on a VM that can never
+# have its own physical iDRAC.
+_SYSTEM_MODEL_RE = re.compile(r"^System Model:\s*(.+)$", re.MULTILINE)
+
+
+def is_virtual_model(system_model: Optional[str]) -> bool:
+    return bool(system_model) and "virtual" in system_model.lower()
 
 # Default "normal" ports for a workstation — RPC endpoint mapper, NetBIOS,
 # SMB, RDP, and our own WinRM management ports. Anything else found open
@@ -186,14 +199,17 @@ async def _identify_host(ip: str, port: int, username: str, password: str, domai
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(vs._EXECUTOR, _identify_host_sync, ip, port, username, password, domain)
     if result["error"]:
-        return {"hostname": None, "os_name": None, "os_version": None, "domain": None, "error": result["error"]}
+        return {"hostname": None, "os_name": None, "os_version": None, "domain": None,
+                "system_model": None, "error": result["error"]}
     output = result["output"]
     host_m = _HOSTNAME_RE.search(output)
     name_m = _OS_NAME_RE.search(output)
     ver_m = _OS_VERSION_RE.search(output)
     dom_m = _DOMAIN_RE.search(output)
+    model_m = _SYSTEM_MODEL_RE.search(output)
     if not name_m:
         return {"hostname": None, "os_name": None, "os_version": None, "domain": None,
+                "system_model": None,
                 "error": "WinRM login succeeded but systeminfo output didn't look like Windows "
                          "(unexpected locale/format, or not actually Windows)"}
     return {
@@ -201,6 +217,7 @@ async def _identify_host(ip: str, port: int, username: str, password: str, domai
         "os_name": name_m.group(1).strip(),
         "os_version": ver_m.group(1).strip() if ver_m else None,
         "domain": dom_m.group(1).strip() if dom_m else None,
+        "system_model": model_m.group(1).strip() if model_m else None,
         "error": None,
     }
 
@@ -249,6 +266,24 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
                 h.last_seen_at = now
             db.commit()
 
+    # One-time backfill for hosts discovered before system_model was
+    # tracked — same shared credential + systeminfo call already used to
+    # identify new hosts, just for the ones missing this one field. Once
+    # populated it never needs to run again for that host.
+    with SessionLocal() as db:
+        missing_model = db.execute(
+            select(WindowsHost.id, WindowsHost.ip, WindowsHost.winrm_port)
+            .where(WindowsHost.system_model.is_(None))
+        ).all()
+    for host_id, ip, port in missing_model:
+        info = await _identify_host(ip, port or 5985, username, password, domain)
+        if info.get("system_model"):
+            with SessionLocal() as db:
+                host = db.get(WindowsHost, host_id)
+                if host:
+                    host.system_model = info["system_model"]
+                    db.commit()
+
     new_ips = [ip for ip in port_by_ip if ip not in known_ips]
     vs._emit(on_event, {"type": "phase", "phase": "windows_identify", "total": len(new_ips)})
     discovered = 0
@@ -268,6 +303,7 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
                 ip=ip, hostname=info["hostname"], os_name=info["os_name"],
                 os_version=info["os_version"], winrm_port=port, managed=False, source="auto",
                 domain=info.get("domain"), host_type=_detect_host_type(info["os_name"]),
+                system_model=info.get("system_model"),
                 first_seen_at=now, last_seen_at=now,
             ))
             db.commit()

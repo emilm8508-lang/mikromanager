@@ -28,6 +28,7 @@ from models.database import (
 from services.crypto import decrypt
 from services import idrac_client
 from services import dell_local
+from services import windows_manage
 from services import activity
 
 DELL_CHECK_MIN = int(os.environ.get("MIKROTIK_DELL_CHECK_MIN", "30"))
@@ -328,10 +329,15 @@ async def discover_local_servers(on_event=None) -> dict:
     """Finds Dell servers whose iDRAC has NO routable address, only
     reachable locally via WinRM into the companion Windows host (see
     services/dell_local.py's docstring) — tries every known WindowsHost
-    not already linked to a DellServer. Uses the shared WinRM credential
-    already configured for Windows management (windows_manage's own
-    settings) — never a separate credential, same reuse as dell_local.py
-    itself already does for the manual/single-server path."""
+    not already linked to a DellServer AND not a virtual machine (a VM
+    can never have its own physical iDRAC — confirmed live: several
+    Windows hosts at one site turned out to be Hyper-V guests, wasting a
+    WinRM+iSM/RACADM round trip and producing a confusing "not found"
+    note every single scan for something that will never succeed). Uses
+    the shared WinRM credential already configured for Windows management
+    (windows_manage's own settings) — never a separate credential, same
+    reuse as dell_local.py itself already does for the manual/single-
+    server path."""
     with SessionLocal() as db:
         linked_host_ids = {
             hid for hid in db.execute(
@@ -339,7 +345,10 @@ async def discover_local_servers(on_event=None) -> dict:
             ).scalars().all()
         }
         candidates = db.execute(select(WindowsHost)).scalars().all()
-        candidate_ids = [(h.id, h.hostname or h.ip) for h in candidates if h.id not in linked_host_ids]
+        candidate_ids = [
+            (h.id, h.hostname or h.ip) for h in candidates
+            if h.id not in linked_host_ids and not windows_manage.is_virtual_model(h.system_model)
+        ]
 
     _emit(on_event, {"type": "phase", "phase": "dell_local_discovery", "total": len(candidate_ids)})
     discovered = 0

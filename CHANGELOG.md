@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.79 — 2026-09-02
+- Skip virtual machines when discovering local Dell (iDRAC) servers — a VM can never have its own physical iDRAC, so trying iSM/RACADM on one just wasted a WinRM round trip and produced a confusing "not found" note every scan
+
 ## 1.78 — 2026-09-01
 - Add an "affected_ips" column to the vulnerability CSV export — findings were only ever a bare affected_count number, so opening the export gave no way to tell which machine to go fix
 
