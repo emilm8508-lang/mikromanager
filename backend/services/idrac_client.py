@@ -65,6 +65,33 @@ async def _get(base_url: str, path: str, username: str, password: str) -> Option
         return None
 
 
+# Canonical vendor keys this app knows how to act on (drives which
+# default credential, if any, dell_monitor.check_server() safely tries) —
+# maps several observed Redfish ServiceRoot "Oem" key spellings to one
+# name each (HP has used both "Hp" and "Hpe" across firmware versions;
+# Fujitsu's has been seen as both "Fujitsu" and "Ts_Fujitsu"). Confirmed
+# by the user: their infrastructure includes Dell, HP, and Fujitsu
+# servers. Lenovo included too since idrac_client's Redfish handling is
+# already vendor-generic — costs nothing to recognize it even though the
+# user hasn't confirmed having any.
+_VENDOR_OEM_MAP = {
+    "dell": "dell",
+    "hp": "hp", "hpe": "hp",
+    "fujitsu": "fujitsu", "ts_fujitsu": "fujitsu",
+    "lenovo": "lenovo",
+}
+
+
+def normalize_vendor(oem_key: Optional[str]) -> Optional[str]:
+    """Maps a raw Redfish ServiceRoot Oem key (e.g. "Hpe", "Ts_Fujitsu")
+    to the canonical vendor string this app understands, or None if
+    absent/unrecognized — see probe_redfish_root's docstring for why an
+    unrecognized vendor is its own bucket, not silently dropped."""
+    if not oem_key:
+        return None
+    return _VENDOR_OEM_MAP.get(oem_key.strip().lower())
+
+
 async def probe_redfish_root(ip: str, port: int = 443) -> dict:
     """Used only by dell_monitor.discover_network_servers() to decide
     whether a host with an open port 443 is actually a Redfish-speaking

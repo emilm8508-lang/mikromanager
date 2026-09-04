@@ -513,6 +513,7 @@ export interface CentralWindowsHostStatus {
 export interface CentralDellServerStatus {
   id: number
   name: string | null
+  vendor: DellVendor
   model: string | null
   health_rollup: 'OK' | 'Warning' | 'Critical' | null
   power_state: string | null
@@ -999,15 +1000,17 @@ export const windowsApi = {
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 
 export type DellHealth = 'OK' | 'Warning' | 'Critical' | null
+export type DellVendor = 'dell' | 'hp' | 'fujitsu' | 'lenovo' | null
 
 export interface DellServerOut {
   id: number
   name: string | null
+  vendor: DellVendor
   idrac_ip: string | null
   idrac_port: number
   windows_host_id: number | null
   credential_id: number | null
-  access_method: 'redfish' | 'local_ism' | 'local_racadm' | null
+  access_method: 'redfish' | 'local_ism' | 'local_racadm' | 'local_omsa' | null
   last_check_at: string | null
   last_status: 'ok' | 'error' | null
   last_error: string | null
@@ -1031,6 +1034,7 @@ export interface DellSelEntry {
 
 export interface DellServerInput {
   name?: string
+  vendor?: DellVendor
   idrac_ip?: string
   idrac_port?: number
   windows_host_id?: number | null

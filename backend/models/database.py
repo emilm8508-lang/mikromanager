@@ -564,11 +564,22 @@ class AnydeskCidLabel(Base):
 
 
 class DellServer(Base):
-    """One physical Dell server's iDRAC (out-of-band management/health
-    monitoring — CPU, memory, power, fans, storage/RAID, hardware event
-    log), reachable one of two ways depending on how the site's network is
-    set up (confirmed with the user: not every server has iDRAC on its own
-    routable IP):
+    """One physical server's out-of-band BMC (Redfish — health monitoring:
+    CPU, memory, power, fans, storage/RAID, hardware event log). Despite
+    the table/model name (kept for backward compatibility — this table
+    predates multi-vendor support), NOT Dell-only: the `vendor` column
+    tells which one (Dell iDRAC / HP iLO / Fujitsu iRMC — confirmed by
+    the user to exist in their infrastructure alongside Dell), since
+    services/idrac_client.py's Redfish client was always vendor-generic
+    (standard DMTF Systems/Chassis/Managers discovery, no Dell-specific
+    resource paths) — only the DEFAULT credential and the local-fallback
+    tools (see below) are vendor-specific. NULL vendor = legacy rows from
+    before this column existed, always Dell in practice (migration
+    backfills them to "dell").
+
+    Reachable one of two ways depending on how the site's network is
+    set up (confirmed with the user: not every server has its BMC on its
+    own routable IP):
 
       - idrac_ip set: talked to directly over the network via Redfish
         (services/idrac_client.py) — clean, no dependency on what's
@@ -590,6 +601,8 @@ class DellServer(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=True)
+    # "dell" | "hp" | "fujitsu" | None (legacy row, treated as Dell).
+    vendor = Column(String, nullable=True)
     idrac_ip = Column(String, nullable=True, unique=True)
     idrac_port = Column(Integer, nullable=False, default=443)
     windows_host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=True)
@@ -710,6 +723,16 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN mem_total_bytes INTEGER"))
             if "last_resources_check_at" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_resources_check_at DATETIME"))
+
+    if "dell_servers" in inspector.get_table_names():
+        ds_cols = {c["name"] for c in inspector.get_columns("dell_servers")}
+        with engine.begin() as conn:
+            if "vendor" not in ds_cols:
+                conn.execute(text("ALTER TABLE dell_servers ADD COLUMN vendor VARCHAR(32)"))
+                # Every row that existed before this column did so ONLY
+                # through Dell-specific discovery/add flows — safe to
+                # backfill them all as "dell" rather than leave NULL.
+                conn.execute(text("UPDATE dell_servers SET vendor = 'dell' WHERE vendor IS NULL"))
 
     if "windows_hosts" in inspector.get_table_names():
         wh_cols = {c["name"] for c in inspector.get_columns("windows_hosts")}

@@ -1576,7 +1576,12 @@ function DellCentralPanel() {
                 return (
                 <tr key={key} className="border-b border-slate-100">
                   <td className="py-2">{tenant}</td>
-                  <td className="font-mono text-xs">{server.name || '—'}{server.model && <span className="text-slate-400"> ({server.model})</span>}</td>
+                  <td className="font-mono text-xs">
+                    {server.name || '—'}{server.model && <span className="text-slate-400"> ({server.model})</span>}
+                    {server.vendor && server.vendor !== 'dell' && (
+                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500 uppercase">{server.vendor}</span>
+                    )}
+                  </td>
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.health_rollup)}`}>{server.health_rollup || '—'}</span></td>
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.cpu ?? null)}`}>{server.components?.cpu || '—'}</span></td>
                   <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.power ?? null)}`}>{server.components?.power || '—'}</span></td>

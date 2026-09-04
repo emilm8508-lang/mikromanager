@@ -2,6 +2,11 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.83 — 2026-09-04
+- Add network (Redfish) health monitoring for HP/HPE (iLO) and Fujitsu (iRMC) servers, alongside Dell — confirmed by the user to have ~3 such servers. Network discovery now registers any Redfish BMC with its detected vendor instead of skipping non-Dell ones; Fujitsu gets a safe default credential attempt (admin/admin) like Dell's root/calvin, HP gets none (iLO5+ has no universal default - a credential must be assigned manually rather than guessed, to avoid an account lockout)
+- Add a vendor selector to the Dell/BMC server form and a vendor badge on each server card and in Central's panel
+- Local WinRM access (iSM/RACADM/OMSA) stays Dell-only for now - HP/Fujitsu use Redfish over the network exclusively until local tooling for those vendors is confirmed needed
+
 ## 1.82 — 2026-09-04
 - Add OMSA (OpenManage Server Administrator / "Dell Server Administrator") as a third local Dell health-check method, alongside iSM/RACADM — confirmed live that some servers only have this one installed; its local CLI authenticates via the Windows OS session itself, no separate credential needed
 - Broaden the RACADM/OMSA path search with a bounded recursive scan under Dell's Program Files tree, not just the two hardcoded rac5 paths — different OpenManage/iDRAC-tools package versions install to different subfolders

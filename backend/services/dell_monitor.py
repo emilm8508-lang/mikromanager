@@ -76,6 +76,10 @@ async def check_server(server_id: int) -> dict:
         idrac_ip, idrac_port = server.idrac_ip, server.idrac_port
         windows_host_id = server.windows_host_id
         credential_id = server.credential_id
+        # Legacy rows predate the vendor column and were only ever
+        # created by Dell-specific discovery/add flows — safe to treat
+        # NULL as "dell" here (mirrors the DB migration's own backfill).
+        vendor = server.vendor or "dell"
 
     result = None
     if idrac_ip:
@@ -89,22 +93,43 @@ async def check_server(server_id: int) -> dict:
                     except Exception:
                         username = password = None
         if not username:
-            # Dell's well-known factory default — offered so a freshly
-            # discovered/added server is checkable immediately even before
-            # the operator gets around to assigning a real credential (the
-            # user explicitly asked for this as the default to try).
-            username, password = "root", "calvin"
-        base_url = f"{_REDFISH_SCHEME}://{idrac_ip}:{idrac_port}"
-        try:
-            health = await idrac_client.collect_health(base_url, username, password)
-        except Exception as e:
-            health = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-        if health.get("ok"):
-            result = {**health, "access_method": "redfish"}
+            if vendor == "dell":
+                # Dell's well-known factory default — offered so a freshly
+                # discovered/added server is checkable immediately even
+                # before the operator gets around to assigning a real
+                # credential (the user explicitly asked for this).
+                username, password = "root", "calvin"
+            elif vendor == "fujitsu":
+                # Fujitsu iRMC's well-known factory default (S4/S5) — same
+                # "offer a default so a freshly discovered server is
+                # checkable immediately" reasoning as Dell's root/calvin;
+                # unverified against the user's actual iRMC firmware yet,
+                # same caveat Dell's default had before real-world testing.
+                username, password = "admin", "admin"
+            # else (hp/lenovo/unknown): deliberately NO default attempted.
+            # HP's iLO5+ generates a random per-unit password printed on
+            # the server itself — there is no safe universal value to try,
+            # and guessing risks tripping that vendor's account lockout.
+        if username:
+            base_url = f"{_REDFISH_SCHEME}://{idrac_ip}:{idrac_port}"
+            try:
+                health = await idrac_client.collect_health(base_url, username, password)
+            except Exception as e:
+                health = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+            if health.get("ok"):
+                result = {**health, "access_method": "redfish"}
+            else:
+                result = health  # keep the error around in case local fallback also fails
         else:
-            result = health  # keep the error around in case local fallback also fails
+            result = {"ok": False, "error": f"brak przypisanego poświadczenia — ten producent "
+                                             f"({vendor}) nie ma bezpiecznego domyślnego hasła, "
+                                             f"przypisz własne w edycji serwera"}
 
-    if (not result or not result.get("ok")) and windows_host_id:
+    # Local WinRM fallback (iSM/RACADM/OMSA) is Dell-specific software —
+    # never attempted for other vendors, where it would only waste a
+    # round-trip and always report "not found" (that local path for
+    # HP/Fujitsu/Lenovo isn't built yet — network Redfish only, for now).
+    if (not result or not result.get("ok")) and windows_host_id and vendor == "dell":
         try:
             local_health = await dell_local.collect_local_health(windows_host_id)
         except Exception as e:
@@ -271,21 +296,26 @@ def _emit(on_event, event: dict) -> None:
 
 
 async def discover_network_servers(on_event=None) -> dict:
-    """Finds Dell (or other Redfish-capable) BMCs reachable directly over
-    the network — reuses the vuln scanner's OWN port-443 findings
-    (VulnHost/VulnService, already collected by its regular weekly pass)
-    instead of running a second port scan. A bare "port 443 open" is much
-    too common a signal on its own (any HTTPS server matches, RouterOS's
-    WebFig included) — idrac_client.probe_redfish_root() confirms the
-    host actually speaks Redfish (checks for the RedfishVersion key on
-    the service root, typically unauthenticated) before it's registered.
+    """Finds ANY Redfish-capable BMC reachable directly over the network —
+    Dell iDRAC, HP iLO, Fujitsu iRMC, or anything else conformant
+    (confirmed by the user to have HP+Fujitsu servers alongside Dell) —
+    reuses the vuln scanner's OWN port-443 findings (VulnHost/VulnService,
+    already collected by its regular weekly pass) instead of running a
+    second port scan. A bare "port 443 open" is much too common a signal
+    on its own (any HTTPS server matches, RouterOS's WebFig included) —
+    idrac_client.probe_redfish_root() confirms the host actually speaks
+    Redfish (checks for the RedfishVersion key on the service root,
+    typically unauthenticated) before it's registered, and its vendor
+    hint (also read unauthenticated, no credential-guessing/lockout-risk
+    involved) is stored so check_server() knows whether a default
+    credential is safe to try later.
 
     Registration itself doesn't require a WORKING credential — it only
-    confirms the host IS a BMC. If Dell's factory root/calvin default (or
-    whatever credential is later assigned) turns out wrong, that surfaces
-    exactly like it already does for a manually-added server: a clear
-    "could not reach Redfish ..." error on the server's own card, not a
-    failure to discover it in the first place."""
+    confirms the host IS a BMC. If the default credential (or whatever is
+    later assigned) turns out wrong, that surfaces exactly like it
+    already does for a manually-added server: a clear "could not reach
+    Redfish ..." error on the server's own card, not a failure to
+    discover it in the first place."""
     with SessionLocal() as db:
         candidate_ips = list(db.execute(
             select(VulnHost.ip)
@@ -307,28 +337,15 @@ async def discover_network_servers(on_event=None) -> dict:
         except Exception as e:
             probe = {"is_redfish": False, "vendor_hint": None}
             print(f"[dell_monitor] redfish probe error for {ip}: {e}")
-        detail = None
-        if probe["is_redfish"]:
-            vendor = (probe.get("vendor_hint") or "").lower()
-            if vendor and "dell" not in vendor:
-                # A real Redfish BMC, but not Dell (HP/Lenovo/Fujitsu/etc,
-                # per the user's explicit reminder that other vendors exist
-                # in this infrastructure) — this module only knows Dell's
-                # default credential and local WinRM tools (iSM/RACADM), so
-                # registering it would mislabel it and almost certainly
-                # fail its first check. Surfaced as a skip note (same UI
-                # the iSM/RACADM errors already use) instead of silently
-                # dropped, so the operator knows it's there.
-                detail = (f"Redfish BMC innego producenta wykryty (Oem: {probe['vendor_hint']}) "
-                          f"— pominięto, obsługiwane jest na razie tylko Dell/iDRAC")
         _emit(on_event, {"type": "progress", "phase": "dell_network_discovery",
-                         "completed": idx, "total": len(new_ips), "ip": ip, "detail": detail})
-        if not probe["is_redfish"] or detail:
+                         "completed": idx, "total": len(new_ips), "ip": ip})
+        if not probe["is_redfish"]:
             continue
+        vendor = idrac_client.normalize_vendor(probe.get("vendor_hint"))
         with SessionLocal() as db:
             if db.execute(select(DellServer).where(DellServer.idrac_ip == ip)).scalar_one_or_none():
                 continue  # discovered concurrently, skip
-            server = DellServer(name=None, idrac_ip=ip, idrac_port=443)
+            server = DellServer(name=None, idrac_ip=ip, idrac_port=443, vendor=vendor)
             db.add(server)
             try:
                 db.commit()
@@ -418,7 +435,7 @@ async def discover_servers(on_event=None) -> dict:
 
 def _server_to_dict(s: DellServer) -> dict:
     return {
-        "id": s.id, "name": s.name, "idrac_ip": s.idrac_ip, "idrac_port": s.idrac_port,
+        "id": s.id, "name": s.name, "vendor": s.vendor, "idrac_ip": s.idrac_ip, "idrac_port": s.idrac_port,
         "windows_host_id": s.windows_host_id, "credential_id": s.credential_id,
         "access_method": s.access_method,
         "last_check_at": s.last_check_at.isoformat() if s.last_check_at else None,
@@ -448,7 +465,7 @@ def public_summary() -> list:
     with SessionLocal() as db:
         servers = db.execute(select(DellServer)).scalars().all()
         return [{
-            "id": s.id, "name": s.name or s.service_tag or s.idrac_ip,
+            "id": s.id, "name": s.name or s.service_tag or s.idrac_ip, "vendor": s.vendor,
             "model": s.model, "health_rollup": s.health_rollup,
             "power_state": s.power_state,
             "components": json.loads(s.components_json) if s.components_json else {},
@@ -458,13 +475,15 @@ def public_summary() -> list:
 
 
 def add_server(name: Optional[str], idrac_ip: Optional[str], idrac_port: int,
-               windows_host_id: Optional[int], credential_id: Optional[int]) -> dict:
+               windows_host_id: Optional[int], credential_id: Optional[int],
+               vendor: Optional[str] = None) -> dict:
     if not idrac_ip and not windows_host_id:
         return {"error": "podaj adres iDRAC albo powiąż z hostem Windows (albo oba)"}
     with SessionLocal() as db:
         server = DellServer(
             name=name or None, idrac_ip=idrac_ip or None, idrac_port=idrac_port or 443,
             windows_host_id=windows_host_id, credential_id=credential_id,
+            vendor=vendor or "dell",
         )
         db.add(server)
         try:

@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/dell", tags=["dell"])
 
 class ServerIn(BaseModel):
     name: str | None = None
+    vendor: str | None = None  # "dell" | "hp" | "fujitsu" | "lenovo" | None (-> "dell")
     idrac_ip: str | None = None
     idrac_port: int = 443
     windows_host_id: int | None = None
@@ -20,6 +21,7 @@ class ServerIn(BaseModel):
 
 class ServerUpdateIn(BaseModel):
     name: str | None = None
+    vendor: str | None = None
     idrac_ip: str | None = None
     idrac_port: int | None = None
     windows_host_id: int | None = None
@@ -35,7 +37,7 @@ async def list_servers():
 async def add_server(payload: ServerIn):
     return dell_monitor.add_server(
         payload.name, payload.idrac_ip, payload.idrac_port,
-        payload.windows_host_id, payload.credential_id,
+        payload.windows_host_id, payload.credential_id, payload.vendor,
     )
 
 

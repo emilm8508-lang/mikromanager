@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { dellApi, windowsApi, credentialsApi, DellServerOut, DellHealth, DellServerInput } from '../lib/api'
+import { dellApi, windowsApi, credentialsApi, DellServerOut, DellHealth, DellServerInput, DellVendor } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -133,16 +133,31 @@ function ServerForm({ initial, onSave, onCancel }: {
 
   const [form, setForm] = useState({
     name: initial?.name ?? '',
+    vendor: (initial?.vendor ?? 'dell') as DellVendor,
     idrac_ip: initial?.idrac_ip ?? '',
     idrac_port: initial?.idrac_port ?? 443,
     windows_host_id: initial?.windows_host_id != null ? String(initial.windows_host_id) : '',
     credential_id: initial?.credential_id != null ? String(initial.credential_id) : '',
   })
 
+  // No safe universal default for every vendor — HP's iLO5+ generates a
+  // random per-unit password, there's nothing sensible to offer. Only
+  // Dell (root/calvin) and Fujitsu (admin/admin) have one.
+  const defaultCred: Record<string, { username: string; password: string } | null> = {
+    dell: { username: 'root', password: 'calvin' },
+    fujitsu: { username: 'admin', password: 'admin' },
+    hp: null, lenovo: null,
+  }
+  const vendorDefault = defaultCred[form.vendor ?? 'dell']
+
   const quickAddCred = useMutation({
-    mutationFn: () => credentialsApi.create({
-      name: 'iDRAC (domyślne root/calvin)', username: 'root', password: 'calvin',
-    }),
+    mutationFn: () => {
+      if (!vendorDefault) throw new Error('no default credential for this vendor')
+      return credentialsApi.create({
+        name: `iDRAC/BMC (domyślne ${vendorDefault.username}/${vendorDefault.password})`,
+        username: vendorDefault.username, password: vendorDefault.password,
+      })
+    },
     onSuccess: (cred) => {
       qc.invalidateQueries({ queryKey: ['credentials'] })
       setForm(f => ({ ...f, credential_id: String(cred.id) }))
@@ -153,6 +168,7 @@ function ServerForm({ initial, onSave, onCancel }: {
     e.preventDefault()
     onSave({
       name: form.name || undefined,
+      vendor: form.vendor,
       idrac_ip: form.idrac_ip || undefined,
       idrac_port: form.idrac_port,
       windows_host_id: form.windows_host_id ? parseInt(form.windows_host_id) : null,
@@ -165,6 +181,20 @@ function ServerForm({ initial, onSave, onCancel }: {
       <Input label={t('dell.nameLabel')} value={form.name}
         onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
         placeholder={t('dell.namePlaceholder') as string} />
+
+      <div>
+        <label className="block text-xs font-medium text-slate-600 mb-1">{t('dell.vendorLabel')}</label>
+        <select
+          value={form.vendor ?? 'dell'}
+          onChange={e => setForm(f => ({ ...f, vendor: e.target.value as DellVendor }))}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 bg-white"
+        >
+          <option value="dell">Dell (iDRAC)</option>
+          <option value="hp">HP / HPE (iLO)</option>
+          <option value="fujitsu">Fujitsu (iRMC)</option>
+          <option value="lenovo">Lenovo (XCC)</option>
+        </select>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Input label={t('dell.idracIpLabel')} value={form.idrac_ip}
@@ -198,14 +228,20 @@ function ServerForm({ initial, onSave, onCancel }: {
             onChange={e => setForm(f => ({ ...f, credential_id: e.target.value }))}
             className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 bg-white"
           >
-            <option value="">{t('dell.credentialDefault')}</option>
+            <option value="">
+              {vendorDefault ? t('dell.credentialDefault') : t('dell.credentialNoDefault')}
+            </option>
             {creds.map(c => <option key={c.id} value={c.id}>{c.name} ({c.username})</option>)}
           </select>
-          <Button type="button" variant="secondary" size="sm" onClick={() => quickAddCred.mutate()} disabled={quickAddCred.isPending}>
-            <KeyRound size={12} /> root/calvin
-          </Button>
+          {vendorDefault && (
+            <Button type="button" variant="secondary" size="sm" onClick={() => quickAddCred.mutate()} disabled={quickAddCred.isPending}>
+              <KeyRound size={12} /> {vendorDefault.username}/{vendorDefault.password}
+            </Button>
+          )}
         </div>
-        <p className="text-[11px] text-slate-500 mt-1">{t('dell.credentialHint')}</p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          {vendorDefault ? t('dell.credentialHint') : t('dell.credentialHintNoDefault')}
+        </p>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
@@ -245,6 +281,10 @@ function SelLogSection({ serverId }: { serverId: number }) {
   )
 }
 
+const VENDOR_LABELS: Record<string, string> = {
+  dell: 'Dell', hp: 'HP/HPE', fujitsu: 'Fujitsu', lenovo: 'Lenovo',
+}
+
 function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -268,6 +308,7 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
         <div>
           <span className="font-mono text-sm text-slate-800">{server.name || server.service_tag || server.idrac_ip}</span>
           {server.model && <span className="text-xs text-slate-500 ml-2">{server.model}</span>}
+          <Badge variant="gray" className="text-[10px] ml-2">{VENDOR_LABELS[server.vendor ?? 'dell'] ?? server.vendor}</Badge>
           {server.access_method && (
             <Badge variant="blue" className="text-[10px] ml-2">{t(`dell.accessMethod.${server.access_method}`)}</Badge>
           )}
