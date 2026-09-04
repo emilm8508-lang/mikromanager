@@ -2,6 +2,11 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.81 — 2026-09-04
+- Poll Mikrotik devices for resources/interfaces once an hour instead of every 2 minutes (30x/hour was confirmed excessive), decoupled the same way Linux/Windows already were — the fast 2-minute cycle now only does a cheap DB-only threshold check
+- Automatically fetch each router's log every hour and surface new critical/error entries as alert events (agent -> Central -> Telegram), deduped so the same buffered entry never re-fires; previously this only existed as a live, on-demand dashboard view nobody saw unless they had it open
+- Stop mislabeling non-Dell Redfish BMCs (HP/Lenovo/Fujitsu etc) as Dell servers during network discovery — detected via the unauthenticated ServiceRoot's Oem key, skipped with a visible note instead of registered with Dell's default credential
+
 ## 1.80 — 2026-09-02
 - Show the shared "scan everything" panel (CVE + Linux/Windows/Dell discovery + Mikrotik/Cisco refresh) on the Linux, Windows, and Dell Servers pages too, alongside each page's own narrower scan button — previously only on Vulnerabilities/Scanner, so covering the whole network meant clicking several separate buttons across different pages
 

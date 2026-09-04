@@ -65,17 +65,32 @@ async def _get(base_url: str, path: str, username: str, password: str) -> Option
         return None
 
 
-async def probe_redfish_root(ip: str, port: int = 443) -> bool:
+async def probe_redfish_root(ip: str, port: int = 443) -> dict:
     """Used only by dell_monitor.discover_network_servers() to decide
     whether a host with an open port 443 is actually a Redfish-speaking
     BMC before registering it as a DellServer — NOT just "port 443 open",
     which is far too common a signal on its own (any HTTPS server,
     RouterOS's own WebFig included, would match that). The Redfish service
     root (/redfish/v1/) is a standard, typically UNAUTHENTICATED resource
-    on every conformant implementation (Dell/HP/Lenovo alike) and always
-    carries a "RedfishVersion" key — that key's presence is the actual
-    signal, not just a 200 status (some servers 200 an arbitrary page for
-    any path)."""
+    on every conformant implementation (Dell/HP/Lenovo/Fujitsu alike) and
+    always carries a "RedfishVersion" key — that key's presence is the
+    actual signal, not just a 200 status (some servers 200 an arbitrary
+    page for any path).
+
+    Also returns a best-effort vendor hint, read from the SAME
+    unauthenticated response's "Oem" key (e.g. Dell's ServiceRoot nests
+    Dell-specific extensions under Oem.Dell, HPE's under Oem.Hpe, Lenovo's
+    under Oem.Lenovo) — the infrastructure this app monitors is confirmed
+    to include non-Dell servers too (HP/Fujitsu/Lenovo), and this module
+    only knows how to talk to Dell's iDRAC (Dell-specific default
+    credential, Dell-specific local WinRM tools). Deliberately does NOT
+    attempt an authenticated call to confirm the vendor — that would mean
+    trying a credential (even just Dell's root/calvin default) against a
+    BMC we don't yet know is Dell, risking tripping that OTHER vendor's
+    account-lockout policy for nothing. Absent/unrecognized Oem data
+    means "unknown", not "not Dell" — some Dell firmware versions may not
+    expose this, so an unknown vendor still gets registered as before
+    rather than silently dropped, to avoid a regression."""
     url = f"https://{ip}:{port}/redfish/v1/"
     try:
         timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SEC)
@@ -83,11 +98,15 @@ async def probe_redfish_root(ip: str, port: int = 443) -> bool:
             async with session.get(url, ssl=_ssl_context(), timeout=timeout,
                                     headers={"Accept": "application/json"}) as resp:
                 if resp.status != 200:
-                    return False
+                    return {"is_redfish": False, "vendor_hint": None}
                 data = await resp.json(content_type=None)
-                return isinstance(data, dict) and bool(data.get("RedfishVersion"))
+                if not isinstance(data, dict) or not data.get("RedfishVersion"):
+                    return {"is_redfish": False, "vendor_hint": None}
+                oem = data.get("Oem")
+                vendor_hint = next(iter(oem.keys())) if isinstance(oem, dict) and oem else None
+                return {"is_redfish": True, "vendor_hint": vendor_hint}
     except Exception:
-        return False
+        return {"is_redfish": False, "vendor_hint": None}
 
 
 async def _first_member(base_url: str, collection_path: str, username: str, password: str) -> Optional[str]:

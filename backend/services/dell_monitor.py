@@ -303,13 +303,27 @@ async def discover_network_servers(on_event=None) -> dict:
     discovered = 0
     for idx, ip in enumerate(new_ips, 1):
         try:
-            is_redfish = await idrac_client.probe_redfish_root(ip, 443)
+            probe = await idrac_client.probe_redfish_root(ip, 443)
         except Exception as e:
-            is_redfish = False
+            probe = {"is_redfish": False, "vendor_hint": None}
             print(f"[dell_monitor] redfish probe error for {ip}: {e}")
+        detail = None
+        if probe["is_redfish"]:
+            vendor = (probe.get("vendor_hint") or "").lower()
+            if vendor and "dell" not in vendor:
+                # A real Redfish BMC, but not Dell (HP/Lenovo/Fujitsu/etc,
+                # per the user's explicit reminder that other vendors exist
+                # in this infrastructure) — this module only knows Dell's
+                # default credential and local WinRM tools (iSM/RACADM), so
+                # registering it would mislabel it and almost certainly
+                # fail its first check. Surfaced as a skip note (same UI
+                # the iSM/RACADM errors already use) instead of silently
+                # dropped, so the operator knows it's there.
+                detail = (f"Redfish BMC innego producenta wykryty (Oem: {probe['vendor_hint']}) "
+                          f"— pominięto, obsługiwane jest na razie tylko Dell/iDRAC")
         _emit(on_event, {"type": "progress", "phase": "dell_network_discovery",
-                         "completed": idx, "total": len(new_ips), "ip": ip})
-        if not is_redfish:
+                         "completed": idx, "total": len(new_ips), "ip": ip, "detail": detail})
+        if not probe["is_redfish"] or detail:
             continue
         with SessionLocal() as db:
             if db.execute(select(DellServer).where(DellServer.idrac_ip == ip)).scalar_one_or_none():

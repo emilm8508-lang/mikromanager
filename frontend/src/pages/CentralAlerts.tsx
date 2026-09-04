@@ -330,6 +330,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="interface_errors">{t('alerts.eventInterfaceErrors')}</option>
                 <option value="interface_overload">{t('alerts.eventInterfaceOverload')}</option>
                 <option value="idrac_health_degraded">{t('alerts.eventIdracHealthDegraded')}</option>
+                <option value="device_log_critical">{t('alerts.eventDeviceLogCritical')}</option>
               </select>
             </label>
             <label className="text-sm">

@@ -176,6 +176,19 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                 $msg .= "\n- {$cve} ({$sev}) {$prod} — {$days} dni po terminie";
             }
             return $msg;
+        case 'device_log_critical':
+            $severity = $event['severity'] ?? '?';
+            $topics = $event['topics'] ?? '';
+            $log_msg = $event['message'] ?? '';
+            $log_time = $event['log_time'] ?? '';
+            $icon = $severity === 'critical' ? '🔴' : '🟠';
+            $msg = "{$icon} {$prefix}Wpis {$severity} w logu urządzenia\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}";
+            if ($log_time !== '') $msg .= "\nCzas (wg logu urządzenia): {$log_time}";
+            if ($topics !== '') $msg .= "\nTopics: {$topics}";
+            if ($log_msg !== '') $msg .= "\nWpis: {$log_msg}";
+            return $msg;
         default:
             return "⚠️ {$prefix}[{$tenant}] Alert {$type} na {$device}";
     }

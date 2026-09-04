@@ -434,6 +434,7 @@
                     "eventInterfaceErrors":  "Bledy/drops na porcie switcha/routera",
                     "eventInterfaceOverload":  "Przeciazenie lacza (przekroczony prog Mbps)",
                     "eventIdracHealthDegraded":  "Pogorszenie stanu serwera Dell (iDRAC)",
+                    "eventDeviceLogCritical":  "Wpis critical/error w logu urzadzenia sieciowego",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",

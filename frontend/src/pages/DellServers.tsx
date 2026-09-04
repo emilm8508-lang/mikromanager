@@ -75,7 +75,11 @@ function DiscoverPanel() {
         // wasn't registered as a Dell server (e.g. neither iDRAC Service
         // Module nor RACADM reachable) — without this it silently vanished,
         // exactly the confusion the user hit ("nie wiem czy jest dostępny").
-        if (ev.phase === 'dell_local_discovery' && ev.detail && ev.ip) {
+        // dell_network_discovery's "detail" is set when a real Redfish BMC
+        // was found but isn't Dell (HP/Lenovo/Fujitsu/etc — not yet
+        // supported), so it's surfaced here instead of silently registered
+        // with the wrong vendor's default credential.
+        if ((ev.phase === 'dell_local_discovery' || ev.phase === 'dell_network_discovery') && ev.detail && ev.ip) {
           setSkipNotes(prev => [...prev, { ip: ev.ip!, detail: ev.detail! }])
         }
       } else if (ev.type === 'result' || ev.type === 'error') {
