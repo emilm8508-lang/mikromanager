@@ -908,6 +908,7 @@ export interface WindowsHostOut {
   winrm_port: number | null
   managed: boolean
   source: 'auto' | 'manual'
+  credential_id: number | null
   domain: string | null
   host_type: 'server' | 'workstation'
   first_seen_at: string | null
@@ -959,6 +960,8 @@ export const windowsApi = {
   hosts: () => api.get<{ hosts: WindowsHostOut[]; enabled: boolean }>('/windows/hosts').then(r => r.data),
   setManaged: (hostId: number, managed: boolean) =>
     api.post<WindowsHostOut>(`/windows/hosts/${hostId}/managed`, { managed }).then(r => r.data),
+  setHostCredential: (hostId: number, credentialId: number | null) =>
+    api.post<WindowsHostOut>(`/windows/hosts/${hostId}/credential`, { credential_id: credentialId }).then(r => r.data),
   check: (hostId: number) =>
     api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/check`).then(r => r.data),
   upgrade: (hostId: number, reason: string) =>

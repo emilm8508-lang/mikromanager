@@ -424,6 +424,13 @@ class WindowsHost(Base):
     # physical iDRAC — confirmed live: several Windows hosts at one site
     # turned out to be Hyper-V guests, not the physical hypervisor itself.
     system_model = Column(String, nullable=True)
+    # Per-host credential override — falls back to WindowsManageSettings'
+    # shared credential when unset. Confirmed necessary live: a real
+    # environment can have BOTH domain-joined and workgroup-only Windows
+    # hosts needing genuinely different accounts, which a single shared
+    # credential can never cover for both at once. Mirrors DellServer's
+    # own credential_id exactly (services/dell_monitor.py).
+    credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
 
 
 class WindowsHostDisk(Base):
@@ -753,6 +760,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_resources_check_at DATETIME"))
             if "system_model" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN system_model TEXT"))
+            if "credential_id" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN credential_id INTEGER"))
 
     if "windows_manage_settings" in inspector.get_table_names():
         wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}

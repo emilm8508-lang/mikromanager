@@ -748,7 +748,9 @@
     "windows": {
         "fullScanHintText": "Ten skan obejmuje też podatności (CVE), wykrywanie hostów Linux/Dell, urządzenia Mikrotik/Cisco i odświeżenie wersji RouterOS na znanych urządzeniach — to jeden, wspólny mechanizm dla całej sieci, nie tylko Windows.",
         "settingsTitle": "Wspólne poświadczenie",
-        "settingsHint": "Jedno poświadczenie WinRM używane do wszystkich hostów Windows — bez wyboru per-host.",
+        "settingsHint": "Domyślne poświadczenie WinRM dla wszystkich hostów Windows — każdy host może dostać własne, nadpisujące poniżej (przydatne gdy masz hosty w domenie i poza domeną naraz).",
+        "hostCredentialLabel": "Poświadczenie tego hosta:",
+        "hostCredentialShared": "— wspólne (domyślne) —",
         "disabledWarning": "Zarządzanie Windows jest wyłączone. Instalacja aktualizacji/restart nie zadziałają, dopóki nie włączysz go powyżej (albo z Centrali).",
         "manageEnabledToggle": "Zarządzanie Windows włączone",
         "noCredential": "— nie wybrano —",

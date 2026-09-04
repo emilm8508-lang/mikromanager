@@ -13,6 +13,10 @@ class ManagedIn(BaseModel):
     managed: bool
 
 
+class HostCredentialIn(BaseModel):
+    credential_id: int | None = None
+
+
 class SettingsIn(BaseModel):
     credential_id: int | None = None
     manage_enabled: bool | None = None
@@ -58,6 +62,11 @@ async def list_hosts():
 @router.post("/hosts/{host_id}/managed")
 async def set_managed(host_id: int, payload: ManagedIn):
     return windows_manage.set_managed(host_id, payload.managed)
+
+
+@router.post("/hosts/{host_id}/credential")
+async def set_host_credential(host_id: int, payload: HostCredentialIn):
+    return windows_manage.set_credential(host_id, payload.credential_id)
 
 
 @router.post("/hosts/{host_id}/check")

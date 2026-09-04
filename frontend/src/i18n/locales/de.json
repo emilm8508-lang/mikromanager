@@ -632,7 +632,9 @@
     "windows": {
         "fullScanHintText": "Dieser Scan deckt auch CVE-Schwachstellen, die Erkennung von Linux/Dell-Hosts, Mikrotik/Cisco-Geräte und die Aktualisierung der RouterOS-Version bekannter Geräte ab — ein gemeinsamer Mechanismus für das gesamte Netzwerk, nicht nur Windows.",
         "settingsTitle": "Gemeinsame Zugangsdaten",
-        "settingsHint": "Ein WinRM-Zugangsdatensatz für alle Windows-Hosts — keine Auswahl pro Host.",
+        "settingsHint": "Standard-WinRM-Zugangsdaten für alle Windows-Hosts — jeder Host kann unten eine eigene Überschreibung erhalten (nützlich bei einer Mischung aus Domänen- und Arbeitsgruppen-Hosts).",
+        "hostCredentialLabel": "Zugangsdaten dieses Hosts:",
+        "hostCredentialShared": "— gemeinsam (Standard) —",
         "disabledWarning": "Windows-Verwaltung ist deaktiviert. Installieren/Neustart funktioniert erst, wenn du es oben (oder von Central aus) aktivierst.",
         "manageEnabledToggle": "Windows-Verwaltung aktiviert",
         "noCredential": "— keine ausgewählt —",

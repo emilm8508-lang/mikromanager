@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.85 — 2026-09-04
+- Add a per-host credential override for Windows hosts (WindowsHost.credential_id, mirrors DellServer's own) - the single shared WinRM credential couldn't authenticate both domain-joined and workgroup-only hosts at once, which the user hit directly (two real hosts, one in a domain and one not, both failing "credentials rejected" against the one shared account). Every action (check/upgrade/restart/run-script/services/resources) and the automatic discovery-refresh loop now resolve each host's own assigned credential first, falling back to the shared one only when unset. New per-host credential dropdown on each Windows host card.
+
 ## 1.84 — 2026-09-04
 - Redesign the Dell/BMC server card's component health display as bold color-filled tiles (green/amber/red, one per component with an icon) instead of a row of small text badges — the user asked for something more graphical and spacious, pointing at a PRTG sensor gauge dashboard and a Grafana stat-panel dashboard as references
 

@@ -376,6 +376,17 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
   })
 
+  // Per-host credential override — a single shared credential can't
+  // authenticate BOTH domain-joined and workgroup-only hosts (confirmed
+  // live: mixed environments with both kinds), so each host can be
+  // pinned to its own credential instead of always falling back to the
+  // shared one.
+  const { data: creds = [] } = useQuery({ queryKey: ['credentials'], queryFn: credentialsApi.list })
+  const setHostCredential = useMutation({
+    mutationFn: (credentialId: number | null) => windowsApi.setHostCredential(host.id, credentialId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
+  })
+
   const setHostType = useMutation({
     mutationFn: (hostType: 'server' | 'workstation') => windowsApi.setHostType(host.id, hostType),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-hosts'] }),
@@ -457,6 +468,19 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
       {host.host_type === 'workstation' && host.managed && (
         <p className="text-[11px] text-slate-400">{t('windows.workstationOnlyNote')}</p>
       )}
+
+      <div className="flex items-center gap-2">
+        <label className="text-[11px] text-slate-500 shrink-0">{t('windows.hostCredentialLabel')}</label>
+        <select
+          value={host.credential_id ?? ''}
+          onChange={e => setHostCredential.mutate(e.target.value ? parseInt(e.target.value) : null)}
+          disabled={setHostCredential.isPending}
+          className="text-xs border border-slate-300 rounded px-1.5 py-1 text-slate-700 bg-white"
+        >
+          <option value="">{t('windows.hostCredentialShared')}</option>
+          {creds.map(c => <option key={c.id} value={c.id}>{c.name} ({c.username})</option>)}
+        </select>
+      </div>
 
       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
         <div>

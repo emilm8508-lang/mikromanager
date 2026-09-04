@@ -632,7 +632,9 @@
     "windows": {
         "fullScanHintText": "This scan also covers CVE vulnerabilities, Linux/Dell host discovery, Mikrotik/Cisco devices, and refreshing RouterOS versions on known devices — it's one shared mechanism for the whole network, not just Windows.",
         "settingsTitle": "Shared credential",
-        "settingsHint": "One WinRM credential used for every Windows host — no per-host selection.",
+        "settingsHint": "Default WinRM credential for every Windows host — each host can be given its own override below (useful when you have both domain-joined and workgroup hosts).",
+        "hostCredentialLabel": "This host's credential:",
+        "hostCredentialShared": "— shared (default) —",
         "disabledWarning": "Windows management is disabled. Install/restart won't work until you enable it above (or from Central).",
         "manageEnabledToggle": "Windows management enabled",
         "noCredential": "— none selected —",

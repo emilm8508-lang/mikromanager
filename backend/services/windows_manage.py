@@ -163,6 +163,26 @@ def _shared_credential() -> Optional[tuple]:
         return cred.username, password, cred.domain
 
 
+def _credential_for_host(host: WindowsHost) -> Optional[tuple]:
+    """(username, password, domain) for THIS specific host — its own
+    assigned credential (WindowsHost.credential_id) if set, else the
+    shared one. Confirmed necessary live: a real environment can have
+    BOTH domain-joined and workgroup-only Windows hosts, which need
+    genuinely different accounts (a domain credential doesn't apply to a
+    workgroup machine and vice versa) — a single shared credential can
+    only ever work for one of the two groups. Mirrors DellServer's own
+    per-server credential_id exactly, same reasoning."""
+    if host.credential_id:
+        with SessionLocal() as db:
+            cred = db.get(Credential, host.credential_id)
+            if cred:
+                try:
+                    return cred.username, decrypt(cred.password_enc), cred.domain
+                except Exception:
+                    pass
+    return _shared_credential()
+
+
 # ── Discovery ────────────────────────────────────────────────────────────
 
 def _identify_host_sync(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
@@ -311,19 +331,25 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
 
     # Refresh pending-update counts for already-managed hosts — best-effort
     # per host, one host's WinRM failure never aborts the rest of the pass.
+    # Uses EACH host's own credential (its assigned override, if any, else
+    # the shared one) — previously used the single shared credential
+    # captured at the top of this function for every host regardless of
+    # a per-host override, silently ignoring it on every automatic
+    # discovery-refresh pass even after being explicitly assigned.
     with SessionLocal() as db:
-        managed_hosts = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
-        managed_snapshot = [(h.id, h.ip, h.winrm_port, h.last_compliance_check_at) for h in managed_hosts]
+        managed_snapshot = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
 
     checked = 0
     vs._emit(on_event, {"type": "phase", "phase": "windows_refresh", "total": len(managed_snapshot)})
-    for idx, (host_id, ip, port, last_compliance_at) in enumerate(managed_snapshot, 1):
+    for idx, host in enumerate(managed_snapshot, 1):
+        host_id, ip, port, last_compliance_at = host.id, host.ip, host.winrm_port, host.last_compliance_check_at
         vs._emit(on_event, {"type": "progress", "phase": "windows_refresh",
                             "completed": idx, "total": len(managed_snapshot), "ip": ip})
         if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
             continue
+        h_username, h_password, h_domain = _credential_for_host(host) or (username, password, domain)
         try:
-            result = await _run_check(ip, port, username, password, domain)
+            result = await _run_check(ip, port, h_username, h_password, h_domain)
             if result["ok"]:
                 _persist_check_result(host_id, ok=True, count=result["count"], titles=result["titles"])
                 checked += 1
@@ -612,9 +638,9 @@ async def check_updates(host_id: int) -> dict:
             return {"error": "host not found or not managed"}
         ip, port = host.ip, host.winrm_port
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     _jobs[host_id] = {"status": "checking", "started_at": datetime.utcnow().isoformat(),
@@ -656,9 +682,9 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
         ip, port = host.ip, host.winrm_port
         identity = host.hostname or host.ip
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     async with _upgrade_semaphore:
@@ -721,9 +747,9 @@ async def restart_host(host_id: int, reason: str) -> dict:
         ip, port = host.ip, host.winrm_port
         identity = host.hostname or host.ip
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     _jobs[host_id] = {"status": "restarting", "started_at": datetime.utcnow().isoformat(),
@@ -829,9 +855,9 @@ async def run_script(host_id: int, script: str, reason: str) -> dict:
         ip, port = host.ip, host.winrm_port
         identity = host.hostname or host.ip
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     _jobs[host_id] = {"status": "running_script", "started_at": datetime.utcnow().isoformat(),
@@ -999,9 +1025,9 @@ async def check_host_services(host_id: int) -> dict:
     if not service_names:
         return {"ok": True, "checked": 0}
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     result = await _run_services_check(ip, port, username, password, domain, service_names)
@@ -1164,9 +1190,9 @@ async def check_host_resources(host_id: int) -> dict:
             return {"error": "host not found"}
         ip, port = host.ip, host.winrm_port
 
-    cred = _shared_credential()
+    cred = _credential_for_host(host)
     if not cred:
-        return {"error": "no shared credential configured"}
+        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
     username, password, domain = cred
 
     loop = asyncio.get_event_loop()
@@ -1243,7 +1269,7 @@ def _host_to_dict(h: WindowsHost) -> dict:
     return {
         "id": h.id, "ip": h.ip, "hostname": h.hostname,
         "os_name": h.os_name, "os_version": h.os_version, "winrm_port": h.winrm_port,
-        "managed": h.managed, "source": h.source,
+        "managed": h.managed, "source": h.source, "credential_id": h.credential_id,
         "domain": h.domain, "host_type": h.host_type,
         "first_seen_at": h.first_seen_at.isoformat() if h.first_seen_at else None,
         "last_seen_at": h.last_seen_at.isoformat() if h.last_seen_at else None,
@@ -1296,6 +1322,20 @@ def set_managed(host_id: int, managed: bool) -> dict:
         if not host:
             return {"error": "not found"}
         host.managed = managed
+        db.commit()
+        return _host_to_dict(host)
+
+
+def set_credential(host_id: int, credential_id: Optional[int]) -> dict:
+    """Assigns (or clears, credential_id=None) this ONE host's own
+    credential override — see _credential_for_host()'s docstring for why
+    this exists (mixed domain-joined/workgroup environments where a
+    single shared credential can't authenticate everywhere)."""
+    with SessionLocal() as db:
+        host = db.get(WindowsHost, host_id)
+        if not host:
+            return {"error": "not found"}
+        host.credential_id = credential_id
         db.commit()
         return _host_to_dict(host)
 

@@ -632,7 +632,9 @@
     "windows": {
         "fullScanHintText": "Este escaneo también cubre vulnerabilidades CVE, detección de hosts Linux/Dell, dispositivos Mikrotik/Cisco y actualización de la versión de RouterOS en dispositivos conocidos — un mecanismo compartido para toda la red, no solo Windows.",
         "settingsTitle": "Credencial compartida",
-        "settingsHint": "Una credencial WinRM usada para todos los hosts Windows — sin selección por host.",
+        "settingsHint": "Credencial WinRM predeterminada para todos los hosts Windows — cada host puede tener su propia anulación abajo (útil cuando tienes hosts de dominio y de grupo de trabajo a la vez).",
+        "hostCredentialLabel": "Credencial de este host:",
+        "hostCredentialShared": "— compartida (predeterminada) —",
         "disabledWarning": "La gestión de Windows está deshabilitada. Instalar/reiniciar no funcionará hasta que la habilites arriba (o desde Central).",
         "manageEnabledToggle": "Gestión de Windows habilitada",
         "noCredential": "— ninguna seleccionada —",

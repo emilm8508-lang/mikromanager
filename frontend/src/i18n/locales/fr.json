@@ -632,7 +632,9 @@
     "windows": {
         "fullScanHintText": "Ce scan couvre aussi les vulnérabilités CVE, la détection des hôtes Linux/Dell, les appareils Mikrotik/Cisco et la mise à jour de la version RouterOS des appareils connus — un mécanisme partagé pour tout le réseau, pas seulement Windows.",
         "settingsTitle": "Identifiant partagé",
-        "settingsHint": "Un seul identifiant WinRM utilisé pour tous les hôtes Windows — pas de sélection par hôte.",
+        "settingsHint": "Identifiant WinRM par défaut pour tous les hôtes Windows — chaque hôte peut avoir sa propre substitution ci-dessous (utile si vous avez des hôtes de domaine et de groupe de travail à la fois).",
+        "hostCredentialLabel": "Identifiant de cet hôte :",
+        "hostCredentialShared": "— partagé (par défaut) —",
         "disabledWarning": "La gestion Windows est désactivée. L'installation/le redémarrage ne fonctionneront pas tant que vous ne l'activez pas ci-dessus (ou depuis Central).",
         "manageEnabledToggle": "Gestion Windows activée",
         "noCredential": "— aucun sélectionné —",
