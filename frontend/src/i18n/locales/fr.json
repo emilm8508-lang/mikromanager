@@ -775,7 +775,8 @@
         "accessMethod": {
             "redfish": "Redfish (réseau)",
             "local_ism": "local (iDRAC Service Module)",
-            "local_racadm": "local (RACADM)"
+            "local_racadm": "local (RACADM)",
+            "local_omsa": "local (OMSA)"
         },
         "component": {
             "system": "Général (système)",

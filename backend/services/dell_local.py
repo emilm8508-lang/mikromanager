@@ -126,6 +126,16 @@ if (-not $racadm) {
     foreach ($c in $candidates) { if (Test-Path $c) { $racadm = Get-Item $c; break } }
 }
 if (-not $racadm) {
+    # Confirmed live: several hosts have racadm installed under a path
+    # neither PATH nor the two hardcoded rac5 locations above cover
+    # (different OpenManage/iDRAC-tools package versions use different
+    # subfolder names) — a bounded recursive search under Dell's own
+    # Program Files tree finds it regardless of the exact version.
+    $found = Get-ChildItem -Path "$env:ProgramFiles\Dell","${env:ProgramFiles(x86)}\Dell" `
+        -Filter "racadm.exe" -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $racadm = $found }
+}
+if (-not $racadm) {
     Write-Output "@@NOT_FOUND@@"
 } else {
     Write-Output "@@SYSINFO@@"
@@ -219,14 +229,127 @@ def _parse_racadm(sysinfo: str, sensors: str) -> dict:
     }
 
 
+# ── Method 3: OpenManage Server Administrator (OMSA) CLI ───────────────────
+
+# Confirmed with the user: at least one server has "Dell Server
+# Administrator" (OMSA) installed rather than iSM/RACADM — an older,
+# heavier Dell tool (own web UI on port 1311 + omreport/omconfig CLI).
+# Its LOCAL CLI use is authenticated entirely by the OS session running
+# it (whoever is an admin on the box can query it) — no separate iDRAC
+# account involved at all, which is exactly what the user described
+# ("uwierzytelnienie tam jest danymi konta admin serwera"). That means
+# no credential handling is needed here beyond the shared WinRM session
+# already used for iSM/RACADM above.
+#
+# Like iSM's WMI class names, the exact omreport output below is
+# UNVERIFIED against a live OMSA install from this dev environment (no
+# real Dell hardware here) — written defensively (a parsing miss just
+# leaves that one field None, never crashes) and is the next thing to
+# confirm/adjust against real output, same as iSM/RACADM were earlier.
+_OMSA_SCRIPT = r"""
+$omreport = Get-Command omreport.exe -ErrorAction SilentlyContinue
+if (-not $omreport) {
+    $found = Get-ChildItem -Path "$env:ProgramFiles\Dell","${env:ProgramFiles(x86)}\Dell" `
+        -Filter "omreport.exe" -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $omreport = $found }
+}
+if (-not $omreport) {
+    Write-Output "@@NOT_FOUND@@"
+} else {
+    Write-Output "@@CHASSIS@@"
+    & $omreport.Source chassis
+    Write-Output "@@SUMMARY@@"
+    & $omreport.Source system summary
+}
+"""
+
+
+def _check_omsa_sync(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> dict:
+    """Blocking — run via loop.run_in_executor. Locates omreport.exe (PATH,
+    or a bounded recursive search under Dell's Program Files tree — OMSA's
+    install layout varies by version) and runs the two most universally
+    stable read-only commands: `chassis` (per-component health summary)
+    and `system summary` (identity — model/service tag/BIOS)."""
+    import winrm
+    user = vs._ntlm_user(username, domain)
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman",
+        auth=(user, password),
+        transport="ntlm",
+        server_cert_validation="ignore",
+        read_timeout_sec=45, operation_timeout_sec=40,
+    )
+    try:
+        result = session.run_ps(_OMSA_SCRIPT)
+        if result.status_code != 0:
+            return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
+        output = result.std_out.decode("utf-8", errors="ignore")
+        if "@@NOT_FOUND@@" in output:
+            return {"ok": False, "available": False, "error": "omreport.exe not found on this host"}
+        _, _, rest = output.partition("@@CHASSIS@@")
+        chassis, _, summary = rest.partition("@@SUMMARY@@")
+        return {"ok": True, "available": True, "chassis": chassis, "summary": summary}
+    finally:
+        vs._close_winrm(session)
+
+
+# omreport chassis prints a "SEVERITY : COMPONENT" table, e.g.
+# "Ok       : Fans" — anchored on the severity word at line start since
+# component names themselves can contain colons/spaces.
+_OMSA_HEALTH_LINE_RE = re.compile(
+    r"^(Ok|Critical|Warning|Non-Critical|Non-Recoverable|Unknown)\s*:\s*(.+?)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+# omreport system summary prints a loose "Attribute<spaces>Value" table.
+_OMSA_ATTR_LINE_RE = re.compile(r"^([A-Za-z][\w .()/-]*?)\s{2,}(\S.*?)\s*$", re.MULTILINE)
+
+_OMSA_STATUS_MAP = {
+    "ok": "OK", "warning": "Warning", "non-critical": "Warning",
+    "critical": "Critical", "non-recoverable": "Critical", "unknown": None,
+}
+
+
+def _parse_omsa(chassis: str, summary: str) -> dict:
+    component_healths = []
+    for status, component in _OMSA_HEALTH_LINE_RE.findall(chassis):
+        mapped = _OMSA_STATUS_MAP.get(status.strip().lower())
+        if mapped:
+            component_healths.append((component.strip().lower(), mapped))
+
+    def _worst_for(*prefixes: str) -> Optional[str]:
+        order = {"Critical": 0, "Warning": 1, "OK": 2}
+        matching = [h for c, h in component_healths if any(p in c for p in prefixes)]
+        return min(matching, key=lambda h: order[h]) if matching else None
+
+    order = {"Critical": 0, "Warning": 1, "OK": 2}
+    all_healths = [h for _, h in component_healths]
+    overall = min(all_healths, key=lambda h: order[h]) if all_healths else None
+
+    fields = dict(_OMSA_ATTR_LINE_RE.findall(summary))
+    return {
+        "health_rollup": overall,
+        "model": fields.get("System Model") or fields.get("Chassis Model"),
+        "service_tag": fields.get("System Service Tag") or fields.get("Service Tag"),
+        "bios_version": fields.get("System BIOS Version") or fields.get("BIOS Version"),
+        "fans_temperature": _worst_for("fan", "temperature"),
+        "power": _worst_for("power", "voltage", "battery"),
+    }
+
+
 # ── Orchestration ────────────────────────────────────────────────────────
 
 async def collect_local_health(host_id: int) -> dict:
-    """Tries iSM first, then RACADM, against the WindowsHost identified by
-    host_id — using that host's own already-configured shared WinRM
-    credential (services/windows_manage.py's WindowsManageSettings), not a
-    separate one. Returns {"ok": False, "error": ...} only if BOTH methods
-    fail to find any usable tool at all."""
+    """Tries iSM, then RACADM, then OMSA (omreport) — in that order,
+    against the WindowsHost identified by host_id — using that host's
+    own already-configured shared WinRM credential (services/
+    windows_manage.py's WindowsManageSettings), not a separate one.
+    Per the user's explicit ask ("różnie, najlepiej żeby agent był
+    uniwersalny i sprawdzał wszystkie możliwości"), all three are tried
+    defensively — different servers have different tools installed, and
+    OMSA specifically is confirmed present on at least one of the user's
+    servers where iSM/RACADM aren't. Returns {"ok": False, "error": ...}
+    only if ALL THREE methods fail to find any usable tool at all."""
     from models.database import SessionLocal, WindowsHost
     with SessionLocal() as db:
         host = db.get(WindowsHost, host_id)
@@ -278,12 +401,33 @@ async def collect_local_health(host_id: int) -> dict:
                     "storage": None,
                 }, "sel_entries": []}
 
-    # Surface BOTH underlying errors instead of one generic "is one of them
-    # installed?" message — confirmed necessary live: a host can show iSM
-    # as "Status: Running" in its own web UI yet still fail here, meaning
-    # the real problem is this module's guessed WMI namespace/class name
-    # (or racadm.exe's path), not absence of the tool. Without the actual
-    # per-method error there was no way to tell those apart.
+    try:
+        omsa = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _check_omsa_sync, ip, port, username, password, domain),
+            timeout=60,
+        )
+    except Exception as e:
+        omsa = {"ok": False, "available": False, "error": str(e)}
+
+    if omsa.get("ok") and omsa.get("available"):
+        parsed = _parse_omsa(omsa["chassis"], omsa["summary"])
+        return {"ok": True, "access_method": "local_omsa", **parsed,
+                "power_state": None, "components": {
+                    "system": parsed.get("health_rollup"),
+                    "cpu": None, "memory": None,
+                    "power": parsed.get("power"), "fans_temperature": parsed.get("fans_temperature"),
+                    "storage": None,
+                }, "sel_entries": []}
+
+    # Surface ALL THREE underlying errors instead of one generic "is one
+    # of them installed?" message — confirmed necessary live: a host can
+    # show iSM as "Status: Running" in its own web UI yet still fail here,
+    # meaning the real problem is this module's guessed WMI namespace/
+    # class name (or racadm.exe's/omreport.exe's path), not absence of
+    # the tool. Without the actual per-method error there was no way to
+    # tell those apart.
     return {"ok": False, "error": (
-        f"iSM: {ism.get('error', 'unknown error')} | RACADM: {racadm.get('error', 'unknown error')}"
+        f"iSM: {ism.get('error', 'unknown error')} | "
+        f"RACADM: {racadm.get('error', 'unknown error')} | "
+        f"OMSA: {omsa.get('error', 'unknown error')}"
     )}

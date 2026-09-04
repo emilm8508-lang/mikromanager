@@ -2,6 +2,11 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.82 — 2026-09-04
+- Add OMSA (OpenManage Server Administrator / "Dell Server Administrator") as a third local Dell health-check method, alongside iSM/RACADM — confirmed live that some servers only have this one installed; its local CLI authenticates via the Windows OS session itself, no separate credential needed
+- Broaden the RACADM/OMSA path search with a bounded recursive scan under Dell's Program Files tree, not just the two hardcoded rac5 paths — different OpenManage/iDRAC-tools package versions install to different subfolders
+- Add docs/dell-idrac-setup.md — a setup and troubleshooting guide for getting a Dell server's health checks working (which tool to install, how the three local methods differ, how to diagnose "installed but still failing")
+
 ## 1.81 — 2026-09-04
 - Poll Mikrotik devices for resources/interfaces once an hour instead of every 2 minutes (30x/hour was confirmed excessive), decoupled the same way Linux/Windows already were — the fast 2-minute cycle now only does a cheap DB-only threshold check
 - Automatically fetch each router's log every hour and surface new critical/error entries as alert events (agent -> Central -> Telegram), deduped so the same buffered entry never re-fires; previously this only existed as a live, on-demand dashboard view nobody saw unless they had it open
