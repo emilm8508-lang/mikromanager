@@ -272,6 +272,7 @@
                     "subtitle":  "Агрегированный вид всех клиентов через relay-сервер",
                     "tabViewer":  "Viewer (ноутбук)",
                     "tabAgent":  "Agent (uplink)",
+                    "tabServers":  "Физические серверы",
                     "tabUsers":  "Пользователи",
                     "agentUplink":  "Отправка в центр",
                     "enabled":  "Включено",

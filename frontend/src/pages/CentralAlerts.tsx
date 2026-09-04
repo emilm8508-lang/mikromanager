@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus } from '../lib/api'
+import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
 
 function formatDate(iso: string): string {
   try {
@@ -1491,7 +1492,12 @@ function dellHealthClass(h: string | null): string {
   return 'bg-slate-100 text-slate-500'
 }
 
-function DellCentralPanel() {
+// Own top-level Central tab ("Serwery fizyczne") rather than a panel
+// tucked inside Monitoring — the user asked for the same graphical tile
+// view built for the agent's own Dell/BMC page to also be available in
+// Central, promoted to its own clearly-findable position rather than
+// duplicating the data in two different visual styles in two places.
+export function PhysicalServersPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; server: CentralDellServerStatus }>>([])
   const [pendingChecks, setPendingChecks] = useState<Array<{ tenant: string; server_id: number; queued_at: string }>>([])
@@ -1539,55 +1545,61 @@ function DellCentralPanel() {
     finally { setBusyCheck(null) }
   }
 
+  const byTenant: Record<string, CentralDellServerStatus[]> = {}
+  for (const { tenant, server } of rows) {
+    (byTenant[tenant] ??= []).push(server)
+  }
+
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900">{t('dellCentral.title')}</h3>
-        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">{t('dellCentral.title')}</h2>
+          <p className="text-sm text-slate-500">{t('dellCentral.intro')}</p>
+        </div>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline shrink-0">{t('common.refresh')}</button>
       </div>
-      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
-        {t('dellCentral.intro')}
-      </div>
-      {err && <div className="text-sm text-red-600">{err}</div>}
+      {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{err}</div>}
 
       {loading ? (
         <div className="text-sm text-slate-500">{t('common.loading')}</div>
       ) : rows.length === 0 ? (
         <div className="text-sm text-slate-500">{t('dellCentral.noServers')}</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500 border-b">
-                <th className="py-1">Tenant</th>
-                <th>{t('dellCentral.server')}</th>
-                <th>{t('dellCentral.health')}</th>
-                <th>CPU</th>
-                <th>{t('dellCentral.power')}</th>
-                <th>{t('dellCentral.storage')}</th>
-                <th>{t('dellCentral.lastCheck')}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ tenant, server }) => {
-                const key = `${tenant}:${server.id}`
-                const queued = checkPendingSet.has(key)
-                return (
-                <tr key={key} className="border-b border-slate-100">
-                  <td className="py-2">{tenant}</td>
-                  <td className="font-mono text-xs">
-                    {server.name || '—'}{server.model && <span className="text-slate-400"> ({server.model})</span>}
-                    {server.vendor && server.vendor !== 'dell' && (
-                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500 uppercase">{server.vendor}</span>
+        Object.entries(byTenant).map(([tenant, servers]) => (
+          <div key={tenant} className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700">{tenant}</h3>
+            {servers.map(server => {
+              const key = `${tenant}:${server.id}`
+              const queued = checkPendingSet.has(key)
+              const components = server.components || {}
+              return (
+                <div key={server.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="font-mono text-sm text-slate-800">{server.name || '—'}</span>
+                      {server.model && <span className="text-xs text-slate-500 ml-2">{server.model}</span>}
+                      <span className="text-[10px] ml-2 inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        {VENDOR_LABELS[server.vendor ?? 'dell'] ?? server.vendor}
+                      </span>
+                    </div>
+                    {server.health_rollup && (
+                      <span className={`text-xs px-2 py-1 rounded ${dellHealthClass(server.health_rollup)}`}>
+                        {t('dellCentral.health')}: {server.health_rollup}
+                      </span>
                     )}
-                  </td>
-                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.health_rollup)}`}>{server.health_rollup || '—'}</span></td>
-                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.cpu ?? null)}`}>{server.components?.cpu || '—'}</span></td>
-                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.power ?? null)}`}>{server.components?.power || '—'}</span></td>
-                  <td><span className={`text-xs px-1.5 py-0.5 rounded ${dellHealthClass(server.components?.storage ?? null)}`}>{server.components?.storage || '—'}</span></td>
-                  <td className="text-xs text-slate-500">{server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}</td>
-                  <td className="text-right">
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2">
+                    {DELL_COMPONENT_KEYS.map(k => (
+                      <ComponentTile key={k} label={t(`dell.component.${k}`) as string}
+                        value={(components as Record<string, string | null | undefined>)[k] ?? null}
+                        Icon={COMPONENT_ICONS[k]} />
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
+                    <span>{server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}</span>
                     {queued ? (
                       <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('dellCentral.queued')}</span>
                     ) : (
@@ -1596,13 +1608,12 @@ function DellCentralPanel() {
                         {t('dellCentral.checkNow')}
                       </button>
                     )}
-                  </td>
-                </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))
       )}
     </div>
   )
@@ -1707,7 +1718,6 @@ export function MonitoringPanel() {
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />
       <WindowsCentralPanel />
-      <DellCentralPanel />
     </div>
   )
 }

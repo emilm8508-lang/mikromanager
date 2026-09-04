@@ -272,6 +272,7 @@
                     "subtitle":  "Aggregated view of all customers via relay server",
                     "tabViewer":  "Viewer (laptop)",
                     "tabAgent":  "Agent (uplink)",
+                    "tabServers":  "Physical servers",
                     "tabUsers":  "Users",
                     "agentUplink":  "Send to central",
                     "enabled":  "Enabled",

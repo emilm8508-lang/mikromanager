@@ -272,6 +272,7 @@
                     "subtitle":  "Vue agrégée de tous les clients via serveur relais",
                     "tabViewer":  "Viewer (laptop)",
                     "tabAgent":  "Agent (uplink)",
+                    "tabServers":  "Serveurs physiques",
                     "tabUsers":  "Utilisateurs",
                     "agentUplink":  "Envoyer au central",
                     "enabled":  "Activé",

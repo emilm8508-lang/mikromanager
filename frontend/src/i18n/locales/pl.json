@@ -276,6 +276,7 @@
                     "tabViewer":  "Viewer (laptop)",
                     "tabAgent":  "Agent (uplink)",
                     "tabMonitoring":  "Monitoring",
+                    "tabServers":  "Serwery fizyczne",
                     "tabAlerts":  "Alerty",
                     "tabUsers":  "Użytkownicy",
                     "agentUplink":  "Wysyłanie do centrali",

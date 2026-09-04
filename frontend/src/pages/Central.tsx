@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
-import { AlertsPanel, MonitoringPanel } from './CentralAlerts'
+import { AlertsPanel, MonitoringPanel, PhysicalServersPanel } from './CentralAlerts'
 import { UsersPanel } from './CentralUsers'
 import { Modal } from '../components/ui/Modal'
 
@@ -1151,7 +1151,7 @@ function ViewerPanel() {
 
 export function Central() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'agent' | 'viewer' | 'monitoring' | 'alerts' | 'users'>('viewer')
+  const [tab, setTab] = useState<'agent' | 'viewer' | 'monitoring' | 'servers' | 'alerts' | 'users'>('viewer')
   const isConfigured = !!centralConfig.load()
 
   return (
@@ -1180,6 +1180,12 @@ export function Central() {
           }`}>
           {t('central.tabMonitoring')}
         </button>
+        <button onClick={() => setTab('servers')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'servers' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}>
+          {t('central.tabServers')}
+        </button>
         <button onClick={() => setTab('alerts')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === 'alerts' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -1199,6 +1205,7 @@ export function Central() {
       {tab === 'viewer' ? <ViewerPanel />
         : tab === 'agent' ? <UplinkPanel />
         : tab === 'monitoring' ? <MonitoringPanel />
+        : tab === 'servers' ? <PhysicalServersPanel />
         : tab === 'alerts' ? <AlertsPanel />
         : <UsersPanel />}
     </div>
