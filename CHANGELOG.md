@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.84 — 2026-09-04
+- Redesign the Dell/BMC server card's component health display as bold color-filled tiles (green/amber/red, one per component with an icon) instead of a row of small text badges — the user asked for something more graphical and spacious, pointing at a PRTG sensor gauge dashboard and a Grafana stat-panel dashboard as references
+
 ## 1.83 — 2026-09-04
 - Add network (Redfish) health monitoring for HP/HPE (iLO) and Fujitsu (iRMC) servers, alongside Dell — confirmed by the user to have ~3 such servers. Network discovery now registers any Redfish BMC with its detected vendor instead of skipping non-Dell ones; Fujitsu gets a safe default credential attempt (admin/admin) like Dell's root/calvin, HP gets none (iLO5+ has no universal default - a credential must be assigned manually rather than guessed, to avoid an account lockout)
 - Add a vendor selector to the Dell/BMC server form and a vendor badge on each server card and in Central's panel

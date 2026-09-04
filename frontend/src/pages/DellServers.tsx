@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
-import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Pencil, Search } from 'lucide-react'
+import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Pencil, Search, Cpu, MemoryStick, Zap, Fan, HardDrive, Gauge } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 
@@ -285,6 +285,39 @@ const VENDOR_LABELS: Record<string, string> = {
   dell: 'Dell', hp: 'HP/HPE', fujitsu: 'Fujitsu', lenovo: 'Lenovo',
 }
 
+const COMPONENT_ICONS: Record<string, React.ComponentType<any>> = {
+  system: Gauge, cpu: Cpu, memory: MemoryStick, power: Zap, fans_temperature: Fan, storage: HardDrive,
+}
+
+// Solid color-filled stat tiles per component — the user pointed at two
+// reference dashboards (a PRTG sensor page with ring gauges, then a
+// Grafana-style panel with bold colored status blocks) asking for
+// something more graphical/spacious than a row of tiny text badges now
+// that several parameters are collected per server. Went with the
+// Grafana-style solid tile: a big color fill reads at a glance even
+// faster than a ring, and is simpler/more robust to render (a colored
+// div, no SVG math) — matches the common thread in both references
+// (bold color carrying the status, not small inline text).
+const TILE_COLORS: Record<string, string> = {
+  OK: 'bg-green-500 text-white',
+  Warning: 'bg-amber-500 text-white',
+  Critical: 'bg-red-500 text-white',
+}
+
+function ComponentTile({ label, value, Icon }: {
+  label: string; value: DellHealth; Icon: React.ComponentType<any>
+}) {
+  const known = value === 'OK' || value === 'Warning' || value === 'Critical'
+  const colorClass = known ? TILE_COLORS[value as string] : 'bg-slate-100 text-slate-400'
+  return (
+    <div className={`flex flex-col items-center justify-center gap-1 rounded-lg py-3 px-2 min-w-[84px] flex-1 ${colorClass}`}>
+      <Icon size={20} />
+      <span className="text-[10px] font-medium text-center leading-tight opacity-90">{label}</span>
+      <span className="text-xs font-bold">{value || '—'}</span>
+    </div>
+  )
+}
+
 function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -303,7 +336,7 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
   const components = server.components || {}
 
   return (
-    <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+    <div className="border border-slate-200 rounded-lg p-3 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <span className="font-mono text-sm text-slate-800">{server.name || server.service_tag || server.idrac_ip}</span>
@@ -313,20 +346,18 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
             <Badge variant="blue" className="text-[10px] ml-2">{t(`dell.accessMethod.${server.access_method}`)}</Badge>
           )}
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {server.health_rollup && (
-            <Badge variant={healthBadgeVariant(server.health_rollup)} className="text-[10px]">
-              {t('dell.overallHealth')}: {server.health_rollup}
-            </Badge>
-          )}
-          {(['system', 'cpu', 'memory', 'power', 'fans_temperature', 'storage'] as const).map(k => (
-            components[k] ? (
-              <Badge key={k} variant={healthBadgeVariant(components[k] as DellHealth)} className="text-[10px]">
-                {t(`dell.component.${k}`)}: {components[k]}
-              </Badge>
-            ) : null
-          ))}
-        </div>
+        {server.health_rollup && (
+          <Badge variant={healthBadgeVariant(server.health_rollup)} className="text-xs">
+            {t('dell.overallHealth')}: {server.health_rollup}
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2">
+        {(['system', 'cpu', 'memory', 'power', 'fans_temperature', 'storage'] as const).map(k => (
+          <ComponentTile key={k} label={t(`dell.component.${k}`) as string}
+            value={(components[k] as DellHealth) ?? null} Icon={COMPONENT_ICONS[k]} />
+        ))}
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
