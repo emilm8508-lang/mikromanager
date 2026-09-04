@@ -1,9 +1,10 @@
-# Monitorowanie serwerów Dell (iDRAC) — instalacja i rozwiązywanie problemów
+# Monitorowanie serwerów (iDRAC/iLO/iRMC) — instalacja i rozwiązywanie problemów
 
-Ten dokument opisuje, jak przygotować serwer Dell, żeby MikroManager mógł
+Ten dokument opisuje, jak przygotować serwer Dell (a od niedawna też
+HP/HPE i Fujitsu — patrz sekcja na końcu), żeby MikroManager mógł
 odczytywać jego stan zdrowia (CPU/pamięć/zasilanie/wentylatory/dyski) —
-zarówno przez sieć (Redfish), jak i lokalnie przez host Windows/Hyper-V,
-gdy iDRAC nie ma własnego adresu w sieci.
+zarówno przez sieć (Redfish), jak i lokalnie przez host Windows/Hyper-V
+(na razie tylko dla Dell), gdy BMC nie ma własnego adresu w sieci.
 
 ## Dwie zupełnie różne ścieżki dostępu
 
@@ -133,19 +134,27 @@ tym serwerze) i że wspólne poświadczenie w zakładce Windows jest
 poprawne (to samo konto, którym normalnie logujesz się/zarządzasz tym
 serwerem).
 
-## Serwery innych producentów (HP, Fujitsu, Lenovo)
+## Serwery innych producentów (HP, Fujitsu — sieciowo)
 
-Agent automatycznie wykrywa dowolny serwer mówiący protokołem Redfish po
-sieci (nie tylko Dell) — ale **na razie celowo NIE rejestruje** takich
-serwerów jako "Dell", żeby nie użyć złego domyślnego hasła. Zamiast tego
-pokazuje notatkę w rodzaju:
+Agent monitoruje też serwery HP/HPE (iLO) i Fujitsu (iRMC), **ale na razie
+wyłącznie sieciowo (Redfish)** — lokalna ścieżka przez WinRM (jak
+iSM/RACADM/OMSA dla Della) jeszcze dla nich nie istnieje. Jeśli taki
+serwer ma BMC bez własnego adresu w sieci, na razie nie da się go
+monitorować (zgłoś to, jeśli tak jest u Ciebie).
 
-```
-Redfish BMC innego producenta wykryty (Oem: Hpe) — pominięto, obsługiwane jest na razie tylko Dell/iDRAC
-```
+Przy dodawaniu serwera (albo po automatycznym wykryciu) wybierz
+producenta w polu **"Producent"**:
 
-Pełne wsparcie dla HP iLO / Lenovo XCC / Fujitsu iRMC to osobna, większa
-funkcja — jeśli masz takie serwery i chcesz je monitorować tym samym
-mechanizmem, zgłoś to, żeby to zbudować (kod jest już zaprojektowany pod
-reużycie, ale wymaga osobnych domyślnych poświadczeń i weryfikacji na
-Twoim sprzęcie, bo każdy producent ma inne zasady dostępu).
+- **Dell** — domyślne poświadczenie `root`/`calvin` próbowane automatycznie.
+- **Fujitsu (iRMC)** — domyślne poświadczenie `admin`/`admin` próbowane
+  automatycznie (typowe dla iRMC S4/S5 — jeśli zostało zmienione,
+  przypisz własne poświadczenie).
+- **HP/HPE (iLO)** — **brak automatycznej próby logowania**. Nowsze iLO
+  (5 i wyżej) generują unikalne, losowe hasło per-serwer (widoczne na
+  naklejce z tyłu obudowy albo w BIOS-ie) — nie ma jednego uniwersalnego
+  hasła do wypróbowania, więc trzeba samodzielnie dodać poświadczenie w
+  zakładce Poświadczenia i przypisać je do tego serwera ręcznie.
+
+Wykrywanie sieciowe samo rozpoznaje producenta (przez pole `Oem` w
+odpowiedzi Redfish, bez logowania) i pokazuje odznakę producenta przy
+każdym serwerze na liście.
