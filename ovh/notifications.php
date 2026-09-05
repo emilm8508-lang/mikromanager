@@ -265,9 +265,11 @@ function edge_check_ip(string $ip, ?int $port = null, int $timeout = 3): array {
     // Try ICMP first
     if (function_exists('exec')) {
         $safe = escapeshellarg($ip);
+        // Capture stderr too (2>&1, not 2>/dev/null) — needed to tell a real
+        // "no reply" from ping itself being unable to run at all (see below).
         $cmd = stripos(PHP_OS, 'WIN') === 0
-            ? "ping -n 1 -w " . ($timeout * 1000) . " $safe"
-            : "ping -c 1 -W $timeout $safe 2>/dev/null";
+            ? "ping -n 1 -w " . ($timeout * 1000) . " $safe 2>&1"
+            : "ping -c 1 -W $timeout $safe 2>&1";
         $out = []; $code = 1;
         @exec($cmd, $out, $code);
         if ($code === 0) {
@@ -275,6 +277,32 @@ function edge_check_ip(string $ip, ?int $port = null, int $timeout = 3): array {
         }
         // If exec worked but ping failed, honor the result — don't fallback
         // (avoid false positives just because port 80 responds while ICMP is down)
+        //
+        // EXCEPT: some shared-hosting environments allow exec() itself but
+        // deny the `ping` binary the raw socket it needs (no CAP_NET_RAW /
+        // lost setuid bit) — every single invocation then fails identically
+        // regardless of target, which is a different situation from "this
+        // one host didn't reply". iputils' own exit code convention already
+        // distinguishes this: 1 = no reply received, 2 = ping couldn't even
+        // run (bad args, or exactly this permission case). Confirmed live:
+        // every ICMP-configured edge device on this account failed with
+        // exit code 2, while the one device configured with a TCP port
+        // checked fine — pointing at the environment, not the targets.
+        $out_text = trim(implode("\n", $out));
+        $no_raw_socket = $code === 2 && (
+            stripos($out_text, 'socket') !== false ||
+            stripos($out_text, 'permitted') !== false ||
+            stripos($out_text, 'denied') !== false
+        );
+        if ($no_raw_socket) {
+            return [
+                'ok' => false,
+                'method' => 'icmp_unavailable',
+                'detail' => "ping niedostepny na tym serwerze (brak uprawnien do gniazd ICMP) - "
+                    . "skonfiguruj port TCP dla tego urzadzenia (np. 8291/443/80), aby uzyskac "
+                    . "rzeczywisty test dostepnosci. Szczegoly: exit {$code}: {$out_text}",
+            ];
+        }
         return ['ok' => false, 'method' => 'icmp', 'detail' => "ping failed (exit code {$code})"];
     }
     // exec() disabled on this server → real ICMP is not possible at all;
