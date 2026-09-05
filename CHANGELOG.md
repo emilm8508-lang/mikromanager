@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.90 — 2026-09-05
+- Fix tunnel_monitor.py scanning Mikrotik devices every ~2 min uplink cycle instead of hourly, and doing so via several separate REST/API round-trips per device (each of WireGuard/IPsec/EoIP/GRE/VXLAN/IPIP independently tries REST then falls back to the binary API on a 404/unsupported endpoint) - reported directly, seen live in a device's own user log as frequent login/logout pairs via multiple methods even when nothing was actually wrong. This module was added after the hourly-scanning fix earlier in this effort (resource_monitor.py's DEVICE_RESOURCE_CHECK_MIN) but never got the same TTL-cache treatment - added the same pattern here (MIKROTIK_TUNNEL_CHECK_MIN, default 60 min), reusing edge_discovery.py's collect_public_ips()-style cached-scan approach.
+
 ## 1.89 — 2026-09-05
 - Add local WAN link up/down detection (wan_down/wan_up alert events), reading each WAN interface's own "running" flag straight from the router over the LAN (services/edge_discovery.py) instead of relying on an external reachability probe. Motivated by live evidence: several routers' WAN IPs kept failing every external TCP-port check tried from OVH ("connection timed out") because their own firewall correctly blocks all inbound WAN traffic by default - no external prober (OVH or another agent) could ever succeed there, since it's not specific to OVH's IP. Checking locally needs no firewall hole punched on any router and isn't affected by NAT/CGNAT/ISP filtering - a strictly better signal than continuing to fight external probing for sites where that isn't viable.
 

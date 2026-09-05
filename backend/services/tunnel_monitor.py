@@ -22,6 +22,7 @@ _WAN_STATE_PATH/_load_wan_state/_save_wan_state/collect_wan_change_events
 import asyncio
 import json
 import os
+import time
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import select
@@ -33,6 +34,16 @@ from services import activity
 
 
 _TUNNEL_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "tunnel_state.json")
+
+# How often the actual network scan runs (see _scan_all_tunnels below) —
+# collect_tunnel_events() itself is still called every ~2 min uplink cycle,
+# but only pays for a real scan once per this window. Same default (60 min)
+# as resource_monitor.py's DEVICE_RESOURCE_CHECK_MIN and the same "network
+# device scanning should be hourly, not every cycle" requirement that one
+# was built for — this module was added afterwards without the same
+# caching discipline, which is exactly why it needed fixing here too.
+TUNNEL_CHECK_MIN = int(os.environ.get("MIKROTIK_TUNNEL_CHECK_MIN", "60"))
+_scan_cache = {"data": [], "ts": 0.0}
 
 # Current per-tunnel status from the most recent collect_tunnel_events() run
 # — that function already SSHes every device to diff against persisted state,
@@ -223,16 +234,21 @@ async def _collect_device_tunnels(device_id: int) -> List[dict]:
     return out
 
 
-async def collect_tunnel_events() -> List[dict]:
-    """Walk all devices with credentials, compare each tunnel's current
-    status against the last value persisted to disk, and emit
-    tunnel_down/tunnel_up events for any transition. Self-dedupes (new
-    status saved immediately after comparison, so a change is reported
-    only once) and deliberately never prunes a tunnel's entry just because
-    this run's scan of that device failed or the device was offline —
-    same reasoning as edge_discovery.collect_wan_change_events: a
-    transient miss must not be treated as "first seen" next time it
-    succeeds."""
+async def _scan_all_tunnels() -> List[dict]:
+    """The actual network scan — every Mikrotik device's WireGuard/IPsec/
+    EoIP/GRE/VXLAN/IPIP status, several REST/API round-trips per device
+    (each independently tries REST then falls back to the binary API on a
+    404/unsupported endpoint, e.g. WireGuard queried against a device that
+    has none configured). Cached for TUNNEL_CHECK_MIN so this doesn't run
+    on the 2-min snapshot cadence — confirmed live: running this uncached
+    on every uplink cycle produced a burst of several REST+API login/logout
+    pairs per device, per cycle, on the router's own log (one pair per
+    tunnel type checked) — reported directly as "checks too often, and via
+    several login methods even when it succeeds"."""
+    now = time.time()
+    if (now - _scan_cache["ts"]) < TUNNEL_CHECK_MIN * 60:
+        return _scan_cache["data"]
+
     with SessionLocal() as db:
         devices = db.execute(
             select(Device).where(Device.credential_id.is_not(None))
@@ -260,6 +276,23 @@ async def collect_tunnel_events() -> List[dict]:
 
     results = await asyncio.gather(*[_bounded(i) for i in ids])
     current = [t for r in results for t in r]
+    _scan_cache["data"] = current
+    _scan_cache["ts"] = now
+    return current
+
+
+async def collect_tunnel_events() -> List[dict]:
+    """Compare each tunnel's current status (from _scan_all_tunnels()'s own
+    TTL-cached scan — calling this every ~2 min uplink cycle costs nothing
+    beyond the first call within each TUNNEL_CHECK_MIN window) against the
+    last value persisted to disk, and emit tunnel_down/tunnel_up events for
+    any transition. Self-dedupes (new status saved immediately after
+    comparison, so a change is reported only once) and deliberately never
+    prunes a tunnel's entry just because this run's scan of that device
+    failed or the device was offline — same reasoning as
+    edge_discovery.collect_wan_change_events: a transient miss must not be
+    treated as "first seen" next time it succeeds."""
+    current = await _scan_all_tunnels()
 
     global _last_status
     _last_status = current
