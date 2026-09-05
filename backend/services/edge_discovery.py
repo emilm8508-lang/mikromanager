@@ -13,7 +13,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, Credential
@@ -24,7 +24,13 @@ from services import activity
 # Cache full scan for SCAN_TTL_SEC — same reason as alerts.py: uplink runs
 # every 2 min but there's no reason to poll every device that often.
 SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_EDGE_SCAN_TTL", "3600"))
-_scan_cache = {"data": [], "ts": 0.0}
+# "data" = flat public-IP list (collect_public_ips()'s own contract, used
+# for OVH edge-device sync + wan_ip_changed — must stay public-only, OVH
+# can't ping a private address). "wan_iface_data" = one entry per device
+# for its WAN-facing interface's running-state, regardless of whether that
+# interface's own address is public or private (see _find_wan_iface below)
+# — used only by collect_wan_link_events()/get_wan_link_status().
+_scan_cache = {"data": [], "wan_iface_data": [], "ts": 0.0}
 
 
 import re
@@ -69,8 +75,57 @@ def _strip_prefix(addr: str) -> str:
     return addr.split("/", 1)[0].strip()
 
 
-async def _scan_device(device_id: int) -> List[dict]:
-    """Return one entry per public IP found on this device (multi-WAN safe)."""
+def _find_wan_iface_from_routes(routes: list, addrs: list) -> Optional[str]:
+    """Identify the WAN-facing interface via the active default route's
+    gateway, matched against which local interface's own subnet contains
+    that gateway IP.
+
+    This is deliberately NOT based on which interface holds a public
+    address — confirmed live (mcprojekt): a router can have NO public
+    address anywhere at all (double-NAT / ISP CGNAT, e.g. ether1 holding
+    only 192.168.0.2, an address assigned by the ISP's own upstream box)
+    while still having a perfectly well-defined WAN-facing interface whose
+    up/down state is exactly as meaningful to monitor as a directly-public
+    one. Subnet-matching against the gateway works regardless of whether
+    that subnet happens to be private, unlike public-IP-based discovery
+    (still used, unchanged, for collect_public_ips()'s different purpose:
+    finding an address OVH could actually ping from outside)."""
+    default_gw = None
+    for r in routes or []:
+        dst = str(r.get("dst-address") or "")
+        active = str(r.get("active", "false")).lower() in ("true", "yes")
+        if dst.startswith("0.0.0.0/0") and active:
+            gw = r.get("gateway")
+            if gw:
+                default_gw = str(gw).split("%")[0].strip()  # strip any %iface suffix
+                break
+    if not default_gw:
+        return None
+    try:
+        gw_ip = ipaddress.ip_address(default_gw)
+    except ValueError:
+        return None
+    for a in addrs or []:
+        raw = a.get("address") or ""
+        iface = a.get("interface") or a.get("actual-interface") or ""
+        if not raw or not iface:
+            continue
+        try:
+            net = ipaddress.ip_interface(str(raw)).network
+        except ValueError:
+            continue
+        if gw_ip in net:
+            return str(iface)
+    return None
+
+
+async def _scan_device(device_id: int) -> dict:
+    """Returns {"public_ips": [...], "wan_iface": {...}|None} for one
+    device — public_ips is the existing contract (multi-WAN safe, one
+    entry per public address, feeds collect_public_ips()); wan_iface is a
+    single entry for whichever interface carries the active default
+    route, with its own running-state, regardless of whether its address
+    is public or private (see _find_wan_iface_from_routes above)."""
     with SessionLocal() as db:
         row = db.execute(
             select(Device, Credential)
@@ -78,14 +133,16 @@ async def _scan_device(device_id: int) -> List[dict]:
             .where(Device.id == device_id)
         ).one_or_none()
         if not row:
-            return []
+            return {"public_ips": [], "wan_iface": None}
         device, cred = row
 
     client = build_client(device, cred)
     try:
         addrs = await asyncio.wait_for(client.get_ip_addresses(), timeout=8)
     except Exception:
-        return []
+        return {"public_ips": [], "wan_iface": None}
+
+    device_name = device.identity or device.name or device.ip
 
     # "running" state straight from the router's own /interface list — same
     # field/normalization the tunnel-status code already relies on
@@ -106,7 +163,7 @@ async def _scan_device(device_id: int) -> List[dict]:
     except Exception:
         pass  # missing running-state just means "unknown" below, not fatal
 
-    out = []
+    public_ips = []
     seen = set()
     for a in addrs or []:
         # Field names vary between REST/API-binary — try both
@@ -120,23 +177,38 @@ async def _scan_device(device_id: int) -> List[dict]:
         if _is_tunnel_iface(str(iface)):
             continue
         seen.add(ip)
-        out.append({
+        public_ips.append({
             "ip": ip,
             "iface": str(iface),
             "device_id": device.id,
-            "device_name": device.identity or device.name or device.ip,
+            "device_name": device_name,
             "running": iface_running.get(str(iface)),  # None = couldn't be determined
         })
-    return out
+
+    wan_iface = None
+    try:
+        routes = await asyncio.wait_for(client.get_routes(), timeout=8)
+        wan_iface_name = _find_wan_iface_from_routes(routes, addrs)
+        if wan_iface_name and not _is_tunnel_iface(wan_iface_name):
+            running = iface_running.get(wan_iface_name)
+            if running is not None:
+                wan_iface = {
+                    "device_id": device.id,
+                    "device_name": device_name,
+                    "iface": wan_iface_name,
+                    "running": running,
+                }
+    except Exception:
+        pass
+
+    return {"public_ips": public_ips, "wan_iface": wan_iface}
 
 
-async def collect_public_ips() -> List[dict]:
-    """Walk all devices with credentials, return flat list of public IPs.
-    Cached for SCAN_TTL_SEC to prevent flooding device logs."""
-    now = time.time()
-    if (now - _scan_cache["ts"]) < SCAN_TTL_SEC:
-        return _scan_cache["data"]
-
+async def _run_full_scan() -> None:
+    """Shared by collect_public_ips()/get_wan_link_status() — one pass over
+    every device populates BOTH cache entries, so a device is never queried
+    twice within the same SCAN_TTL_SEC window just because two different
+    features each want a different slice of the same scan."""
     with SessionLocal() as db:
         ids = [d.id for d in db.execute(
             select(Device).where(Device.credential_id.is_not(None))
@@ -149,15 +221,29 @@ async def collect_public_ips() -> List[dict]:
             try:
                 return await _scan_device(did)
             except Exception:
-                return []
+                return {"public_ips": [], "wan_iface": None}
 
     results = await asyncio.gather(*[_bounded(i) for i in ids])
-    flat = []
+    public_flat = []
+    wan_iface_flat = []
     for r in results:
-        flat.extend(r)
-    _scan_cache["data"] = flat
-    _scan_cache["ts"] = now
-    return flat
+        public_flat.extend(r.get("public_ips") or [])
+        wi = r.get("wan_iface")
+        if wi:
+            wan_iface_flat.append(wi)
+    _scan_cache["data"] = public_flat
+    _scan_cache["wan_iface_data"] = wan_iface_flat
+    _scan_cache["ts"] = time.time()
+
+
+async def collect_public_ips() -> List[dict]:
+    """Walk all devices with credentials, return flat list of public IPs.
+    Cached for SCAN_TTL_SEC to prevent flooding device logs."""
+    now = time.time()
+    if (now - _scan_cache["ts"]) < SCAN_TTL_SEC:
+        return _scan_cache["data"]
+    await _run_full_scan()
+    return _scan_cache["data"]
 
 
 # ── WAN IP change detection ──────────────────────────────────────────────
@@ -265,12 +351,24 @@ def _save_wan_link_state(state: dict) -> None:
         print(f"[edge_discovery] wan link state persist error: {e}")
 
 
+async def _get_wan_iface_data() -> List[dict]:
+    """Ensures the shared scan is fresh (same TTL/cache as
+    collect_public_ips(), see _run_full_scan()) then returns the
+    WAN-interface slice — one entry per device's WAN-facing interface,
+    public or private address alike (see _find_wan_iface_from_routes)."""
+    now = time.time()
+    if (now - _scan_cache["ts"]) >= SCAN_TTL_SEC:
+        await _run_full_scan()
+    return _scan_cache["wan_iface_data"]
+
+
 async def collect_wan_link_events() -> List[dict]:
     """Compare each WAN interface's current running-state against the last
     persisted value, emitting wan_down/wan_up on an actual transition.
-    Reuses collect_public_ips()'s own TTL cache, so this adds no extra
-    device polling beyond what collect_wan_change_events() already does."""
-    current = await collect_public_ips()
+    Reuses the same shared scan as collect_public_ips() (_run_full_scan()),
+    so this adds no extra device polling beyond what
+    collect_wan_change_events() already does."""
+    current = await _get_wan_iface_data()
     state = _load_wan_link_state()
     events: List[dict] = []
     now_iso = datetime.utcnow().isoformat()
@@ -303,22 +401,22 @@ async def collect_wan_link_events() -> List[dict]:
 
 
 def get_wan_link_status() -> dict:
-    """Per-device latest known WAN link status, straight from
-    collect_public_ips()'s own cached scan (no extra polling) — used by
-    devices.py to show a live up/down badge on the Devices page, separate
-    from collect_wan_link_events()'s own transition-only alert_events.
+    """Per-device latest known WAN link status, straight from the shared
+    scan's WAN-interface slice (see _find_wan_iface_from_routes — works
+    whether that interface's own address is public or private, e.g. behind
+    an ISP's double-NAT) — used by devices.py to show a live up/down badge
+    on the Devices page, separate from collect_wan_link_events()'s own
+    transition-only alert_events. Reads whatever the background scan last
+    found — does not itself trigger a fresh scan (this is called from a
+    plain, synchronous API request handler).
 
-    A device absent from the returned dict simply has no known public WAN
-    IP yet (never scanned, genuinely none found, or running-state couldn't
-    be determined this poll) — distinct from "down", so callers must not
-    treat a missing key as "down" and must know to render nothing rather
-    than a false badge.
-
-    Multi-WAN safe: if a device has more than one public interface, "down"
-    wins (an operator caring about this device's WAN health wants to know
-    ANY of them is down, not just the first one found)."""
+    A device absent from the returned dict simply has no known WAN
+    interface yet (never scanned, no active default route found, or
+    running-state couldn't be determined) — distinct from "down", so
+    callers must not treat a missing key as "down" and must know to render
+    nothing rather than a false badge."""
     result: dict = {}
-    for entry in _scan_cache["data"]:
+    for entry in _scan_cache["wan_iface_data"]:
         running = entry.get("running")
         if running is None:
             continue

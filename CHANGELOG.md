@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.92 — 2026-09-05
+- Fix local WAN up/down detection finding nothing at all for routers behind double-NAT/ISP CGNAT - confirmed live (mcprojekt): a router's WAN-facing interface can hold only a private address (e.g. ether1 = 192.168.0.2, assigned by the ISP's own upstream box), so the previous public-IP-based detection had literally nothing to check there. Now identifies the WAN interface via the active default route's gateway (subnet-matched against each local interface's own address) instead of requiring a public address on it - works identically whether that interface's address is public or private. collect_public_ips() (used for OVH edge-device sync, which genuinely needs a real public address) is unchanged; the new route-based detection is a separate, parallel signal feeding only the local wan_down/wan_up alerts and the Devices page badge. Both come from the same per-device scan, so this adds no extra device polling.
+
 ## 1.91 — 2026-09-05
 - Add a persistent WAN up/down badge to the Devices page, next to the existing online/offline badge - the local wan_down/wan_up detection added earlier only fired alert events with no way to see current status at a glance. Reads edge_discovery.py's own cached WAN-interface scan (no extra device polling), multi-WAN safe (a device with several public interfaces shows "down" if any one of them is). A device with no known public WAN interface shows no badge at all, rather than a misleading one.
 
