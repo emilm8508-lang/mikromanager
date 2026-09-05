@@ -2,6 +2,10 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.88 — 2026-09-05
+- Add iDRAC/BMC alert events: wire dell_monitor.py's already-built collect_dell_events() into uplink.py's snapshot (it was computing idrac_health_degraded but never actually being called), and add a second, new transition it didn't have yet - idrac_unreachable/idrac_reachable, firing when a server's health check itself starts/stops failing (BMC unreachable, credential rejected, host powered off), not just when a component's health rating degrades. Both event types are now selectable in Central's alert rules (idrac_unreachable/idrac_reachable were missing from the dropdown even though idrac_health_degraded already had full plumbing) with proper Telegram message formatting instead of the generic fallback text.
+- Add an "agent stopped sending data" alert (agent_offline/agent_online), detected server-side on OVH since a dead agent obviously can't self-report its own silence - a new tenant_stale_check_due() in ovh/notifications.php, ticked opportunistically from every incoming ingest request (same no-real-cron trick as edge_check_due()), comparing each tenant's snapshot age against a new agent_offline_threshold_sec (20 min default) distinct from the existing 5-minute display-only badge threshold, debounced via a small state file so it fires once per transition, not every request.
+
 ## 1.87 — 2026-09-05
 - Fix dell_local.py ignoring a Windows host's own per-host credential override (added in 1.85) and always using the shared credential instead - caught live: a server with OMSA confirmed working (reachable and healthy via its own web UI on port 1311) still failed all three local methods (iSM/RACADM/OMSA) with the identical generic "credentials rejected" error, because the WinRM/NTLM handshake itself was failing on the wrong shared credential before any tool got a chance to run - the per-host override existed but this code path never read it.
 

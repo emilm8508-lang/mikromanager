@@ -239,6 +239,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] resource monitor error: {e}")
 
     try:
+        from services import dell_monitor
+        alert_events += await dell_monitor.collect_dell_events()
+    except Exception as e:
+        print(f"[uplink] dell monitor error: {e}")
+
+    try:
         edge_ips = await edge_discovery.collect_public_ips()
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")

@@ -233,6 +233,40 @@ async def collect_dell_events() -> List[dict]:
             if current:
                 state[key] = current
 
+            # Reachability transition — separate from health-rollup above,
+            # since a server can be perfectly healthy right up until its
+            # iDRAC/BMC stops answering at all (network change, credential
+            # rotated on the BMC side, host powered off). last_status only
+            # refreshes once per DELL_CHECK_MIN (default 30 min) — that slow
+            # cadence is itself enough of a debounce (mirrors how
+            # idrac_health_degraded above has no separate counter either),
+            # so this fires on the very next poll's state change, not on
+            # every subsequent cycle.
+            reach_key = f"dell:{s.id}:reachable"
+            prev_reach = state.get(reach_key)
+            current_reach = s.last_status if s.last_status in ("ok", "error") else None
+            if current_reach and prev_reach and current_reach != prev_reach:
+                if current_reach == "error":
+                    events.append({
+                        "type": "idrac_unreachable", "server_id": s.id, "server_name": identity,
+                        "error": s.last_error, "count": 1, "detected_at": now_iso,
+                    })
+                    try:
+                        activity.record("idrac_unreachable", server_name=identity, error=s.last_error)
+                    except Exception as e:
+                        print(f"[dell_monitor] activity record error: {e}")
+                else:
+                    events.append({
+                        "type": "idrac_reachable", "server_id": s.id, "server_name": identity,
+                        "count": 1, "detected_at": now_iso,
+                    })
+                    try:
+                        activity.record("idrac_reachable", server_name=identity)
+                    except Exception as e:
+                        print(f"[dell_monitor] activity record error: {e}")
+            if current_reach:
+                state[reach_key] = current_reach
+
     _save_state(state)
     return events
 

@@ -277,6 +277,8 @@ try {
     } catch (Throwable $e) { error_log('[mm-edge-sync] ' . $e->getMessage()); }
     try { edge_check_due($pdo, 8); }
     catch (Throwable $e) { error_log('[mm-edge] ' . $e->getMessage()); }
+    try { tenant_stale_check_due($pdo, $config); }
+    catch (Throwable $e) { error_log('[mm-tenant-stale] ' . $e->getMessage()); }
 
     try {
         $fw = is_array($public_meta) ? ($public_meta['firmware_status'] ?? null) : null;

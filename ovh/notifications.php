@@ -176,6 +176,37 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                 $msg .= "\n- {$cve} ({$sev}) {$prod} — {$days} dni po terminie";
             }
             return $msg;
+        case 'idrac_health_degraded':
+            $server = $event['server_name'] ?? '?';
+            $previous = $event['previous'] ?? '?';
+            $current = $event['current'] ?? '?';
+            return "🩺 {$prefix}Pogorszenie stanu serwera (iDRAC/BMC)\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Serwer: {$server}\n"
+                 . "Poprzedni stan: {$previous}\n"
+                 . "Obecny stan: {$current}";
+        case 'idrac_unreachable':
+            $server = $event['server_name'] ?? '?';
+            $err = $event['error'] ?? '';
+            $msg = "🔴 {$prefix}Serwer niedostępny (iDRAC/BMC)\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Serwer: {$server}\n"
+                 . "Nie udało się pobrać danych z BMC.";
+            if ($err !== '') $msg .= "\nBłąd: {$err}";
+            return $msg;
+        case 'idrac_reachable':
+            $server = $event['server_name'] ?? '?';
+            return "✅ {$prefix}Serwer ponownie dostępny (iDRAC/BMC)\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Serwer: {$server}";
+        case 'agent_offline':
+            $age_min = round((int)($event['age_sec'] ?? 0) / 60);
+            return "🔌 {$prefix}Agent przestał wysyłać dane\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Brak danych od: ok. {$age_min} min";
+        case 'agent_online':
+            return "✅ {$prefix}Agent ponownie wysyła dane\n"
+                 . "Tenant: {$tenant}";
         case 'device_log_critical':
             $severity = $event['severity'] ?? '?';
             $topics = $event['topics'] ?? '';
@@ -367,6 +398,76 @@ function edge_check_due(PDO $pdo, int $max_seconds = 8): int {
         $checked++;
     }
     return $checked;
+}
+
+
+/**
+ * Detect a tenant's agent going silent (no snapshot for longer than
+ * agent_offline_threshold_sec) and fire agent_offline/agent_online through
+ * the SAME alerts_process()/alert_rules pipeline as every other event type
+ * (event_type is a free-text VARCHAR — no schema change needed there).
+ *
+ * Same "opportunistic tick" trick as edge_check_due() (shared hosting has
+ * no real cron): called from every incoming ingest.php request. Debounced
+ * by a small JSON state file (one blob, {tenant: 'online'|'offline'}) —
+ * NOT a new DB column, since a tenant flipping state is rare compared to
+ * every other per-request check in this file, and a file avoids a manual
+ * ALTER TABLE step on deploy.
+ *
+ * Deliberately distinct threshold from the display-only
+ * offline_threshold_sec (300s, used by the `tenants` API action for the
+ * passive online/offline badge) — that one is tuned for "looks stale right
+ * now" in a UI list, far too tight for an actual alert given the agent's
+ * own ~2 min heartbeat interval would make it flap on any transient delay.
+ */
+function tenant_stale_check_due(PDO $pdo, array $config): void {
+    $threshold = (int)($config['agent_offline_threshold_sec'] ?? 1200);
+    $stmt = $pdo->query(
+        'SELECT id, TIMESTAMPDIFF(SECOND, last_seen, NOW()) AS age_sec FROM tenants WHERE last_seen IS NOT NULL'
+    );
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+    if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+    $state_path = $state_dir . '/tenant_stale_state.json';
+    $state = [];
+    if (file_exists($state_path)) {
+        $decoded = json_decode((string)@file_get_contents($state_path), true);
+        if (is_array($decoded)) $state = $decoded;
+    }
+    $changed = false;
+
+    foreach ($rows as $r) {
+        $tenant = (string)$r['id'];
+        if ($r['age_sec'] === null) continue;
+        $age = (int)$r['age_sec'];
+        $current = $age >= $threshold ? 'offline' : 'online';
+        $prev = $state[$tenant] ?? null;
+
+        // Only fire on an actual transition, and only once we have a prior
+        // observed state — a tenant seen for the very first time (no prior
+        // state yet) must never immediately fire "back online" noise.
+        if ($prev !== null && $prev !== $current) {
+            $event = $current === 'offline'
+                ? ['type' => 'agent_offline', 'device_name' => $tenant, 'age_sec' => $age,
+                   'count' => 1, 'detected_at' => date('c')]
+                : ['type' => 'agent_online', 'device_name' => $tenant,
+                   'count' => 1, 'detected_at' => date('c')];
+            try {
+                alerts_process($pdo, $tenant, [$event]);
+            } catch (Throwable $e) {
+                error_log('[mm-tenant-stale] alerts_process for ' . $tenant . ': ' . $e->getMessage());
+            }
+        }
+        if ($prev !== $current) {
+            $state[$tenant] = $current;
+            $changed = true;
+        }
+    }
+
+    if ($changed) {
+        @file_put_contents($state_path, json_encode($state), LOCK_EX);
+    }
 }
 
 
