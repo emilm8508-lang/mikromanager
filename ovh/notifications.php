@@ -153,6 +153,16 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             if ($log_time !== '') $msg .= "\nCzas (wg logu urządzenia): {$log_time}";
             if ($log_msg !== '') $msg .= "\nWpis w logu: {$log_msg}";
             return $msg;
+        case 'wan_down':
+            $iface = $event['iface'] ?? '?';
+            return "🔴 {$prefix}Łącze WAN przestało działać\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device} ({$iface})";
+        case 'wan_up':
+            $iface = $event['iface'] ?? '?';
+            return "✅ {$prefix}Łącze WAN ponownie działa\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device} ({$iface})";
         case 'wan_ip_changed':
             $iface = $event['iface'] ?? '?';
             $old_ip = $event['old_ip'] ?? '?';

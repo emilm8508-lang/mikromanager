@@ -227,6 +227,11 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] WAN change detection error: {e}")
 
     try:
+        alert_events += await edge_discovery.collect_wan_link_events()
+    except Exception as e:
+        print(f"[uplink] WAN link status detection error: {e}")
+
+    try:
         from services import tunnel_monitor
         alert_events += await tunnel_monitor.collect_tunnel_events()
     except Exception as e:

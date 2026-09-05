@@ -87,6 +87,25 @@ async def _scan_device(device_id: int) -> List[dict]:
     except Exception:
         return []
 
+    # "running" state straight from the router's own /interface list — same
+    # field/normalization the tunnel-status code already relies on
+    # (get_simple_tunnel_interfaces()). Read locally over the LAN, so this
+    # needs no inbound WAN firewall rule and isn't affected by whether the
+    # router allows any external management access at all (unlike OVH/any
+    # external prober trying to reach the WAN IP from outside).
+    iface_running = {}
+    try:
+        ifaces = await asyncio.wait_for(client.get_interfaces(), timeout=8)
+        for i in ifaces or []:
+            name = i.get("name") or i.get("actual-interface") or ""
+            if not name:
+                continue
+            disabled = str(i.get("disabled", "false")).lower() in ("true", "yes")
+            running = str(i.get("running", "false")).lower() in ("true", "yes")
+            iface_running[str(name)] = running and not disabled
+    except Exception:
+        pass  # missing running-state just means "unknown" below, not fatal
+
     out = []
     seen = set()
     for a in addrs or []:
@@ -106,6 +125,7 @@ async def _scan_device(device_id: int) -> List[dict]:
             "iface": str(iface),
             "device_id": device.id,
             "device_name": device.identity or device.name or device.ip,
+            "running": iface_running.get(str(iface)),  # None = couldn't be determined
         })
     return out
 
@@ -204,4 +224,79 @@ async def collect_wan_change_events() -> List[dict]:
     # a transient scan failure) — keep the last known value so a later,
     # successful scan is compared against it, not treated as "first seen".
     _save_wan_state(state)
+    return events
+
+
+# ── WAN link up/down detection (local, no external probing needed) ──────
+# Separate state/concern from the IP-change tracking above: this reads the
+# WAN interface's own "running" flag straight from the router over the LAN
+# (see _scan_device()) — the same signal RouterOS itself uses, and the same
+# approach already used for tunnel status (get_simple_tunnel_interfaces()).
+# Deliberately NOT inferring "down" just because an entry is momentarily
+# absent from a scan (that's equally explained by a transient per-device
+# scan failure, e.g. a timeout) — only an EXPLICIT running=false from a
+# device that answered at all counts, to avoid false positives.
+#
+# This is the actual fix for sites whose router firewall correctly blocks
+# all inbound WAN traffic by default (confirmed live: several WAN IPs kept
+# timing out on every TCP port tried from OVH) — checking locally, over the
+# LAN the agent is already on, needs no firewall hole punched on any router
+# and isn't affected by NAT/CGNAT/ISP filtering at all.
+_WAN_LINK_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wan_link_state.json")
+
+
+def _load_wan_link_state() -> dict:
+    if not os.path.exists(_WAN_LINK_STATE_PATH):
+        return {}
+    try:
+        with open(_WAN_LINK_STATE_PATH) as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_wan_link_state(state: dict) -> None:
+    os.makedirs(os.path.dirname(_WAN_LINK_STATE_PATH), exist_ok=True)
+    try:
+        with open(_WAN_LINK_STATE_PATH, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print(f"[edge_discovery] wan link state persist error: {e}")
+
+
+async def collect_wan_link_events() -> List[dict]:
+    """Compare each WAN interface's current running-state against the last
+    persisted value, emitting wan_down/wan_up on an actual transition.
+    Reuses collect_public_ips()'s own TTL cache, so this adds no extra
+    device polling beyond what collect_wan_change_events() already does."""
+    current = await collect_public_ips()
+    state = _load_wan_link_state()
+    events: List[dict] = []
+    now_iso = datetime.utcnow().isoformat()
+
+    for entry in current:
+        running = entry.get("running")
+        if running is None:
+            continue  # couldn't be determined this poll — leave prior state untouched
+        key = f"{entry['device_id']}:{entry['iface']}"
+        current_status = "up" if running else "down"
+        prev_status = state.get(key)
+        if prev_status is not None and prev_status != current_status:
+            event_type = "wan_down" if current_status == "down" else "wan_up"
+            events.append({
+                "type": event_type,
+                "device_id": entry["device_id"],
+                "device_name": entry["device_name"],
+                "iface": entry["iface"],
+                "count": 1,
+                "detected_at": now_iso,
+            })
+            try:
+                activity.record(event_type, device_name=entry["device_name"], iface=entry["iface"])
+            except Exception as e:
+                print(f"[edge_discovery] activity record error: {e}")
+        state[key] = current_status
+
+    _save_wan_link_state(state)
     return events

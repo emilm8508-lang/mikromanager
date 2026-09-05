@@ -426,6 +426,8 @@
                      "eventFirmwareAvailable":  "Nowa wersja RouterOS dostepna",
                     "eventBoardFirmwareAvailable":  "Aktualizacja firmware plyty (RouterBOARD)",
                     "eventDeviceRebooted":  "Urzadzenie zrestartowane",
+                    "eventWanDown":  "Lacze WAN przestalo dzialac",
+                    "eventWanUp":  "Lacze WAN ponownie dziala",
                     "eventWanIpChanged":  "Zmiana adresu WAN",
                     "eventVulnOverdue":  "Podatności po terminie SLA",
                     "eventTunnelDown":  "Tunel VPN padl (WireGuard/IPsec)",
