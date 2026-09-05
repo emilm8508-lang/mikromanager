@@ -341,9 +341,17 @@ def _parse_omsa(chassis: str, summary: str) -> dict:
 
 async def collect_local_health(host_id: int) -> dict:
     """Tries iSM, then RACADM, then OMSA (omreport) — in that order,
-    against the WindowsHost identified by host_id — using that host's
-    own already-configured shared WinRM credential (services/
-    windows_manage.py's WindowsManageSettings), not a separate one.
+    against the WindowsHost identified by host_id — using that SPECIFIC
+    host's own resolved credential (its own per-host override if one is
+    assigned in the Windows tab, else the shared WinRM credential — see
+    windows_manage._credential_for_host()'s docstring for why a per-host
+    override exists at all). Previously always used the shared credential
+    directly regardless of any per-host override, so a host whose
+    correct credential differed from the shared one failed identically
+    across ALL THREE local methods with the same generic "credentials
+    rejected" error — that error actually came from the WinRM/NTLM
+    handshake itself failing before any of the three tools got a chance
+    to run, not from the tools individually rejecting a working session.
     Per the user's explicit ask ("różnie, najlepiej żeby agent był
     uniwersalny i sprawdzał wszystkie możliwości"), all three are tried
     defensively — different servers have different tools installed, and
@@ -357,10 +365,11 @@ async def collect_local_health(host_id: int) -> dict:
             return {"ok": False, "error": "companion Windows host not found"}
         ip, port = host.ip, host.winrm_port
 
-    cred = windows_manage._shared_credential()
+    cred = windows_manage._credential_for_host(host)
     if not cred:
-        return {"ok": False, "error": "no shared Windows credential configured "
-                                       "(zakładka Windows → ustawienia)"}
+        return {"ok": False, "error": "no credential configured for this Windows host "
+                                       "(assign one on its card, or set a shared credential "
+                                       "in zakładka Windows → ustawienia)"}
     username, password, domain = cred
 
     loop = asyncio.get_event_loop()

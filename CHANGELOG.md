@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.87 — 2026-09-05
+- Fix dell_local.py ignoring a Windows host's own per-host credential override (added in 1.85) and always using the shared credential instead - caught live: a server with OMSA confirmed working (reachable and healthy via its own web UI on port 1311) still failed all three local methods (iSM/RACADM/OMSA) with the identical generic "credentials rejected" error, because the WinRM/NTLM handshake itself was failing on the wrong shared credential before any tool got a chance to run - the per-host override existed but this code path never read it.
+
 ## 1.86 — 2026-09-04
 - Add a "Serwery fizyczne" tab to Central, showing the same graphical tile view (per-component color-coded health) as the agent's own Dell/BMC page, grouped by tenant with a "Sprawdź teraz" trigger per server - the user asked for the new tile visual to also be available in Central, promoted to its own dedicated tab instead of the old plain compact table it replaces. Extracted the tile components into a shared frontend/src/components/DellHealthTile.tsx so both pages render identically.
 
