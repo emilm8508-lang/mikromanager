@@ -106,6 +106,8 @@
                     "localSource":  "Lokalne",
                     "allSources":  "Vsi",
                     "readOnly":  "read-only",
+                    "wanUp":  "WAN працює",
+                    "wanDown":  "WAN не працює",
                     "encryptedNoKey":  "Nezashyfrovani: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Onovyty firmware na {{count}} prystroyah {{backup}}? Perezavantazhennya POSLIDOVNO. Kozhen ~2-3 hv offline.",
                     "firmwareUpgradeBtn":  "Onovyty firmware ({{count}})",

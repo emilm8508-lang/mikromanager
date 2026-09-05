@@ -114,6 +114,8 @@ interface UnifiedDevice {
   credential_id?: number
   owner?: string | null
   criticality?: string | null
+  wan_status?: 'up' | 'down' | null
+  wan_iface?: string | null
 }
 
 export function Devices() {
@@ -232,6 +234,7 @@ export function Devices() {
       has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
       credential_id: d.credential_id,
       owner: d.owner, criticality: d.criticality,
+      wan_status: d.wan_status, wan_iface: d.wan_iface,
     })),
     ...tenantDevices
       .filter(d => !d.encrypted && d.ip)  // skip undecryptable tenant rows
@@ -479,7 +482,16 @@ export function Devices() {
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <Badge variant={d.online ? 'green' : 'red'}>{d.online ? t('common.online') : t('common.offline')}</Badge>
+                    <div className="flex flex-col gap-1 items-start">
+                      <Badge variant={d.online ? 'green' : 'red'}>{d.online ? t('common.online') : t('common.offline')}</Badge>
+                      {d.wan_status && (
+                        <span title={d.wan_iface ? `WAN: ${d.wan_iface}` : undefined}>
+                          <Badge variant={d.wan_status === 'up' ? 'green' : 'red'} className="text-[10px]">
+                            {d.wan_status === 'up' ? t('devices.wanUp') : t('devices.wanDown')}
+                          </Badge>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-slate-500 text-xs">{formatDate(d.last_seen)}</td>
                   <td className="px-5 py-3">

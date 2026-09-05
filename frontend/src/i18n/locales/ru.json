@@ -106,6 +106,8 @@
                     "localSource":  "Lokalnoe",
                     "allSources":  "Vse",
                     "readOnly":  "read-only",
+                    "wanUp":  "WAN работает",
+                    "wanDown":  "WAN не работает",
                     "encryptedNoKey":  "Nezashifrovannye: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Obnovit firmware na {{count}} ustroystvah {{backup}}? Perezagruzka POSLEDOVATELNO. Kazhdoe ~2-3 min offline.",
                     "firmwareUpgradeBtn":  "Obnovit firmware ({{count}})",

@@ -67,6 +67,8 @@ class DeviceOut(BaseModel):
     cpu_load_pct: Optional[int] = None
     last_resources_check_at: Optional[datetime] = None
     iface_mbps_threshold: Optional[float] = None
+    wan_status: Optional[str] = None  # "up" | "down" | None (no known public WAN iface)
+    wan_iface: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -82,7 +84,18 @@ class IfaceThresholdIn(BaseModel):
 
 @router.get("", response_model=List[DeviceOut])
 async def list_devices(db: Session = Depends(get_db)):
-    return db.execute(select(Device)).scalars().all()
+    from services import edge_discovery
+    devices = db.execute(select(Device)).scalars().all()
+    wan_status = edge_discovery.get_wan_link_status()
+    out = []
+    for d in devices:
+        item = DeviceOut.model_validate(d)
+        info = wan_status.get(d.id)
+        if info:
+            item.wan_status = info["status"]
+            item.wan_iface = info["iface"]
+        out.append(item)
+    return out
 
 
 @router.post("", response_model=DeviceOut)

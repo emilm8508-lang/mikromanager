@@ -106,6 +106,8 @@
                     "localSource":  "Lokal",
                     "allSources":  "Alle",
                     "readOnly":  "read-only",
+                    "wanUp":  "WAN aktiv",
+                    "wanDown":  "WAN ausgefallen",
                     "encryptedNoKey":  "Unentschluesselt: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Firmware auf {{count}} Geraeten aktualisieren {{backup}}? Nacheinander neu gestartet. Jedes ~2-3 min offline. Insgesamt ~{{count}}*3 min.",
                     "firmwareUpgradeBtn":  "Firmware aktualisieren ({{count}})",

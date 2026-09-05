@@ -300,3 +300,31 @@ async def collect_wan_link_events() -> List[dict]:
 
     _save_wan_link_state(state)
     return events
+
+
+def get_wan_link_status() -> dict:
+    """Per-device latest known WAN link status, straight from
+    collect_public_ips()'s own cached scan (no extra polling) — used by
+    devices.py to show a live up/down badge on the Devices page, separate
+    from collect_wan_link_events()'s own transition-only alert_events.
+
+    A device absent from the returned dict simply has no known public WAN
+    IP yet (never scanned, genuinely none found, or running-state couldn't
+    be determined this poll) — distinct from "down", so callers must not
+    treat a missing key as "down" and must know to render nothing rather
+    than a false badge.
+
+    Multi-WAN safe: if a device has more than one public interface, "down"
+    wins (an operator caring about this device's WAN health wants to know
+    ANY of them is down, not just the first one found)."""
+    result: dict = {}
+    for entry in _scan_cache["data"]:
+        running = entry.get("running")
+        if running is None:
+            continue
+        status = "up" if running else "down"
+        did = entry["device_id"]
+        prev = result.get(did)
+        if prev is None or (prev["status"] == "up" and status == "down"):
+            result[did] = {"status": status, "iface": entry["iface"]}
+    return result

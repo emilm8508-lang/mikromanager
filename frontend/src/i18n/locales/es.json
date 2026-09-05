@@ -106,6 +106,8 @@
                     "localSource":  "Local",
                     "allSources":  "Todas",
                     "readOnly":  "solo lectura",
+                    "wanUp":  "WAN activo",
+                    "wanDown":  "WAN caido",
                     "encryptedNoKey":  "No descifrados: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Actualizar firmware en {{count}} dispositivos {{backup}}? Reiniciados SECUENCIALMENTE. Cada uno offline ~2-3 min.",
                     "firmwareUpgradeBtn":  "Actualizar firmware ({{count}})",

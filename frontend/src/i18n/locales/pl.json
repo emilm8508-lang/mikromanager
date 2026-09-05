@@ -109,6 +109,8 @@
                     "localSource":  "Lokalne",
                     "allSources":  "Wszystkie",
                     "readOnly":  "read-only",
+                    "wanUp":  "WAN dziala",
+                    "wanDown":  "WAN nie dziala",
                     "encryptedNoKey":  "Niezdekodowane snapshoty: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Aktualizowac firmware {{count}} urzadzen {{backup}}? Beda restartowane KOLEJNO. Kazde offline ~2-3 min. Zbiorczy czas: ~{{count}}*3 min.",
                     "firmwareUpgradeBtn":  "Aktualizuj firmware ({{count}})",

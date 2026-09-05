@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.91 — 2026-09-05
+- Add a persistent WAN up/down badge to the Devices page, next to the existing online/offline badge - the local wan_down/wan_up detection added earlier only fired alert events with no way to see current status at a glance. Reads edge_discovery.py's own cached WAN-interface scan (no extra device polling), multi-WAN safe (a device with several public interfaces shows "down" if any one of them is). A device with no known public WAN interface shows no badge at all, rather than a misleading one.
+
 ## 1.90 — 2026-09-05
 - Fix tunnel_monitor.py scanning Mikrotik devices every ~2 min uplink cycle instead of hourly, and doing so via several separate REST/API round-trips per device (each of WireGuard/IPsec/EoIP/GRE/VXLAN/IPIP independently tries REST then falls back to the binary API on a 404/unsupported endpoint) - reported directly, seen live in a device's own user log as frequent login/logout pairs via multiple methods even when nothing was actually wrong. This module was added after the hourly-scanning fix earlier in this effort (resource_monitor.py's DEVICE_RESOURCE_CHECK_MIN) but never got the same TTL-cache treatment - added the same pattern here (MIKROTIK_TUNNEL_CHECK_MIN, default 60 min), reusing edge_discovery.py's collect_public_ips()-style cached-scan approach.
 

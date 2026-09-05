@@ -106,6 +106,8 @@
                     "localSource":  "Local",
                     "allSources":  "Toutes",
                     "readOnly":  "lecture seule",
+                    "wanUp":  "WAN actif",
+                    "wanDown":  "WAN en panne",
                     "encryptedNoKey":  "Non dechiffres: {{tenants}}",
                     "firmwareUpgradeConfirm":  "Mettre a jour firmware sur {{count}} appareils {{backup}}? Redemarres SEQUENTIELLEMENT. Chacun ~2-3 min hors ligne.",
                     "firmwareUpgradeBtn":  "MAJ firmware ({{count}})",

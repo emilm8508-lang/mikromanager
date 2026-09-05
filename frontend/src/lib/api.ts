@@ -108,6 +108,8 @@ export interface Device {
   cpu_load_pct?: number | null
   last_resources_check_at?: string | null
   iface_mbps_threshold?: number | null
+  wan_status?: 'up' | 'down' | null
+  wan_iface?: string | null
 }
 
 export interface DeviceInterfaceStat {
