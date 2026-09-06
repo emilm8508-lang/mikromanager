@@ -75,59 +75,6 @@ def _strip_prefix(addr: str) -> str:
     return addr.split("/", 1)[0].strip()
 
 
-def _find_wan_ifaces_from_routes(routes: list, addrs: list) -> List[str]:
-    """Identify EVERY WAN-facing interface via each active default route's
-    gateway, matched against which local interface's own subnet contains
-    that gateway IP. Returns a deduplicated list, not just the first match
-    — a router genuinely can have more than one active default route at
-    once (failover/load-balancing/PCC setups, confirmed live: mcprojekt's
-    R1 has two separate WAN links) — returning only one would arbitrarily
-    pick whichever route happened to sort first, potentially the wrong
-    one, and never check the other link at all.
-
-    This is deliberately NOT based on which interface holds a public
-    address — confirmed live (mcprojekt): a router can have NO public
-    address anywhere at all (double-NAT / ISP CGNAT, e.g. ether1 holding
-    only 192.168.0.2, an address assigned by the ISP's own upstream box)
-    while still having a perfectly well-defined WAN-facing interface whose
-    up/down state is exactly as meaningful to monitor as a directly-public
-    one. Subnet-matching against the gateway works regardless of whether
-    that subnet happens to be private, unlike public-IP-based discovery
-    (still used, unchanged, for collect_public_ips()'s different purpose:
-    finding an address OVH could actually ping from outside)."""
-    gateways = []
-    for r in routes or []:
-        dst = str(r.get("dst-address") or "")
-        active = str(r.get("active", "false")).lower() in ("true", "yes")
-        if dst.startswith("0.0.0.0/0") and active:
-            gw = r.get("gateway")
-            if gw:
-                gateways.append(str(gw).split("%")[0].strip())  # strip any %iface suffix
-
-    gw_ips = []
-    for gw in gateways:
-        try:
-            gw_ips.append(ipaddress.ip_address(gw))
-        except ValueError:
-            continue
-
-    found = []
-    seen = set()
-    for a in addrs or []:
-        raw = a.get("address") or ""
-        iface = a.get("interface") or a.get("actual-interface") or ""
-        if not raw or not iface or str(iface) in seen:
-            continue
-        try:
-            net = ipaddress.ip_interface(str(raw)).network
-        except ValueError:
-            continue
-        if any(gw_ip in net for gw_ip in gw_ips):
-            seen.add(str(iface))
-            found.append(str(iface))
-    return found
-
-
 async def _scan_device(device_id: int) -> dict:
     """Returns {"public_ips": [...], "wan_iface": {...}|None} for one
     device — public_ips is the existing contract (multi-WAN safe, one
@@ -212,11 +159,22 @@ async def _scan_device(device_id: int) -> dict:
     # stated intent) rather than an inference — more reliable than
     # route-matching for complex setups (PCC/mangle-based routing, VRFs)
     # where the "active default route" heuristic can be ambiguous or
-    # simply wrong. Only fall back to route-based detection for routers
-    # that don't define a WAN list at all (many minimal/CLI-only setups
-    # won't).
+    # simply wrong.
+    #
+    # Deliberately NOT falling back to route-based inference anymore (it
+    # was tried and reverted): ANY device — a switch, an access point, not
+    # just a real internet-facing router — typically has SOME active
+    # default route, just pointing back to the real router for its own
+    # management traffic. Confirmed live: CRS326 switches and wAP access
+    # points (genuine RouterOS devices, correctly not filtered out by the
+    # vendor check above) got a false "WAN down" badge from exactly this,
+    # because their management default route was indistinguishable from a
+    # real WAN uplink using route data alone. The interface-list is the
+    # only reliable signal — it's the operator's own explicit statement
+    # of intent, and nobody tags a switch's interface as "WAN". A router
+    # without an explicit "WAN" interface-list defined in RouterOS simply
+    # gets no badge here, which is the honest state, not a guess.
     wan_iface_names = []
-    wan_source = None
     try:
         members = await asyncio.wait_for(client.get_interface_list_members(), timeout=8)
         wan_iface_names = [
@@ -224,23 +182,11 @@ async def _scan_device(device_id: int) -> dict:
             for m in (members or [])
             if isinstance(m, dict) and str(m.get("list", "")).strip().lower() == "wan" and m.get("interface")
         ]
-        if wan_iface_names:
-            wan_source = "interface-list"
     except Exception as e:
         print(f"[edge_discovery] {device.ip}: get_interface_list_members failed: {type(e).__name__}: {e}")
 
     if not wan_iface_names:
-        try:
-            routes = await asyncio.wait_for(client.get_routes(), timeout=8)
-            wan_iface_names = _find_wan_ifaces_from_routes(routes, addrs)
-            if wan_iface_names:
-                wan_source = "default-route"
-        except Exception as e:
-            print(f"[edge_discovery] {device.ip}: get_routes failed: {type(e).__name__}: {e}")
-
-    if not wan_iface_names:
-        print(f"[edge_discovery] {device.ip} ({device_name}): no WAN interface found "
-              f"(no 'WAN' interface-list defined and no active default route matched any local interface's subnet)")
+        print(f"[edge_discovery] {device.ip} ({device_name}): no 'WAN' interface-list defined on this device")
 
     wan_ifaces = []
     seen_wan = set()
@@ -251,7 +197,7 @@ async def _scan_device(device_id: int) -> dict:
         running = iface_running.get(wan_iface_name)
         if running is None:
             print(f"[edge_discovery] {device.ip} ({device_name}): WAN interface '{wan_iface_name}' "
-                  f"found via {wan_source}, but its running-state is unknown (missing from /interface output)")
+                  f"found via interface-list, but its running-state is unknown (missing from /interface output)")
             continue
         wan_ifaces.append({
             "device_id": device.id,
@@ -269,9 +215,21 @@ async def _run_full_scan() -> None:
     twice within the same SCAN_TTL_SEC window just because two different
     features each want a different slice of the same scan."""
     with SessionLocal() as db:
-        ids = [d.id for d in db.execute(
+        devices = db.execute(
             select(Device).where(Device.credential_id.is_not(None))
-        ).scalars().all()]
+        ).scalars().all()
+        # WAN/routing concepts only make sense on an actual Mikrotik router.
+        # build_client() in device_client.py defaults ANY vendor other than
+        # "cisco-sb" to MikrotikClient — including "generic-snmp" (scanner.py's
+        # label for printers/iDRACs/switches identified only via SNMP
+        # sysDescr) and "dell"/iDRAC entries — so without this filter every
+        # credentialed non-router device got queried for /ip/route and
+        # /interface/list/member too. Confirmed live: an iDRAC
+        # ("idrac-G4HY0Q2") and another non-Mikrotik host showed up in the
+        # WAN scan's own error log, both correctly failing every RouterOS-
+        # specific query since they were never routers to begin with. Same
+        # fix already applied in tunnel_monitor.py for the identical reason.
+        ids = [d.id for d in devices if (d.vendor or "mikrotik").lower() == "mikrotik"]
 
     sem = asyncio.Semaphore(5)
 

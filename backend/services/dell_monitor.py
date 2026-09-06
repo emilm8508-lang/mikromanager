@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from models.database import (
     SessionLocal, DellServer, DellServerSelEntry, Credential, VulnHost, VulnService, WindowsHost,
@@ -171,6 +172,15 @@ async def check_server(server_id: int) -> dict:
 
 
 def _persist_sel_entries(db, server_id: int, entries: list) -> None:
+    """Upserts via INSERT ... ON CONFLICT DO NOTHING (matching the model's
+    own uq_dell_sel_entry constraint) instead of a SELECT-then-INSERT check
+    — the latter raised sqlite3.IntegrityError in practice whenever the
+    SAME poll's entries list contained two rows with an identical
+    (message, logged_at) pair (confirmed live: a device reporting the same
+    generic "OEM software event." at the same logged_at twice in one SEL
+    read) — the SELECT for the second row never saw the first because it
+    hadn't been flushed yet within this same loop. The DB-level conflict
+    resolution is correct regardless of ordering or session staleness."""
     for e in entries:
         logged_at = None
         if e.get("logged_at"):
@@ -178,19 +188,11 @@ def _persist_sel_entries(db, server_id: int, entries: list) -> None:
                 logged_at = datetime.fromisoformat(str(e["logged_at"]).replace("Z", "+00:00")).replace(tzinfo=None)
             except ValueError:
                 logged_at = None
-        existing = db.execute(
-            select(DellServerSelEntry).where(
-                DellServerSelEntry.server_id == server_id,
-                DellServerSelEntry.message == (e.get("message") or ""),
-                DellServerSelEntry.logged_at == logged_at,
-            )
-        ).scalar_one_or_none()
-        if existing:
-            continue
-        db.add(DellServerSelEntry(
+        stmt = sqlite_insert(DellServerSelEntry).values(
             server_id=server_id, severity=e.get("severity"),
             message=e.get("message") or "", logged_at=logged_at,
-        ))
+        ).on_conflict_do_nothing(index_elements=["server_id", "message", "logged_at"])
+        db.execute(stmt)
 
 
 _HEALTH_ORDER = {"Critical": 0, "Warning": 1, "OK": 2}

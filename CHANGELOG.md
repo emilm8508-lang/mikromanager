@@ -2,6 +2,11 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.96 — 2026-09-05
+- Fix WAN badge showing false "down" on switches and access points - reported live (CRS326 switches, wAP access points all showing "WAN nie dziala"). Root cause: the route-based fallback (added two commits ago) treated ANY active default route as a WAN signal, but every device - not just real routers - typically has one, just pointing back to the actual router for its own management traffic; route data alone can't tell a real internet uplink apart from that. Removed the fallback entirely - RouterOS's own "WAN" interface-list (already proven correct on real routers R1/R2) is now the only signal used. A router without an explicit WAN interface-list simply gets no badge, which is honest, not a guess.
+- Fix edge_discovery.py never filtering by device vendor - confirmed live, an iDRAC and another non-Mikrotik host were being queried with RouterOS-specific WAN checks and failing every one, cluttering the log with irrelevant errors. Same vendor filter tunnel_monitor.py already had is now applied here too.
+- Fix dell_monitor.py crashing its own SEL (event log) persistence with a SQLite UNIQUE constraint error whenever a device's SEL read contained two entries with an identical message+timestamp in the same poll - replaced the select-then-insert check (which couldn't see its own not-yet-flushed row) with a proper INSERT ... ON CONFLICT DO NOTHING upsert.
+
 ## 1.95 — 2026-09-05
 - Add diagnostic logging to the WAN link scan (edge_discovery.py) - every failure/skip case that previously returned silently (no credential assigned, get_ip_addresses/get_interfaces/get_routes/get_interface_list_members failing, no WAN interface found at all, or a found WAN interface whose running-state couldn't be determined) now prints a specific, traceable reason. Needed because a device reported showing NO WAN badge at all on the Devices page, with no way to tell which of several possible causes was responsible without guessing again.
 
