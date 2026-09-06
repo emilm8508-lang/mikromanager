@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.94 — 2026-09-05
+- Prefer RouterOS's own named "WAN" interface-list membership (Winbox: Interfaces > Interface List) for identifying which interfaces are WAN, when a router defines one - confirmed live on a real multi-WAN router (R1: WAN list containing ether1+ether8, matching exactly what the operator sees in Winbox). This is the operator's own explicit intent rather than an inference, and more reliable than the route-based guess for complex routing setups (PCC/mangle, VRFs) where "which route is currently active" can be ambiguous. Route-based detection (added last commit) is kept as the fallback for routers that don't define a WAN list at all.
+
 ## 1.93 — 2026-09-05
 - Fix two real causes of the new WAN link check reporting "down" for links that were actually up, reported live (mcprojekt, a router with two separate WAN links): (1) a router's /interface entry can omit the "running" field entirely for some interface types/API paths rather than returning an explicit false - the code was defaulting a missing field to "not running", silently misreporting healthy interfaces as down; now a missing field is correctly treated as unknown (no badge/alert) instead. (2) the previous route-matching only ever returned a SINGLE interface even when a router has multiple simultaneously-active default routes (failover/load-balancing/PCC) - meaning a genuine second WAN link was either never checked, or the wrong one got picked. Now returns every interface backing an active default route, each tracked and alerted independently.
 

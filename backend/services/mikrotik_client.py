@@ -400,6 +400,22 @@ class MikrotikClient:
     async def get_routes(self) -> list:
         return await self._try_methods("ip/route", "/ip/route")
 
+    async def get_interface_list_members(self) -> list:
+        """/interface/list/member — RouterOS's own named interface-list
+        membership (e.g. the "WAN"/"LAN" lists the default configuration
+        template creates, and that Winbox's own Interfaces > Interface
+        List view shows). When present, this is a more direct and
+        authoritative signal for "which interfaces are WAN" than inferring
+        it from routing tables — it's literally the operator's own stated
+        intent, confirmed live on a real router (WAN list containing
+        ether1 + ether8) — used as the preferred source in
+        edge_discovery.py, with route-based inference only as a fallback
+        for routers that don't define such a list at all."""
+        try:
+            return await self._rest_or_api("interface/list/member", "/interface/list/member")
+        except Exception:
+            return []
+
     async def get_neighbors(self) -> list:
         try:
             return await self._rest_or_api("ip/neighbor", "/ip/neighbor")

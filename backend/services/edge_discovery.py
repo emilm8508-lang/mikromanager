@@ -203,22 +203,48 @@ async def _scan_device(device_id: int) -> dict:
             "running": iface_running.get(str(iface)),  # None = couldn't be determined
         })
 
-    wan_ifaces = []
+    # Prefer RouterOS's own named "WAN" interface-list membership when the
+    # router defines one — confirmed live (a real router's Winbox
+    # Interfaces > Interface List view showing ether1+ether8 under "WAN")
+    # that this is a direct, authoritative signal (the operator's own
+    # stated intent) rather than an inference — more reliable than
+    # route-matching for complex setups (PCC/mangle-based routing, VRFs)
+    # where the "active default route" heuristic can be ambiguous or
+    # simply wrong. Only fall back to route-based detection for routers
+    # that don't define a WAN list at all (many minimal/CLI-only setups
+    # won't).
+    wan_iface_names = []
     try:
-        routes = await asyncio.wait_for(client.get_routes(), timeout=8)
-        for wan_iface_name in _find_wan_ifaces_from_routes(routes, addrs):
-            if _is_tunnel_iface(wan_iface_name):
-                continue
-            running = iface_running.get(wan_iface_name)
-            if running is not None:
-                wan_ifaces.append({
-                    "device_id": device.id,
-                    "device_name": device_name,
-                    "iface": wan_iface_name,
-                    "running": running,
-                })
+        members = await asyncio.wait_for(client.get_interface_list_members(), timeout=8)
+        wan_iface_names = [
+            str(m.get("interface"))
+            for m in (members or [])
+            if isinstance(m, dict) and str(m.get("list", "")).strip().lower() == "wan" and m.get("interface")
+        ]
     except Exception:
         pass
+
+    if not wan_iface_names:
+        try:
+            routes = await asyncio.wait_for(client.get_routes(), timeout=8)
+            wan_iface_names = _find_wan_ifaces_from_routes(routes, addrs)
+        except Exception:
+            pass
+
+    wan_ifaces = []
+    seen_wan = set()
+    for wan_iface_name in wan_iface_names:
+        if wan_iface_name in seen_wan or _is_tunnel_iface(wan_iface_name):
+            continue
+        seen_wan.add(wan_iface_name)
+        running = iface_running.get(wan_iface_name)
+        if running is not None:
+            wan_ifaces.append({
+                "device_id": device.id,
+                "device_name": device_name,
+                "iface": wan_iface_name,
+                "running": running,
+            })
 
     return {"public_ips": public_ips, "wan_ifaces": wan_ifaces}
 
