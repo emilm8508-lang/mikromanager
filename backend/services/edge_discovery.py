@@ -75,10 +75,15 @@ def _strip_prefix(addr: str) -> str:
     return addr.split("/", 1)[0].strip()
 
 
-def _find_wan_iface_from_routes(routes: list, addrs: list) -> Optional[str]:
-    """Identify the WAN-facing interface via the active default route's
+def _find_wan_ifaces_from_routes(routes: list, addrs: list) -> List[str]:
+    """Identify EVERY WAN-facing interface via each active default route's
     gateway, matched against which local interface's own subnet contains
-    that gateway IP.
+    that gateway IP. Returns a deduplicated list, not just the first match
+    — a router genuinely can have more than one active default route at
+    once (failover/load-balancing/PCC setups, confirmed live: mcprojekt's
+    R1 has two separate WAN links) — returning only one would arbitrarily
+    pick whichever route happened to sort first, potentially the wrong
+    one, and never check the other link at all.
 
     This is deliberately NOT based on which interface holds a public
     address — confirmed live (mcprojekt): a router can have NO public
@@ -90,42 +95,47 @@ def _find_wan_iface_from_routes(routes: list, addrs: list) -> Optional[str]:
     that subnet happens to be private, unlike public-IP-based discovery
     (still used, unchanged, for collect_public_ips()'s different purpose:
     finding an address OVH could actually ping from outside)."""
-    default_gw = None
+    gateways = []
     for r in routes or []:
         dst = str(r.get("dst-address") or "")
         active = str(r.get("active", "false")).lower() in ("true", "yes")
         if dst.startswith("0.0.0.0/0") and active:
             gw = r.get("gateway")
             if gw:
-                default_gw = str(gw).split("%")[0].strip()  # strip any %iface suffix
-                break
-    if not default_gw:
-        return None
-    try:
-        gw_ip = ipaddress.ip_address(default_gw)
-    except ValueError:
-        return None
+                gateways.append(str(gw).split("%")[0].strip())  # strip any %iface suffix
+
+    gw_ips = []
+    for gw in gateways:
+        try:
+            gw_ips.append(ipaddress.ip_address(gw))
+        except ValueError:
+            continue
+
+    found = []
+    seen = set()
     for a in addrs or []:
         raw = a.get("address") or ""
         iface = a.get("interface") or a.get("actual-interface") or ""
-        if not raw or not iface:
+        if not raw or not iface or str(iface) in seen:
             continue
         try:
             net = ipaddress.ip_interface(str(raw)).network
         except ValueError:
             continue
-        if gw_ip in net:
-            return str(iface)
-    return None
+        if any(gw_ip in net for gw_ip in gw_ips):
+            seen.add(str(iface))
+            found.append(str(iface))
+    return found
 
 
 async def _scan_device(device_id: int) -> dict:
     """Returns {"public_ips": [...], "wan_iface": {...}|None} for one
     device — public_ips is the existing contract (multi-WAN safe, one
-    entry per public address, feeds collect_public_ips()); wan_iface is a
-    single entry for whichever interface carries the active default
-    route, with its own running-state, regardless of whether its address
-    is public or private (see _find_wan_iface_from_routes above)."""
+    entry per public address, feeds collect_public_ips()); wan_ifaces is a
+    list with one entry PER interface carrying an active default route
+    (multi-WAN safe — a device can have more than one), each with its own
+    running-state, regardless of whether its address is public or private
+    (see _find_wan_ifaces_from_routes above)."""
     with SessionLocal() as db:
         row = db.execute(
             select(Device, Credential)
@@ -133,14 +143,14 @@ async def _scan_device(device_id: int) -> dict:
             .where(Device.id == device_id)
         ).one_or_none()
         if not row:
-            return {"public_ips": [], "wan_iface": None}
+            return {"public_ips": [], "wan_ifaces": []}
         device, cred = row
 
     client = build_client(device, cred)
     try:
         addrs = await asyncio.wait_for(client.get_ip_addresses(), timeout=8)
     except Exception:
-        return {"public_ips": [], "wan_iface": None}
+        return {"public_ips": [], "wan_ifaces": []}
 
     device_name = device.identity or device.name or device.ip
 
@@ -156,6 +166,14 @@ async def _scan_device(device_id: int) -> dict:
         for i in ifaces or []:
             name = i.get("name") or i.get("actual-interface") or ""
             if not name:
+                continue
+            # Only trust an EXPLICIT "running" value — some API paths/
+            # interface types may omit the field entirely rather than
+            # returning an explicit false, and defaulting a missing field
+            # to "not running" would silently misreport a healthy
+            # interface as down. Reported live: WAN links showing "down"
+            # that were confirmed actually up.
+            if "running" not in i:
                 continue
             disabled = str(i.get("disabled", "false")).lower() in ("true", "yes")
             running = str(i.get("running", "false")).lower() in ("true", "yes")
@@ -185,23 +203,24 @@ async def _scan_device(device_id: int) -> dict:
             "running": iface_running.get(str(iface)),  # None = couldn't be determined
         })
 
-    wan_iface = None
+    wan_ifaces = []
     try:
         routes = await asyncio.wait_for(client.get_routes(), timeout=8)
-        wan_iface_name = _find_wan_iface_from_routes(routes, addrs)
-        if wan_iface_name and not _is_tunnel_iface(wan_iface_name):
+        for wan_iface_name in _find_wan_ifaces_from_routes(routes, addrs):
+            if _is_tunnel_iface(wan_iface_name):
+                continue
             running = iface_running.get(wan_iface_name)
             if running is not None:
-                wan_iface = {
+                wan_ifaces.append({
                     "device_id": device.id,
                     "device_name": device_name,
                     "iface": wan_iface_name,
                     "running": running,
-                }
+                })
     except Exception:
         pass
 
-    return {"public_ips": public_ips, "wan_iface": wan_iface}
+    return {"public_ips": public_ips, "wan_ifaces": wan_ifaces}
 
 
 async def _run_full_scan() -> None:
@@ -221,16 +240,14 @@ async def _run_full_scan() -> None:
             try:
                 return await _scan_device(did)
             except Exception:
-                return {"public_ips": [], "wan_iface": None}
+                return {"public_ips": [], "wan_ifaces": []}
 
     results = await asyncio.gather(*[_bounded(i) for i in ids])
     public_flat = []
     wan_iface_flat = []
     for r in results:
         public_flat.extend(r.get("public_ips") or [])
-        wi = r.get("wan_iface")
-        if wi:
-            wan_iface_flat.append(wi)
+        wan_iface_flat.extend(r.get("wan_ifaces") or [])
     _scan_cache["data"] = public_flat
     _scan_cache["wan_iface_data"] = wan_iface_flat
     _scan_cache["ts"] = time.time()
