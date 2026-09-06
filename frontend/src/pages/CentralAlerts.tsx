@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
 
 function formatDate(iso: string): string {
@@ -1491,6 +1491,86 @@ function TunnelCentralPanel() {
 }
 
 
+function WanLinksCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; link: CentralWanLinkStatus }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.wanLinksStatusAll()
+      const flat: Array<{ tenant: string; link: CentralWanLinkStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const link of tRow.links) flat.push({ tenant: tRow.tenant, link })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('wanLinksCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('wanLinksCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('wanLinksCentral.noLinks')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>{t('wanLinksCentral.device')}</th>
+                <th>{t('wanLinksCentral.iface')}</th>
+                <th>{t('wanLinksCentral.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, link }, i) => (
+                <tr key={`${tenant}:${link.device_name}:${link.iface}:${i}`} className="border-b border-slate-100">
+                  <td className="py-2">{tenant}</td>
+                  <td className="font-mono text-xs">{link.device_name}</td>
+                  <td className="font-mono text-xs">{link.iface}</td>
+                  <td>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        link.status === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {link.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function dellHealthClass(h: string | null): string {
   if (h === 'Critical') return 'bg-red-100 text-red-700'
   if (h === 'Warning') return 'bg-amber-100 text-amber-700'
@@ -1720,6 +1800,7 @@ export function MonitoringPanel() {
         {t('monitoring.intro')}
       </div>
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
+      <WanLinksCentralPanel />
       <TunnelCentralPanel />
       <SupplyChainCentralPanel />
       <LinuxCentralPanel />

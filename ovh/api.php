@@ -1566,6 +1566,38 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'wan_links_status_all':
+            // Aggregate view across every tenant this identity can see —
+            // same subquery pattern as tunnel_status_all: latest snapshot
+            // payload per tenant, no E2E key needed since wan_link_status
+            // travels as plaintext envelope metadata (see
+            // services/edge_discovery.py's public_summary()).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $links = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $links = $meta['wan_link_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'links' => $links,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_device_logs':
             // Ask the agent to fetch the last N raw log lines from one of its
             // devices. Delivered on next heartbeat; result rides along on the

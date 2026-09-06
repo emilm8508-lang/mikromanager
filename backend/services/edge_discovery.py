@@ -417,16 +417,17 @@ async def collect_wan_link_events() -> List[dict]:
 
 def get_wan_link_status() -> dict:
     """Per-device latest known WAN link status, straight from the shared
-    scan's WAN-interface slice (see _find_wan_iface_from_routes — works
-    whether that interface's own address is public or private, e.g. behind
-    an ISP's double-NAT) — used by devices.py to show a live up/down badge
-    on the Devices page, separate from collect_wan_link_events()'s own
-    transition-only alert_events. Reads whatever the background scan last
-    found — does not itself trigger a fresh scan (this is called from a
-    plain, synchronous API request handler).
+    scan's WAN-interface slice (see the "WAN" interface-list lookup in
+    _scan_device() — works whether that interface's own address is public
+    or private, e.g. behind an ISP's double-NAT) — used by devices.py to
+    show a live up/down badge on the Devices page, separate from
+    collect_wan_link_events()'s own transition-only alert_events. Reads
+    whatever the background scan last found — does not itself trigger a
+    fresh scan (this is called from a plain, synchronous API request
+    handler).
 
     A device absent from the returned dict simply has no known WAN
-    interface yet (never scanned, no active default route found, or
+    interface yet (never scanned, no "WAN" interface-list defined, or
     running-state couldn't be determined) — distinct from "down", so
     callers must not treat a missing key as "down" and must know to render
     nothing rather than a false badge."""
@@ -441,3 +442,18 @@ def get_wan_link_status() -> dict:
         if prev is None or (prev["status"] == "up" and status == "down"):
             result[did] = {"status": status, "iface": entry["iface"]}
     return result
+
+
+def public_summary() -> List[dict]:
+    """Redacted view for the snapshot's plaintext envelope — same pattern
+    as tunnel_monitor.public_summary()/dell_monitor.public_summary(): one
+    row per WAN interface (device_name + iface + up/down), feeding
+    Central's cross-tenant WAN status panel. Reads whatever the background
+    scan last found; does not trigger one. No IPs included — the interface
+    running-state is all Central needs to show, and public_ips already
+    travels separately (edge_ips) for the devices where one exists."""
+    return [{
+        "device_name": e["device_name"],
+        "iface": e["iface"],
+        "status": "up" if e.get("running") else "down",
+    } for e in _scan_cache["wan_iface_data"]]

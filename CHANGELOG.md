@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.97 — 2026-09-05
+- Surface the local WAN up/down check in Central, not just on each agent's own Devices page - the user asked directly how to verify WAN links across all tenants from Central, same as the existing "Tunele VPN" cross-tenant panel. New edge_discovery.py public_summary() rides the snapshot's plaintext envelope (wan_link_status, same mechanism as tunnel_status/dell_servers_status), a new wan_links_status_all action in ovh/api.php mirrors tunnel_status_all exactly, and a new "Lacza WAN — wszyscy klienci" panel in Central's Monitoring tab lists every WAN interface across every tenant with its current status - no E2E key needed, checked locally by each agent, not by an external ping.
+
 ## 1.96 — 2026-09-05
 - Fix WAN badge showing false "down" on switches and access points - reported live (CRS326 switches, wAP access points all showing "WAN nie dziala"). Root cause: the route-based fallback (added two commits ago) treated ANY active default route as a WAN signal, but every device - not just real routers - typically has one, just pointing back to the actual router for its own management traffic; route data alone can't tell a real internet uplink apart from that. Removed the fallback entirely - RouterOS's own "WAN" interface-list (already proven correct on real routers R1/R2) is now the only signal used. A router without an explicit WAN interface-list simply gets no badge, which is honest, not a guess.
 - Fix edge_discovery.py never filtering by device vendor - confirmed live, an iDRAC and another non-Mikrotik host were being queried with RouterOS-specific WAN checks and failing every one, cluttering the log with irrelevant errors. Same vendor filter tunnel_monitor.py already had is now applied here too.

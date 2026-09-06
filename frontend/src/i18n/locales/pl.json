@@ -1007,6 +1007,14 @@
         "reasonPromptRestart": "Powód restartu tego serwera:",
         "reasonRequired": "Powód jest wymagany."
     },
+    "wanLinksCentral": {
+        "title": "Lacza WAN — wszyscy klienci",
+        "intro": "Biezacy status lacz WAN sprawdzany lokalnie przez agenta z wlasnej listy interfejsow 'WAN' routera (RouterOS) — bez zewnetrznego pingu, dziala rowniez za NAT-em dostawcy. Zmiana up/down alertuje przez Telegram — reguly alertow: zakladka Alerty.",
+        "noLinks": "Brak wykrytych lacz WAN u zadnego klienta (router musi miec zdefiniowana liste interfejsow 'WAN' w RouterOS).",
+        "device": "Urzadzenie",
+        "iface": "Interfejs",
+        "status": "Status"
+    },
     "tunnelCentral": {
         "title": "Tunele VPN — wszyscy klienci",
         "intro": "Bieżący status tuneli WireGuard/IPsec wykrytych na routerach każdego klienta. Zmiana up/down alertuje przez Telegram tak samo jak łącze WAN — reguły alertów: zakładka Alerty.",

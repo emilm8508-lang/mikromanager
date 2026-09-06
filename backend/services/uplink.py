@@ -321,6 +321,12 @@ async def _build_snapshot() -> dict:
         dell_servers_status = []
 
     try:
+        wan_link_status = edge_discovery.public_summary()
+    except Exception as e:
+        print(f"[uplink] wan link summary error: {e}")
+        wan_link_status = []
+
+    try:
         from services import inventory
         # Deliberately NOT added to _build_request_body()'s plaintext
         # envelope fields (unlike linux_hosts_status/tunnel_status/
@@ -359,6 +365,7 @@ async def _build_snapshot() -> dict:
         "windows_manage_enabled": windows_manage_enabled,
         "tunnel_status": tunnel_status,
         "dell_servers_status": dell_servers_status,
+        "wan_link_status": wan_link_status,
         "inventory_summary": inventory_summary,
     }
 
@@ -398,6 +405,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "windows_manage_enabled": snapshot.get("windows_manage_enabled", False),
             "tunnel_status": snapshot.get("tunnel_status", []),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
+            "wan_link_status": snapshot.get("wan_link_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

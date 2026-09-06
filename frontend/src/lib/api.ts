@@ -539,6 +539,16 @@ export interface CentralTunnelStatus {
   detail: string | null
 }
 
+// Redacted per-WAN-interface status an agent includes in its snapshot
+// envelope (see services/edge_discovery.py's public_summary()) — checked
+// locally by the agent from the router's own RouterOS "WAN" interface-list
+// and its own running-state, not by an external ping (unlike edge_devices).
+export interface CentralWanLinkStatus {
+  device_name: string
+  iface: string
+  status: string
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -1675,6 +1685,8 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; enabled: boolean; queued_at: string }> }>('pending_windows_manage_toggles'),
   tunnelStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
+  wanLinksStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
   requestDellCheck: (tenant: string, serverId: number) =>
