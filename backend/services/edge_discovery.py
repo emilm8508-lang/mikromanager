@@ -143,13 +143,15 @@ async def _scan_device(device_id: int) -> dict:
             .where(Device.id == device_id)
         ).one_or_none()
         if not row:
+            print(f"[edge_discovery] device_id={device_id}: no credential assigned (or device deleted), skipping WAN scan")
             return {"public_ips": [], "wan_ifaces": []}
         device, cred = row
 
     client = build_client(device, cred)
     try:
         addrs = await asyncio.wait_for(client.get_ip_addresses(), timeout=8)
-    except Exception:
+    except Exception as e:
+        print(f"[edge_discovery] {device.ip}: get_ip_addresses failed, aborting WAN scan for this device: {type(e).__name__}: {e}")
         return {"public_ips": [], "wan_ifaces": []}
 
     device_name = device.identity or device.name or device.ip
@@ -178,8 +180,8 @@ async def _scan_device(device_id: int) -> dict:
             disabled = str(i.get("disabled", "false")).lower() in ("true", "yes")
             running = str(i.get("running", "false")).lower() in ("true", "yes")
             iface_running[str(name)] = running and not disabled
-    except Exception:
-        pass  # missing running-state just means "unknown" below, not fatal
+    except Exception as e:
+        print(f"[edge_discovery] {device.ip}: get_interfaces failed, running-state unknown for all interfaces: {type(e).__name__}: {e}")
 
     public_ips = []
     seen = set()
@@ -214,6 +216,7 @@ async def _scan_device(device_id: int) -> dict:
     # that don't define a WAN list at all (many minimal/CLI-only setups
     # won't).
     wan_iface_names = []
+    wan_source = None
     try:
         members = await asyncio.wait_for(client.get_interface_list_members(), timeout=8)
         wan_iface_names = [
@@ -221,15 +224,23 @@ async def _scan_device(device_id: int) -> dict:
             for m in (members or [])
             if isinstance(m, dict) and str(m.get("list", "")).strip().lower() == "wan" and m.get("interface")
         ]
-    except Exception:
-        pass
+        if wan_iface_names:
+            wan_source = "interface-list"
+    except Exception as e:
+        print(f"[edge_discovery] {device.ip}: get_interface_list_members failed: {type(e).__name__}: {e}")
 
     if not wan_iface_names:
         try:
             routes = await asyncio.wait_for(client.get_routes(), timeout=8)
             wan_iface_names = _find_wan_ifaces_from_routes(routes, addrs)
-        except Exception:
-            pass
+            if wan_iface_names:
+                wan_source = "default-route"
+        except Exception as e:
+            print(f"[edge_discovery] {device.ip}: get_routes failed: {type(e).__name__}: {e}")
+
+    if not wan_iface_names:
+        print(f"[edge_discovery] {device.ip} ({device_name}): no WAN interface found "
+              f"(no 'WAN' interface-list defined and no active default route matched any local interface's subnet)")
 
     wan_ifaces = []
     seen_wan = set()
@@ -238,13 +249,16 @@ async def _scan_device(device_id: int) -> dict:
             continue
         seen_wan.add(wan_iface_name)
         running = iface_running.get(wan_iface_name)
-        if running is not None:
-            wan_ifaces.append({
-                "device_id": device.id,
-                "device_name": device_name,
-                "iface": wan_iface_name,
-                "running": running,
-            })
+        if running is None:
+            print(f"[edge_discovery] {device.ip} ({device_name}): WAN interface '{wan_iface_name}' "
+                  f"found via {wan_source}, but its running-state is unknown (missing from /interface output)")
+            continue
+        wan_ifaces.append({
+            "device_id": device.id,
+            "device_name": device_name,
+            "iface": wan_iface_name,
+            "running": running,
+        })
 
     return {"public_ips": public_ips, "wan_ifaces": wan_ifaces}
 

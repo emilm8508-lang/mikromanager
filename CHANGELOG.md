@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.95 — 2026-09-05
+- Add diagnostic logging to the WAN link scan (edge_discovery.py) - every failure/skip case that previously returned silently (no credential assigned, get_ip_addresses/get_interfaces/get_routes/get_interface_list_members failing, no WAN interface found at all, or a found WAN interface whose running-state couldn't be determined) now prints a specific, traceable reason. Needed because a device reported showing NO WAN badge at all on the Devices page, with no way to tell which of several possible causes was responsible without guessing again.
+
 ## 1.94 — 2026-09-05
 - Prefer RouterOS's own named "WAN" interface-list membership (Winbox: Interfaces > Interface List) for identifying which interfaces are WAN, when a router defines one - confirmed live on a real multi-WAN router (R1: WAN list containing ether1+ether8, matching exactly what the operator sees in Winbox). This is the operator's own explicit intent rather than an inference, and more reliable than the route-based guess for complex routing setups (PCC/mangle, VRFs) where "which route is currently active" can be ambiguous. Route-based detection (added last commit) is kept as the fallback for routers that don't define a WAN list at all.
 
