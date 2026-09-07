@@ -124,6 +124,143 @@ MIKROTIK_CHECKS = [
 ]
 
 
+# ── RouterOS firewall-rule recommendations ──────────────────────────────
+# Distinct from MIKROTIK_CHECKS above: those are one-line "is flag X set"
+# checks against a single endpoint. These need chain=input/forward AND NAT
+# rules read together and reasoned about, so they're plain functions
+# instead of one-liner lambdas — same {"passed","detail"} shape, but
+# "detail" here is a real, actionable recommendation, not just an echo of
+# raw output (this is what the user asked for directly: "what standard
+# practice looks like, and what would be needed to get there" for an
+# actual rule they have, not just a pass/fail flag).
+#
+# Best-effort, same philosophy as the rest of this module: pattern-matches
+# rule fields rather than simulating RouterOS's actual packet-matching
+# engine (mangle marks, address-lists populated dynamically, VRF, etc. are
+# not modeled) — a missed edge case produces an imprecise suggestion, not
+# a false vulnerability report.
+
+_MGMT_PORTS = {
+    "8291": "Winbox", "8728": "API", "8729": "API-SSL",
+    "22": "SSH", "23": "Telnet", "21": "FTP", "80": "WWW", "443": "WWW-SSL",
+}
+
+
+def _rule_active(r) -> bool:
+    return isinstance(r, dict) and str(r.get("disabled", "false")).lower() not in ("true", "yes")
+
+
+def _check_forward_chain_open(filter_rows: list, nat_rows: list) -> tuple:
+    """The exact scenario the user described: a NAT rule forwards traffic
+    to an internal server. RouterOS's own default with NO forward-chain
+    filter rules at all is accept-everything — meaning a dst-nat rule
+    alone, with nothing in chain=forward, exposes that server to the WAN
+    with zero restriction. Only checks for PRESENCE of forward rules, not
+    a port-by-port correlation with each NAT rule (see module docstring)."""
+    dst_nats = [r for r in (nat_rows or [])
+                if isinstance(r, dict) and r.get("chain") == "dstnat"
+                and r.get("action") == "dst-nat" and _rule_active(r)]
+    forward_rules = [r for r in (filter_rows or [])
+                      if isinstance(r, dict) and r.get("chain") == "forward" and _rule_active(r)]
+    if not dst_nats:
+        return True, "Brak reguł NAT (port forwarding) na tym urządzeniu — sprawdzenie nie dotyczy."
+    if not forward_rules:
+        targets = ", ".join(
+            f"{r.get('protocol', '?')}/{r.get('dst-port', '?')} -> {r.get('to-addresses', '?')}"
+            for r in dst_nats[:5]
+        )
+        return False, (
+            f"Znaleziono {len(dst_nats)} regułę/reguł NAT przekierowujących ruch do sieci wewnętrznej "
+            f"({targets}), ale łańcuch forward nie ma ŻADNEJ reguły filtra — cały przekierowany ruch jest "
+            f"w pełni otwarty z internetu. Zalecenie (standard rynkowy): dla każdej przekierowanej usługi "
+            f"dodaj w chain=forward regułę accept ograniczoną do konkretnego adresu/listy adresów źródłowych "
+            f"(src-address-list), a łańcuch forward zakończ jawną regułą drop. Jeśli to dostęp administracyjny "
+            f"(np. RDP, SSH) — lepszym rozwiązaniem jest w ogóle nie przekierowywać portu na WAN, tylko "
+            f"udostępnić usługę przez tunel WireGuard/IPsec."
+        )
+    return True, (
+        f"{len(dst_nats)} regułę/reguł NAT, {len(forward_rules)} reguł filtra w chain=forward — wykryto samą "
+        f"obecność reguł filtra, bez pełnej korelacji port-po-porcie z każdą regułą NAT (do zweryfikowania ręcznie)."
+    )
+
+
+def _check_input_chain_default_drop(filter_rows: list) -> tuple:
+    """Standard practice (RouterOS's own default configuration, and CIS-
+    style hardening guides generally): chain=input should end with an
+    unconditional drop, so anything not explicitly allowed above is
+    rejected by default rather than falling through to RouterOS's own
+    implicit accept."""
+    input_rules = [r for r in (filter_rows or [])
+                    if isinstance(r, dict) and r.get("chain") == "input" and _rule_active(r)]
+    if not input_rules:
+        return None, "Brak (aktywnych) reguł w chain=input — nie można ocenić."
+    last = input_rules[-1]
+    is_catch_all_drop = (
+        last.get("action") in ("drop", "reject")
+        and not last.get("src-address") and not last.get("src-address-list")
+        and not last.get("dst-port") and not last.get("protocol")
+        and not last.get("in-interface") and not last.get("in-interface-list")
+    )
+    if is_catch_all_drop:
+        return True, "Ostatnia reguła w chain=input to bezwarunkowy drop/reject — zgodnie z dobrą praktyką."
+    return False, (
+        f"Ostatnia reguła w chain=input to action={last.get('action', '?')} i nie jest to bezwarunkowy "
+        f"drop. Zalecenie: zakończ łańcuch input jawną regułą 'drop' bez żadnych dodatkowych warunków, "
+        f"żeby domyślnie odrzucać ruch niewymieniony wcześniejszymi regułami (domyślna praktyka RouterOS/CIS)."
+    )
+
+
+async def _check_wan_management_exposed(client, filter_rows: list) -> tuple:
+    """Reuses the same 'WAN' interface-list signal built for WAN link
+    monitoring (services/edge_discovery.py) — the operator's own explicit
+    statement of which interface faces the internet, far more reliable
+    here than guessing from routing tables."""
+    try:
+        members = await client.get_interface_list_members()
+    except Exception:
+        return None, "Nie udało się odczytać listy interfejsów WAN — sprawdzenie pominięte."
+    wan_ifaces = {
+        str(m.get("interface")) for m in (members or [])
+        if isinstance(m, dict) and str(m.get("list", "")).strip().lower() == "wan" and m.get("interface")
+    }
+    if not wan_ifaces:
+        return None, "Urządzenie nie ma zdefiniowanej listy interfejsów 'WAN' — nie można ocenić, które reguły dotyczą ruchu z internetu."
+
+    exposed = set()
+    for r in (filter_rows or []):
+        if not isinstance(r, dict) or r.get("chain") != "input" or r.get("action") != "accept" or not _rule_active(r):
+            continue
+        in_iface = str(r.get("in-interface") or "")
+        in_iface_list = str(r.get("in-interface-list") or "")
+        on_wan = in_iface in wan_ifaces or in_iface_list.strip().lower() == "wan"
+        if not on_wan or (r.get("src-address") or r.get("src-address-list")):
+            continue
+        dst_port = str(r.get("dst-port") or "")
+        dst_ports = {p.strip() for p in dst_port.split(",")} if dst_port else set()
+        for port, label in _MGMT_PORTS.items():
+            if port in dst_ports:
+                exposed.add(f"{label} (port {port})")
+
+    if exposed:
+        return False, (
+            f"Wykryto dostęp do usług zarządzania z sieci WAN bez ograniczenia adresu źródłowego: "
+            f"{', '.join(sorted(exposed))}. Zalecenie: ogranicz src-address/src-address-list do konkretnych "
+            f"adresów administracyjnych, albo (bezpieczniej) całkowicie wyłącz dostęp do zarządzania z WAN "
+            f"i korzystaj z tunelu WireGuard/IPsec."
+        )
+    return True, "Brak wykrytych reguł dopuszczających zarządzanie z WAN bez ograniczenia adresu źródłowego."
+
+
+MIKROTIK_FIREWALL_CHECKS = [
+    {"id": "mikrotik.forward_chain_not_fully_open",
+     "title": "Reguły NAT (port forwarding) mają odpowiadające reguły filtra w chain=forward", "severity": "high"},
+    {"id": "mikrotik.input_chain_default_drop",
+     "title": "Łańcuch input kończy się jawną regułą drop", "severity": "medium"},
+    {"id": "mikrotik.wan_management_restricted",
+     "title": "Dostęp do zarządzania z WAN ograniczony adresem źródłowym", "severity": "high"},
+]
+
+
 def _persist_results(target_type: str, target_id: int, results: list) -> None:
     now = datetime.utcnow()
     with SessionLocal() as db:
@@ -264,6 +401,31 @@ async def run_mikrotik_checks(device_id: int) -> list:
             passed, detail = None, f"błąd: {e}"
         results.append({"check_id": check["id"], "title": check["title"], "severity": check["severity"],
                          "passed": passed, "detail": detail})
+
+    # Firewall-rule recommendations (need filter+NAT correlated together —
+    # see MIKROTIK_FIREWALL_CHECKS above for why these aren't simple lambdas).
+    try:
+        fw = await client.get_firewall_rules()
+        filter_rows, nat_rows = fw.get("filter") or [], fw.get("nat") or []
+        checks_meta = {c["id"]: c for c in MIKROTIK_FIREWALL_CHECKS}
+
+        passed, detail = _check_forward_chain_open(filter_rows, nat_rows)
+        meta = checks_meta["mikrotik.forward_chain_not_fully_open"]
+        results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
+                         "passed": passed, "detail": detail})
+
+        passed, detail = _check_input_chain_default_drop(filter_rows)
+        meta = checks_meta["mikrotik.input_chain_default_drop"]
+        results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
+                         "passed": passed, "detail": detail})
+
+        passed, detail = await _check_wan_management_exposed(client, filter_rows)
+        meta = checks_meta["mikrotik.wan_management_restricted"]
+        results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
+                         "passed": passed, "detail": detail})
+    except Exception as e:
+        results.append({"check_id": "mikrotik.firewall_checks_error", "title": "Analiza reguł firewall",
+                         "severity": "medium", "passed": None, "detail": f"błąd: {e}"})
 
     _persist_results("mikrotik", device_id, results)
     return results

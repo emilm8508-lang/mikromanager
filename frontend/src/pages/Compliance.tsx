@@ -71,7 +71,7 @@ function TargetRow({ targetType, targetId, label, passed, failed, unknown, total
                   </Badge>
                   <div className="min-w-0">
                     <p className="text-slate-700">{d.title}</p>
-                    {d.detail && <p className="text-slate-400 font-mono truncate">{d.detail}</p>}
+                    {d.detail && <p className="text-slate-400 whitespace-pre-wrap">{d.detail}</p>}
                   </div>
                 </div>
               ))}
