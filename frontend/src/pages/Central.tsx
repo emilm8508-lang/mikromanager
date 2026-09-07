@@ -9,11 +9,11 @@ import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
   HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp, Upload,
-  DatabaseBackup,
+  DatabaseBackup, Activity, Boxes,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
-import { AlertsPanel, MonitoringPanel, PhysicalServersPanel } from './CentralAlerts'
+import { AlertsPanel, MonitoringPanel } from './CentralAlerts'
 import { UsersPanel } from './CentralUsers'
 import { Modal } from '../components/ui/Modal'
 
@@ -190,6 +190,214 @@ function UplinkPanel() {
                 disabled={!status?.enabled || sendNow.isPending}>
                 <Send size={13} /> {t('central.sendNow')}
               </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── PRTG connector (monitoring aggregation — see doktorat plan §3.4/§4) ──────
+// Same shape as UplinkPanel above: edit form + read-only summary, but for
+// an external monitoring source this agent will poll (client's own PRTG),
+// not the connection to Central itself.
+
+function PrtgPanel() {
+  const { t } = useTranslation()
+  const { data: status, refetch } = useQuery({
+    queryKey: ['prtg-status'],
+    queryFn: systemApi.prtgStatus,
+  })
+
+  const [form, setForm] = useState({ url: '', api_token: '', verify_ssl: true })
+  const [editing, setEditing] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    if (status && !editing) {
+      setForm({ url: status.url || '', api_token: '', verify_ssl: status.verify_ssl ?? true })
+    }
+  }, [status, editing])
+
+  const save = useMutation({
+    mutationFn: () => systemApi.prtgConfigure(form),
+    onSuccess: () => { setEditing(false); setTestResult(null); refetch() },
+  })
+
+  const test = useMutation({
+    mutationFn: systemApi.prtgTest,
+    onSuccess: (r) => setTestResult(r),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity size={15} className="text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-700">{t('central.prtgHeader')}</h2>
+            {status?.enabled ? (
+              <Badge variant="green">{t('central.enabled')}</Badge>
+            ) : (
+              <Badge variant="gray">{t('central.disabled')}</Badge>
+            )}
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Settings size={13} /> {t('common.edit')}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {editing ? (
+          <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
+            <Input label={t('central.prtgUrl')} placeholder="https://prtg.klient.local"
+              value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
+            <Input label={t('central.prtgApiToken')} type="password"
+              placeholder={status?.has_api_token ? t('central.apiKeyKeep') as string : ''}
+              value={form.api_token} onChange={e => setForm(f => ({ ...f, api_token: e.target.value }))} />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.verify_ssl}
+                onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
+              {t('central.verifySsl')}
+            </label>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null) }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('common.save')}</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-[120px_1fr] gap-y-1.5">
+              <span className="text-slate-500">URL:</span>
+              <span className="font-mono text-xs text-slate-800 break-all">{status?.url || '—'}</span>
+              <span className="text-slate-500">API token:</span>
+              <span className="text-slate-800">{status?.has_api_token ? '••••••••' : '—'}</span>
+              <span className="text-slate-500">TLS:</span>
+              <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="secondary" onClick={() => test.mutate()}
+                disabled={!status?.enabled || test.isPending}>
+                <RefreshCw size={13} /> {t('central.testConnection')}
+              </Button>
+              {testResult && (
+                testResult.ok ? (
+                  <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 size={13} /> {t('central.connectionOk')}</span>
+                ) : (
+                  <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Check_MK connector (monitoring aggregation — see doktorat plan §3.4/§4) ──
+
+function CheckmkPanel() {
+  const { t } = useTranslation()
+  const { data: status, refetch } = useQuery({
+    queryKey: ['checkmk-status'],
+    queryFn: systemApi.checkmkStatus,
+  })
+
+  const [form, setForm] = useState({ url: '', site: '', username: '', secret: '', verify_ssl: true })
+  const [editing, setEditing] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    if (status && !editing) {
+      setForm({
+        url: status.url || '', site: status.site || '', username: status.username || '',
+        secret: '', verify_ssl: status.verify_ssl ?? true,
+      })
+    }
+  }, [status, editing])
+
+  const save = useMutation({
+    mutationFn: () => systemApi.checkmkConfigure(form),
+    onSuccess: () => { setEditing(false); setTestResult(null); refetch() },
+  })
+
+  const test = useMutation({
+    mutationFn: systemApi.checkmkTest,
+    onSuccess: (r) => setTestResult(r),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Boxes size={15} className="text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-700">{t('central.checkmkHeader')}</h2>
+            {status?.enabled ? (
+              <Badge variant="green">{t('central.enabled')}</Badge>
+            ) : (
+              <Badge variant="gray">{t('central.disabled')}</Badge>
+            )}
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Settings size={13} /> {t('common.edit')}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {editing ? (
+          <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
+            <Input label={t('central.checkmkUrl')} placeholder="https://checkmk.klient.local"
+              value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label={t('central.checkmkSite')} placeholder="mysite"
+                value={form.site} onChange={e => setForm(f => ({ ...f, site: e.target.value }))} required />
+              <Input label={t('central.checkmkUsername')} placeholder="automation"
+                value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
+            </div>
+            <Input label={t('central.checkmkSecret')} type="password"
+              placeholder={status?.has_secret ? t('central.apiKeyKeep') as string : ''}
+              value={form.secret} onChange={e => setForm(f => ({ ...f, secret: e.target.value }))} />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.verify_ssl}
+                onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
+              {t('central.verifySsl')}
+            </label>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null) }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('common.save')}</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-[120px_1fr] gap-y-1.5">
+              <span className="text-slate-500">URL:</span>
+              <span className="font-mono text-xs text-slate-800 break-all">{status?.url || '—'}</span>
+              <span className="text-slate-500">Site:</span>
+              <span className="text-slate-800">{status?.site || '—'}</span>
+              <span className="text-slate-500">{t('central.checkmkUsername')}:</span>
+              <span className="text-slate-800">{status?.username || '—'}</span>
+              <span className="text-slate-500">TLS:</span>
+              <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="secondary" onClick={() => test.mutate()}
+                disabled={!status?.enabled || test.isPending}>
+                <RefreshCw size={13} /> {t('central.testConnection')}
+              </Button>
+              {testResult && (
+                testResult.ok ? (
+                  <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 size={13} /> {t('central.connectionOk')}</span>
+                ) : (
+                  <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
+                )
+              )}
             </div>
           </div>
         )}
@@ -1151,7 +1359,7 @@ function ViewerPanel() {
 
 export function Central() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'agent' | 'viewer' | 'monitoring' | 'servers' | 'alerts' | 'users'>('viewer')
+  const [tab, setTab] = useState<'agent' | 'viewer' | 'monitoring' | 'alerts' | 'users'>('viewer')
   const isConfigured = !!centralConfig.load()
 
   return (
@@ -1180,12 +1388,6 @@ export function Central() {
           }`}>
           {t('central.tabMonitoring')}
         </button>
-        <button onClick={() => setTab('servers')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'servers' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}>
-          {t('central.tabServers')}
-        </button>
         <button onClick={() => setTab('alerts')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === 'alerts' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -1203,9 +1405,14 @@ export function Central() {
       </div>
 
       {tab === 'viewer' ? <ViewerPanel />
-        : tab === 'agent' ? <UplinkPanel />
+        : tab === 'agent' ? (
+          <div className="space-y-4">
+            <UplinkPanel />
+            <PrtgPanel />
+            <CheckmkPanel />
+          </div>
+        )
         : tab === 'monitoring' ? <MonitoringPanel />
-        : tab === 'servers' ? <PhysicalServersPanel />
         : tab === 'alerts' ? <AlertsPanel />
         : <UsersPanel />}
     </div>

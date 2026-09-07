@@ -266,12 +266,18 @@ export function Sidebar() {
   const centralNavItem = { to: '/central', label: t('nav.central'), icon: Cloud }
   const centralInventoryNavItem = { to: '/central/inventory', label: t('nav.inventory'), icon: Boxes }
   const centralComplianceNavItem = { to: '/central/compliance', label: t('nav.compliance'), icon: ListChecks }
+  // Dell/iDRAC hardware health and Linux/Windows OS patch status are
+  // deliberately separate nav items, not one combined "servers" page —
+  // different concern (physical hardware vs. OS-level updates), and
+  // Linux/Windows hosts aren't necessarily physical machines at all.
+  const centralServersNavItem = { to: '/central/servers', label: t('central.tabServers'), icon: ServerCog }
+  const centralHostsNavItem = { to: '/central/hosts', label: t('centralHosts.navLabel'), icon: TerminalSquare }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralInventoryNavItem, centralComplianceNavItem]
+    ? [centralNavItem, centralServersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem]
     : [...agentNav, centralNavItem]
 
   return (

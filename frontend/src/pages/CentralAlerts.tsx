@@ -1017,7 +1017,7 @@ function SupplyChainCentralPanel() {
 }
 
 
-function LinuxCentralPanel() {
+export function LinuxCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; host: CentralLinuxHostStatus }>>([])
   const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
@@ -1194,7 +1194,7 @@ function LinuxCentralPanel() {
 }
 
 
-function WindowsCentralPanel() {
+export function WindowsCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; host: CentralWindowsHostStatus }>>([])
   const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
@@ -1669,16 +1669,13 @@ export function PhysicalServersPanel() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">{t('central.physicalServersTitle')}</h2>
-        <p className="text-sm text-slate-500">{t('central.physicalServersIntro')}</p>
-      </div>
-
-      <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
-        <h3 className="text-sm font-semibold text-slate-700">{t('dellCentral.title')}</h3>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">{t('dellCentral.title')}</h2>
+          <p className="text-sm text-slate-500">{t('dellCentral.intro')}</p>
+        </div>
         <button onClick={reload} className="text-xs text-indigo-600 hover:underline shrink-0">{t('common.refresh')}</button>
       </div>
-      <p className="text-xs text-slate-500 -mt-2">{t('dellCentral.intro')}</p>
       {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{err}</div>}
 
       {loading ? (
@@ -1735,9 +1732,6 @@ export function PhysicalServersPanel() {
           </div>
         ))
       )}
-
-      <LinuxCentralPanel />
-      <WindowsCentralPanel />
     </div>
   )
 }

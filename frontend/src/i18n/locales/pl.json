@@ -279,8 +279,6 @@
                     "tabAgent":  "Agent (uplink)",
                     "tabMonitoring":  "Monitoring",
                     "tabServers":  "Serwery fizyczne",
-                    "physicalServersTitle":  "Serwery fizyczne — wszyscy klienci",
-                    "physicalServersIntro":  "Stan sprzetowy i programowy serwerow u kazdego klienta - Dell (iDRAC), Linux i Windows w jednym miejscu: status, dostepne aktualizacje oraz graficznie zajetosc CPU/RAM/dyskow.",
                     "tabAlerts":  "Alerty",
                     "tabUsers":  "Użytkownicy",
                     "agentUplink":  "Wysyłanie do centrali",
@@ -990,6 +988,11 @@
         "importProgress": "Pobieranie strony {{page}} ({{count}} sesji pobranych dotychczas)...",
         "importSessionExpired": "Twoja sesja konta Centrali wygasła — zaloguj się ponownie w zakładce Centralny → Użytkownicy, a potem wróć tutaj i spróbuj jeszcze raz.",
         "importGoToLogin": "Przejdź do logowania →"
+    },
+    "centralHosts": {
+        "navLabel": "Serwery Linux/Windows",
+        "title": "Serwery Linux/Windows — wszyscy klienci",
+        "intro": "Status aktualizacji systemu operacyjnego (nie kondycja sprzetu) na zarzadzanych serwerach Linux i Windows u kazdego klienta - osobno od 'Serwery fizyczne' (Dell/iDRAC), poniewaz to inna sprawa i te hosty nie musza byc fizycznymi maszynami."
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.2 — 2026-09-07
+- Split "Serwery fizyczne" into two separate left-sidebar pages in Central mode instead of one combined view: Dell/iDRAC hardware health stays under "Serwery fizyczne" (a real hardware-health concept), and Linux/Windows OS patch status gets its own new "Serwery Linux/Windows" page - reported directly that these shouldn't be combined, since Linux/Windows hosts aren't necessarily physical machines and patch status is a different concern from hardware health. Removed the old "servers" tab from Central's own tab bar entirely, matching the same left-sidebar promotion already done for Inwentarz/Rekomendacje.
+
 ## 2.1 — 2026-09-07
 - Give Compliance recommendations their own left-sidebar page in Central mode ("Rekomendacje", /central/compliance), mirroring the existing /central/inventory pattern - the cramped card list buried at the bottom of the Monitoring tab (squeezed alongside Tunele/Lacza WAN/SupplyChain) was reported as unreadable. Redesigned the display too: severity-colored left border per finding, larger readable text (no more monospace/truncated recommendation text), a per-severity count summary, and tenant/severity filters - removed the old embedded panel from the Monitoring tab entirely to avoid showing it twice.
 
