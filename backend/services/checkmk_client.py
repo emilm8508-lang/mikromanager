@@ -108,11 +108,16 @@ _load()
 
 
 async def test_connection() -> dict:
-    """GET the API root — returns a small JSON index on success, 401 on
-    bad credentials. Cheap, read-only, no host/service names needed."""
+    """GET the host_config collection — cheap, read-only, no specific host
+    name needed. NOT the bare API root: confirmed (Checkmk forum reports of
+    the same "branded 404" symptom seen live here) that Checkmk's REST API
+    has no route at all for "/check_mk/api/{ver}/" itself - an unmapped path
+    falls through to the classic web GUI's own themed "Page not found",
+    which is indistinguishable from a real routing problem unless you know
+    to hit an actual resource instead."""
     if not is_configured():
         return {"ok": False, "error": "not configured"}
-    url = _base_url() + "/"
+    url = _base_url() + "/domain-types/host_config/collections/all"
     # Official Checkmk REST API examples (docs.checkmk.com/latest/en/rest_api.html)
     # always send Accept: application/json alongside the Bearer header -
     # without it, some setups content-negotiate to an HTML response instead.
@@ -124,7 +129,8 @@ async def test_connection() -> dict:
             async with session.get(url, headers=headers,
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
-                    return {"ok": True}
+                    data = await resp.json(content_type=None)
+                    return {"ok": True, "host_count": len(data.get("value", []))}
                 text = (await resp.text())[:300]
                 return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
     except Exception as e:
