@@ -422,7 +422,7 @@ def _check_updates_sync(ip: str, port: int, username: str, password: str, domain
         read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
     )
     try:
-        result = session.run_ps(_CHECK_SCRIPT)
+        result = vs._run_ps_safe(session, _CHECK_SCRIPT)
         if result.status_code != 0:
             return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
         raw = result.std_out.decode("utf-8", errors="ignore").strip()
@@ -523,7 +523,7 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
             f"$s = @'\n{script_body}\n'@; "
             f'Set-Content -Path "{script_path}" -Value $s'
         )
-        r = session.run_ps(write_cmd)
+        r = vs._run_ps_safe(session, write_cmd)
         if r.status_code != 0:
             return {"ok": False, "error": f"couldn't write install script: {r.std_err.decode('utf-8', errors='ignore')[-1000:]}"}
 
@@ -559,7 +559,7 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
         else:
             return {"ok": False, "error": f"install timed out after {timeout_sec}s (task still running)"}
 
-        r = session.run_ps(f'Get-Content -Path "{result_path}" -Raw -ErrorAction SilentlyContinue')
+        r = vs._run_ps_safe(session, f'Get-Content -Path "{result_path}" -Raw -ErrorAction SilentlyContinue')
         raw = r.std_out.decode("utf-8", errors="ignore").strip()
         if not raw:
             return {"ok": False, "error": "install task finished but produced no result file "
@@ -579,7 +579,7 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
         except Exception:
             pass
         try:
-            session.run_ps(f'Remove-Item -Path "{script_path}","{result_path}" -ErrorAction SilentlyContinue')
+            vs._run_ps_safe(session, f'Remove-Item -Path "{script_path}","{result_path}" -ErrorAction SilentlyContinue')
         except Exception:
             pass
         vs._close_winrm(session)
@@ -807,8 +807,8 @@ def _run_script_sync(ip: str, port: int, username: str, password: str, domain: O
     """Blocking — run via loop.run_in_executor. Unlike Windows Update
     installation, an arbitrary PowerShell script has no double-hop problem
     (it isn't touching UpdateInstaller's impersonation-sensitive COM API) —
-    a plain `session.run_ps(script)` over the normal WinRM session works
-    directly, no scheduled-task workaround needed."""
+    a plain `vs._run_ps_safe(session, script)` over the normal WinRM
+    session works directly, no scheduled-task workaround needed."""
     import winrm
     user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
@@ -820,7 +820,7 @@ def _run_script_sync(ip: str, port: int, username: str, password: str, domain: O
         read_timeout_sec=timeout_sec + 10, operation_timeout_sec=timeout_sec,
     )
     try:
-        result = session.run_ps(script)
+        result = vs._run_ps_safe(session, script)
         output = (result.std_out.decode("utf-8", errors="ignore")
                   + result.std_err.decode("utf-8", errors="ignore"))
         if len(output) > 200_000:
@@ -925,7 +925,7 @@ def _check_services_sync(ip: str, port: int, username: str, password: str, domai
         "Select-Object Name,DisplayName,Status | ConvertTo-Json -Compress"
     )
     try:
-        result = session.run_ps(script)
+        result = vs._run_ps_safe(session, script)
         if result.status_code != 0:
             return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
         raw = result.std_out.decode("utf-8", errors="ignore").strip()
@@ -1131,7 +1131,7 @@ def _check_resources_sync(ip: str, port: int, username: str, password: str, doma
         read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
     )
     try:
-        result = session.run_ps(_RESOURCES_SCRIPT)
+        result = vs._run_ps_safe(session, _RESOURCES_SCRIPT)
         if result.status_code != 0:
             return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
         raw = result.std_out.decode("utf-8", errors="ignore").strip()

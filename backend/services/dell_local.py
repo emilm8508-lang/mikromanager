@@ -72,7 +72,7 @@ def _check_ism_sync(ip: str, port: int, username: str, password: str, domain: Op
         read_timeout_sec=30, operation_timeout_sec=25,
     )
     try:
-        result = session.run_ps(_ISM_SCRIPT)
+        result = vs._run_ps_safe(session, _ISM_SCRIPT)
         if result.status_code != 0:
             return {"ok": False, "available": False,
                     "error": result.std_err.decode("utf-8", errors="ignore")[-500:] or "PowerShell exited non-zero"}
@@ -166,7 +166,7 @@ def _check_racadm_sync(ip: str, port: int, username: str, password: str, domain:
         read_timeout_sec=45, operation_timeout_sec=40,
     )
     try:
-        result = session.run_ps(_RACADM_SCRIPT)
+        result = vs._run_ps_safe(session, _RACADM_SCRIPT)
         if result.status_code != 0:
             return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
         output = result.std_out.decode("utf-8", errors="ignore")
@@ -281,7 +281,7 @@ def _check_omsa_sync(ip: str, port: int, username: str, password: str, domain: O
         read_timeout_sec=45, operation_timeout_sec=40,
     )
     try:
-        result = session.run_ps(_OMSA_SCRIPT)
+        result = vs._run_ps_safe(session, _OMSA_SCRIPT)
         if result.status_code != 0:
             return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
         output = result.std_out.decode("utf-8", errors="ignore")

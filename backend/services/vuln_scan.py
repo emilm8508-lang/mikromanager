@@ -518,6 +518,27 @@ def _close_winrm(session) -> None:
         pass
 
 
+_SUPPRESS_PROGRESS = "$ProgressPreference = 'SilentlyContinue'; "
+
+
+def _run_ps_safe(session, script: str):
+    """session.run_ps() wrapper used by every WinRM PowerShell call in this
+    codebase (dell_local.py, windows_manage.py, and this module) — without
+    the $ProgressPreference override, a cmdlet that emits a Write-Progress
+    record (a common one-time "Preparing modules for first use" message
+    the FIRST time a module like NetSecurity gets loaded in a session) gets
+    serialized as raw CLIXML text by pywinrm and appended directly into
+    stdout, corrupting whatever plain-text/JSON parsing the caller expects.
+
+    Confirmed live: this silently broke a Windows compliance check
+    (firewall-enabled) across multiple hosts — the actual result ("True")
+    was there, immediately followed by "#< CLIXML <Objs ...>" garbage,
+    which made a naive comma-split/boolean check read as a false FAIL.
+    Suppressing the progress stream at the source is far more robust than
+    trying to strip CLIXML markers out of output after the fact."""
+    return session.run_ps(_SUPPRESS_PROGRESS + script)
+
+
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
                          domain: Optional[str]) -> Optional[dict]:
     """Blocking — run via loop.run_in_executor. Read-only: queries
@@ -547,8 +568,8 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
             server_cert_validation="ignore",
             read_timeout_sec=10, operation_timeout_sec=8,
         )
-        result = session.run_ps(
-            "$os = Get-CimInstance Win32_OperatingSystem; \"$($os.Caption)|$($os.Version)\""
+        result = _run_ps_safe(
+            session, "$os = Get-CimInstance Win32_OperatingSystem; \"$($os.Caption)|$($os.Version)\""
         )
         if result.status_code != 0:
             return None
@@ -681,7 +702,7 @@ def _winrm_list_inventory_sync(ip: str, port: int, username: str, password: str,
             server_cert_validation="ignore",
             read_timeout_sec=30, operation_timeout_sec=25,
         )
-        result = session.run_ps(_WINRM_INVENTORY_SCRIPT)
+        result = _run_ps_safe(session, _WINRM_INVENTORY_SCRIPT)
         if result.status_code != 0:
             return None
         output = result.std_out.decode("utf-8", errors="ignore")
