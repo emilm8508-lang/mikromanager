@@ -14,6 +14,8 @@ from services import uplink as uplink_svc
 from services import updater as updater_svc
 from services import crypto as crypto_svc
 from services import changelog as changelog_svc
+from services import prtg_client as prtg_svc
+from services import checkmk_client as checkmk_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -312,6 +314,57 @@ async def uplink_get_enc_key():
     Gated by the same require_login as the rest of this router; OVH never
     sees this value regardless."""
     return {"enc_key": uplink_svc.get_enc_key()}
+
+
+# ── PRTG connector (monitoring aggregation — see doktorat plan §3.4/§4) ──────
+
+class PrtgConfig(BaseModel):
+    url: str
+    api_token: str = ""  # empty = keep existing (see prtg_client.configure)
+    verify_ssl: bool = True
+
+
+@router.get("/prtg/status")
+async def prtg_status():
+    return prtg_svc.status()
+
+
+@router.post("/prtg/config")
+async def prtg_configure(cfg: PrtgConfig):
+    return prtg_svc.configure(url=cfg.url, api_token=cfg.api_token, verify_ssl=cfg.verify_ssl)
+
+
+@router.post("/prtg/test")
+async def prtg_test():
+    """Read-only ping (1 sensor row) — never mutates PRTG state."""
+    return await prtg_svc.test_connection()
+
+
+# ── Check_MK connector (monitoring aggregation — see doktorat plan §3.4/§4) ──
+
+class CheckmkConfig(BaseModel):
+    url: str
+    site: str
+    username: str
+    secret: str = ""  # empty = keep existing (see checkmk_client.configure)
+    verify_ssl: bool = True
+
+
+@router.get("/checkmk/status")
+async def checkmk_status():
+    return checkmk_svc.status()
+
+
+@router.post("/checkmk/config")
+async def checkmk_configure(cfg: CheckmkConfig):
+    return checkmk_svc.configure(url=cfg.url, site=cfg.site, username=cfg.username,
+                                  secret=cfg.secret, verify_ssl=cfg.verify_ssl)
+
+
+@router.post("/checkmk/test")
+async def checkmk_test():
+    """GET the API root only — never mutates Checkmk state."""
+    return await checkmk_svc.test_connection()
 
 
 @router.get("/changelog")

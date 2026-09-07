@@ -203,6 +203,16 @@ function UplinkPanel() {
 // an external monitoring source this agent will poll (client's own PRTG),
 // not the connection to Central itself.
 
+// Axios error -> readable string, preferring FastAPI's own {"detail": "..."}
+// body (far more useful than a bare "Request failed with status code 422")
+// over the generic error.message. Used by PrtgPanel/CheckmkPanel below so a
+// failed save/test is never silently invisible — reported directly: saving
+// a PRTG API token appeared to do nothing, with no error shown anywhere.
+function errorMessage(e: unknown): string {
+  const err = e as { response?: { data?: { detail?: string } }; message?: string }
+  return err?.response?.data?.detail || err?.message || String(e)
+}
+
 function PrtgPanel() {
   const { t } = useTranslation()
   const { data: status, refetch } = useQuery({
@@ -228,6 +238,7 @@ function PrtgPanel() {
   const test = useMutation({
     mutationFn: systemApi.prtgTest,
     onSuccess: (r) => setTestResult(r),
+    onError: (e) => setTestResult({ ok: false, error: errorMessage(e) }),
   })
 
   return (
@@ -263,9 +274,12 @@ function PrtgPanel() {
                 onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
               {t('central.verifySsl')}
             </label>
+            {save.isError && (
+              <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
+            )}
             <div className="flex gap-2 justify-end pt-1">
-              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null) }}>{t('common.cancel')}</Button>
-              <Button type="submit" variant="primary">{t('common.save')}</Button>
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null); save.reset() }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
             </div>
           </form>
         ) : (
@@ -328,6 +342,7 @@ function CheckmkPanel() {
   const test = useMutation({
     mutationFn: systemApi.checkmkTest,
     onSuccess: (r) => setTestResult(r),
+    onError: (e) => setTestResult({ ok: false, error: errorMessage(e) }),
   })
 
   return (
@@ -369,9 +384,12 @@ function CheckmkPanel() {
                 onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
               {t('central.verifySsl')}
             </label>
+            {save.isError && (
+              <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
+            )}
             <div className="flex gap-2 justify-end pt-1">
-              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null) }}>{t('common.cancel')}</Button>
-              <Button type="submit" variant="primary">{t('common.save')}</Button>
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null); save.reset() }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
             </div>
           </form>
         ) : (

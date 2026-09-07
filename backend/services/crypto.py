@@ -60,6 +60,16 @@ def key_status() -> dict:
             if a.totp_secret_enc:
                 count += 1
 
+    # File-based connector secrets outside the DB (PRTG/Check_MK connection
+    # settings, services/prtg_client.py + checkmk_client.py) — still Fernet-
+    # encrypted with this same key, so they belong in the same lifecycle
+    # count and get re-encrypted below on rotation.
+    from services import prtg_client, checkmk_client
+    if prtg_client.has_secret():
+        count += 1
+    if checkmk_client.has_secret():
+        count += 1
+
     return {"key_created_at": created_at, "encrypted_field_count": count}
 
 
@@ -99,6 +109,12 @@ def rotate_key() -> dict:
                 a.totp_secret_enc = new_fernet.encrypt(old_fernet.decrypt(a.totp_secret_enc.encode())).decode()
                 rotated += 1
         db.commit()
+
+    # Same rotation for the file-based PRTG/Check_MK connector secrets —
+    # not DB rows, but must not go stale once the old key is replaced below.
+    from services import prtg_client, checkmk_client
+    rotated += prtg_client.reencrypt_with_keys(old_fernet, new_fernet)
+    rotated += checkmk_client.reencrypt_with_keys(old_fernet, new_fernet)
 
     tmp_path = KEY_FILE + ".new"
     with open(tmp_path, "wb") as f:

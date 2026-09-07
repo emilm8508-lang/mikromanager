@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.8 — 2026-09-07
+- Add PRTG and Check_MK connectors (connection settings + a read-only test-connection call for each, polling itself is a later follow-up) - API tokens/secrets encrypted at rest with the same Fernet key already used for credential passwords, folded into the existing key-lifecycle/rotation flow in crypto.py and into agent_backup.py's backup file list. Fix the Save button on both connectors' Central config forms silently failing with no visible error - reported directly ("I try to save a PRTG API key and it doesn't save, no error shown"). Root cause: the save/test mutations had no onError handler at all, so any real failure (bad URL, network error, validation error) was completely invisible in the UI. Added a shared error-message helper (prefers FastAPI's own {"detail": ...} body over the generic axios error) and an inline error message next to the Save button on both panels.
+
 ## 2.7 — 2026-09-07
 - Add remote restart to Linux hosts, matching the remote restart already available for Windows - reported directly ("I have remote restart from Central for Windows but not Linux"). Same 8-layer pattern as Windows: new LinuxHost.last_restart_at/last_restart_reason columns, linux_manage.restart_host() (shutdown -r +1 "<reason>" - a 1-minute delay so the SSH channel gets a clean exit code back before the connection drops, instead of the connection dying mid-command with a plain reboot/shutdown -r now), a new POST /api/linux/hosts/{id}/restart endpoint, matching request_linux_restart/pending_linux_restarts marker-file actions in ovh/api.php and a drain step in ovh/ingest.php, a linux_restart command branch in uplink.py, and Restart buttons in both the local Linux Hosts page and Central's Linux panel.
 

@@ -39,7 +39,8 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 # What "the agent's own state" means here — deliberately excludes ephemeral/
 # regenerable files (activity_pending.json, wan_state.json): losing those
 # just means one alert cycle re-learns them, not worth the extra bytes.
-BACKUP_FILES = ["mikrotik.db", ".key", ".session_secret", "uplink.json", "central_proxy.json"]
+BACKUP_FILES = ["mikrotik.db", ".key", ".session_secret", "uplink.json", "central_proxy.json",
+                "prtg.json", "checkmk.json"]
 
 _state = {
     "last_backup_at": None,
