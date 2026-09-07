@@ -1571,6 +1571,22 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
         return out
 
 
+# CRITICAL/HIGH-only, deliberately placed in the PLAINTEXT envelope (unlike
+# hosts_with_findings()'s own CRITICAL/HIGH/MEDIUM cut, which stays inside
+# the E2E-encrypted snapshot body only — see uplink.py's vuln_findings_summary
+# and its own comment on why: full internal IP map + exact CVEs is this
+# agent's single most sensitive payload). This narrower, plaintext version
+# was an explicit, informed tradeoff (accepted knowingly, not a default) so
+# Central can show it without requiring every viewer to hold the tenant's
+# E2E key — MEDIUM/LOW findings still never leave the agent this way,
+# only via the encrypted channel for someone who does have the key.
+_PUBLIC_SEVERITIES = frozenset({"CRITICAL", "HIGH"})
+
+
+async def public_summary() -> list:
+    return await hosts_with_findings(severities=_PUBLIC_SEVERITIES)
+
+
 # ── Orchestration ────────────────────────────────────────────────────────────
 
 async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:

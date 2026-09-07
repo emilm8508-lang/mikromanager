@@ -272,12 +272,13 @@ export function Sidebar() {
   // Linux/Windows hosts aren't necessarily physical machines at all.
   const centralServersNavItem = { to: '/central/servers', label: t('central.tabServers'), icon: ServerCog }
   const centralHostsNavItem = { to: '/central/hosts', label: t('centralHosts.navLabel'), icon: TerminalSquare }
+  const centralVulnNavItem = { to: '/central/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralServersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem]
+    ? [centralNavItem, centralServersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem]
     : [...agentNav, centralNavItem]
 
   return (

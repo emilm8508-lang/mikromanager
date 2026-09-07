@@ -291,6 +291,17 @@ async def _build_snapshot() -> dict:
         vuln_findings_summary = []
 
     try:
+        # Narrower (CRITICAL/HIGH only) and, unlike vuln_findings_summary
+        # above, deliberately placed in the plaintext envelope below — an
+        # explicit, informed tradeoff the user chose (Central visibility
+        # without requiring the E2E key on every viewer), not a default.
+        # See vuln_scan.public_summary()'s own comment for the full reasoning.
+        vuln_findings_status = await vuln_scan.public_summary()
+    except Exception as e:
+        print(f"[uplink] public vuln findings summary error: {e}")
+        vuln_findings_status = []
+
+    try:
         from services import linux_manage
         linux_hosts_status = linux_manage.public_summary()
     except Exception as e:
@@ -366,6 +377,7 @@ async def _build_snapshot() -> dict:
         "activity_events": activity_events,
         "log_fetch_results": log_fetch_results,
         "vuln_findings_summary": vuln_findings_summary,
+        "vuln_findings_status": vuln_findings_status,
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
         "windows_hosts_status": windows_hosts_status,
@@ -415,6 +427,11 @@ def _build_request_body(snapshot: dict) -> tuple:
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
             "compliance_status": snapshot.get("compliance_status", []),
+            # Deliberately narrower than vuln_findings_summary (which stays
+            # encrypted-only, CRITICAL/HIGH/MEDIUM) — CRITICAL/HIGH only,
+            # an explicit user-approved tradeoff to make Central visibility
+            # possible without the E2E key. See vuln_scan.public_summary().
+            "vuln_findings_status": snapshot.get("vuln_findings_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

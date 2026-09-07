@@ -1631,6 +1631,41 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'vuln_findings_status_all':
+            // Aggregate view across every tenant this identity can see —
+            // same subquery pattern as compliance_status_all. Unlike the
+            // full vuln_findings_summary (which stays E2E-encrypted-only,
+            // CRITICAL/HIGH/MEDIUM), vuln_findings_status is a deliberately
+            // narrower CRITICAL/HIGH-only cut the user explicitly approved
+            // placing in the plaintext envelope (see services/vuln_scan.py's
+            // public_summary()) — an informed tradeoff, not a default for
+            // every kind of agent data.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $hosts = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $hosts = $meta['vuln_findings_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'hosts' => $hosts,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_device_logs':
             // Ask the agent to fetch the last N raw log lines from one of its
             // devices. Delivered on next heartbeat; result rides along on the

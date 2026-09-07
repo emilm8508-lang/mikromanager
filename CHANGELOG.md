@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.3 — 2026-09-07
+- Add CRITICAL/HIGH vulnerability findings to Central, as a new "Podatnosci" left-sidebar page - explicitly requested and confirmed as a deliberate tradeoff: the full findings summary stays E2E-encrypted-only (unchanged, still the agent's most sensitive payload), but a new, narrower CRITICAL/HIGH-only cut now also rides the plaintext envelope (vuln_findings_status) so Central can show it without every viewer needing the tenant's key. New vuln_findings_status_all action in ovh/api.php mirrors compliance_status_all exactly. MEDIUM/LOW findings never leave the agent this way - only via the existing encrypted channel for someone who does hold the key.
+
 ## 2.2 — 2026-09-07
 - Split "Serwery fizyczne" into two separate left-sidebar pages in Central mode instead of one combined view: Dell/iDRAC hardware health stays under "Serwery fizyczne" (a real hardware-health concept), and Linux/Windows OS patch status gets its own new "Serwery Linux/Windows" page - reported directly that these shouldn't be combined, since Linux/Windows hosts aren't necessarily physical machines and patch status is a different concern from hardware health. Removed the old "servers" tab from Central's own tab bar entirely, matching the same left-sidebar promotion already done for Inwentarz/Rekomendacje.
 

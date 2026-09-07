@@ -613,6 +613,25 @@ export interface CentralComplianceFinding {
   checked_at: string | null
 }
 
+// CRITICAL/HIGH-only CVE findings an agent includes in its plaintext
+// snapshot envelope (see services/vuln_scan.py's public_summary()) — a
+// deliberately narrower cut than the full vuln_findings_summary (which
+// stays E2E-encrypted-only, CRITICAL/HIGH/MEDIUM); an explicit, informed
+// tradeoff for Central visibility without requiring the tenant's key.
+export interface CentralVulnFinding {
+  cve_id: string
+  severity: string
+  cvss_score: number | null
+  summary: string | null
+  ref_url: string | null
+}
+
+export interface CentralVulnHostFindings {
+  ip: string
+  device_name: string | null
+  findings: CentralVulnFinding[]
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -1753,6 +1772,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   complianceStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; findings: CentralComplianceFinding[] }> }>('compliance_status_all'),
+  vulnFindingsStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralVulnHostFindings[] }> }>('vuln_findings_status_all'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
   requestDellCheck: (tenant: string, serverId: number) =>
