@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.7 — 2026-09-07
+- Add remote restart to Linux hosts, matching the remote restart already available for Windows - reported directly ("I have remote restart from Central for Windows but not Linux"). Same 8-layer pattern as Windows: new LinuxHost.last_restart_at/last_restart_reason columns, linux_manage.restart_host() (shutdown -r +1 "<reason>" - a 1-minute delay so the SSH channel gets a clean exit code back before the connection drops, instead of the connection dying mid-command with a plain reboot/shutdown -r now), a new POST /api/linux/hosts/{id}/restart endpoint, matching request_linux_restart/pending_linux_restarts marker-file actions in ovh/api.php and a drain step in ovh/ingest.php, a linux_restart command branch in uplink.py, and Restart buttons in both the local Linux Hosts page and Central's Linux panel.
+
 ## 2.6 — 2026-09-07
 - Fix Windows compliance checks (and other WinRM PowerShell calls) getting corrupted by PowerShell's progress stream - reported live (Central Rekomendacje showing raw CLIXML garbage instead of a clean firewall-check result, e.g. "True,True,True #< CLIXML <Objs ..."). A cmdlet's one-time "Preparing modules for first use" message (Write-Progress) was getting serialized by pywinrm and appended directly into stdout, which broke the compliance check's plain-text parsing into a false FAIL despite the real answer being all-True. Added a shared _run_ps_safe() wrapper (services/vuln_scan.py) that prepends $ProgressPreference='SilentlyContinue' to every WinRM PowerShell call, and applied it across all 13 call sites in windows_manage.py, dell_local.py, and vuln_scan.py itself - the same bug class could have silently corrupted any of them, not just this one compliance check.
 

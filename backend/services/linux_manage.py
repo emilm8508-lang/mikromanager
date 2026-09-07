@@ -690,6 +690,76 @@ async def upgrade_host(host_id: int) -> dict:
         return {"ok": True, "reboot_required": reboot_required}
 
 
+def _restart_sync(ip: str, username: str, password: str, reason: str) -> dict:
+    """Blocking — run via loop.run_in_executor. `shutdown -r +1` (not
+    `reboot`/`shutdown -r now`) schedules the restart 1 minute out and
+    returns immediately — mirrors windows_manage._restart_sync's own
+    `/t 60` reasoning exactly: without a delay, the SSH channel dies mid-
+    command as the host goes down, and there'd be no way to tell a
+    successful reboot apart from a connection failure. The wall message
+    (`reason`) shows up for anyone logged in via `wall`, and next to
+    "shutdown -r +1" in the system log — same audit trail Windows gets
+    via Event Viewer's /c comment."""
+    safe_reason = reason.replace('"', "'")
+    result = _sudo_exec_sync(ip, username, password, f'shutdown -r +1 "{safe_reason}"', 15)
+    if result["exit_code"] != 0:
+        return {"ok": False, "error": result["output"][-1000:]}
+    return {"ok": True}
+
+
+async def restart_host(host_id: int, reason: str) -> dict:
+    if not MANAGE_ENABLED:
+        return {"error": "Linux management is disabled (MIKROTIK_LINUX_MANAGE_ENABLED)"}
+    if not reason or not reason.strip():
+        return {"error": "reason required"}
+    if _jobs.get(host_id, {}).get("status") in _ACTIVE_STATUSES:
+        return {"error": f"job already in state '{_jobs[host_id]['status']}'"}
+
+    with SessionLocal() as db:
+        host = db.get(LinuxHost, host_id)
+        if not host or not host.managed:
+            return {"error": "host not found or not managed"}
+        ip = host.ip
+        identity = host.hostname or host.ip
+
+    cred = _shared_credential()
+    if not cred:
+        return {"error": "no shared credential configured"}
+    username, password = cred
+
+    _jobs[host_id] = {"status": "restarting", "started_at": datetime.utcnow().isoformat(),
+                       "ip": ip, "identity": identity, "reason": reason,
+                       "log": ["Sending shutdown -r +1..."]}
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(vs._EXECUTOR, _restart_sync, ip, username, password, reason),
+            timeout=30,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        return _fail_job(host_id, ip, "restart command timed out")
+    except Exception as e:
+        return _fail_job(host_id, ip, f"restart failed: {e}")
+
+    if not result["ok"]:
+        return _fail_job(host_id, ip, result["error"])
+
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        host = db.get(LinuxHost, host_id)
+        if host:
+            host.last_restart_at = now
+            host.last_restart_reason = reason
+            host.last_status = "ok"
+            host.last_error = None
+            db.commit()
+
+    activity.record("linux_restarted", host_id=host_id, ip=ip, identity=identity, reason=reason)
+    _jobs[host_id] = {"status": "done", "finished_at": now.isoformat(), "ip": ip, "identity": identity,
+                       "reason": reason, "log": ["Restart command sent (host going down in ~1 min)"]}
+    return {"ok": True}
+
+
 async def upgrade_bulk(host_ids: list) -> dict:
     """Sequential, never parallel — one host's upgrade completes before the
     next starts, same as services/firmware.py's upgrade_bulk. The
@@ -1026,6 +1096,8 @@ def _host_to_dict(h: LinuxHost) -> dict:
         "last_status": h.last_status, "last_error": h.last_error,
         "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
         "last_resources_check_at": h.last_resources_check_at.isoformat() if h.last_resources_check_at else None,
+        "last_restart_at": h.last_restart_at.isoformat() if h.last_restart_at else None,
+        "last_restart_reason": h.last_restart_reason,
     }
 
 

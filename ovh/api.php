@@ -1237,6 +1237,53 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_linux_restart':
+            // Same marker-with-content pattern as request_windows_restart —
+            // separate command type from request_linux_apt_upgrade so the
+            // agent can distinguish "upgrade packages" from "just restart"
+            // (e.g. after an upgrade that reported reboot_required).
+            $tenant = $_GET['tenant'] ?? '';
+            $host_id = (int)($_GET['host_id'] ?? 0);
+            $reason = trim($_GET['reason'] ?? '');
+            if ($tenant === '' || $host_id <= 0 || $reason === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, host_id and reason required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/linux_restart_{$safe}_{$host_id}.pending";
+            file_put_contents($marker, $reason);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'host_id' => $host_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_linux_restarts':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/linux_restart_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // linux_restart_TENANT_HOSTID
+                    if (preg_match('/^linux_restart_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'host_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'linux_hosts_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as supply_chain_status_all: latest

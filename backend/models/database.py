@@ -348,6 +348,8 @@ class LinuxHost(Base):
     mem_total_bytes = Column(Integer, nullable=True)
     cpu_used_pct = Column(Float, nullable=True)  # % of (load1 / nproc), see services/linux_manage.py
     last_resources_check_at = Column(DateTime, nullable=True)
+    last_restart_at = Column(DateTime, nullable=True)
+    last_restart_reason = Column(Text, nullable=True)
 
 
 class LinuxHostDisk(Base):
@@ -734,6 +736,10 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN cpu_used_pct FLOAT"))
             if "last_resources_check_at" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_resources_check_at DATETIME"))
+            if "last_restart_at" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_restart_at DATETIME"))
+            if "last_restart_reason" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_restart_reason TEXT"))
 
     if "dell_servers" in inspector.get_table_names():
         ds_cols = {c["name"] for c in inspector.get_columns("dell_servers")}

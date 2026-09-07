@@ -1022,18 +1022,21 @@ export function LinuxCentralPanel() {
   const [rows, setRows] = useState<Array<{ tenant: string; host: CentralLinuxHostStatus }>>([])
   const [pendingScans, setPendingScans] = useState<Array<{ tenant: string; queued_at: string }>>([])
   const [pendingUpgrades, setPendingUpgrades] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
+  const [pendingRestarts, setPendingRestarts] = useState<Array<{ tenant: string; host_id: number; queued_at: string }>>([])
   const [tenants, setTenants] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busyScan, setBusyScan] = useState<string | null>(null)
   const [busyUpgrade, setBusyUpgrade] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
 
   const reload = async () => {
     try {
-      const [s, ps, pu] = await Promise.all([
+      const [s, ps, pu, pr] = await Promise.all([
         centralApi.linuxHostsStatusAll(),
         centralApi.pendingLinuxScans(),
         centralApi.pendingLinuxAptUpgrades(),
+        centralApi.pendingLinuxRestarts(),
       ])
       const flat: Array<{ tenant: string; host: CentralLinuxHostStatus }> = []
       for (const tRow of s.tenants) {
@@ -1043,6 +1046,7 @@ export function LinuxCentralPanel() {
       setTenants(s.tenants.map(tRow => tRow.tenant))
       setPendingScans(ps.pending ?? [])
       setPendingUpgrades(pu.pending ?? [])
+      setPendingRestarts(pr.pending ?? [])
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
@@ -1059,6 +1063,7 @@ export function LinuxCentralPanel() {
 
   const scanPendingSet = new Set(pendingScans.map(p => p.tenant))
   const upgradePendingSet = new Set(pendingUpgrades.map(p => `${p.tenant}:${p.host_id}`))
+  const restartPendingSet = new Set(pendingRestarts.map(p => `${p.tenant}:${p.host_id}`))
 
   const scanNow = async (tenant: string) => {
     setBusyScan(tenant)
@@ -1090,6 +1095,17 @@ export function LinuxCentralPanel() {
     try { await centralApi.requestLinuxAptUpgrade(tenant, hostId); await reload() }
     catch (e) { alert((e as Error).message) }
     finally { setBusyUpgrade(null) }
+  }
+
+  const restartNow = async (tenant: string, hostId: number) => {
+    const reason = window.prompt(t('linuxCentral.reasonPromptRestart') as string)
+    if (reason === null) return
+    if (!reason.trim()) { alert(t('linuxCentral.reasonRequired') as string); return }
+    const key = `${tenant}:${hostId}`
+    setBusyAction(key)
+    try { await centralApi.requestLinuxRestart(tenant, hostId, reason.trim()); await reload() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusyAction(null) }
   }
 
   return (
@@ -1160,13 +1176,21 @@ export function LinuxCentralPanel() {
                         )}
                       </td>
                       <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
-                      <td className="text-right">
+                      <td className="text-right space-x-2">
                         {queued ? (
                           <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('linuxCentral.queued')}</span>
                         ) : (
                           <button onClick={() => upgradeNow(tenant, host.id)} disabled={busyUpgrade === `${tenant}:${host.id}`}
                             className="text-xs text-indigo-600 hover:underline">
                             {t('linuxCentral.upgradeNow')}
+                          </button>
+                        )}
+                        {restartPendingSet.has(key) ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('linuxCentral.queued')}</span>
+                        ) : (
+                          <button onClick={() => restartNow(tenant, host.id)} disabled={busyAction === key}
+                            className="text-xs text-indigo-600 hover:underline">
+                            {t('linuxCentral.restartNow')}
                           </button>
                         )}
                       </td>

@@ -868,6 +868,8 @@ export interface LinuxHostOut {
   mem_used_pct: number | null
   mem_total_bytes: number | null
   last_resources_check_at: string | null
+  last_restart_at: string | null
+  last_restart_reason: string | null
 }
 
 export interface HostDisk {
@@ -907,6 +909,8 @@ export const linuxApi = {
     api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/check`).then(r => r.data),
   upgrade: (hostId: number) =>
     api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/upgrade`).then(r => r.data),
+  restart: (hostId: number, reason: string) =>
+    api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/restart`, { reason }).then(r => r.data),
   status: (hostId: number) =>
     api.get<LinuxJobStatus>(`/linux/hosts/${hostId}/status`).then(r => r.data),
   upgradeBulk: (ids: number[]) =>
@@ -1744,6 +1748,12 @@ export const centralApi = {
     ),
   pendingLinuxAptUpgrades: () =>
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_apt_upgrades'),
+  requestLinuxRestart: (tenant: string, hostId: number, reason: string) =>
+    centralRequest<{ ok: boolean; tenant: string; host_id: number; queued_at: string; note: string }>(
+      'request_linux_restart', { tenant, host_id: String(hostId), reason },
+    ),
+  pendingLinuxRestarts: () =>
+    centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_restarts'),
   linuxHostsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; linux_hosts: CentralLinuxHostStatus[] }> }>('linux_hosts_status_all'),
   requestWindowsUpdate: (tenant: string, hostId: number, reason: string) =>

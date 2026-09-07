@@ -511,6 +511,9 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "linux_apt_upgrade":
             host_id = int(c.get("host_id") or 0)
             parts.append(f"linux_apt_upgrade:{host_id}")
+        elif isinstance(c, dict) and c.get("type") == "linux_restart":
+            host_id = int(c.get("host_id") or 0)
+            parts.append(f"linux_restart:{host_id}")
         elif isinstance(c, dict) and c.get("type") == "windows_update":
             host_id = int(c.get("host_id") or 0)
             parts.append(f"windows_update:{host_id}")
@@ -611,6 +614,9 @@ async def _handle_commands(commands: list) -> None:
         command from central is NOT sufficient by itself to run privileged
         sudo commands on a client's servers if
         this agent's own operator never opted in.
+      - {"type":"linux_restart","host_id":N,"reason":str}    — restart a
+        managed Linux host (`shutdown -r +1`). Same
+        MIKROTIK_LINUX_MANAGE_ENABLED gate as linux_apt_upgrade above.
       - {"type":"windows_update","host_id":N,"reason":str}   — install
         pending Windows Update on a managed Windows host. Respects
         MIKROTIK_WINDOWS_MANAGE_ENABLED locally (services/windows_manage.py,
@@ -675,6 +681,18 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(linux_manage.upgrade_host(int(host_id)))
                 else:
                     print(f"[uplink] linux_apt_upgrade command missing host_id: {cmd}")
+            elif cmd_type == "linux_restart":
+                host_id = cmd.get("host_id")
+                reason = cmd.get("reason") or ""
+                from services import linux_manage
+                if not linux_manage.MANAGE_ENABLED:
+                    print(f"[uplink] linux_restart received but MIKROTIK_LINUX_MANAGE_ENABLED "
+                          f"is not set locally — ignoring (host_id={host_id})")
+                elif host_id:
+                    print(f"[uplink] received LINUX_RESTART for host {host_id}")
+                    asyncio.create_task(linux_manage.restart_host(int(host_id), reason))
+                else:
+                    print(f"[uplink] linux_restart command missing host_id: {cmd}")
             elif cmd_type == "windows_update":
                 host_id = cmd.get("host_id")
                 reason = cmd.get("reason") or ""

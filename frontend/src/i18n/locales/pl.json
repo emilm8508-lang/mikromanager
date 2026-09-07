@@ -742,11 +742,16 @@
         "rebootRequired": "wymaga restartu",
         "lastCheck": "Ostatnie sprawdzenie",
         "lastUpgrade": "Ostatnia aktualizacja",
+        "lastRestart": "Ostatni restart",
         "enableManagement": "Włącz zarządzanie",
         "disableManagement": "Wyłącz zarządzanie",
         "checkUpdates": "Sprawdź aktualizacje",
         "upgradeNow": "Aktualizuj teraz",
         "upgradeConfirm": "Uruchomić aktualizację (apt/dnf update + upgrade) na {{ip}}? Wymaga uprawnień sudo skonfigurowanego poświadczenia.",
+        "restartNow": "Restartuj",
+        "restartConfirm": "Zrestartować {{ip}} teraz?",
+        "reasonRequired": "Powód jest wymagany.",
+        "reasonPromptRestart": "Powód restartu tego serwera:",
         "upgradeAll": "Aktualizuj wszystkie zarządzane ({{count}})",
         "upgradeAllConfirm": "Uruchomić aktualizację sekwencyjnie na {{count}} zarządzanych hostach?",
         "jobStatus": "Status zadania",
@@ -1006,7 +1011,10 @@
         "lastUpgrade": "Ostatnia aktualizacja",
         "rebootRequired": "restart",
         "queued": "W kolejce",
-        "upgradeNow": "Aktualizuj teraz"
+        "upgradeNow": "Aktualizuj teraz",
+        "restartNow": "Restartuj",
+        "reasonPromptRestart": "Powód restartu tego serwera:",
+        "reasonRequired": "Powód jest wymagany."
     },
     "windowsCentral": {
         "title": "Hosty Windows — wszyscy klienci",

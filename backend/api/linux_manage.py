@@ -17,6 +17,10 @@ class SettingsIn(BaseModel):
     credential_id: int | None = None
 
 
+class ReasonIn(BaseModel):
+    reason: str
+
+
 class BulkUpgradeIn(BaseModel):
     ids: list[int]
 
@@ -53,6 +57,12 @@ async def check_updates(host_id: int, background_tasks: BackgroundTasks):
 @router.post("/hosts/{host_id}/upgrade")
 async def upgrade_host(host_id: int, background_tasks: BackgroundTasks):
     background_tasks.add_task(linux_manage.upgrade_host, host_id)
+    return {"queued": True, "host_id": host_id}
+
+
+@router.post("/hosts/{host_id}/restart")
+async def restart_host(host_id: int, payload: ReasonIn, background_tasks: BackgroundTasks):
+    background_tasks.add_task(linux_manage.restart_host, host_id, payload.reason)
     return {"queued": True, "host_id": host_id}
 
 

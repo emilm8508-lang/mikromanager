@@ -8,7 +8,7 @@ import { RunScriptModal } from '../components/RunScriptModal'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal,
-  ChevronDown, ChevronUp, HardDrive, MemoryStick,
+  ChevronDown, ChevronUp, HardDrive, MemoryStick, Power,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../lib/utils'
@@ -256,7 +256,19 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
     onSuccess: () => setPolling(true),
   })
 
-  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading', 'running_script'].includes(job.status)
+  const runRestart = useMutation({
+    mutationFn: (reason: string) => linuxApi.restart(host.id, reason),
+    onSuccess: () => setPolling(true),
+  })
+
+  const askReasonAndRun = (mutate: (reason: string) => void, promptKey: string) => {
+    const reason = window.prompt(t(promptKey) as string)
+    if (reason === null) return
+    if (!reason.trim()) { alert(t('linux.reasonRequired') as string); return }
+    mutate(reason.trim())
+  }
+
+  const inProgress = job && ['starting', 'checking', 'updating', 'upgrading', 'restarting', 'running_script'].includes(job.status)
   const isSupported = host.package_manager === 'apt' || host.package_manager === 'dnf'
 
   return (
@@ -299,6 +311,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
         <div>
           {host.last_check_at && <span>{t('linux.lastCheck')}: {new Date(host.last_check_at).toLocaleString()}</span>}
           {host.last_upgrade_at && <span className="ml-3">{t('linux.lastUpgrade')}: {new Date(host.last_upgrade_at).toLocaleString()}</span>}
+          {host.last_restart_at && <span className="ml-3">{t('linux.lastRestart')}: {new Date(host.last_restart_at).toLocaleString()}</span>}
         </div>
         <div className="flex items-center gap-2">
           {!host.managed ? (
@@ -319,6 +332,13 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
                 if (confirm(t('linux.upgradeConfirm', { ip: host.ip }) as string)) runUpgrade.mutate()
               }} disabled={!isSupported || !!inProgress}>
                 <Download size={12} /> {t('linux.upgradeNow')}
+              </Button>
+              <Button size="sm" variant="danger"
+                onClick={() => askReasonAndRun(reason => {
+                  if (confirm(t('linux.restartConfirm', { ip: host.ip }) as string)) runRestart.mutate(reason)
+                }, 'linux.reasonPromptRestart')}
+                disabled={!!inProgress}>
+                <Power size={12} /> {t('linux.restartNow')}
               </Button>
               <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
                 <Terminal size={12} /> {t('runScript.button')}

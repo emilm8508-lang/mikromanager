@@ -43,6 +43,10 @@ function canonical_commands(array $commands): string {
             $parts[] = 'fetch_logs:' . (int)($c['device_id'] ?? 0) . ':' . (int)($c['limit'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'linux_apt_upgrade') {
             $parts[] = 'linux_apt_upgrade:' . (int)($c['host_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'linux_restart') {
+            // Reason deliberately excluded from the signed string — same
+            // reasoning as windows_update below.
+            $parts[] = 'linux_restart:' . (int)($c['host_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_update') {
             // Deliberately NOT including reason in the signed string —
             // free-text in a signature is fragile across encodings, and
@@ -368,6 +372,22 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_apt_upgrade_delivered", ?, ?)')
                     ->execute([$tenant_header, "Aktualizacja apt dostarczona do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3b2. Linux restart commands (per host, may be multiple queued) —
+    // reason travels as the marker file's own content, same pattern as
+    // Windows restart below.
+    foreach (glob($state_dir . "/linux_restart_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^linux_restart_.+_(\d+)$/', $base, $m)) {
+            $reason = trim(@file_get_contents($f));
+            $commands[] = ['type' => 'linux_restart', 'host_id' => (int)$m[1], 'reason' => $reason];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_restart_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Restart Linux dostarczony do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }
