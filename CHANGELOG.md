@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.1 — 2026-09-07
+- Give Compliance recommendations their own left-sidebar page in Central mode ("Rekomendacje", /central/compliance), mirroring the existing /central/inventory pattern - the cramped card list buried at the bottom of the Monitoring tab (squeezed alongside Tunele/Lacza WAN/SupplyChain) was reported as unreadable. Redesigned the display too: severity-colored left border per finding, larger readable text (no more monospace/truncated recommendation text), a per-severity count summary, and tenant/severity filters - removed the old embedded panel from the Monitoring tab entirely to avoid showing it twice.
+
 ## 2.0 — 2026-09-07
 - Surface Compliance recommendations in Central, mirroring the same pattern already used for Tunele/Lacza WAN - the firewall recommendations added last commit were only visible on each agent's own Compliance page. New compliance.py public_summary() (FAILED checks only - actual recommendations to act on, not a full pass/fail report) rides the snapshot's plaintext envelope as compliance_status, a new compliance_status_all action in ovh/api.php mirrors wan_links_status_all/tunnel_status_all exactly, and a new "Rekomendacje - wszyscy klienci" panel in Central's Monitoring tab lists every open recommendation across every tenant with its severity and full recommendation text.
 

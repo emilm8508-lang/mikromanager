@@ -1026,7 +1026,12 @@
     "complianceCentral": {
         "title": "Rekomendacje — wszyscy klienci",
         "intro": "Zalecenia konfiguracji (RouterOS/Linux/Windows) wykryte lokalnie przez agenta u kazdego klienta - tylko pozycje wymagajace poprawy, nie pelny raport zgodnosci. Pelny widok pass/fail: zakladka Compliance na agencie.",
-        "noFindings": "Brak zaleceń u zadnego klienta - albo nic nie znaleziono, albo sprawdzenia Compliance nie zostaly jeszcze uruchomione."
+        "noFindings": "Brak zaleceń u zadnego klienta - albo nic nie znaleziono, albo sprawdzenia Compliance nie zostaly jeszcze uruchomione.",
+        "noneMatchFilter": "Brak zaleceń pasujacych do wybranych filtrow.",
+        "countHigh": "wysokie: {{count}}",
+        "countMedium": "srednie: {{count}}",
+        "countLow": "niskie: {{count}}",
+        "allSeverities": "Wszystkie priorytety"
     },
     "wanLinksCentral": {
         "title": "Lacza WAN — wszyscy klienci",

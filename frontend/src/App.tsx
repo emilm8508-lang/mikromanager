@@ -9,6 +9,7 @@ import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
 import { CentralInventory } from './pages/CentralInventory'
+import { CentralCompliance } from './pages/CentralCompliance'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />
             <Route path="/central/inventory" element={<CentralInventory />} />
+            <Route path="/central/compliance" element={<CentralCompliance />} />
           </Routes>
         </main>
       </div>

@@ -265,11 +265,14 @@ export function Sidebar() {
   ]
   const centralNavItem = { to: '/central', label: t('nav.central'), icon: Cloud }
   const centralInventoryNavItem = { to: '/central/inventory', label: t('nav.inventory'), icon: Boxes }
+  const centralComplianceNavItem = { to: '/central/compliance', label: t('nav.compliance'), icon: ListChecks }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
-  const nav = mode === 'central' ? [centralNavItem, centralInventoryNavItem] : [...agentNav, centralNavItem]
+  const nav = mode === 'central'
+    ? [centralNavItem, centralInventoryNavItem, centralComplianceNavItem]
+    : [...agentNav, centralNavItem]
 
   return (
     <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col">
