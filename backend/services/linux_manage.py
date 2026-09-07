@@ -876,15 +876,22 @@ _MEM_FREE_RE = re.compile(r'^MemFree:\s*(\d+)\s*kB', re.MULTILINE)
 
 def _resources_command() -> str:
     excludes = " ".join(f"-x {t}" for t in _DF_EXCLUDE_TYPES)
-    return f"df -B1 -P {excludes} 2>/dev/null; echo '@@MEM@@'; cat /proc/meminfo"
+    return (f"df -B1 -P {excludes} 2>/dev/null; echo '@@MEM@@'; cat /proc/meminfo; "
+            "echo '@@CPU@@'; cat /proc/loadavg; nproc")
 
 
 def _parse_resources_output(output: str) -> dict:
     """Returns {"disks": [{"mount_point","total_bytes","used_bytes","pct"}],
-    "mem_total_bytes", "mem_used_pct"} — any piece that fails to parse is
-    just omitted (never raises), same defensive style as _identify_host's
-    regex parsing."""
-    df_part, _, mem_part = output.partition("@@MEM@@")
+    "mem_total_bytes", "mem_used_pct", "cpu_used_pct"} — any piece that fails
+    to parse is just omitted (never raises), same defensive style as
+    _identify_host's regex parsing.
+
+    cpu_used_pct is an approximation (1-minute load average / core count,
+    capped at 100) — /proc/loadavg + nproc need no extra tooling or sudo,
+    unlike mpstat/top, at the cost of being a load-based estimate rather
+    than a true instantaneous CPU busy percentage."""
+    df_part, _, rest = output.partition("@@MEM@@")
+    mem_part, _, cpu_part = rest.partition("@@CPU@@")
     disks = []
     lines = df_part.strip().splitlines()
     for line in lines[1:]:  # skip header
@@ -914,7 +921,19 @@ def _parse_resources_output(output: str) -> dict:
             mem_total_bytes = total_kb * 1024
             mem_used_pct = round((total_kb - avail_kb) / total_kb * 100, 1)
 
-    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct}
+    cpu_used_pct = None
+    cpu_lines = [l for l in cpu_part.strip().splitlines() if l.strip()]
+    if len(cpu_lines) >= 2:
+        try:
+            load1 = float(cpu_lines[0].split()[0])
+            nproc = int(cpu_lines[1].strip())
+            if nproc > 0:
+                cpu_used_pct = round(min(100.0, load1 / nproc * 100), 1)
+        except (ValueError, IndexError):
+            cpu_used_pct = None
+
+    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
+            "cpu_used_pct": cpu_used_pct}
 
 
 async def check_host_resources(host_id: int) -> dict:
@@ -952,6 +971,8 @@ async def check_host_resources(host_id: int) -> dict:
         if parsed["mem_used_pct"] is not None:
             host.mem_used_pct = parsed["mem_used_pct"]
             host.mem_total_bytes = parsed["mem_total_bytes"]
+        if parsed["cpu_used_pct"] is not None:
+            host.cpu_used_pct = parsed["cpu_used_pct"]
         host.last_resources_check_at = now
 
         seen_mounts = set()
@@ -1041,12 +1062,25 @@ def public_summary() -> list:
     managed=True hosts (an auto-discovered-but-not-opted-in host's
     existence must never leave the agent, even as metadata), and never
     raw command output/log (mirrors services/supply_chain.py's
-    public_summary(): counts/status only, not full findings)."""
+    public_summary(): counts/status only, not full findings).
+
+    Includes mem/cpu/disk utilization (all just percentages/byte counts,
+    not sensitive) so Central can render the same graphical CPU/RAM/disk
+    tiles it already has for Dell/iDRAC servers — see
+    frontend PhysicalServersPanel / LinuxCentralPanel."""
     with SessionLocal() as db:
         hosts = db.execute(select(LinuxHost).where(LinuxHost.managed == True)).scalars().all()  # noqa: E712
-        return [{
-            "id": h.id, "ip": h.ip, "hostname": h.hostname, "distro_pretty": h.distro_pretty,
-            "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
-            "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
-            "last_status": h.last_status,
-        } for h in hosts]
+        result = []
+        for h in hosts:
+            disks = db.execute(select(LinuxHostDisk).where(LinuxHostDisk.host_id == h.id)).scalars().all()
+            result.append({
+                "id": h.id, "ip": h.ip, "hostname": h.hostname, "distro_pretty": h.distro_pretty,
+                "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
+                "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
+                "last_status": h.last_status,
+                "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
+                "cpu_used_pct": h.cpu_used_pct,
+                "disks": [{"mount_point": d.mount_point, "pct": d.pct, "total_bytes": d.total_bytes,
+                           "used_bytes": d.used_bytes} for d in disks],
+            })
+        return result

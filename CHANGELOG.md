@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 1.98 — 2026-09-07
+- Add the same graphical CPU/RAM/disk tile view already used for Dell/iDRAC servers to Windows and Linux hosts, and move all three (Dell/Linux/Windows) into one unified "Serwery fizyczne" tab in Central - previously Linux/Windows patch-status tables lived in the separate Monitoring tab with no visual resource view, so Central couldn't show at a glance whether a Linux/Windows server was actually under load. Linux CPU is estimated from load1/nproc (no extra tooling/sudo needed, unlike mpstat/top); Windows CPU comes from Win32_Processor's average LoadPercentage. Completed and verified a mostly-finished uncommitted feature already sitting in the working tree (new cpu_used_pct column + collection + public_summary() enrichment on both host types, and a new UtilizationTile/HostUtilizationRow component) - the remaining piece was moving the Linux/Windows panels into the physical-servers tab instead of leaving them in general Monitoring.
+
 ## 1.97 — 2026-09-05
 - Surface the local WAN up/down check in Central, not just on each agent's own Devices page - the user asked directly how to verify WAN links across all tenants from Central, same as the existing "Tunele VPN" cross-tenant panel. New edge_discovery.py public_summary() rides the snapshot's plaintext envelope (wan_link_status, same mechanism as tunnel_status/dell_servers_status), a new wan_links_status_all action in ovh/api.php mirrors tunnel_status_all exactly, and a new "Lacza WAN — wszyscy klienci" panel in Central's Monitoring tab lists every WAN interface across every tenant with its current status - no E2E key needed, checked locally by each agent, not by an external ping.
 

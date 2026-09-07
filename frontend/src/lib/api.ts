@@ -315,6 +315,28 @@ export interface UplinkStatus {
   total_failed: number
 }
 
+export interface PrtgStatus {
+  enabled: boolean
+  url: string
+  has_api_token: boolean
+  verify_ssl: boolean
+}
+
+export interface CheckmkStatus {
+  enabled: boolean
+  url: string
+  site: string
+  username: string
+  has_secret: boolean
+  verify_ssl: boolean
+}
+
+export interface ConnectorTestResult {
+  ok: boolean
+  error?: string
+  sample_count?: number
+}
+
 export interface SelfVersion {
   commit: string | null
   commit_time: number | null
@@ -348,6 +370,16 @@ export const systemApi = {
   uplinkSendNow: () => api.post<{ success: boolean; status: UplinkStatus }>('/system/uplink/send-now').then(r => r.data),
   uplinkGenerateEncKey: () => api.post<{ enc_key: string }>('/system/uplink/generate-enc-key').then(r => r.data),
   uplinkGetEncKey: () => api.get<{ enc_key: string }>('/system/uplink/enc-key').then(r => r.data),
+
+  prtgStatus: () => api.get<PrtgStatus>('/system/prtg/status').then(r => r.data),
+  prtgConfigure: (data: { url: string; api_token: string; verify_ssl: boolean }) =>
+    api.post<PrtgStatus>('/system/prtg/config', data).then(r => r.data),
+  prtgTest: () => api.post<ConnectorTestResult>('/system/prtg/test').then(r => r.data),
+
+  checkmkStatus: () => api.get<CheckmkStatus>('/system/checkmk/status').then(r => r.data),
+  checkmkConfigure: (data: { url: string; site: string; username: string; secret: string; verify_ssl: boolean }) =>
+    api.post<CheckmkStatus>('/system/checkmk/config', data).then(r => r.data),
+  checkmkTest: () => api.post<ConnectorTestResult>('/system/checkmk/test').then(r => r.data),
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
   cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
@@ -485,6 +517,16 @@ export interface CentralSupplyChainStatus {
 // only ever hosts the local operator has already opted into management
 // (managed=True in LinuxHost), never the full auto-discovered list, and
 // never raw command output (see linux_manage.public_summary()).
+export interface CentralHostDiskStatus {
+  // 'mount_point' for Linux hosts, 'drive_letter' for Windows hosts —
+  // whichever the host type sends; the tile renderer just picks a label.
+  mount_point?: string
+  drive_letter?: string
+  pct: number | null
+  total_bytes: number | null
+  used_bytes: number | null
+}
+
 export interface CentralLinuxHostStatus {
   id: number
   ip: string
@@ -494,6 +536,10 @@ export interface CentralLinuxHostStatus {
   reboot_required: boolean
   last_upgrade_at: string | null
   last_status: string | null
+  mem_used_pct: number | null
+  mem_total_bytes: number | null
+  cpu_used_pct: number | null
+  disks: CentralHostDiskStatus[]
 }
 
 // Mirror of CentralLinuxHostStatus for windows_manage.public_summary().
@@ -506,6 +552,10 @@ export interface CentralWindowsHostStatus {
   reboot_required: boolean
   last_upgrade_at: string | null
   last_status: string | null
+  mem_used_pct: number | null
+  mem_total_bytes: number | null
+  cpu_used_pct: number | null
+  disks: CentralHostDiskStatus[]
 }
 
 // Redacted per-server iDRAC health an agent includes in its snapshot

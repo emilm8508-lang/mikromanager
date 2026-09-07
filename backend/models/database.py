@@ -346,6 +346,7 @@ class LinuxHost(Base):
     last_compliance_check_at = Column(DateTime, nullable=True)
     mem_used_pct = Column(Float, nullable=True)
     mem_total_bytes = Column(Integer, nullable=True)
+    cpu_used_pct = Column(Float, nullable=True)  # % of (load1 / nproc), see services/linux_manage.py
     last_resources_check_at = Column(DateTime, nullable=True)
 
 
@@ -415,6 +416,7 @@ class WindowsHost(Base):
     last_services_check_at = Column(DateTime, nullable=True)
     mem_used_pct = Column(Float, nullable=True)
     mem_total_bytes = Column(Integer, nullable=True)
+    cpu_used_pct = Column(Float, nullable=True)  # Win32_Processor LoadPercentage average
     last_resources_check_at = Column(DateTime, nullable=True)
     # "System Model:" from systeminfo — e.g. "Virtual Machine" for a
     # Hyper-V guest, "PowerEdge R640" for real Dell hardware. Lets
@@ -728,6 +730,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN mem_used_pct FLOAT"))
             if "mem_total_bytes" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN mem_total_bytes INTEGER"))
+            if "cpu_used_pct" not in lh_cols:
+                conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN cpu_used_pct FLOAT"))
             if "last_resources_check_at" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_resources_check_at DATETIME"))
 
@@ -756,6 +760,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN mem_used_pct FLOAT"))
             if "mem_total_bytes" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN mem_total_bytes INTEGER"))
+            if "cpu_used_pct" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN cpu_used_pct FLOAT"))
             if "last_resources_check_at" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_resources_check_at DATETIME"))
             if "system_model" not in wh_cols:

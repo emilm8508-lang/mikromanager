@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Cpu, MemoryStick, HardDrive } from 'lucide-react'
 import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
+import { HostUtilizationRow } from '../components/UtilizationTile'
 
 function formatDate(iso: string): string {
   try {
@@ -1139,34 +1141,48 @@ function LinuxCentralPanel() {
             </thead>
             <tbody>
               {rows.map(({ tenant, host }) => {
-                const queued = upgradePendingSet.has(`${tenant}:${host.id}`)
+                const key = `${tenant}:${host.id}`
+                const queued = upgradePendingSet.has(key)
                 return (
-                  <tr key={`${tenant}:${host.id}`} className="border-b border-slate-100">
-                    <td className="py-2">{tenant}</td>
-                    <td className="font-mono text-xs">{host.hostname || host.ip}</td>
-                    <td className="text-xs text-slate-500">{host.distro_pretty ?? '—'}</td>
-                    <td>
-                      {host.upgradable_count != null ? (
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                          {host.upgradable_count}
-                        </span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                      {host.reboot_required && (
-                        <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('linuxCentral.rebootRequired')}</span>
-                      )}
-                    </td>
-                    <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
-                    <td className="text-right">
-                      {queued ? (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('linuxCentral.queued')}</span>
-                      ) : (
-                        <button onClick={() => upgradeNow(tenant, host.id)} disabled={busyUpgrade === `${tenant}:${host.id}`}
-                          className="text-xs text-indigo-600 hover:underline">
-                          {t('linuxCentral.upgradeNow')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                  <Fragment key={key}>
+                    <tr className="border-b border-slate-100">
+                      <td className="py-2">{tenant}</td>
+                      <td className="font-mono text-xs">{host.hostname || host.ip}</td>
+                      <td className="text-xs text-slate-500">{host.distro_pretty ?? '—'}</td>
+                      <td>
+                        {host.upgradable_count != null ? (
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                            {host.upgradable_count}
+                          </span>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                        {host.reboot_required && (
+                          <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('linuxCentral.rebootRequired')}</span>
+                        )}
+                      </td>
+                      <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
+                      <td className="text-right">
+                        {queued ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('linuxCentral.queued')}</span>
+                        ) : (
+                          <button onClick={() => upgradeNow(tenant, host.id)} disabled={busyUpgrade === `${tenant}:${host.id}`}
+                            className="text-xs text-indigo-600 hover:underline">
+                            {t('linuxCentral.upgradeNow')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-100">
+                      <td colSpan={6} className="pb-2">
+                        <HostUtilizationRow
+                          cpuPct={host.cpu_used_pct} memPct={host.mem_used_pct} memTotalBytes={host.mem_total_bytes}
+                          disks={(host.disks ?? []).map(d => ({ label: d.mount_point || '?', pct: d.pct, totalBytes: d.total_bytes }))}
+                          cpuLabel={t('dell.component.cpu') as string} memLabel={t('dell.component.memory') as string}
+                          diskLabel={t('dell.component.storage') as string}
+                          CpuIcon={Cpu} MemIcon={MemoryStick} DiskIcon={HardDrive}
+                        />
+                      </td>
+                    </tr>
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -1358,40 +1374,53 @@ function WindowsCentralPanel() {
                 const updateQueued = updatePendingSet.has(key)
                 const restartQueued = restartPendingSet.has(key)
                 return (
-                  <tr key={key} className="border-b border-slate-100">
-                    <td className="py-2">{tenant}</td>
-                    <td className="font-mono text-xs">{host.hostname || host.ip}</td>
-                    <td className="text-xs text-slate-500">{host.os_name ?? '—'}</td>
-                    <td>
-                      {host.upgradable_count != null ? (
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                          {host.upgradable_count}
-                        </span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                      {host.reboot_required && (
-                        <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('windowsCentral.rebootRequired')}</span>
-                      )}
-                    </td>
-                    <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
-                    <td className="text-right space-x-2">
-                      {updateQueued ? (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
-                      ) : (
-                        <button onClick={() => updateNow(tenant, host.id)} disabled={busyAction === key}
-                          className="text-xs text-indigo-600 hover:underline">
-                          {t('windowsCentral.updateNow')}
-                        </button>
-                      )}
-                      {restartQueued ? (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
-                      ) : (
-                        <button onClick={() => restartNow(tenant, host.id)} disabled={busyAction === key}
-                          className="text-xs text-indigo-600 hover:underline">
-                          {t('windowsCentral.restartNow')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                  <Fragment key={key}>
+                    <tr className="border-b border-slate-100">
+                      <td className="py-2">{tenant}</td>
+                      <td className="font-mono text-xs">{host.hostname || host.ip}</td>
+                      <td className="text-xs text-slate-500">{host.os_name ?? '—'}</td>
+                      <td>
+                        {host.upgradable_count != null ? (
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${host.upgradable_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                            {host.upgradable_count}
+                          </span>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                        {host.reboot_required && (
+                          <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('windowsCentral.rebootRequired')}</span>
+                        )}
+                      </td>
+                      <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
+                      <td className="text-right space-x-2">
+                        {updateQueued ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
+                        ) : (
+                          <button onClick={() => updateNow(tenant, host.id)} disabled={busyAction === key}
+                            className="text-xs text-indigo-600 hover:underline">
+                            {t('windowsCentral.updateNow')}
+                          </button>
+                        )}
+                        {restartQueued ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('windowsCentral.queued')}</span>
+                        ) : (
+                          <button onClick={() => restartNow(tenant, host.id)} disabled={busyAction === key}
+                            className="text-xs text-indigo-600 hover:underline">
+                            {t('windowsCentral.restartNow')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-100">
+                      <td colSpan={6} className="pb-2">
+                        <HostUtilizationRow
+                          cpuPct={host.cpu_used_pct} memPct={host.mem_used_pct} memTotalBytes={host.mem_total_bytes}
+                          disks={(host.disks ?? []).map(d => ({ label: d.drive_letter || '?', pct: d.pct, totalBytes: d.total_bytes }))}
+                          cpuLabel={t('dell.component.cpu') as string} memLabel={t('dell.component.memory') as string}
+                          diskLabel={t('dell.component.storage') as string}
+                          CpuIcon={Cpu} MemIcon={MemoryStick} DiskIcon={HardDrive}
+                        />
+                      </td>
+                    </tr>
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -1638,13 +1667,16 @@ export function PhysicalServersPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">{t('dellCentral.title')}</h2>
-          <p className="text-sm text-slate-500">{t('dellCentral.intro')}</p>
-        </div>
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">{t('central.physicalServersTitle')}</h2>
+        <p className="text-sm text-slate-500">{t('central.physicalServersIntro')}</p>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
+        <h3 className="text-sm font-semibold text-slate-700">{t('dellCentral.title')}</h3>
         <button onClick={reload} className="text-xs text-indigo-600 hover:underline shrink-0">{t('common.refresh')}</button>
       </div>
+      <p className="text-xs text-slate-500 -mt-2">{t('dellCentral.intro')}</p>
       {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{err}</div>}
 
       {loading ? (
@@ -1701,6 +1733,9 @@ export function PhysicalServersPanel() {
           </div>
         ))
       )}
+
+      <LinuxCentralPanel />
+      <WindowsCentralPanel />
     </div>
   )
 }
@@ -1803,8 +1838,6 @@ export function MonitoringPanel() {
       <WanLinksCentralPanel />
       <TunnelCentralPanel />
       <SupplyChainCentralPanel />
-      <LinuxCentralPanel />
-      <WindowsCentralPanel />
     </div>
   )
 }

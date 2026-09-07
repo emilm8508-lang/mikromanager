@@ -1111,7 +1111,8 @@ def set_host_type(host_id: int, host_type: str) -> dict:
 _RESOURCES_SCRIPT = r"""
 $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,Size,FreeSpace
 $os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
-[PSCustomObject]@{ Disks = $disks; Mem = $os } | ConvertTo-Json -Compress -Depth 4
+$cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
+[PSCustomObject]@{ Disks = $disks; Mem = $os; Cpu = $cpu } | ConvertTo-Json -Compress -Depth 4
 """
 
 
@@ -1180,7 +1181,16 @@ def _parse_resources(parsed: dict) -> dict:
     except (TypeError, ValueError):
         pass
 
-    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct}
+    cpu_used_pct = None
+    try:
+        cpu_raw = parsed.get("Cpu")
+        if cpu_raw is not None:
+            cpu_used_pct = round(float(cpu_raw), 1)
+    except (TypeError, ValueError):
+        pass
+
+    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
+            "cpu_used_pct": cpu_used_pct}
 
 
 async def check_host_resources(host_id: int) -> dict:
@@ -1218,6 +1228,8 @@ async def check_host_resources(host_id: int) -> dict:
         if parsed["mem_used_pct"] is not None:
             host.mem_used_pct = parsed["mem_used_pct"]
             host.mem_total_bytes = parsed["mem_total_bytes"]
+        if parsed["cpu_used_pct"] is not None:
+            host.cpu_used_pct = parsed["cpu_used_pct"]
         host.last_resources_check_at = now
 
         for d in parsed["disks"]:
@@ -1343,12 +1355,21 @@ def set_credential(host_id: int, credential_id: Optional[int]) -> dict:
 def public_summary() -> list:
     """Redacted summary for the snapshot's plaintext envelope — ONLY
     managed=True hosts, never raw log/reason from past actions beyond the
-    latest status. Mirrors linux_manage.public_summary()."""
+    latest status. Mirrors linux_manage.public_summary(), including the
+    same mem/cpu/disk utilization fields for Central's graphical tiles."""
     with SessionLocal() as db:
         hosts = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
-        return [{
-            "id": h.id, "ip": h.ip, "hostname": h.hostname, "os_name": h.os_name,
-            "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
-            "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
-            "last_status": h.last_status,
-        } for h in hosts]
+        result = []
+        for h in hosts:
+            disks = db.execute(select(WindowsHostDisk).where(WindowsHostDisk.host_id == h.id)).scalars().all()
+            result.append({
+                "id": h.id, "ip": h.ip, "hostname": h.hostname, "os_name": h.os_name,
+                "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
+                "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
+                "last_status": h.last_status,
+                "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
+                "cpu_used_pct": h.cpu_used_pct,
+                "disks": [{"drive_letter": d.drive_letter, "pct": d.pct, "total_bytes": d.total_bytes,
+                           "used_bytes": d.used_bytes} for d in disks],
+            })
+        return result
