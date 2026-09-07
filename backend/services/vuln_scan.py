@@ -520,10 +520,21 @@ def _close_winrm(session) -> None:
 
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
                          domain: Optional[str]) -> Optional[dict]:
-    """Blocking — run via loop.run_in_executor. Read-only: only ever runs
-    `systeminfo`, nothing that changes device state. `domain` set → domain
-    account (DOMAIN\\user or user@fqdn via NTLM, see _ntlm_user); left
-    blank → local Windows account."""
+    """Blocking — run via loop.run_in_executor. Read-only: queries
+    Win32_OperatingSystem via CIM, nothing that changes device state.
+    `domain` set → domain account (DOMAIN\\user or user@fqdn via NTLM, see
+    _ntlm_user); left blank → local Windows account.
+
+    Deliberately NOT `systeminfo` (used here until this was fixed) —
+    that command's field labels are localized ("OS Name:"/"OS Version:"
+    only on English Windows; Polish Windows prints "Nazwa systemu
+    operacyjnego:"/"Wersja systemu operacyjnego:"), so a label-matching
+    parser silently fails on any non-English-locale host. Confirmed live
+    as the actual cause of Windows hosts never producing vulnerability
+    findings at all (not a CVE-matching gap — the host was never even
+    identified, so it never entered the scan in the first place).
+    Win32_OperatingSystem's "Version" property (e.g. "10.0.17763") is a
+    plain numeric string, not localized text, regardless of system locale."""
     import winrm
     user = _ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
@@ -536,7 +547,9 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
             server_cert_validation="ignore",
             read_timeout_sec=10, operation_timeout_sec=8,
         )
-        result = session.run_cmd("systeminfo")
+        result = session.run_ps(
+            "$os = Get-CimInstance Win32_OperatingSystem; \"$($os.Caption)|$($os.Version)\""
+        )
         if result.status_code != 0:
             return None
         return {"output": result.std_out.decode("utf-8", errors="ignore")}
@@ -549,17 +562,20 @@ def _winrm_identity_sync(ip: str, port: int, username: str, password: str,
 
 async def _winrm_identity(ip: str, port: int, username: str, password: str,
                           domain: Optional[str]) -> tuple:
-    """Returns (product, version) parsed from `systeminfo` output, or (None, None)."""
+    """Returns (product, version) from Win32_OperatingSystem's Caption/
+    Version (see _winrm_identity_sync's docstring for why this replaced
+    systeminfo text parsing), or (None, None)."""
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
         _EXECUTOR, _winrm_identity_sync, ip, port, username, password, domain)
     if not result:
         return None, None
-    output = result["output"]
-    name_m = re.search(r"OS Name:\s*(.+)", output)
-    ver_m = re.search(r"OS Version:\s*([\d.]+)", output)
-    if name_m and ver_m:
-        return name_m.group(1).strip(), ver_m.group(1).strip()
+    output = result["output"].strip()
+    parts = output.rsplit("|", 1)
+    if len(parts) == 2 and parts[0].strip() and re.match(r"^[\d.]+$", parts[1].strip()):
+        return parts[0].strip(), parts[1].strip()
+    print(f"[vuln_scan] {ip}: WinRM login succeeded but Win32_OperatingSystem query "
+          f"didn't return the expected Caption|Version shape (got: {output[:200]!r})")
     return None, None
 
 

@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.5 — 2026-09-07
+- Fix Windows hosts never producing any vulnerability findings at all - reported directly ("no Windows vulnerabilities showing"). Root cause: the WinRM host-identification step parsed `systeminfo`'s free-text output looking for the English labels "OS Name:"/"OS Version:" - on any non-English-locale Windows (confirmed: this whole deployment is Polish-locale, where systeminfo prints "Nazwa systemu operacyjnego:"/"Wersja systemu operacyjnego:"), the regex never matched, silently returning nothing. That cascaded into skipping the host from vulnerability scanning ENTIRELY (not just a missed CVE match) - no package inventory collected, no OS-level CVE lookup, and the (correct) credential got cached as "failed" for 30 days. Replaced systeminfo text parsing with a Get-CimInstance Win32_OperatingSystem query - its Version property is a plain locale-independent number regardless of system language. Known remaining gap (separate, smaller issue): Windows installed-software CVE matching still needs a paid Vulners API key, unlike Linux which gets a free OSV.dev equivalent - Windows hosts will now at least get identified and scanned for OS-level CVEs for free, same as Linux/Mikrotik already do.
+
 ## 2.4 — 2026-09-07
 - Group Central's "Podatnosci" page by device instead of a flat finding list, and add CSV export (Excel-compatible - UTF-8 BOM so Polish diacritics render correctly) - properly quoted/escaped (unlike this app's existing AnydeskSessions CSV export helper, which doesn't quote fields, a real problem here since CVE summaries are free-text prose that routinely contains commas), plus the same OWASP CSV-formula-injection guard.
 
