@@ -99,12 +99,19 @@ async def test_connection() -> dict:
     if not is_configured():
         return {"ok": False, "error": "not configured"}
     url = f"{_config['url']}/api/table.json"
-    params = {"content": "sensors", "columns": "objid,sensor,status", "count": "1"}
-    headers = {"Authorization": f"Bearer {_config['api_token']}"}
+    # PRTG's own HTTP API docs (paessler.com/manuals/prtg/http_api) document
+    # both an "Authorization: Bearer <token>" header AND a plain "apitoken"
+    # query parameter as equally valid. Confirmed live: a real PRTG server
+    # rejected the Bearer header with "401 Unsupported authorization scheme"
+    # (most likely something in front of PRTG - a reverse proxy or an older
+    # core version - intercepting the header before PRTG's own auth logic
+    # sees it) - the query-parameter form sidesteps that path entirely.
+    params = {"content": "sensors", "columns": "objid,sensor,status", "count": "1",
+              "apitoken": _config["api_token"]}
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
     try:
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(url, params=params, headers=headers,
+            async with session.get(url, params=params,
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     data = await resp.json(content_type=None)

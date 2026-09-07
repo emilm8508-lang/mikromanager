@@ -2,6 +2,10 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.10 — 2026-09-07
+- Fix PRTG "Test connection" failing with "HTTP 401: Unsupported authorization scheme" - reported live right after the URL-duplication fix let the real errors surface. Our "Authorization: Bearer <token>" header matches PRTG's own documented format exactly, but that specific PRTG server rejected it anyway (most likely something in front of PRTG - a reverse proxy or an older core version - intercepting the header before PRTG's own auth logic runs). PRTG's HTTP API docs also document an equally official, header-free alternative: the token as a plain "apitoken" query parameter - switched to that, which sidesteps whatever was rejecting the header.
+- Add the "Accept: application/json" header to the Check_MK connectivity test, matching every official Checkmk REST API example - without it, some setups can content-negotiate to an HTML response instead of the expected JSON. Note: if Check_MK's "Test connection" still 404s with a Checkmk-branded not-found page after this, that points to the REST API not being enabled/proxied for that site (a server-side Checkmk/Apache config question, not something fixable from the agent) - worth checking Help > Developer resources > REST API inside that Checkmk install itself to confirm the API loads there.
+
 ## 2.9 — 2026-09-07
 - Fix Check_MK "Test connection" always returning 404 - reported live right after the previous entry's error-display fix made the failure visible for the first time. Root cause: the site name gets appended twice when the URL field already includes it (e.g. url="http://host/sanmed/check_mk" + site="sanmed" built the request against ".../sanmed/check_mk/sanmed/check_mk/api/1.0/") - an easy mistake since that full path is exactly what you'd copy from a browser tab open on Checkmk. _base_url() now strips a trailing "/check_mk" and/or "/<site>" from the URL before appending them back, so either input style (bare host, or the full browser URL) resolves to the same correct endpoint.
 

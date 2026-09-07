@@ -113,7 +113,11 @@ async def test_connection() -> dict:
     if not is_configured():
         return {"ok": False, "error": "not configured"}
     url = _base_url() + "/"
-    headers = {"Authorization": f"Bearer {_config['username']} {_config['secret']}"}
+    # Official Checkmk REST API examples (docs.checkmk.com/latest/en/rest_api.html)
+    # always send Accept: application/json alongside the Bearer header -
+    # without it, some setups content-negotiate to an HTML response instead.
+    headers = {"Authorization": f"Bearer {_config['username']} {_config['secret']}",
+               "Accept": "application/json"}
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
     try:
         async with aiohttp.ClientSession(connector=connector) as session:
