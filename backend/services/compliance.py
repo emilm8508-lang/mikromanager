@@ -483,3 +483,40 @@ def summary() -> list:
         })
     out.sort(key=lambda x: (-x["failed"], x["label"]))
     return out
+
+
+def public_summary() -> list:
+    """Redacted view for the snapshot's plaintext envelope — same pattern
+    as tunnel_monitor.public_summary()/dell_monitor.public_summary()/
+    edge_discovery.public_summary(), feeding Central's cross-tenant
+    "Rekomendacje" panel. Deliberately only FAILED checks (passed=False)
+    — this is "what needs fixing", not a full audit trail, so a target
+    with everything passing contributes nothing here (matches the
+    original ask: recommendations to act on, not a pass/fail report card).
+    Never includes target_id/raw IP beyond the same human-readable label
+    already shown locally on the Compliance page."""
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(ComplianceCheckResult).where(ComplianceCheckResult.passed == False)  # noqa: E712
+        ).scalars().all()
+        linux_hosts = {h.id: h for h in db.execute(select(LinuxHost)).scalars().all()}
+        windows_hosts = {h.id: h for h in db.execute(select(WindowsHost)).scalars().all()}
+        devices = {d.id: d for d in db.execute(select(Device)).scalars().all()}
+
+    out = []
+    for r in rows:
+        if r.target_type == "linux":
+            host = linux_hosts.get(r.target_id)
+            label = (host.hostname or host.ip) if host else str(r.target_id)
+        elif r.target_type == "windows":
+            host = windows_hosts.get(r.target_id)
+            label = (host.hostname or host.ip) if host else str(r.target_id)
+        else:
+            dev = devices.get(r.target_id)
+            label = (dev.identity or dev.name or dev.ip) if dev else str(r.target_id)
+        out.append({
+            "target_type": r.target_type, "label": label,
+            "check_id": r.check_id, "title": r.title, "severity": r.severity,
+            "detail": r.detail, "checked_at": r.checked_at.isoformat() if r.checked_at else None,
+        })
+    return out

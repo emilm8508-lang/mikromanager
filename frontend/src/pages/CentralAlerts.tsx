@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cpu, MemoryStick, HardDrive } from 'lucide-react'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralComplianceFinding } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
 import { HostUtilizationRow } from '../components/UtilizationTile'
 
@@ -1600,6 +1600,80 @@ function WanLinksCentralPanel() {
 }
 
 
+const SEVERITY_BADGE: Record<string, string> = {
+  high: 'bg-red-100 text-red-700',
+  medium: 'bg-amber-100 text-amber-700',
+  low: 'bg-slate-100 text-slate-600',
+}
+
+function ComplianceCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; finding: CentralComplianceFinding }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.complianceStatusAll()
+      const flat: Array<{ tenant: string; finding: CentralComplianceFinding }> = []
+      for (const tRow of s.tenants) {
+        for (const finding of tRow.findings) flat.push({ tenant: tRow.tenant, finding })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('complianceCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">
+        {t('complianceCentral.intro')}
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('complianceCentral.noFindings')}</div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map(({ tenant, finding }, i) => (
+            <div key={`${tenant}:${finding.check_id}:${i}`} className="border border-slate-200 rounded-lg p-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{tenant}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">{finding.target_type}</span>
+                  <span className="font-mono text-sm text-slate-800">{finding.label}</span>
+                </div>
+                <span className={`text-xs px-1.5 py-0.5 rounded ${SEVERITY_BADGE[finding.severity] ?? 'bg-slate-100 text-slate-600'}`}>
+                  {finding.severity}
+                </span>
+              </div>
+              <p className="text-sm text-slate-700 mt-1.5">{finding.title}</p>
+              {finding.detail && <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap">{finding.detail}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function dellHealthClass(h: string | null): string {
   if (h === 'Critical') return 'bg-red-100 text-red-700'
   if (h === 'Warning') return 'bg-amber-100 text-amber-700'
@@ -1838,6 +1912,7 @@ export function MonitoringPanel() {
       <WanLinksCentralPanel />
       <TunnelCentralPanel />
       <SupplyChainCentralPanel />
+      <ComplianceCentralPanel />
     </div>
   )
 }

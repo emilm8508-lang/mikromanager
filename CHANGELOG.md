@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.0 — 2026-09-07
+- Surface Compliance recommendations in Central, mirroring the same pattern already used for Tunele/Lacza WAN - the firewall recommendations added last commit were only visible on each agent's own Compliance page. New compliance.py public_summary() (FAILED checks only - actual recommendations to act on, not a full pass/fail report) rides the snapshot's plaintext envelope as compliance_status, a new compliance_status_all action in ovh/api.php mirrors wan_links_status_all/tunnel_status_all exactly, and a new "Rekomendacje - wszyscy klienci" panel in Central's Monitoring tab lists every open recommendation across every tenant with its severity and full recommendation text.
+
 ## 1.99 — 2026-09-07
 - Add firewall/NAT rule recommendations to the existing Compliance checks for RouterOS - directly requested, with the exact example given (a NAT rule forwarding traffic to an internal server, e.g. sanmed R1): (1) flags a NAT (port forwarding) rule with no corresponding chain=forward filter rule at all - RouterOS's own default with an empty forward chain is accept-everything, so the forwarded service is fully exposed with zero restriction; (2) flags chain=input not ending in an unconditional drop; (3) flags management services (Winbox/API/SSH/etc.) accepted on the WAN interface-list without a restricted src-address, reusing the same "WAN" interface-list signal built for WAN link monitoring. Each finding's detail is a real, actionable recommendation (what to add and why), not just pass/fail - fits the existing Compliance UI/data model directly, so no new page needed. Also fixed the Compliance page truncating long detail text to one line, which would have hidden most of these recommendations.
 

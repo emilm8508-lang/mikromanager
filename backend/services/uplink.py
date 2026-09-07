@@ -327,6 +327,13 @@ async def _build_snapshot() -> dict:
         wan_link_status = []
 
     try:
+        from services import compliance
+        compliance_status = compliance.public_summary()
+    except Exception as e:
+        print(f"[uplink] compliance summary error: {e}")
+        compliance_status = []
+
+    try:
         from services import inventory
         # Deliberately NOT added to _build_request_body()'s plaintext
         # envelope fields (unlike linux_hosts_status/tunnel_status/
@@ -366,6 +373,7 @@ async def _build_snapshot() -> dict:
         "tunnel_status": tunnel_status,
         "dell_servers_status": dell_servers_status,
         "wan_link_status": wan_link_status,
+        "compliance_status": compliance_status,
         "inventory_summary": inventory_summary,
     }
 
@@ -406,6 +414,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "tunnel_status": snapshot.get("tunnel_status", []),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
+            "compliance_status": snapshot.get("compliance_status", []),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

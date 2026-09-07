@@ -599,6 +599,20 @@ export interface CentralWanLinkStatus {
   status: string
 }
 
+// Redacted compliance/hardening recommendations an agent includes in its
+// snapshot envelope (see services/compliance.py's public_summary()) —
+// FAILED checks only, i.e. actual recommendations to act on, not a full
+// pass/fail report card.
+export interface CentralComplianceFinding {
+  target_type: 'linux' | 'windows' | 'mikrotik'
+  label: string
+  check_id: string
+  title: string
+  severity: string
+  detail: string | null
+  checked_at: string | null
+}
+
 export interface AgentBackupStatus {
   last_backup_at: string | null
   last_error: string | null
@@ -1737,6 +1751,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
   wanLinksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
+  complianceStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; findings: CentralComplianceFinding[] }> }>('compliance_status_all'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
   requestDellCheck: (tenant: string, serverId: number) =>
