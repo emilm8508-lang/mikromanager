@@ -1713,6 +1713,72 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'prtg_status_all':
+            // Aggregate view across every tenant this identity can see —
+            // same subquery pattern as compliance_status_all. See
+            // services/prtg_monitor.py's public_summary() — only sensors
+            // currently in a problem state, no E2E key needed.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $sensors = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $sensors = $meta['prtg_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'sensors' => $sensors,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
+        case 'checkmk_status_all':
+            // Same pattern again — see services/checkmk_monitor.py's
+            // public_summary() (only services/hosts currently not OK/UP).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $services = [];
+                $hosts = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) {
+                        $status = $meta['checkmk_status'] ?? [];
+                        $services = $status['services'] ?? [];
+                        $hosts = $status['hosts'] ?? [];
+                    }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'services' => $services,
+                    'hosts' => $hosts,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_device_logs':
             // Ask the agent to fetch the last N raw log lines from one of its
             // devices. Delivered on next heartbeat; result rides along on the

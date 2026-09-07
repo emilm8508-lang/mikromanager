@@ -250,6 +250,18 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] dell monitor error: {e}")
 
     try:
+        from services import prtg_monitor
+        alert_events += await prtg_monitor.collect_prtg_events()
+    except Exception as e:
+        print(f"[uplink] PRTG monitor error: {e}")
+
+    try:
+        from services import checkmk_monitor
+        alert_events += await checkmk_monitor.collect_checkmk_events()
+    except Exception as e:
+        print(f"[uplink] Check_MK monitor error: {e}")
+
+    try:
         edge_ips = await edge_discovery.collect_public_ips()
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")
@@ -345,6 +357,20 @@ async def _build_snapshot() -> dict:
         compliance_status = []
 
     try:
+        from services import prtg_monitor
+        prtg_status = prtg_monitor.public_summary()
+    except Exception as e:
+        print(f"[uplink] PRTG status summary error: {e}")
+        prtg_status = []
+
+    try:
+        from services import checkmk_monitor
+        checkmk_status = checkmk_monitor.public_summary()
+    except Exception as e:
+        print(f"[uplink] Check_MK status summary error: {e}")
+        checkmk_status = {"services": [], "hosts": []}
+
+    try:
         from services import inventory
         # Deliberately NOT added to _build_request_body()'s plaintext
         # envelope fields (unlike linux_hosts_status/tunnel_status/
@@ -386,6 +412,8 @@ async def _build_snapshot() -> dict:
         "dell_servers_status": dell_servers_status,
         "wan_link_status": wan_link_status,
         "compliance_status": compliance_status,
+        "prtg_status": prtg_status,
+        "checkmk_status": checkmk_status,
         "inventory_summary": inventory_summary,
     }
 
@@ -427,6 +455,8 @@ def _build_request_body(snapshot: dict) -> tuple:
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
             "compliance_status": snapshot.get("compliance_status", []),
+            "prtg_status": snapshot.get("prtg_status", []),
+            "checkmk_status": snapshot.get("checkmk_status", {"services": [], "hosts": []}),
             # Deliberately narrower than vuln_findings_summary (which stays
             # encrypted-only, CRITICAL/HIGH/MEDIUM) — CRITICAL/HIGH only,
             # an explicit user-approved tradeoff to make Central visibility

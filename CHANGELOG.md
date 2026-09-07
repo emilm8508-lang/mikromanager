@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.12 — 2026-09-07
+- Actually use the PRTG/Check_MK data instead of only testing the connection: new prtg_monitor.py/checkmk_monitor.py detect a sensor/service/host moving between OK and a problem state (PRTG's Down/Warning/Unusual/etc, Check_MK's WARN/CRIT/DOWN/UNREACHABLE) and report it through the same alert_events mechanism already used for WAN/tunnel/Dell monitoring - 6 new alert-rule event types (prtg_sensor_down/up, checkmk_service_problem/ok, checkmk_host_down/up) with their own Telegram message text, no new event-type plumbing needed since that mechanism was already fully generic. Every sensor/service/host is correlated by IP against this agent's own known Device/LinuxHost/WindowsHost records (same by-IP-dict pattern as the Inventory page) so alerts and the new Central page show a familiar local device name instead of only the external tool's own label, falling back to that label when the IP isn't a known device. New Central sidebar page "PRTG / Check_MK" lists everything currently in a problem state across every tenant.
+
 ## 2.11 — 2026-09-07
 - Fix Check_MK "Test connection" still 404ing (branded Checkmk "Page not found" page) after the previous Accept-header fix - found the actual root cause via Checkmk's own forum: the REST API has no route at all for the bare "/check_mk/api/1.0/" root itself, so any request to it falls through to the classic web GUI's own themed 404 handler, which looks identical to a real routing bug. Switched the connectivity test to GET domain-types/host_config/collections/all instead - a real, documented, read-only endpoint that actually exists.
 

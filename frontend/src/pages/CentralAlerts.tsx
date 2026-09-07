@@ -340,6 +340,12 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="device_log_critical">{t('alerts.eventDeviceLogCritical')}</option>
                 <option value="agent_offline">{t('alerts.eventAgentOffline')}</option>
                 <option value="agent_online">{t('alerts.eventAgentOnline')}</option>
+                <option value="prtg_sensor_down">{t('alerts.eventPrtgSensorDown')}</option>
+                <option value="prtg_sensor_up">{t('alerts.eventPrtgSensorUp')}</option>
+                <option value="checkmk_service_problem">{t('alerts.eventCheckmkServiceProblem')}</option>
+                <option value="checkmk_service_ok">{t('alerts.eventCheckmkServiceOk')}</option>
+                <option value="checkmk_host_down">{t('alerts.eventCheckmkHostDown')}</option>
+                <option value="checkmk_host_up">{t('alerts.eventCheckmkHostUp')}</option>
               </select>
             </label>
             <label className="text-sm">

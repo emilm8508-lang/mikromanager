@@ -10,6 +10,7 @@ import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
 import { CentralInventory } from './pages/CentralInventory'
 import { CentralCompliance } from './pages/CentralCompliance'
+import { CentralExternalMonitoring } from './pages/CentralExternalMonitoring'
 import { CentralDellServers } from './pages/CentralDellServers'
 import { CentralHosts } from './pages/CentralHosts'
 import { CentralVulnerabilities } from './pages/CentralVulnerabilities'
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/central" element={<Central />} />
             <Route path="/central/inventory" element={<CentralInventory />} />
             <Route path="/central/compliance" element={<CentralCompliance />} />
+            <Route path="/central/external-monitoring" element={<CentralExternalMonitoring />} />
             <Route path="/central/servers" element={<CentralDellServers />} />
             <Route path="/central/hosts" element={<CentralHosts />} />
             <Route path="/central/vulnerabilities" element={<CentralVulnerabilities />} />

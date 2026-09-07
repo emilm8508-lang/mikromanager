@@ -217,6 +217,48 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
         case 'agent_online':
             return "✅ {$prefix}Agent ponownie wysyła dane\n"
                  . "Tenant: {$tenant}";
+        case 'prtg_sensor_down':
+            $sensor = $event['sensor_name'] ?? '?';
+            $status_name = $event['status_name'] ?? '?';
+            $msg = "🔴 {$prefix}PRTG: sensor przestał działać poprawnie\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Sensor: {$sensor}\n"
+                 . "Status: {$status_name}";
+            if (!empty($event['message'])) $msg .= "\nWiadomość: {$event['message']}";
+            return $msg;
+        case 'prtg_sensor_up':
+            $sensor = $event['sensor_name'] ?? '?';
+            return "✅ {$prefix}PRTG: sensor ponownie działa poprawnie\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Sensor: {$sensor}";
+        case 'checkmk_service_problem':
+            $desc = $event['description'] ?? '?';
+            $status_name = $event['state_name'] ?? '?';
+            $msg = "🔴 {$prefix}Check_MK: usługa zgłasza problem\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Usługa: {$desc}\n"
+                 . "Stan: {$status_name}";
+            if (!empty($event['plugin_output'])) $msg .= "\nSzczegóły: {$event['plugin_output']}";
+            return $msg;
+        case 'checkmk_service_ok':
+            $desc = $event['description'] ?? '?';
+            return "✅ {$prefix}Check_MK: usługa wróciła do stanu OK\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Usługa: {$desc}";
+        case 'checkmk_host_down':
+            $status_name = $event['state_name'] ?? '?';
+            return "🔴 {$prefix}Check_MK: host niedostępny\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Stan: {$status_name}";
+        case 'checkmk_host_up':
+            return "✅ {$prefix}Check_MK: host ponownie dostępny\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}";
         case 'device_log_critical':
             $severity = $event['severity'] ?? '?';
             $topics = $event['topics'] ?? '';

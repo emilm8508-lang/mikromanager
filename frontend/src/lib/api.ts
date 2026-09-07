@@ -613,6 +613,29 @@ export interface CentralComplianceFinding {
   checked_at: string | null
 }
 
+// Redacted PRTG/Check_MK problem summaries an agent includes in its
+// snapshot envelope (see services/prtg_monitor.py / checkmk_monitor.py's
+// public_summary()) — only sensors/services/hosts currently in a problem
+// state, not a full inventory.
+export interface CentralPrtgSensor {
+  device_name: string
+  sensor_name: string
+  status_name: string
+  message: string | null
+}
+
+export interface CentralCheckmkService {
+  device_name: string
+  description: string
+  state_name: string
+  plugin_output: string | null
+}
+
+export interface CentralCheckmkHost {
+  device_name: string
+  state_name: string
+}
+
 // CRITICAL/HIGH-only CVE findings an agent includes in its plaintext
 // snapshot envelope (see services/vuln_scan.py's public_summary()) — a
 // deliberately narrower cut than the full vuln_findings_summary (which
@@ -1782,6 +1805,12 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   complianceStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; findings: CentralComplianceFinding[] }> }>('compliance_status_all'),
+
+  prtgStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; sensors: CentralPrtgSensor[] }> }>('prtg_status_all'),
+
+  checkmkStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; services: CentralCheckmkService[]; hosts: CentralCheckmkHost[] }> }>('checkmk_status_all'),
   vulnFindingsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralVulnHostFindings[] }> }>('vuln_findings_status_all'),
   dellServersStatusAll: () =>

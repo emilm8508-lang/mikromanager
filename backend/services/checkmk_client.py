@@ -12,6 +12,7 @@ authenticated as `Authorization: Bearer <username> <secret>` against
 """
 import json
 import os
+from typing import Optional
 
 import aiohttp
 
@@ -107,6 +108,14 @@ def _load():
 _load()
 
 
+def _headers() -> dict:
+    # Official Checkmk REST API examples (docs.checkmk.com/latest/en/rest_api.html)
+    # always send Accept: application/json alongside the Bearer header -
+    # without it, some setups content-negotiate to an HTML response instead.
+    return {"Authorization": f"Bearer {_config['username']} {_config['secret']}",
+            "Accept": "application/json"}
+
+
 async def test_connection() -> dict:
     """GET the host_config collection — cheap, read-only, no specific host
     name needed. NOT the bare API root: confirmed (Checkmk forum reports of
@@ -118,15 +127,10 @@ async def test_connection() -> dict:
     if not is_configured():
         return {"ok": False, "error": "not configured"}
     url = _base_url() + "/domain-types/host_config/collections/all"
-    # Official Checkmk REST API examples (docs.checkmk.com/latest/en/rest_api.html)
-    # always send Accept: application/json alongside the Bearer header -
-    # without it, some setups content-negotiate to an HTML response instead.
-    headers = {"Authorization": f"Bearer {_config['username']} {_config['secret']}",
-               "Accept": "application/json"}
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
     try:
         async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(url, headers=headers,
+            async with session.get(url, headers=_headers(),
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     data = await resp.json(content_type=None)
@@ -135,6 +139,85 @@ async def test_connection() -> dict:
                 return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+async def list_host_ips() -> Optional[dict]:
+    """domain-types/host_config/collections/all (configuration domain, NOT
+    live monitoring state) -> {host_name: ip_or_None}, used by
+    checkmk_monitor.py to resolve a host/service to an IP for correlation
+    against our own Device/LinuxHost/WindowsHost tables. Returns None (not
+    {}) on failure - a transient error must never look like "no hosts"."""
+    if not is_configured():
+        return None
+    url = _base_url() + "/domain-types/host_config/collections/all"
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, headers=_headers(),
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                out = {}
+                for h in data.get("value", []):
+                    if not isinstance(h, dict):
+                        continue
+                    name = h.get("id") or h.get("title")
+                    if not name:
+                        continue
+                    attrs = ((h.get("extensions") or {}).get("attributes")) or {}
+                    out[name] = attrs.get("ipaddress") or None
+                return out
+    except Exception as e:
+        print(f"[checkmk] list_host_ips error: {e}")
+        return None
+
+
+async def _query_monitoring(domain: str, columns: list) -> Optional[list]:
+    """Shared GET against a Checkmk *monitoring* domain-type (service/host -
+    live status, distinct from the host_config *configuration* domain
+    above), no state filter (fetch everything - list_service_states()/
+    list_host_states() need the full list every cycle to detect a recovery,
+    not just current problems, same reasoning as prtg_client.list_sensors())."""
+    if not is_configured():
+        return None
+    url = _base_url() + f"/domain-types/{domain}/collections/all"
+    # Checkmk expects repeated "columns=" query params (confirmed via the
+    # official curl examples: --data-urlencode 'columns=x' repeated per
+    # column) - a list-of-tuples is what aiohttp encodes as repeated keys;
+    # a plain {"columns": [...]} dict value would NOT encode the same way.
+    params = [("columns", c) for c in columns]
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, headers=_headers(), params=params,
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                out = []
+                for row in data.get("value", []):
+                    if not isinstance(row, dict):
+                        continue
+                    ext = row.get("extensions") or {}
+                    if isinstance(ext, dict) and ext:
+                        out.append(ext)
+                return out
+    except Exception as e:
+        print(f"[checkmk] _query_monitoring({domain}) error: {e}")
+        return None
+
+
+async def list_service_states() -> Optional[list]:
+    """Every service's live state: {host_name, description, state,
+    plugin_output}. state: 0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN."""
+    return await _query_monitoring("service", ["host_name", "description", "state", "plugin_output"])
+
+
+async def list_host_states() -> Optional[list]:
+    """Every host's live state: {name, state, plugin_output}.
+    state: 0=UP, 1=DOWN, 2=UNREACHABLE."""
+    return await _query_monitoring("host", ["name", "state", "plugin_output"])
 
 
 def has_secret() -> bool:

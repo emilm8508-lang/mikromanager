@@ -458,6 +458,12 @@
                     "eventDeviceLogCritical":  "Wpis critical/error w logu urzadzenia sieciowego",
                     "eventAgentOffline":  "Agent przestal wysylac dane",
                     "eventAgentOnline":  "Agent ponownie wysyla dane",
+                    "eventPrtgSensorDown":  "PRTG: sensor przestal dzialac poprawnie",
+                    "eventPrtgSensorUp":  "PRTG: sensor wrocil do dzialania",
+                    "eventCheckmkServiceProblem":  "Check_MK: usluga zglasza problem",
+                    "eventCheckmkServiceOk":  "Check_MK: usluga wrocila do OK",
+                    "eventCheckmkHostDown":  "Check_MK: host niedostepny",
+                    "eventCheckmkHostUp":  "Check_MK: host ponownie dostepny",
                      "minCount":  "Minimalna liczba",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",
@@ -1051,6 +1057,17 @@
         "countMedium": "srednie: {{count}}",
         "countLow": "niskie: {{count}}",
         "allSeverities": "Wszystkie priorytety"
+    },
+    "externalMonitoringCentral": {
+        "navLabel": "PRTG / Check_MK",
+        "title": "PRTG / Check_MK — wszyscy klienci",
+        "intro": "Sensory PRTG i uslugi/hosty Check_MK aktualnie w stanie problemu (nie OK/Up) u kazdego klienta, ktory ma skonfigurowany dany lacznik. Zmiana stanu alertuje przez Telegram — reguly alertow: zakladka Alerty.",
+        "sectionPrtg": "PRTG — sensory",
+        "sectionCheckmkServices": "Check_MK — uslugi",
+        "sectionCheckmkHosts": "Check_MK — hosty",
+        "noProblems": "Brak zglaszanych problemow u zadnego klienta.",
+        "noneMatchFilter": "Brak wpisow pasujacych do wybranego klienta.",
+        "notConfigured": "Nieskonfigurowane u tego klienta lub brak danych."
     },
     "wanLinksCentral": {
         "title": "Lacza WAN — wszyscy klienci",

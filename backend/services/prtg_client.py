@@ -29,6 +29,19 @@ _config = {
     "verify_ssl": True,
 }
 
+# PRTG sensor status codes (Paessler KB "Complete list for Sensor Status
+# codes") - which ones count as "needs attention" for prtg_monitor.py.
+# Deliberately excludes the Paused* states (7/8/9/11/12) - those are a
+# deliberate operator choice in PRTG, not a problem to alert on.
+PROBLEM_STATUSES = frozenset({4, 5, 6, 10, 13, 14})
+STATUS_NAMES = {
+    1: "Unknown", 2: "Collecting", 3: "Up", 4: "Warning", 5: "Down",
+    6: "Brak sondy (NoProbe)", 7: "Wstrzymany (użytkownik)",
+    8: "Wstrzymany (zależność)", 9: "Wstrzymany (harmonogram)",
+    10: "Nietypowy (Unusual)", 11: "Wstrzymany (licencja)",
+    12: "Wstrzymany do...", 13: "Down (potwierdzony)", 14: "Down (częściowy)",
+}
+
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "prtg.json")
 
 
@@ -120,6 +133,79 @@ async def test_connection() -> dict:
                 return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+async def list_devices() -> Optional[dict]:
+    """content=devices -> {objid: {"name":..., "host":...}}, used by
+    prtg_monitor.py to resolve a sensor's parent device IP/DNS (sensors
+    themselves carry no host info - see list_sensors()'s docstring).
+    Returns None (not {}) on any failure, so a transient API/network error
+    is never mistaken for "zero devices configured"."""
+    if not is_configured():
+        return None
+    url = f"{_config['url']}/api/table.json"
+    params = {"content": "devices", "columns": "objid,name,host", "count": "*",
+              "apitoken": _config["api_token"]}
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, params=params,
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                out = {}
+                for d in data.get("devices", []):
+                    if not isinstance(d, dict) or "objid" not in d:
+                        continue
+                    out[d["objid"]] = {"name": d.get("name"), "host": d.get("host")}
+                return out
+    except Exception as e:
+        print(f"[prtg] list_devices error: {e}")
+        return None
+
+
+async def list_sensors() -> Optional[list]:
+    """content=sensors -> ALL sensors (not just problem ones - prtg_monitor
+    needs the full list every cycle to detect a return-to-Up as well as a
+    new problem, the same reason tunnel_monitor.py scans every tunnel, not
+    just the down ones). Each row: {objid, sensor, parentid, status,
+    message, priority}. Returns None on failure."""
+    if not is_configured():
+        return None
+    url = f"{_config['url']}/api/table.json"
+    # PRTG's plain "status" column is human-readable text ("Down", "Up
+    # (Paused)", ...); "status_raw" is the numeric code documented in
+    # PROBLEM_STATUSES above - must be requested explicitly, it isn't
+    # included unless named in "columns".
+    params = {"content": "sensors",
+              "columns": "objid,sensor,parentid,status_raw,message,priority",
+              "count": "*", "apitoken": _config["api_token"]}
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, params=params,
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                out = []
+                for s in data.get("sensors", []):
+                    if not isinstance(s, dict) or "objid" not in s:
+                        continue
+                    try:
+                        status_val = int(s.get("status_raw"))
+                    except (TypeError, ValueError):
+                        continue
+                    out.append({
+                        "objid": s["objid"], "sensor": s.get("sensor"),
+                        "parentid": s.get("parentid"), "status": status_val,
+                        "message": s.get("message"),
+                    })
+                return out
+    except Exception as e:
+        print(f"[prtg] list_sensors error: {e}")
+        return None
 
 
 def has_secret() -> bool:
