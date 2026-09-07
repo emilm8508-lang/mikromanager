@@ -33,7 +33,19 @@ def is_configured() -> bool:
 
 
 def _base_url() -> str:
-    return f"{_config['url']}/{_config['site']}/check_mk/api/1.0"
+    # Users naturally paste the URL straight from their browser's address
+    # bar while looking at Checkmk, which already ends in "/<site>/check_mk"
+    # — strip that back off before appending it again, so pasting the full
+    # browser URL alongside the site name doesn't build a duplicated,
+    # 404ing path (confirmed live: url=".../sanmed/check_mk" + site="sanmed"
+    # produced ".../sanmed/check_mk/sanmed/check_mk/api/1.0").
+    url = _config["url"].rstrip("/")
+    site = _config["site"]
+    if url.endswith("/check_mk"):
+        url = url[: -len("/check_mk")]
+    if site and url.endswith(f"/{site}"):
+        url = url[: -len(f"/{site}")]
+    return f"{url}/{site}/check_mk/api/1.0"
 
 
 def status() -> dict:

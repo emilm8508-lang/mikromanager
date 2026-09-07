@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.9 — 2026-09-07
+- Fix Check_MK "Test connection" always returning 404 - reported live right after the previous entry's error-display fix made the failure visible for the first time. Root cause: the site name gets appended twice when the URL field already includes it (e.g. url="http://host/sanmed/check_mk" + site="sanmed" built the request against ".../sanmed/check_mk/sanmed/check_mk/api/1.0/") - an easy mistake since that full path is exactly what you'd copy from a browser tab open on Checkmk. _base_url() now strips a trailing "/check_mk" and/or "/<site>" from the URL before appending them back, so either input style (bare host, or the full browser URL) resolves to the same correct endpoint.
+
 ## 2.8 — 2026-09-07
 - Add PRTG and Check_MK connectors (connection settings + a read-only test-connection call for each, polling itself is a later follow-up) - API tokens/secrets encrypted at rest with the same Fernet key already used for credential passwords, folded into the existing key-lifecycle/rotation flow in crypto.py and into agent_backup.py's backup file list. Fix the Save button on both connectors' Central config forms silently failing with no visible error - reported directly ("I try to save a PRTG API key and it doesn't save, no error shown"). Root cause: the save/test mutations had no onError handler at all, so any real failure (bad URL, network error, validation error) was completely invisible in the UI. Added a shared error-message helper (prefers FastAPI's own {"detail": ...} body over the generic axios error) and an inline error message next to the Save button on both panels.
 
