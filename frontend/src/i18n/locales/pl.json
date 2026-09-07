@@ -1031,7 +1031,8 @@
         "intro": "Skrot najwazniejszych podatnosci (CVE) wykrytych przez skaner u kazdego klienta - tylko CRITICAL/HIGH, celowo wezszy wybor niz pelny widok lokalny (ktory zawiera tez MEDIUM/LOW). To swiadomie zaakceptowany kompromis: dane widoczne w Centrali bez klucza E2E, kosztem wystawienia adresow IP i numerow CVE poza szyfrowany kanal.",
         "empty": "Brak podatnosci CRITICAL/HIGH u zadnego klienta - albo nic nie znaleziono, albo skan nigdy sie nie odbyl.",
         "countCritical": "critical: {{count}}",
-        "countHigh": "high: {{count}}"
+        "countHigh": "high: {{count}}",
+        "exportCsv": "Eksportuj CSV"
     },
     "complianceCentral": {
         "title": "Rekomendacje — wszyscy klienci",

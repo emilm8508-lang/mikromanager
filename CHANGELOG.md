@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.4 — 2026-09-07
+- Group Central's "Podatnosci" page by device instead of a flat finding list, and add CSV export (Excel-compatible - UTF-8 BOM so Polish diacritics render correctly) - properly quoted/escaped (unlike this app's existing AnydeskSessions CSV export helper, which doesn't quote fields, a real problem here since CVE summaries are free-text prose that routinely contains commas), plus the same OWASP CSV-formula-injection guard.
+
 ## 2.3 — 2026-09-07
 - Add CRITICAL/HIGH vulnerability findings to Central, as a new "Podatnosci" left-sidebar page - explicitly requested and confirmed as a deliberate tradeoff: the full findings summary stays E2E-encrypted-only (unchanged, still the agent's most sensitive payload), but a new, narrower CRITICAL/HIGH-only cut now also rides the plaintext envelope (vuln_findings_status) so Central can show it without every viewer needing the tenant's key. New vuln_findings_status_all action in ovh/api.php mirrors compliance_status_all exactly. MEDIUM/LOW findings never leave the agent this way - only via the existing encrypted channel for someone who does hold the key.
 
