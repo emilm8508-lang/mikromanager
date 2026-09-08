@@ -60,6 +60,15 @@ function canonical_commands(array $commands): string {
             $parts[] = 'windows_manage_toggle:' . (!empty($c['enabled']) ? '1' : '0');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'dell_check') {
             $parts[] = 'dell_check:' . (int)($c['server_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'vuln_remediation') {
+            // product/version/cve_id ARE included (unlike the free-text
+            // reason fields above) — they're not incidental commentary,
+            // they're exactly WHICH finding this command acts on, sourced
+            // from structured NVD/package-manager data, not free user text.
+            // Only note (genuinely free text) is excluded, same reasoning
+            // as reason elsewhere in this function.
+            $parts[] = 'vuln_remediation:' . ($c['product'] ?? '') . '|' . ($c['version'] ?? '')
+                . '|' . ($c['cve_id'] ?? '') . '|' . ($c['status'] ?? '');
         } else {
             $parts[] = 'unknown';
         }
@@ -388,6 +397,31 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_restart_delivered", ?, ?)')
                     ->execute([$tenant_header, "Restart Linux dostarczony do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3b3. Vulnerability remediation status commands (product/version/
+    // cve_id/status/note travel as the marker file's JSON content — see
+    // request_vuln_remediation in api.php for why the marker's own
+    // filename can't carry this identity directly, unlike an integer host_id).
+    foreach (glob($state_dir . "/vuln_remediation_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^vuln_remediation_.+_[0-9a-f]{40}$/', $base)) {
+            $data = json_decode(@file_get_contents($f), true);
+            @unlink($f);
+            if (!is_array($data) || empty($data['product']) || empty($data['version']) || empty($data['cve_id']) || empty($data['status'])) {
+                continue;
+            }
+            $commands[] = [
+                'type' => 'vuln_remediation', 'product' => $data['product'],
+                'version' => $data['version'], 'cve_id' => $data['cve_id'],
+                'status' => $data['status'], 'note' => $data['note'] ?? '',
+            ];
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "vuln_remediation_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Status podatności {$data['cve_id']} dostarczony do agenta {$tenant_header}",
+                        json_encode(['cve_id'=>$data['cve_id'],'status'=>$data['status'],'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

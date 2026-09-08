@@ -1046,7 +1046,8 @@
         "empty": "Brak podatnosci CRITICAL/HIGH u zadnego klienta - albo nic nie znaleziono, albo skan nigdy sie nie odbyl.",
         "countCritical": "critical: {{count}}",
         "countHigh": "high: {{count}}",
-        "exportCsv": "Eksportuj CSV"
+        "exportCsv": "Eksportuj CSV",
+        "queued": "Wysłano, oczekuje na dostarczenie do agenta..."
     },
     "complianceCentral": {
         "title": "Rekomendacje — wszyscy klienci",

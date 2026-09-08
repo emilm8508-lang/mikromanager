@@ -19,7 +19,6 @@ from api.auth import require_login
 router = APIRouter(prefix="/api/vuln", tags=["vuln"])
 
 _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-_VALID_STATUSES = {"open", "in_progress", "accepted_risk", "resolved"}
 
 
 @router.get("/status")
@@ -320,32 +319,19 @@ async def set_remediation(data: RemediationIn, session: dict = Depends(require_l
     by the same (product, version, cve_id) identity findings already use.
     Read access to /findings works for any role; changing status is a
     write, so a viewer-role session is already rejected at the router-level
-    RBAC in require_login before this body ever runs."""
-    if data.status not in _VALID_STATUSES:
-        raise HTTPException(400, f"invalid status — must be one of {sorted(_VALID_STATUSES)}")
-    with SessionLocal() as db:
-        row = db.execute(
-            select(VulnRemediation).where(
-                VulnRemediation.product == data.product,
-                VulnRemediation.version == data.version,
-                VulnRemediation.cve_id == data.cve_id,
-            )
-        ).scalar_one_or_none()
-        if not row:
-            # Defensive fallback — normally created by the scan itself
-            # (services/vuln_scan.py's _ensure_remediation_row) the first
-            # time this CVE is seen for this product/version.
-            row = VulnRemediation(
-                product=data.product, version=data.version, cve_id=data.cve_id,
-                first_seen_at=datetime.utcnow(),
-            )
-            db.add(row)
-        row.status = data.status
-        row.note = data.note
-        row.updated_by = session.get("username")
-        row.updated_at = datetime.utcnow()
-        db.commit()
-        return {"ok": True}
+    RBAC in require_login before this body ever runs.
+
+    Delegates to services.vuln_scan.set_remediation_status() — the same
+    function a command from Central calls (uplink.py's vuln_remediation
+    handler, updated_by="Centrala") — single source of truth for this
+    write, this route just supplies the local session's username."""
+    try:
+        return vuln_scan.set_remediation_status(
+            data.product, data.version, data.cve_id, data.status, data.note,
+            updated_by=session.get("username"),
+        )
+    except ValueError:
+        raise HTTPException(400, f"invalid status — must be one of {sorted(vuln_scan.VALID_REMEDIATION_STATUSES)}")
 
 
 def _csv_safe(value) -> str:

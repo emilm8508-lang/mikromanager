@@ -555,6 +555,12 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "dell_check":
             server_id = int(c.get("server_id") or 0)
             parts.append(f"dell_check:{server_id}")
+        elif isinstance(c, dict) and c.get("type") == "vuln_remediation":
+            product = c.get("product") or ""
+            version = c.get("version") or ""
+            cve_id = c.get("cve_id") or ""
+            status = c.get("status") or ""
+            parts.append(f"vuln_remediation:{product}|{version}|{cve_id}|{status}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -665,6 +671,15 @@ async def _handle_commands(commands: list) -> None:
         can force a fresh read instead of waiting up to
         MIKROTIK_DELL_CHECK_MIN (default 30 min). Read-only, so unlike
         linux_apt_upgrade/windows_update there is no MANAGE_ENABLED gate.
+      - {"type":"vuln_remediation","product":str,"version":str,
+         "cve_id":str,"status":str,"note":str}               — set a
+        vulnerability finding's remediation status (open/in_progress/
+        accepted_risk/resolved) from Central, so a finding that's a known,
+        accepted risk (e.g. "SSH needs to stay open for login") doesn't
+        need every tenant's own agent UI opened just to mark it. A write
+        to this agent's own VulnRemediation table only — never touches any
+        host/service — so no MANAGE_ENABLED gate, same reasoning as
+        windows_manage_toggle above.
     """
     for cmd in commands:
         if cmd == "update":
@@ -765,6 +780,22 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(dell_monitor.check_server(int(server_id)))
                 else:
                     print(f"[uplink] dell_check command missing server_id: {cmd}")
+            elif cmd_type == "vuln_remediation":
+                product = cmd.get("product")
+                version = cmd.get("version")
+                cve_id = cmd.get("cve_id")
+                status = cmd.get("status")
+                note = cmd.get("note") or None
+                if product and version and cve_id and status:
+                    print(f"[uplink] received VULN_REMEDIATION for {cve_id} ({product} {version}) -> {status}")
+                    from services import vuln_scan
+                    try:
+                        vuln_scan.set_remediation_status(product, version, cve_id, status, note,
+                                                          updated_by="Centrala")
+                    except ValueError as e:
+                        print(f"[uplink] vuln_remediation rejected: {e}")
+                else:
+                    print(f"[uplink] vuln_remediation command missing required fields: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

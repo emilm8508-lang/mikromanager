@@ -647,6 +647,12 @@ export interface CentralVulnFinding {
   cvss_score: number | null
   summary: string | null
   ref_url: string | null
+  // Identify which VulnRemediation row a status change applies to
+  // (product+version+cve_id, its real key) and the current status/note.
+  product: string
+  version: string
+  status: string
+  note: string | null
 }
 
 export interface CentralVulnHostFindings {
@@ -1813,6 +1819,12 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; services: CentralCheckmkService[]; hosts: CentralCheckmkHost[] }> }>('checkmk_status_all'),
   vulnFindingsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralVulnHostFindings[] }> }>('vuln_findings_status_all'),
+  requestVulnRemediation: (tenant: string, product: string, version: string, cveId: string, status: string, note: string) =>
+    centralRequest<{ ok: boolean; tenant: string; product: string; version: string; cve_id: string; queued_at: string; note: string }>(
+      'request_vuln_remediation', { tenant, product, version, cve_id: cveId, status, note },
+    ),
+  pendingVulnRemediations: () =>
+    centralRequest<{ pending: Array<{ tenant: string; product: string; version: string; cve_id: string; queued_at: string }> }>('pending_vuln_remediations'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
   requestDellCheck: (tenant: string, serverId: number) =>

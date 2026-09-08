@@ -1284,6 +1284,72 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_vuln_remediation':
+            // Set a vulnerability finding's remediation status from Central,
+            // without needing to log into that tenant's own agent UI — same
+            // marker-with-content pattern as request_linux_restart, but the
+            // identity here is (product, version, cve_id), arbitrary text
+            // that can't safely go straight into a filename like an integer
+            // host_id can. The marker name instead carries a stable hash of
+            // that identity - a repeat submission before the previous one is
+            // drained overwrites the same file instead of piling up
+            // duplicates, the same idempotency host_id gives restart markers.
+            // The full identity + status + note travel as JSON file content.
+            $tenant = $_GET['tenant'] ?? '';
+            $product = $_GET['product'] ?? '';
+            $version = $_GET['version'] ?? '';
+            $cve_id = $_GET['cve_id'] ?? '';
+            $status = $_GET['status'] ?? '';
+            $note = $_GET['note'] ?? '';
+            $valid_statuses = ['open', 'in_progress', 'accepted_risk', 'resolved'];
+            if ($tenant === '' || $product === '' || $version === '' || $cve_id === '' || !in_array($status, $valid_statuses, true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, product, version, cve_id and a valid status are required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $hash = sha1($product . '|' . $version . '|' . $cve_id);
+            $marker = $state_dir . "/vuln_remediation_{$safe}_{$hash}.pending";
+            file_put_contents($marker, json_encode([
+                'product' => $product, 'version' => $version, 'cve_id' => $cve_id,
+                'status' => $status, 'note' => $note,
+            ]));
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'product' => $product,
+                'version' => $version, 'cve_id' => $cve_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_vuln_remediations':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/vuln_remediation_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // vuln_remediation_TENANT_HASH
+                    if (preg_match('/^vuln_remediation_(.+)_[0-9a-f]{40}$/', $base, $m)) {
+                        $data = json_decode(@file_get_contents($f), true);
+                        if (!is_array($data)) continue;
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'product' => $data['product'] ?? '',
+                            'version' => $data['version'] ?? '',
+                            'cve_id' => $data['cve_id'] ?? '',
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'linux_hosts_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as supply_chain_status_all: latest

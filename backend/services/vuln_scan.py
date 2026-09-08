@@ -1468,6 +1468,41 @@ def _ensure_remediation_row(db, product: str, version: str, cve_id: str, severit
     ))
 
 
+VALID_REMEDIATION_STATUSES = frozenset({"open", "in_progress", "accepted_risk", "resolved"})
+
+
+def set_remediation_status(product: str, version: str, cve_id: str, status: str,
+                            note: Optional[str], updated_by: str) -> dict:
+    """Explicit, user/command-driven remediation status change — distinct
+    from _ensure_remediation_row() above (which only ever creates a fresh
+    "open" row the first time a CVE is seen, never touches an existing
+    one's status/note). Single source of truth for this write, called both
+    by api/vuln_scan.py's PUT /remediation (local UI, updated_by=session
+    username) and uplink.py's vuln_remediation command handler (set from
+    Central, updated_by="Centrala") — get-or-create then overwrite, same
+    shape as _ensure_remediation_row's create branch."""
+    if status not in VALID_REMEDIATION_STATUSES:
+        raise ValueError(f"invalid status: {status}")
+    with SessionLocal() as db:
+        row = db.execute(
+            select(VulnRemediation).where(
+                VulnRemediation.product == product,
+                VulnRemediation.version == version,
+                VulnRemediation.cve_id == cve_id,
+            )
+        ).scalar_one_or_none()
+        if not row:
+            row = VulnRemediation(product=product, version=version, cve_id=cve_id,
+                                   first_seen_at=datetime.utcnow())
+            db.add(row)
+        row.status = status
+        row.note = note
+        row.updated_by = updated_by
+        row.updated_at = datetime.utcnow()
+        db.commit()
+    return {"ok": True}
+
+
 def sla_due_date(severity: Optional[str], first_seen_at: Optional[datetime]) -> Optional[datetime]:
     days = SLA_DAYS.get((severity or "").upper())
     if not days or not first_seen_at:
@@ -1525,9 +1560,16 @@ async def collect_overdue_alert_events() -> List[dict]:
     return events
 
 
-def _finding_brief(f: VulnFinding) -> dict:
+def _finding_brief(f: VulnFinding, remediation: Optional[VulnRemediation] = None) -> dict:
     return {"cve_id": f.cve_id, "severity": f.severity, "cvss_score": f.cvss_score,
-            "summary": f.summary, "ref_url": f.ref_url}
+            "summary": f.summary, "ref_url": f.ref_url,
+            # product/version identify WHICH VulnRemediation row a status
+            # change applies to (its actual key, alongside cve_id) - needed
+            # so Central can reference this exact finding when setting a
+            # remediation status remotely, not just display it.
+            "product": f.product, "version": f.version,
+            "status": remediation.status if remediation else "open",
+            "note": remediation.note if remediation else None}
 
 
 async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
@@ -1550,6 +1592,10 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
         packages = db.execute(select(VulnPackage)).scalars().all()
         hosts = {h.id: h for h in db.execute(select(VulnHost)).scalars().all()}
         devices = db.execute(select(Device)).scalars().all()
+        remediations = {
+            (r.product, r.version, r.cve_id): r
+            for r in db.execute(select(VulnRemediation)).scalars().all()
+        }
 
         findings_by_pv: dict = {}
         for f in findings:
@@ -1566,7 +1612,8 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             if not matches:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
-            entry["findings"].extend(_finding_brief(f) for f in matches)
+            entry["findings"].extend(
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
 
         for p in packages:
             host = hosts.get(p.host_id)
@@ -1576,7 +1623,8 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             if not matches:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
-            entry["findings"].extend(_finding_brief(f) for f in matches)
+            entry["findings"].extend(
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
 
         for d in devices:
             if not d.ros_version:
@@ -1586,7 +1634,8 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             if not matches:
                 continue
             entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
-            entry["findings"].extend(_finding_brief(f) for f in matches)
+            entry["findings"].extend(
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
 
         out = []
         for entry in by_ip.values():

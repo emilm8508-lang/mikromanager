@@ -8,6 +8,13 @@ const SEVERITY_BADGE: Record<string, string> = {
   CRITICAL: 'bg-red-600 text-white',
   HIGH: 'bg-amber-500 text-white',
 }
+const STATUSES = ['open', 'in_progress', 'accepted_risk', 'resolved']
+const STATUS_BADGE: Record<string, string> = {
+  open: 'bg-red-100 text-red-700',
+  in_progress: 'bg-amber-100 text-amber-700',
+  accepted_risk: 'bg-blue-100 text-blue-700',
+  resolved: 'bg-green-100 text-green-700',
+}
 
 type DeviceGroup = {
   tenant: string
@@ -41,7 +48,14 @@ function downloadCsv(filename: string, header: string[], rows: unknown[][]) {
   URL.revokeObjectURL(url)
 }
 
-function FindingRow({ finding }: { finding: CentralVulnFinding }) {
+type RemediationSubmit = (tenant: string, finding: CentralVulnFinding, status: string, note: string) => void
+
+function FindingRow({ tenant, finding, pending, onSubmit }: {
+  tenant: string; finding: CentralVulnFinding; pending: boolean; onSubmit: RemediationSubmit
+}) {
+  const { t } = useTranslation()
+  const [note, setNote] = useState(finding.note ?? '')
+
   return (
     <div className="py-2 border-t border-slate-100 first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -58,11 +72,38 @@ function FindingRow({ finding }: { finding: CentralVulnFinding }) {
         </span>
       </div>
       {finding.summary && <p className="text-sm text-slate-600 mt-1 leading-relaxed">{finding.summary}</p>}
+      <div className="flex items-center gap-2 flex-wrap mt-2">
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase ${STATUS_BADGE[finding.status] ?? 'bg-slate-200 text-slate-700'}`}>
+          {t(`vuln.status.${finding.status}`)}
+        </span>
+        {pending ? (
+          <span className="text-xs text-slate-500">{t('centralVuln.queued')}</span>
+        ) : (
+          <>
+            <select
+              value={finding.status}
+              onChange={e => onSubmit(tenant, finding, e.target.value, note)}
+              className="text-xs border border-slate-300 rounded px-1.5 py-1"
+            >
+              {STATUSES.map(s => <option key={s} value={s}>{t(`vuln.status.${s}`)}</option>)}
+            </select>
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              onBlur={() => { if (note !== (finding.note ?? '')) onSubmit(tenant, finding, finding.status, note) }}
+              placeholder={t('vuln.notePlaceholder') as string}
+              className="flex-1 min-w-[10rem] text-xs border border-slate-300 rounded px-2 py-1"
+            />
+          </>
+        )}
+      </div>
     </div>
   )
 }
 
-function DeviceCard({ group }: { group: DeviceGroup }) {
+function DeviceCard({ group, pendingSet, onSubmit }: {
+  group: DeviceGroup; pendingSet: Set<string>; onSubmit: RemediationSubmit
+}) {
   const worst = group.findings.some(f => f.severity === 'CRITICAL') ? 'CRITICAL' : 'HIGH'
   const borderClass = worst === 'CRITICAL' ? 'border-red-400' : 'border-amber-400'
   return (
@@ -76,7 +117,11 @@ function DeviceCard({ group }: { group: DeviceGroup }) {
         <span className="text-xs text-slate-500">{group.findings.length}</span>
       </div>
       <div>
-        {group.findings.map((f, i) => <FindingRow key={`${f.cve_id}:${i}`} finding={f} />)}
+        {group.findings.map((f, i) => (
+          <FindingRow key={`${f.cve_id}:${i}`} tenant={group.tenant} finding={f}
+            pending={pendingSet.has(`${group.tenant}:${f.product}:${f.version}:${f.cve_id}`)}
+            onSubmit={onSubmit} />
+        ))}
       </div>
     </div>
   )
@@ -86,6 +131,7 @@ export function CentralVulnerabilities() {
   const { t } = useTranslation()
   const cfg = centralConfig.load()
   const [groups, setGroups] = useState<DeviceGroup[]>([])
+  const [pendingSet, setPendingSet] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [tenantFilter, setTenantFilter] = useState<string>('all')
@@ -93,7 +139,7 @@ export function CentralVulnerabilities() {
 
   const reload = async () => {
     try {
-      const s = await centralApi.vulnFindingsStatusAll()
+      const [s, p] = await Promise.all([centralApi.vulnFindingsStatusAll(), centralApi.pendingVulnRemediations()])
       const flat: DeviceGroup[] = []
       for (const tRow of s.tenants) {
         for (const host of tRow.hosts) {
@@ -107,11 +153,21 @@ export function CentralVulnerabilities() {
         return aWorst - bWorst
       })
       setGroups(flat)
+      setPendingSet(new Set(p.pending.map(x => `${x.tenant}:${x.product}:${x.version}:${x.cve_id}`)))
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const submitRemediation: RemediationSubmit = async (tenant, finding, status, note) => {
+    try {
+      await centralApi.requestVulnRemediation(tenant, finding.product, finding.version, finding.cve_id, status, note)
+      await reload()
+    } catch (e) {
+      setErr((e as Error).message)
     }
   }
 
@@ -207,7 +263,9 @@ export function CentralVulnerabilities() {
         <p className="text-sm text-slate-500">{t('complianceCentral.noneMatchFilter')}</p>
       ) : (
         <div className="space-y-3">
-          {visible.map((g, i) => <DeviceCard key={`${g.tenant}:${g.ip}:${i}`} group={g} />)}
+          {visible.map((g, i) => (
+            <DeviceCard key={`${g.tenant}:${g.ip}:${i}`} group={g} pendingSet={pendingSet} onSubmit={submitRemediation} />
+          ))}
         </div>
       )}
     </div>
