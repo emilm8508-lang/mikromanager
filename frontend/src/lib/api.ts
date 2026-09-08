@@ -577,6 +577,23 @@ export interface CentralDellServerStatus {
   last_status: string | null
 }
 
+// Redacted CPU/RAM/disk summary for a Mikrotik ROUTER an agent includes in
+// its snapshot envelope (see services/resource_monitor.py's
+// routers_public_summary()) — switch-family boards excluded there, so
+// every entry here is router-eligible. Same "general resource health view
+// in Central" concept as CentralDellServerStatus, extended to routers.
+export interface CentralRouterStatus {
+  id: number
+  name: string | null
+  board_name: string | null
+  cpu_used_pct: number | null
+  mem_used_pct: number | null
+  mem_total_bytes: number | null
+  disk_used_pct: number | null
+  disk_total_bytes: number | null
+  last_check_at: string | null
+}
+
 // Redacted per-tunnel status an agent includes in its snapshot envelope
 // (see services/tunnel_monitor.py's public_summary()) — current up/down
 // state only, same data already visible locally on the agent's own
@@ -1827,6 +1844,8 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; product: string; version: string; cve_id: string; queued_at: string }> }>('pending_vuln_remediations'),
   dellServersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
+  routersStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; routers: CentralRouterStatus[] }> }>('routers_status_all'),
   requestDellCheck: (tenant: string, serverId: number) =>
     centralRequest<{ ok: boolean; tenant: string; server_id: number; queued_at: string; note: string }>(
       'request_dell_check', { tenant, server_id: String(serverId) },

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -271,6 +271,7 @@ export function Sidebar() {
   // different concern (physical hardware vs. OS-level updates), and
   // Linux/Windows hosts aren't necessarily physical machines at all.
   const centralServersNavItem = { to: '/central/servers', label: t('central.tabServers'), icon: ServerCog }
+  const centralRoutersNavItem = { to: '/central/routers', label: t('routersCentral.navLabel'), icon: Router }
   const centralHostsNavItem = { to: '/central/hosts', label: t('centralHosts.navLabel'), icon: TerminalSquare }
   const centralVulnNavItem = { to: '/central/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert }
   const centralExternalMonitoringNavItem = { to: '/central/external-monitoring', label: t('externalMonitoringCentral.navLabel'), icon: Activity }
@@ -279,7 +280,7 @@ export function Sidebar() {
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralServersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem]
+    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem]
     : [...agentNav, centralNavItem]
 
   return (

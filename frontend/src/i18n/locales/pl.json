@@ -1100,6 +1100,12 @@
         "checkNow": "Sprawdź teraz",
         "queued": "W kolejce…"
     },
+    "routersCentral": {
+        "navLabel": "Routery",
+        "title": "Routery Mikrotik — wszyscy klienci",
+        "intro": "Bieżące zużycie CPU/RAM/dysku dla routerów Mikrotik u każdego klienta (nie switche — te zostają na dotychczasowym widoku). Dane pochodzą z tego samego godzinowego odpytania co lokalna zakładka Urządzenia.",
+        "noRouters": "Brak routerów z danymi o zasobach u żadnego klienta — sprawdź czy urządzenia mają przypisane poświadczenia."
+    },
     "inventoryCentral": {
         "title": "Inwentarz — wszyscy klienci",
         "intro": "Zagregowany, odszyfrowany po stronie przeglądarki inwentarz wszystkich hostów u każdego klienta (wymaga zaimportowanego klucza szyfrowania danego klienta — patrz Kopia kluczy). Przycisk poniżej uruchamia pełny skan sieci u wszystkich klientów naraz — to ten sam skan co w zakładce Linux.",

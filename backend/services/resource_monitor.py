@@ -226,6 +226,16 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
                 d.disk_used_pct = disk_used_pct
             if cpu_load is not None:
                 d.cpu_load_pct = cpu_load
+            if mem_total is not None:
+                try:
+                    d.mem_total_bytes = int(mem_total)
+                except (TypeError, ValueError):
+                    pass
+            if disk_total is not None:
+                try:
+                    d.disk_total_bytes = int(disk_total)
+                except (TypeError, ValueError):
+                    pass
             d.last_resources_check_at = now
             db.commit()
 
@@ -621,6 +631,47 @@ async def collect_resource_events() -> List[dict]:
     events += _drain_pending_log_events()
     _save_state(state)
     return events
+
+
+# board_name prefixes RouterOS uses for its switch line (Cloud Router
+# Switch / Cloud Smart Switch) — marketed and used as switches even though
+# the silicon can technically route. Explicitly requested: routers get the
+# colorful Central resource view, switches stay on the plain display for
+# now. Everything else with a board_name (CCR/RB/hAP/hEX/etc — the
+# overwhelming majority of a router fleet) is treated as router-eligible;
+# an unrecognized/ambiguous board defaults to shown rather than silently
+# hidden, since a wrongly-hidden router is much easier to miss than a
+# wrongly-shown switch.
+_SWITCH_BOARD_PREFIXES = ("crs", "css")
+
+
+def _is_router(device) -> bool:
+    if (device.vendor or "mikrotik").lower() != "mikrotik":
+        return False
+    board = (device.board_name or "").strip().lower()
+    if not board:
+        return False
+    return not board.startswith(_SWITCH_BOARD_PREFIXES)
+
+
+def routers_public_summary() -> list:
+    """Redacted CPU/RAM/disk summary for Central's router resource-tile
+    view — mirrors linux_manage.public_summary()/dell_monitor.public_summary()
+    exactly: sync, DB-only (reads whatever _poll_mikrotik_devices already
+    persisted, no live connections here), only devices that have actually
+    been polled at least once. Switch-family boards excluded — see
+    _is_router() above."""
+    with SessionLocal() as db:
+        devices = db.execute(
+            select(Device).where(Device.last_resources_check_at.is_not(None))
+        ).scalars().all()
+        return [{
+            "id": d.id, "name": d.identity or d.name or d.ip, "board_name": d.board_name,
+            "cpu_used_pct": d.cpu_load_pct, "mem_used_pct": d.mem_used_pct,
+            "mem_total_bytes": d.mem_total_bytes, "disk_used_pct": d.disk_used_pct,
+            "disk_total_bytes": d.disk_total_bytes,
+            "last_check_at": d.last_resources_check_at.isoformat() if d.last_resources_check_at else None,
+        } for d in devices if _is_router(d)]
 
 
 # ── Slow, independent loop: SSH/WinRM disk+memory refresh for managed hosts ─

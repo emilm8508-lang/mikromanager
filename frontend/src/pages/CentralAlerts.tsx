@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cpu, MemoryStick, HardDrive } from 'lucide-react'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralRouterStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
 import { HostUtilizationRow } from '../components/UtilizationTile'
 
@@ -1759,6 +1759,94 @@ export function PhysicalServersPanel() {
                 </div>
               )
             })}
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+
+// Same "general resource health view in Central" concept as
+// PhysicalServersPanel (Dell), extended to Mikrotik routers — CPU/RAM/disk
+// as colorful percentage tiles (HostUtilizationRow, shared with Linux/
+// Windows) rather than Dell's discrete health-enum tiles, since RouterOS
+// resource data is numeric, not a health rollup. Read-only: no remote
+// "check now" command, unlike Dell — the underlying data already refreshes
+// on the agent's own hourly poll (services/resource_monitor.py), same
+// cadence reasoning as Dell's own comment above.
+export function RoutersCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; router: CentralRouterStatus }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.routersStatusAll()
+      const flat: Array<{ tenant: string; router: CentralRouterStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const router of tRow.routers) flat.push({ tenant: tRow.tenant, router })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 5 * 60_000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const byTenant: Record<string, CentralRouterStatus[]> = {}
+  for (const { tenant, router } of rows) {
+    (byTenant[tenant] ??= []).push(router)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">{t('routersCentral.title')}</h2>
+          <p className="text-sm text-slate-500">{t('routersCentral.intro')}</p>
+        </div>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline shrink-0">{t('common.refresh')}</button>
+      </div>
+      {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('routersCentral.noRouters')}</div>
+      ) : (
+        Object.entries(byTenant).map(([tenant, routers]) => (
+          <div key={tenant} className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700">{tenant}</h3>
+            {routers.map(router => (
+              <div key={router.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <span className="font-mono text-sm text-slate-800">{router.name || '—'}</span>
+                    {router.board_name && <span className="text-xs text-slate-500 ml-2">{router.board_name}</span>}
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {router.last_check_at ? new Date(router.last_check_at).toLocaleString() : '—'}
+                  </span>
+                </div>
+                <HostUtilizationRow
+                  cpuPct={router.cpu_used_pct} memPct={router.mem_used_pct} memTotalBytes={router.mem_total_bytes}
+                  disks={[{ label: t('dell.component.storage') as string, pct: router.disk_used_pct, totalBytes: router.disk_total_bytes }]}
+                  cpuLabel={t('dell.component.cpu') as string} memLabel={t('dell.component.memory') as string}
+                  diskLabel={t('dell.component.storage') as string}
+                  CpuIcon={Cpu} MemIcon={MemoryStick} DiskIcon={HardDrive}
+                />
+              </div>
+            ))}
           </div>
         ))
       )}

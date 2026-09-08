@@ -1560,6 +1560,41 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'routers_status_all':
+            // Mirrors dell_servers_status_all exactly — plaintext envelope
+            // metadata (services/resource_monitor.py's routers_public_summary():
+            // name, CPU/RAM/disk load, last check time — never the router's
+            // credential), no E2E key needed. Same "general resource health
+            // view in Central" ask as Dell/Linux/Windows, extended to Mikrotik
+            // routers (switch-family boards excluded, see routers_public_summary()).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $routers = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) {
+                        $routers = $meta['routers_status'] ?? [];
+                    }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'routers' => $routers,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_dell_check':
             // Queue an on-demand iDRAC health re-check for one server of one
             // tenant — mirrors request_linux_apt_upgrade's marker shape

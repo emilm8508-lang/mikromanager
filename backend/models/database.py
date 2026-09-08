@@ -70,6 +70,12 @@ class Device(Base):
     mem_used_pct = Column(Float, nullable=True)
     disk_used_pct = Column(Float, nullable=True)
     cpu_load_pct = Column(Integer, nullable=True)
+    # Raw totals (bytes) alongside the percentages above — already fetched
+    # every poll (/system/resource's total-memory/total-hdd-space) but
+    # discarded until now; needed so Central's router tiles can show
+    # "3.6 / 4.0 GB" the same way Linux/Windows host tiles already do.
+    mem_total_bytes = Column(Integer, nullable=True)
+    disk_total_bytes = Column(Integer, nullable=True)
     last_resources_check_at = Column(DateTime, nullable=True)
     # Per-device, manually-set bandwidth ceiling (Mbps) for the
     # interface_overload alert — NULL (default) means "don't check
@@ -704,6 +710,10 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN disk_used_pct FLOAT"))
             if "cpu_load_pct" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN cpu_load_pct INTEGER"))
+            if "mem_total_bytes" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN mem_total_bytes INTEGER"))
+            if "disk_total_bytes" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN disk_total_bytes INTEGER"))
             if "last_resources_check_at" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN last_resources_check_at DATETIME"))
             if "iface_mbps_threshold" not in dev_cols:
