@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.15 — 2026-09-08
+- Fix the new "Routery" Central page showing wireless access points (wAP/cAP) instead of actual routers - reported live right after deploying (only "wAP ax" boards appeared, no real gateway routers). Root cause: the previous commit's board_name-prefix classification only excluded switch boards (CRS/CSS), so access points fell through as "router-eligible" by default - a genuinely wrong signal, not just an incomplete exclusion list. Replaced it with the same "has a RouterOS 'WAN' interface-list" signal already proven correct for this exact fleet (see 1.96's fix for the same switches-and-APs-look-like-routers problem in WAN link detection) - a new edge_discovery.wan_capable_device_ids() reuses that module's own already-running WAN scan instead of re-deriving router-vs-not a second, different (and wrong) way.
+
 ## 2.14 — 2026-09-08
 - Add Mikrotik routers to the same persistent CPU/RAM/disk resource-tile view Central already has for Dell/Linux/Windows - reported directly after a router (CCR2004-16G-2S+) was found sitting at ~90% memory usage (with recurring "DNS cache full" log errors) with no way to see that from Central. Memory/log-error monitoring already existed as one-shot Telegram alerts, but there was no way to just browse current resource usage across every client's routers the way Linux/Windows/Dell already allow - new routers_public_summary() (services/resource_monitor.py) surfaces it the same way, and a new "Routery" Central page shows the same colorful CPU/RAM/disk tiles. Deliberately routers only, not switches (explicit ask) - Cloud Router Switch/Cloud Smart Switch boards (CRS/CSS) are excluded, everything else (CCR/RB/hAP/hEX etc) is treated as router-eligible.
 

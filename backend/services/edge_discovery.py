@@ -457,3 +457,16 @@ def public_summary() -> List[dict]:
         "iface": e["iface"],
         "status": "up" if e.get("running") else "down",
     } for e in _scan_cache["wan_iface_data"]]
+
+
+def wan_capable_device_ids() -> set:
+    """Device IDs that have at least one interface in their own RouterOS
+    'WAN' interface-list — the exact signal already proven (see CHANGELOG
+    1.96) to correctly separate real routers from switches/APs on this
+    fleet: a CRS326 switch or a wAP access point has no such list, a real
+    gateway router does. Used by services/resource_monitor.py's
+    routers_public_summary() to decide what counts as a "router" for
+    Central's resource-tile view, instead of a hand-maintained board-name
+    list — reuses this module's already-running WAN scan rather than
+    re-deriving the same classification a second, different way."""
+    return {e["device_id"] for e in _scan_cache["wan_iface_data"]}

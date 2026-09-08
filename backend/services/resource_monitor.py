@@ -633,34 +633,27 @@ async def collect_resource_events() -> List[dict]:
     return events
 
 
-# board_name prefixes RouterOS uses for its switch line (Cloud Router
-# Switch / Cloud Smart Switch) — marketed and used as switches even though
-# the silicon can technically route. Explicitly requested: routers get the
-# colorful Central resource view, switches stay on the plain display for
-# now. Everything else with a board_name (CCR/RB/hAP/hEX/etc — the
-# overwhelming majority of a router fleet) is treated as router-eligible;
-# an unrecognized/ambiguous board defaults to shown rather than silently
-# hidden, since a wrongly-hidden router is much easier to miss than a
-# wrongly-shown switch.
-_SWITCH_BOARD_PREFIXES = ("crs", "css")
-
-
-def _is_router(device) -> bool:
-    if (device.vendor or "mikrotik").lower() != "mikrotik":
-        return False
-    board = (device.board_name or "").strip().lower()
-    if not board:
-        return False
-    return not board.startswith(_SWITCH_BOARD_PREFIXES)
-
-
 def routers_public_summary() -> list:
     """Redacted CPU/RAM/disk summary for Central's router resource-tile
     view — mirrors linux_manage.public_summary()/dell_monitor.public_summary()
     exactly: sync, DB-only (reads whatever _poll_mikrotik_devices already
     persisted, no live connections here), only devices that have actually
-    been polled at least once. Switch-family boards excluded — see
-    _is_router() above."""
+    been polled at least once.
+
+    "Router" here means "has a RouterOS 'WAN' interface-list" (services/
+    edge_discovery.py's wan_capable_device_ids()) — the same signal already
+    proven (CHANGELOG 1.96) to correctly separate real gateway routers from
+    switches AND access points on this exact fleet. A first, simpler
+    attempt used a board_name prefix denylist (excluding only CRS/CSS
+    switch boards) — confirmed live to be wrong: it let wAP/cAP access
+    points through since they don't match any switch prefix either, while
+    saying nothing about whether a device is actually a router. Devices
+    never yet WAN-scanned (edge_discovery's own scan hasn't completed a
+    first pass since agent start) are excluded until it has — same
+    "starts empty until the first refresh" behavior every other
+    public_summary() in this app already has."""
+    from services import edge_discovery
+    router_ids = edge_discovery.wan_capable_device_ids()
     with SessionLocal() as db:
         devices = db.execute(
             select(Device).where(Device.last_resources_check_at.is_not(None))
@@ -671,7 +664,7 @@ def routers_public_summary() -> list:
             "mem_total_bytes": d.mem_total_bytes, "disk_used_pct": d.disk_used_pct,
             "disk_total_bytes": d.disk_total_bytes,
             "last_check_at": d.last_resources_check_at.isoformat() if d.last_resources_check_at else None,
-        } for d in devices if _is_router(d)]
+        } for d in devices if d.id in router_ids]
 
 
 # ── Slow, independent loop: SSH/WinRM disk+memory refresh for managed hosts ─
