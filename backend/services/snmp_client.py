@@ -84,7 +84,17 @@ OID_MTXR_LIC_VERSION = "1.3.6.1.4.1.14988.1.1.4.4.0"
 OID_MTXR_SYSTEM_BOARD_NAME = "1.3.6.1.4.1.14988.1.1.7.8.0"
 OID_MTXR_SYSTEM_SERIAL = "1.3.6.1.4.1.14988.1.1.7.3.0"
 OID_MTXR_SYSTEM_FW_VERSION = "1.3.6.1.4.1.14988.1.1.7.4.0"
-OID_MTXR_CPU_LOAD = "1.3.6.1.4.1.14988.1.1.3.14.0"
+# NOT cpu-load despite the old name it briefly had here — confirmed this
+# is mtxrHealth's CPU FREQUENCY reading (MHz), not load. Reported live: a
+# device's CPU tile showed "1700%" — its actual clock speed, misread as a
+# percentage. Real CPU load comes from the standard (non-Mikrotik-specific)
+# HOST-RESOURCES-MIB table below instead, which works the same way on
+# every SNMP-capable device, not just RouterOS.
+OID_MTXR_CPU_FREQUENCY = "1.3.6.1.4.1.14988.1.1.3.14.0"
+# hrProcessorLoad (HOST-RESOURCES-MIB) — a TABLE (one row per CPU core), so
+# this must be walked, not a single GET; a multi-core device reports one
+# load percentage per core, averaged below into a single overall figure.
+OID_HR_PROCESSOR_LOAD = "1.3.6.1.2.1.25.3.3.1.2"
 
 IF_TYPE_NAMES = {
     1: "other", 6: "ethernet", 24: "loopback", 53: "propVirtual",
@@ -211,7 +221,15 @@ class SnmpClient:
         except Exception:
             pass
         try:
-            out["cpu-load"] = _decode(await self._get(OID_MTXR_CPU_LOAD))
+            rows = await self._walk(OID_HR_PROCESSOR_LOAD)
+            loads = []
+            for _, value in rows:
+                try:
+                    loads.append(float(_decode(value)))
+                except (TypeError, ValueError):
+                    continue
+            if loads:
+                out["cpu-load"] = str(round(sum(loads) / len(loads)))
         except Exception:
             pass
         return out

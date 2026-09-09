@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.19 — 2026-09-09
+- Fix CPU load showing absurd values (e.g. "1700%") for devices monitored via SNMP only (typically older/credential-less RouterOS v6 devices) - reported live from the new Routery tile. Root cause: the SNMP CPU reading used OID 1.3.6.1.4.1.14988.1.1.3.14.0, which is actually the device's CPU FREQUENCY in MHz, not its load - a 1700MHz CPU was being displayed as "1700%". Switched to the standard HOST-RESOURCES-MIB hrProcessorLoad table (works identically on any SNMP-capable device, not just RouterOS), walked and averaged across all cores for multi-core hardware. Existing bad values already stored will self-correct on the next hourly resource poll - no manual fix needed.
+
 ## 2.18 — 2026-09-09
 - Add temperature monitoring for Mikrotik routers (new /system/health reading, board/CPU temperature persisted alongside CPU/RAM/disk, shown as a colorful tile in Central's Routery page, new temperature_high alert type with a 70°C default threshold) - handles the RouterOS v6-vs-v7 /system/health response shape difference (v6: one flat object; v7: a list of {name,value,type} rows) transparently. Also let an operator manually confirm or correct whether a device counts as a "router" for that same Central page, for when the automatic WAN-interface-list detection gets it wrong (a router that has no WAN interface-list configured, or vice versa) - the Routery page now lists every polled Mikrotik device (not just auto-detected routers), with a per-device classification control that sets the override from Central, mirroring the vuln-remediation command pattern exactly.
 
