@@ -262,6 +262,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] Check_MK monitor error: {e}")
 
     try:
+        from services import prtg_monitor
+        await prtg_monitor.collect_activity()
+    except Exception as e:
+        print(f"[uplink] PRTG activity error: {e}")
+
+    try:
         edge_ips = await edge_discovery.collect_public_ips()
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")

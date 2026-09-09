@@ -208,6 +208,55 @@ async def list_sensors() -> Optional[list]:
         return None
 
 
+async def list_messages(count: int = 50) -> Optional[list]:
+    """content=messages -> PRTG's own log (sensor status changes, user
+    actions like pause/acknowledge, system messages) - used by
+    prtg_monitor.py to feed this agent's local Activity Log, separate from
+    (and broader than) the up/down-only alerting in collect_prtg_events().
+    Always sorted newest-first by PRTG itself for this content type, so no
+    explicit sortby is needed - just cap to the most recent `count`.
+
+    Each row's "objid" here is the MESSAGE's own unique id (distinct from
+    "parent", the related sensor/device's id) - confirmed by Paessler's own
+    example queries always requesting both columns together, which would
+    be redundant if they were the same value. Used as the dedup key by the
+    caller instead of (time, text) hashing.
+
+    datetime_raw is an OLE Automation date (days since 1899-12-30, UTC) -
+    the same "numeric raw companion field" convention already relied on
+    for status_raw in list_sensors() above; requested explicitly via
+    columns since PRTG's plain "datetime" column is a locale-formatted
+    string, not reliably parseable. Returns None on failure."""
+    if not is_configured():
+        return None
+    url = f"{_config['url']}/api/table.json"
+    params = {"content": "messages",
+              "columns": "objid,datetime_raw,parent,type,name,status,message",
+              "count": str(count), "apitoken": _config["api_token"]}
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, params=params,
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                out = []
+                for m in data.get("messages", []):
+                    if not isinstance(m, dict) or "objid" not in m:
+                        continue
+                    out.append({
+                        "objid": m["objid"], "datetime_raw": m.get("datetime_raw"),
+                        "parent": m.get("parent"), "type": m.get("type"),
+                        "name": m.get("name"), "status": m.get("status"),
+                        "message": m.get("message"),
+                    })
+                return out
+    except Exception as e:
+        print(f"[prtg] list_messages error: {e}")
+        return None
+
+
 def has_secret() -> bool:
     """Used by services.crypto.key_status() to count this as one more
     Fernet-encrypted field for the key-lifecycle summary."""

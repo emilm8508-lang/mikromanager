@@ -23,7 +23,7 @@ already-known host.
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -176,3 +176,52 @@ def public_summary() -> List[dict]:
         "status_name": s["status_name"],
         "message": s.get("message"),
     } for s in sensors if s["status"] in prtg_client.PROBLEM_STATUSES]
+
+
+async def collect_activity() -> None:
+    """Pulls PRTG's own recent log (sensor status changes, user actions,
+    system messages — prtg_client.list_messages()) into this agent's local
+    Activity Log, so PRTG's own event history shows up in the same place
+    as every other "what happened" entry (restarts, upgrades, backups),
+    instead of being a second place to check. Deliberately separate from
+    collect_prtg_events()/alert_events above — this is history, not
+    alerting, so it never reaches Telegram (PRTG's own log routinely
+    includes routine noise like "sensor paused by user" that shouldn't
+    page anyone).
+
+    Dedup by message objid (PRTG's own unique id for the log entry itself,
+    not the related sensor/device) — the state's seen-set is REPLACED
+    (not accumulated) with exactly this batch's ids each call, same
+    reasoning as resource_monitor.py's _check_device_log_events(): PRTG's
+    own log is itself a bounded/rolling window (we only ever fetch the
+    most recent N), so this self-prunes with no manual cleanup needed."""
+    if not prtg_client.is_configured():
+        return
+    messages = await prtg_client.list_messages(count=50)
+    if messages is None:
+        return
+
+    state = _load_state()
+    prev_seen = set(state.get("_activity_seen") or [])
+    current_seen = set()
+
+    for m in messages:
+        current_seen.add(m["objid"])
+        if m["objid"] in prev_seen:
+            continue
+        when = None
+        try:
+            raw = float(m.get("datetime_raw"))
+            when = (datetime(1899, 12, 30) + timedelta(days=raw)).isoformat()
+        except (TypeError, ValueError):
+            pass
+        try:
+            activity.record(
+                "prtg_activity", prtg_type=m.get("type"), name=m.get("name"),
+                status=m.get("status"), message=m.get("message"), event_time=when,
+            )
+        except Exception as e:
+            print(f"[prtg_monitor] activity record error: {e}")
+
+    state["_activity_seen"] = list(current_seen)
+    _save_state(state)
