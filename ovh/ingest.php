@@ -69,6 +69,14 @@ function canonical_commands(array $commands): string {
             // as reason elsewhere in this function.
             $parts[] = 'vuln_remediation:' . ($c['product'] ?? '') . '|' . ($c['version'] ?? '')
                 . '|' . ($c['cve_id'] ?? '') . '|' . ($c['status'] ?? '');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'edge_check_targets') {
+            // ip/check_port are safe characters (IPv4 literals + integers),
+            // no escaping concerns like the free-text fields above.
+            $enc = array_map(
+                fn($t) => ($t['ip'] ?? '') . '/' . (int)($t['check_port'] ?? 0),
+                $c['targets'] ?? []
+            );
+            $parts[] = 'edge_check_targets:' . implode(',', $enc);
         } else {
             $parts[] = 'unknown';
         }
@@ -288,6 +296,25 @@ try {
         $ei = is_array($public_meta) ? ($public_meta['edge_ips'] ?? null) : null;
         if (is_array($ei)) edge_sync_from_agent($pdo, $tenant_header, $ei);
     } catch (Throwable $e) { error_log('[mm-edge-sync] ' . $e->getMessage()); }
+    // Agent self-reported reachability results (services/edge_selfcheck.py) —
+    // see edge_ingest_check_result()'s own docstring for why this exists
+    // (OVH's shared hosting can't do raw ICMP and has its own routing
+    // quirks; the agent is a normal process on a normal network). Applied
+    // per-result so one malformed entry never blocks the rest.
+    try {
+        $ecr = is_array($public_meta) ? ($public_meta['edge_check_results'] ?? null) : null;
+        if (is_array($ecr)) {
+            foreach ($ecr as $r) {
+                if (!is_array($r) || empty($r['ip'])) continue;
+                try {
+                    edge_ingest_check_result(
+                        $pdo, $tenant_header, (string)$r['ip'],
+                        !empty($r['ok']), (string)($r['method'] ?? 'agent'), (string)($r['detail'] ?? '')
+                    );
+                } catch (Throwable $e) { error_log('[mm-edge-selfcheck] ' . $e->getMessage()); }
+            }
+        }
+    } catch (Throwable $e) { error_log('[mm-edge-selfcheck] ' . $e->getMessage()); }
     try { edge_check_due($pdo, 8); }
     catch (Throwable $e) { error_log('[mm-edge] ' . $e->getMessage()); }
     try { tenant_stale_check_due($pdo, $config); }
@@ -499,6 +526,22 @@ try {
             ];
             @unlink($f);
         }
+    }
+
+    // 5. Edge-device check targets — NOT drained/deleted like the commands
+    // above (those are one-off actions); this is the tenant's CURRENT list
+    // of (ip, check_port) to self-check, resent fresh every heartbeat so
+    // the agent always has an up-to-date view (an operator can add/edit/
+    // disable an edge device in Central at any time). Covers 'manual' rows
+    // too, which the agent otherwise has zero visibility into (see
+    // edge_device_add in api.php - a manual row has no source_device_id,
+    // so the agent could never derive it from its own WAN detection alone).
+    // See services/edge_selfcheck.py for what the agent does with this.
+    $stmt = $pdo->prepare('SELECT ip, check_port FROM edge_devices WHERE tenant = ? AND enabled = 1');
+    $stmt->execute([$tenant_header]);
+    $edge_targets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if ($edge_targets) {
+        $commands[] = ['type' => 'edge_check_targets', 'targets' => $edge_targets];
     }
 
     // Sign the commands so the agent can verify they really came from someone

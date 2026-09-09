@@ -268,6 +268,13 @@ async def _build_snapshot() -> dict:
         edge_ips = []
 
     try:
+        from services import edge_selfcheck
+        edge_check_results = await edge_selfcheck.check_all()
+    except Exception as e:
+        print(f"[uplink] edge selfcheck error: {e}")
+        edge_check_results = []
+
+    try:
         fw_status = await firmware_status.collect_firmware_status()
     except Exception as e:
         print(f"[uplink] firmware status error: {e}")
@@ -406,6 +413,7 @@ async def _build_snapshot() -> dict:
         "critical_logs": crit_logs,
         "alert_events": alert_events,
         "edge_ips": edge_ips,
+        "edge_check_results": edge_check_results,
         "firmware_status": fw_status,
         "activity_events": activity_events,
         "log_fetch_results": log_fetch_results,
@@ -453,6 +461,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "agent_commit_time": snapshot.get("agent_commit_time"),
             "alert_events": snapshot.get("alert_events", []),
             "edge_ips": snapshot.get("edge_ips", []),
+            "edge_check_results": snapshot.get("edge_check_results", []),
             "firmware_status": snapshot.get("firmware_status"),
             "activity_events": snapshot.get("activity_events", []),
             "supply_chain_status": snapshot.get("supply_chain_status"),
@@ -570,6 +579,9 @@ def _canonical_commands(commands: list) -> str:
             cve_id = c.get("cve_id") or ""
             status = c.get("status") or ""
             parts.append(f"vuln_remediation:{product}|{version}|{cve_id}|{status}")
+        elif isinstance(c, dict) and c.get("type") == "edge_check_targets":
+            enc = ",".join(f"{t.get('ip') or ''}/{int(t.get('check_port') or 0)}" for t in (c.get("targets") or []))
+            parts.append(f"edge_check_targets:{enc}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -689,6 +701,13 @@ async def _handle_commands(commands: list) -> None:
         to this agent's own VulnRemediation table only — never touches any
         host/service — so no MANAGE_ENABLED gate, same reasoning as
         windows_manage_toggle above.
+      - {"type":"edge_check_targets","targets":[{"ip":str,
+         "check_port":int|None}, ...]}                        — the
+        tenant's current list of edge-device addresses to self-check
+        (services/edge_selfcheck.py) — resent fresh every heartbeat, not a
+        one-off action, so just stored for the next snapshot cycle's
+        check_all() to use. No MANAGE_ENABLED gate: outbound ping/TCP
+        connect to addresses OVH already tracks for this same tenant.
     """
     for cmd in commands:
         if cmd == "update":
@@ -805,6 +824,10 @@ async def _handle_commands(commands: list) -> None:
                         print(f"[uplink] vuln_remediation rejected: {e}")
                 else:
                     print(f"[uplink] vuln_remediation command missing required fields: {cmd}")
+            elif cmd_type == "edge_check_targets":
+                from services import edge_selfcheck
+                targets = cmd.get("targets") or []
+                edge_selfcheck.set_targets(targets)
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

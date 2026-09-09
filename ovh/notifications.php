@@ -523,13 +523,32 @@ function tenant_stale_check_due(PDO $pdo, array $config): void {
 }
 
 
+/**
+ * OVH's own active probe — thin wrapper around edge_apply_check_result()
+ * below. Used by edge_check_due()/edge_device_check_now (the existing
+ * "check from OVH's own network" path). Kept exactly as before so nothing
+ * here regresses for tenants whose agent doesn't yet self-report (see
+ * edge_ingest_check_result() further down) — this stays a real, independent
+ * fallback, not replaced.
+ */
 function edge_check_one(PDO $pdo, array $d): array {
     $ip = (string)$d['ip'];
     $port = $d['check_port'] !== null ? (int)$d['check_port'] : null;
     $check = edge_check_ip($ip, $port);
-    $ok = $check['ok'];
-    $detail = $check['detail'];
+    return edge_apply_check_result($pdo, $d, $check['ok'], $check['method'], $check['detail']);
+}
 
+
+/**
+ * Debounce + state-change + edge_events + notification dispatch — the
+ * actual state machine, extracted from edge_check_one() so it can be fed
+ * by TWO independent sources of a check result: OVH's own active probe
+ * (edge_check_one() above, unchanged) AND an agent's self-reported result
+ * (edge_ingest_check_result() below, new). Same result shape/behavior
+ * either way — the state machine has no idea (and doesn't need to know)
+ * which source produced $ok/$method/$detail.
+ */
+function edge_apply_check_result(PDO $pdo, array $d, bool $ok, string $method, string $detail): array {
     $prev = $d['last_status'];
     $consecutive = (int)$d['consecutive_fails'];
     $new_status = $ok ? 'online' : 'offline';
@@ -565,7 +584,7 @@ function edge_check_one(PDO $pdo, array $d): array {
         $stmt->execute([$now, $consecutive, $detail, $d['id']]);
     }
 
-    $result = ['ok' => $ok, 'state_changed' => $state_changed, 'new_status' => $effective, 'method' => $check['method'], 'detail' => $detail];
+    $result = ['ok' => $ok, 'state_changed' => $state_changed, 'new_status' => $effective, 'method' => $method, 'detail' => $detail];
 
     if (!$state_changed) return $result;
 
@@ -613,6 +632,39 @@ function edge_check_one(PDO $pdo, array $d): array {
     $result['duration_sec'] = $duration_sec;
     $result['notifications'] = $notif_results;
     return $result;
+}
+
+
+/**
+ * Apply a reachability result the AGENT ITSELF checked and reported, in
+ * its own snapshot (services/edge_selfcheck.py) — instead of OVH's own
+ * network doing the probe. This is the whole point of this mechanism:
+ * OVH's shared hosting has no raw ICMP socket capability and its own
+ * routing quirks to some destination networks, while a tenant's agent is
+ * a normal OS process with a normal network stack, checking WAN addresses
+ * that belong to its own tenant (e.g. a multi-site tenant's own branch
+ * routers, connected via VPN tunnels - a genuinely different network path
+ * than wherever the agent process itself runs).
+ *
+ * Looked up by (tenant, ip) - the same uniq_tenant_ip key edge_devices
+ * already enforces, so this is unambiguous regardless of whether the row
+ * is 'auto' or 'manual'. Unknown (tenant, ip) pairs are silently ignored
+ * (a stale/deleted device, or a target the agent hasn't been told about
+ * yet) - never an error that could break snapshot ingestion.
+ */
+function edge_ingest_check_result(PDO $pdo, string $tenant, string $ip, bool $ok, string $method, string $detail): void {
+    $stmt = $pdo->prepare('SELECT * FROM edge_devices WHERE tenant = ? AND ip = ?');
+    $stmt->execute([$tenant, $ip]);
+    $d = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$d) return;
+    // The agent deliberately mirrors edge_check_ip()'s own message text
+    // ("ping OK", "TCP x:y connected") so the two sources are otherwise
+    // indistinguishable in last_check_detail (the only piece of this that
+    // actually gets persisted/shown - $method itself isn't a stored
+    // column). Tag it here so a status that flips because the agent's
+    // check finally succeeded is visibly different from one OVH's own
+    // probe produced, in the same history the operator already reads.
+    edge_apply_check_result($pdo, $d, $ok, $method, "(agent) {$detail}");
 }
 
 
