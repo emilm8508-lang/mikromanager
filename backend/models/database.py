@@ -819,6 +819,19 @@ def _migrate_add_columns():
             if "note" not in as_cols:
                 conn.execute(text("ALTER TABLE anydesk_sessions ADD COLUMN note TEXT"))
 
+    # One-time data cleanup, not a schema change: a since-fixed bug used a
+    # wrong SNMP OID (CPU frequency in MHz, not load) for devices monitored
+    # via SNMP only - stored values like "1700" or "2000" (a plausible
+    # clock speed, an impossible load) can get stuck there forever once
+    # written, since the regular poll only OVERWRITES on a fresh good
+    # reading and some SNMP-only hardware may never produce one for the
+    # corrected OID either (no fallback exists - see services/
+    # snmp_client.py's get_resource()). Runs every startup but is a no-op
+    # once the bad values are gone; a real load can never exceed 100.
+    if "devices" in inspector.get_table_names():
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE devices SET cpu_load_pct = NULL WHERE cpu_load_pct > 100 OR cpu_load_pct < 0"))
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

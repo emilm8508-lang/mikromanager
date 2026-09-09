@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.20 — 2026-09-09
+- Fix the previous CPU-load fix's own gap: values that were still wrong after switching to the standard hrProcessorLoad OID (e.g. "R1" still showing 2000%, "alu" still stuck on 1700%) never actually got cleared, because the poll cycle only ever OVERWRITES the stored value on a fresh good reading - if the corrected OID doesn't produce usable data on some SNMP-only hardware either, the old bad value just stays stuck forever with nothing to clear it. Two changes: (1) any cpu-load reading outside the only-ever-possible 0-100 range is now actively cleared to "unknown" rather than silently left alone, whether that bad reading is fresh or already stored; (2) a one-time startup cleanup nulls out any already-stuck implausible cpu_load_pct values immediately on the next agent restart, rather than waiting on a poll cycle that might never successfully re-trigger on that specific hardware.
+
 ## 2.19 — 2026-09-09
 - Fix CPU load showing absurd values (e.g. "1700%") for devices monitored via SNMP only (typically older/credential-less RouterOS v6 devices) - reported live from the new Routery tile. Root cause: the SNMP CPU reading used OID 1.3.6.1.4.1.14988.1.1.3.14.0, which is actually the device's CPU FREQUENCY in MHz, not its load - a 1700MHz CPU was being displayed as "1700%". Switched to the standard HOST-RESOURCES-MIB hrProcessorLoad table (works identically on any SNMP-capable device, not just RouterOS), walked and averaged across all cores for multi-core hardware. Existing bad values already stored will self-correct on the next hourly resource poll - no manual fix needed.
 

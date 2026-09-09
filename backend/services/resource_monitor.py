@@ -219,6 +219,21 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
         cpu_load = int(cpu_load) if cpu_load is not None else None
     except (TypeError, ValueError):
         cpu_load = None
+    # A real CPU load can never exceed 100% (already averaged across cores
+    # where applicable — see SnmpClient.get_resource()) — anything outside
+    # 0-100 is definitely bad data (confirmed live: one wrong SNMP OID
+    # produced exactly this, showing a device's 1700MHz clock speed as
+    # "1700%"), never a real reading worth keeping. force_clear=True below
+    # actively wipes whatever was stored before, rather than silently
+    # leaving it - a stuck bad value from before a fix like that one would
+    # otherwise never self-correct, since nothing else ever overwrites it
+    # once the source of fresh (but this time invalid) data stops matching.
+    force_clear_cpu = False
+    if cpu_load is not None and not (0 <= cpu_load <= 100):
+        print(f"[resource_monitor] device {device_id}: implausible cpu-load {cpu_load} "
+              f"(must be 0-100) - discarding and clearing any previously stored value")
+        cpu_load = None
+        force_clear_cpu = True
 
     # Board/CPU temperature (°C), if the hardware has any sensor at all -
     # entry-level RouterBOARDs often have none, which is a normal, expected
@@ -250,6 +265,8 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
                 d.disk_used_pct = disk_used_pct
             if cpu_load is not None:
                 d.cpu_load_pct = cpu_load
+            elif force_clear_cpu:
+                d.cpu_load_pct = None
             if temperature_c is not None:
                 d.temperature_c = temperature_c
             if mem_total is not None:
