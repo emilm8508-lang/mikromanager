@@ -19,6 +19,9 @@ python setup.py
 
 Instaluje zależności Python, npm i buduje frontend.
 
+Pełna instrukcja krok po kroku (Windows i Linux, w tym uruchamianie jako
+usługa systemowa) — patrz [`docs/instrukcja-instalacji-agenta.docx`](docs/instrukcja-instalacji-agenta.docx).
+
 ## Uruchamianie
 
 ```powershell
