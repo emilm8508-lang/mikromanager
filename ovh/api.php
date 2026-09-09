@@ -1350,6 +1350,56 @@ try {
             echo json_encode(['pending' => $pending]);
             break;
 
+        case 'request_device_router_override':
+            // Manually confirm/correct whether a device counts as a
+            // "router" for Central's resource-tile view, when the
+            // automatic WAN-interface-list detection gets it wrong either
+            // way. Marker filename carries device_id directly (a safe
+            // integer, like request_linux_restart) - no hash needed here.
+            // is_router is a tri-state ("true"/"false"/"null" as literal
+            // strings) - "null" clears the override back to auto-detection.
+            $tenant = $_GET['tenant'] ?? '';
+            $device_id = (int)($_GET['device_id'] ?? 0);
+            $is_router_raw = $_GET['is_router'] ?? '';
+            if ($tenant === '' || $device_id <= 0 || !in_array($is_router_raw, ['true', 'false', 'null'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => "tenant, device_id and is_router ('true'/'false'/'null') are required"]);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            $marker = $state_dir . "/device_router_override_{$safe}_{$device_id}.pending";
+            file_put_contents($marker, $is_router_raw);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'device_id' => $device_id,
+                'is_router' => $is_router_raw, 'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'pending_device_router_overrides':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/device_router_override_*.pending') as $f) {
+                    $base = basename($f, '.pending');
+                    // device_router_override_TENANT_DEVICEID
+                    if (preg_match('/^device_router_override_(.+)_(\d+)$/', $base, $m)) {
+                        $pending[] = [
+                            'tenant' => $m[1],
+                            'device_id' => (int)$m[2],
+                            'queued_at' => date('c', filemtime($f)),
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
         case 'linux_hosts_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as supply_chain_status_all: latest

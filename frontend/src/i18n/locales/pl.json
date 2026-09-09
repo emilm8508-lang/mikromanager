@@ -450,6 +450,7 @@
                     "eventTunnelUp":  "Tunel VPN wrocil (WireGuard/IPsec)",
                     "eventDiskSpaceLow":  "Dysk prawie pelny",
                     "eventMemoryHigh":  "Wysokie zuzycie pamieci",
+                    "eventTemperatureHigh": "Wysoka temperatura urzadzenia",
                     "eventInterfaceErrors":  "Bledy/drops na porcie switcha/routera",
                     "eventInterfaceOverload":  "Przeciazenie lacza (przekroczony prog Mbps)",
                     "eventIdracHealthDegraded":  "Pogorszenie stanu serwera Dell (iDRAC)",
@@ -939,7 +940,8 @@
             "memory": "Pamięć",
             "power": "Zasilanie",
             "fans_temperature": "Wentylatory/temp.",
-            "storage": "Dyski/RAID"
+            "storage": "Dyski/RAID",
+            "temperature": "Temperatura"
         }
     },
     "compliance": {
@@ -1104,7 +1106,16 @@
         "navLabel": "Routery",
         "title": "Routery Mikrotik — wszyscy klienci",
         "intro": "Bieżące zużycie CPU/RAM/dysku dla routerów Mikrotik u każdego klienta (nie switche — te zostają na dotychczasowym widoku). Dane pochodzą z tego samego godzinowego odpytania co lokalna zakładka Urządzenia.",
-        "noRouters": "Brak routerów z danymi o zasobach u żadnego klienta — sprawdź czy urządzenia mają przypisane poświadczenia."
+        "noRouters": "Brak routerów z danymi o zasobach u żadnego klienta — sprawdź czy urządzenia mają przypisane poświadczenia.",
+        "classification": "Klasyfikacja",
+        "queued": "W kolejce…",
+        "auto": "Automatycznie (wykryto: {{detected}})",
+        "router": "router",
+        "other": "nie router",
+        "forceRouter": "Wymuś: to jest router",
+        "forceOther": "Wymuś: to nie jest router",
+        "showOthers": "Pokaż pozostałe urządzenia ({{count}})",
+        "hideOthers": "Ukryj pozostałe urządzenia"
     },
     "inventoryCentral": {
         "title": "Inwentarz — wszyscy klienci",

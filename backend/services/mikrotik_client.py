@@ -351,6 +351,39 @@ class MikrotikClient:
         except Exception:
             return {}
 
+    async def get_health(self) -> dict:
+        """Board/CPU/PSU sensor readings from /system/health - shape
+        genuinely differs by RouterOS version (confirmed via
+        help.mikrotik.com/docs/spaces/ROS/pages/25690117/Health): v6
+        returns a single flat object (e.g. {"temperature": "43", ...}
+        directly); v7 restructured it into a list of {"name","value","type"}
+        rows (name can be "temperature", "cpu-temperature",
+        "board-temperature1"/"2", "pcb-temperature", "sfp-temperature",
+        varies by hardware - entry-level boards often report none at all).
+        Normalizes both shapes into one flat {name: value} dict so callers
+        never need to know which RouterOS version they're talking to.
+        Returns {} on any failure or if the hardware has no sensors."""
+        try:
+            raw = await self._rest_or_api("system/health", "/system/health", single_object=False)
+        except Exception:
+            return {}
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, list):
+            if not raw:
+                return {}
+            # v7 shape (REST or binary API): multiple {"name","value","type"}
+            # rows, one per sensor.
+            if all(isinstance(r, dict) and "name" in r and "value" in r for r in raw):
+                return {r["name"]: r["value"] for r in raw}
+            # v6 binary-API shape: the whole flat object comes back as a
+            # single-element list (the same "print always returns a list"
+            # convention _rest_or_api's single_object=True unwraps
+            # elsewhere) - not name/value pairs, just take it directly.
+            if isinstance(raw[0], dict):
+                return raw[0]
+        return {}
+
     async def get_package_update_status(self) -> dict:
         """Trigger a live 'check for updates' and read the result — this
         asks the DEVICE ITSELF (aware of its own architecture and update

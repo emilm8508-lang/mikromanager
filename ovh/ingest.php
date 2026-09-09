@@ -77,6 +77,10 @@ function canonical_commands(array $commands): string {
                 $c['targets'] ?? []
             );
             $parts[] = 'edge_check_targets:' . implode(',', $enc);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'device_router_override') {
+            $is_router = $c['is_router'] ?? null;
+            $value_str = $is_router === null ? 'null' : ($is_router ? '1' : '0');
+            $parts[] = 'device_router_override:' . (int)($c['device_id'] ?? 0) . ':' . $value_str;
         } else {
             $parts[] = 'unknown';
         }
@@ -542,6 +546,24 @@ try {
     $edge_targets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($edge_targets) {
         $commands[] = ['type' => 'edge_check_targets', 'targets' => $edge_targets];
+    }
+
+    // 6. Manual router/switch classification overrides (per device, may be
+    // multiple queued) — content is just the raw "true"/"false"/"null"
+    // string, no JSON needed for a single tri-state value.
+    foreach (glob($state_dir . "/device_router_override_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^device_router_override_.+_(\d+)$/', $base, $m)) {
+            $raw = trim(@file_get_contents($f));
+            @unlink($f);
+            $is_router = $raw === 'null' ? null : ($raw === 'true');
+            $commands[] = ['type' => 'device_router_override', 'device_id' => (int)$m[1], 'is_router' => $is_router];
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "device_router_override_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Klasyfikacja routera dostarczona do agenta {$tenant_header}",
+                        json_encode(['device_id'=>(int)$m[1],'is_router'=>$is_router,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
     }
 
     // Sign the commands so the agent can verify they really came from someone

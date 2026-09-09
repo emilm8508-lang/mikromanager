@@ -13,17 +13,34 @@ export function utilizationColor(pct: number | null | undefined): string {
   return 'bg-green-500 text-white'
 }
 
-export function UtilizationTile({ label, pct, sublabel, Icon }: {
+// Same three-band look as utilizationColor, but for a raw °C value instead
+// of a 0-100 percentage — a 0-100 scale would be meaningless for a router's
+// board temperature (e.g. a healthy 40°C would wrongly render as "40%
+// used", nearly full amber territory). Thresholds mirror
+// resource_monitor.py's TEMP_ALERT_C default (70°C) and its 5-degree
+// hysteresis band, so the tile's color and the alert that fires roughly agree.
+export function temperatureColor(celsius: number | null | undefined): string {
+  if (celsius === null || celsius === undefined) return 'bg-slate-100 text-slate-400'
+  if (celsius >= 70) return 'bg-red-500 text-white'
+  if (celsius >= 60) return 'bg-amber-500 text-white'
+  return 'bg-green-500 text-white'
+}
+
+export function UtilizationTile({ label, pct, sublabel, Icon, colorFn, formatValue }: {
   label: string
   pct: number | null | undefined
   sublabel?: string
   Icon: React.ComponentType<any>
+  colorFn?: (v: number | null | undefined) => string
+  formatValue?: (v: number) => string
 }) {
+  const color = (colorFn ?? utilizationColor)(pct)
+  const value = pct === null || pct === undefined ? '—' : (formatValue ?? ((v: number) => `${Math.round(v)}%`))(pct)
   return (
-    <div className={`flex flex-col items-center justify-center gap-1 rounded-lg py-3 px-2 min-w-[84px] flex-1 ${utilizationColor(pct)}`}>
+    <div className={`flex flex-col items-center justify-center gap-1 rounded-lg py-3 px-2 min-w-[84px] flex-1 ${color}`}>
       <Icon size={20} />
       <span className="text-[10px] font-medium text-center leading-tight opacity-90">{label}</span>
-      <span className="text-xs font-bold">{pct === null || pct === undefined ? '—' : `${Math.round(pct)}%`}</span>
+      <span className="text-xs font-bold">{value}</span>
       {sublabel && <span className="text-[9px] opacity-80 leading-tight text-center">{sublabel}</span>}
     </div>
   )

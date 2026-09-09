@@ -588,6 +588,14 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "edge_check_targets":
             enc = ",".join(f"{t.get('ip') or ''}/{int(t.get('check_port') or 0)}" for t in (c.get("targets") or []))
             parts.append(f"edge_check_targets:{enc}")
+        elif isinstance(c, dict) and c.get("type") == "device_router_override":
+            device_id = int(c.get("device_id") or 0)
+            # "null"/"true"/"false" as literal strings - is_router is a
+            # tri-state (None clears the override back to auto-detection),
+            # which a bare 0/1 int couldn't represent unambiguously.
+            value = c.get("is_router")
+            value_str = "null" if value is None else ("1" if value else "0")
+            parts.append(f"device_router_override:{device_id}:{value_str}")
         else:
             parts.append("unknown")
     return ",".join(parts)
@@ -714,6 +722,14 @@ async def _handle_commands(commands: list) -> None:
         one-off action, so just stored for the next snapshot cycle's
         check_all() to use. No MANAGE_ENABLED gate: outbound ping/TCP
         connect to addresses OVH already tracks for this same tenant.
+      - {"type":"device_router_override","device_id":N,
+         "is_router":bool|None}                                 — manually
+        confirm/correct whether a device counts as a "router" for
+        Central's resource-tile view (services/resource_monitor.py's
+        routers_public_summary()), for when the automatic WAN-interface-
+        list signal gets it wrong. None clears the override back to
+        auto-detection. A write to this agent's own Device row only —
+        no MANAGE_ENABLED gate, same reasoning as vuln_remediation above.
     """
     for cmd in commands:
         if cmd == "update":
@@ -834,6 +850,18 @@ async def _handle_commands(commands: list) -> None:
                 from services import edge_selfcheck
                 targets = cmd.get("targets") or []
                 edge_selfcheck.set_targets(targets)
+            elif cmd_type == "device_router_override":
+                device_id = cmd.get("device_id")
+                is_router = cmd.get("is_router")
+                if device_id:
+                    print(f"[uplink] received DEVICE_ROUTER_OVERRIDE for device {device_id} -> {is_router}")
+                    with SessionLocal() as db:
+                        d = db.get(Device, int(device_id))
+                        if d:
+                            d.is_router_override = is_router
+                            db.commit()
+                else:
+                    print(f"[uplink] device_router_override command missing device_id: {cmd}")
             else:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:

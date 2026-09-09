@@ -811,7 +811,8 @@
             "memory": "Память",
             "power": "Питание",
             "fans_temperature": "Вентиляторы/темп.",
-            "storage": "Диски/RAID"
+            "storage": "Диски/RAID",
+            "temperature": "Температура"
         }
     },
     "compliance": {

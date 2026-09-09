@@ -62,6 +62,10 @@ from services import activity
 
 DISK_ALERT_PCT = float(os.environ.get("MIKROTIK_DISK_ALERT_PCT", "90"))
 MEM_ALERT_PCT = float(os.environ.get("MIKROTIK_MEM_ALERT_PCT", "90"))
+# RouterBOARD hardware is typically rated well above this, but 70°C is
+# already "uncomfortably hot" for continuous operation - a reasonable
+# general default, overridable per deployment same as the others above.
+TEMP_ALERT_C = float(os.environ.get("MIKROTIK_TEMP_ALERT_C", "70"))
 HYSTERESIS_PCT = float(os.environ.get("MIKROTIK_RESOURCE_ALERT_HYSTERESIS_PCT", "5"))
 IFACE_ERROR_COOLDOWN_SEC = int(os.environ.get("MIKROTIK_IFACE_ERROR_COOLDOWN_SEC", "1800"))
 # How often Linux/Windows hosts get a fresh SSH/WinRM disk+memory check —
@@ -216,6 +220,26 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
     except (TypeError, ValueError):
         cpu_load = None
 
+    # Board/CPU temperature (°C), if the hardware has any sensor at all -
+    # entry-level RouterBOARDs often have none, which is a normal, expected
+    # {} from get_health(), not an error. Priority order picks the first
+    # available reading: "temperature" (v6's own field name, and v7's most
+    # common overall/case sensor label) first, then more specific sensors
+    # as fallbacks - see MikrotikClient.get_health()'s docstring for the
+    # full set of names RouterOS actually uses.
+    try:
+        health = await asyncio.wait_for(client.get_health(), timeout=8)
+    except Exception:
+        health = {}
+    temperature_c = None
+    for key in ("temperature", "cpu-temperature", "board-temperature1", "pcb-temperature"):
+        if key in health:
+            try:
+                temperature_c = float(str(health[key]).rstrip("Cc").strip())
+            except (TypeError, ValueError):
+                continue
+            break
+
     now = datetime.utcnow()
     with SessionLocal() as db:
         d = db.get(Device, device_id)
@@ -226,6 +250,8 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
                 d.disk_used_pct = disk_used_pct
             if cpu_load is not None:
                 d.cpu_load_pct = cpu_load
+            if temperature_c is not None:
+                d.temperature_c = temperature_c
             if mem_total is not None:
                 try:
                     d.mem_total_bytes = int(mem_total)
@@ -458,6 +484,7 @@ def _check_mikrotik_events(state: dict) -> List[dict]:
             for metric, value, threshold, event_type in (
                 ("mem", d.mem_used_pct, MEM_ALERT_PCT, "memory_high"),
                 ("disk", d.disk_used_pct, DISK_ALERT_PCT, "disk_space_low"),
+                ("temp", d.temperature_c, TEMP_ALERT_C, "temperature_high"),
             ):
                 key = f"mikrotik:{device_id}:{metric}"
                 crossed = _check_pct_threshold(state, key, value, threshold)
@@ -634,37 +661,52 @@ async def collect_resource_events() -> List[dict]:
 
 
 def routers_public_summary() -> list:
-    """Redacted CPU/RAM/disk summary for Central's router resource-tile
-    view — mirrors linux_manage.public_summary()/dell_monitor.public_summary()
-    exactly: sync, DB-only (reads whatever _poll_mikrotik_devices already
-    persisted, no live connections here), only devices that have actually
-    been polled at least once.
+    """Redacted CPU/RAM/disk/temperature summary for Central's router
+    resource-tile view — mirrors linux_manage.public_summary()/
+    dell_monitor.public_summary() exactly: sync, DB-only (reads whatever
+    _poll_mikrotik_devices already persisted, no live connections here),
+    only devices that have actually been polled at least once.
 
-    "Router" here means "has a RouterOS 'WAN' interface-list" (services/
-    edge_discovery.py's wan_capable_device_ids()) — the same signal already
-    proven (CHANGELOG 1.96) to correctly separate real gateway routers from
-    switches AND access points on this exact fleet. A first, simpler
-    attempt used a board_name prefix denylist (excluding only CRS/CSS
-    switch boards) — confirmed live to be wrong: it let wAP/cAP access
-    points through since they don't match any switch prefix either, while
-    saying nothing about whether a device is actually a router. Devices
-    never yet WAN-scanned (edge_discovery's own scan hasn't completed a
-    first pass since agent start) are excluded until it has — same
-    "starts empty until the first refresh" behavior every other
-    public_summary() in this app already has."""
+    Returns EVERY polled Mikrotik device (not just router-classified ones)
+    with an `is_router` flag, so Central's UI can show "other devices" too
+    and let the operator manually confirm/correct the classification for
+    ones the automatic detection got wrong — see is_router_override below.
+
+    Auto-detection: "router" means "has a RouterOS 'WAN' interface-list"
+    (services/edge_discovery.py's wan_capable_device_ids()) — the same
+    signal already proven (CHANGELOG 1.96) to correctly separate real
+    gateway routers from switches AND access points on this exact fleet. A
+    first, simpler attempt used a board_name prefix denylist (excluding
+    only CRS/CSS switch boards) — confirmed live to be wrong: it let wAP/
+    cAP access points through since they don't match any switch prefix
+    either. Devices never yet WAN-scanned (edge_discovery's own scan
+    hasn't completed a first pass since agent start) fall back to "not a
+    router" until it has, UNLESS a manual override already says otherwise.
+
+    Device.is_router_override (nullable bool) lets an operator correct the
+    automatic signal from Central when it's wrong either way (a real
+    router that happens to have no WAN interface-list configured, or the
+    opposite) — NULL defers to auto-detection, True/False force it."""
     from services import edge_discovery
     router_ids = edge_discovery.wan_capable_device_ids()
     with SessionLocal() as db:
         devices = db.execute(
             select(Device).where(Device.last_resources_check_at.is_not(None))
         ).scalars().all()
-        return [{
-            "id": d.id, "name": d.identity or d.name or d.ip, "board_name": d.board_name,
-            "cpu_used_pct": d.cpu_load_pct, "mem_used_pct": d.mem_used_pct,
-            "mem_total_bytes": d.mem_total_bytes, "disk_used_pct": d.disk_used_pct,
-            "disk_total_bytes": d.disk_total_bytes,
-            "last_check_at": d.last_resources_check_at.isoformat() if d.last_resources_check_at else None,
-        } for d in devices if d.id in router_ids]
+        out = []
+        for d in devices:
+            if (d.vendor or "mikrotik").lower() != "mikrotik":
+                continue
+            is_router = d.is_router_override if d.is_router_override is not None else d.id in router_ids
+            out.append({
+                "id": d.id, "name": d.identity or d.name or d.ip, "board_name": d.board_name,
+                "is_router": is_router, "is_override": d.is_router_override is not None,
+                "cpu_used_pct": d.cpu_load_pct, "mem_used_pct": d.mem_used_pct,
+                "mem_total_bytes": d.mem_total_bytes, "disk_used_pct": d.disk_used_pct,
+                "disk_total_bytes": d.disk_total_bytes, "temperature_c": d.temperature_c,
+                "last_check_at": d.last_resources_check_at.isoformat() if d.last_resources_check_at else None,
+            })
+        return out
 
 
 # ── Slow, independent loop: SSH/WinRM disk+memory refresh for managed hosts ─

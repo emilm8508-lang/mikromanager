@@ -577,20 +577,25 @@ export interface CentralDellServerStatus {
   last_status: string | null
 }
 
-// Redacted CPU/RAM/disk summary for a Mikrotik ROUTER an agent includes in
-// its snapshot envelope (see services/resource_monitor.py's
-// routers_public_summary()) — switch-family boards excluded there, so
-// every entry here is router-eligible. Same "general resource health view
-// in Central" concept as CentralDellServerStatus, extended to routers.
+// Redacted CPU/RAM/disk/temperature summary for a Mikrotik device an agent
+// includes in its snapshot envelope (see services/resource_monitor.py's
+// routers_public_summary()) — EVERY polled Mikrotik device, not just
+// router-classified ones, so Central can show "other devices" too and let
+// the operator correct is_router when the automatic WAN-interface-list
+// detection gets it wrong. Same "general resource health view in Central"
+// concept as CentralDellServerStatus, extended to routers.
 export interface CentralRouterStatus {
   id: number
   name: string | null
   board_name: string | null
+  is_router: boolean
+  is_override: boolean
   cpu_used_pct: number | null
   mem_used_pct: number | null
   mem_total_bytes: number | null
   disk_used_pct: number | null
   disk_total_bytes: number | null
+  temperature_c: number | null
   last_check_at: string | null
 }
 
@@ -1846,6 +1851,12 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; dell_servers: CentralDellServerStatus[] }> }>('dell_servers_status_all'),
   routersStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; routers: CentralRouterStatus[] }> }>('routers_status_all'),
+  requestDeviceRouterOverride: (tenant: string, deviceId: number, isRouter: boolean | null) =>
+    centralRequest<{ ok: boolean; tenant: string; device_id: number; is_router: string; queued_at: string; note: string }>(
+      'request_device_router_override', { tenant, device_id: String(deviceId), is_router: isRouter === null ? 'null' : String(isRouter) },
+    ),
+  pendingDeviceRouterOverrides: () =>
+    centralRequest<{ pending: Array<{ tenant: string; device_id: number; queued_at: string }> }>('pending_device_router_overrides'),
   requestDellCheck: (tenant: string, serverId: number) =>
     centralRequest<{ ok: boolean; tenant: string; server_id: number; queued_at: string; note: string }>(
       'request_dell_check', { tenant, server_id: String(serverId) },

@@ -811,7 +811,8 @@
             "memory": "Arbeitsspeicher",
             "power": "Stromversorgung",
             "fans_temperature": "Lüfter/Temp.",
-            "storage": "Speicher/RAID"
+            "storage": "Speicher/RAID",
+            "temperature": "Temperatur"
         }
     },
     "compliance": {

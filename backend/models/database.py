@@ -76,6 +76,10 @@ class Device(Base):
     # "3.6 / 4.0 GB" the same way Linux/Windows host tiles already do.
     mem_total_bytes = Column(Integer, nullable=True)
     disk_total_bytes = Column(Integer, nullable=True)
+    # Board/CPU temperature in °C, from /system/health - not every
+    # RouterBOARD has a sensor (entry-level hardware often has none), so
+    # this stays NULL rather than 0 when the device reports nothing.
+    temperature_c = Column(Float, nullable=True)
     last_resources_check_at = Column(DateTime, nullable=True)
     # Per-device, manually-set bandwidth ceiling (Mbps) for the
     # interface_overload alert — NULL (default) means "don't check
@@ -83,6 +87,16 @@ class Device(Base):
     # Deliberately per-device rather than a single global default: link
     # capacity varies wildly between a WAN uplink and a switch trunk.
     iface_mbps_threshold = Column(Float, nullable=True)
+    # Manual router/switch override for Central's resource-tile view
+    # (services/resource_monitor.py's routers_public_summary()) - NULL
+    # (default) means "trust the automatic WAN-interface-list detection",
+    # True/False force-includes/excludes regardless of that detection.
+    # Needed because the automatic signal isn't always right (a real
+    # router without a WAN interface-list configured, or - the opposite,
+    # already-fixed bug - a device that happens to have one but isn't
+    # actually a router) - set from Central, see uplink.py's
+    # device_router_override command.
+    is_router_override = Column(Boolean, nullable=True)
 
     credential = relationship("Credential", back_populates="devices")
 
@@ -718,6 +732,10 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN last_resources_check_at DATETIME"))
             if "iface_mbps_threshold" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN iface_mbps_threshold FLOAT"))
+            if "temperature_c" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN temperature_c FLOAT"))
+            if "is_router_override" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN is_router_override BOOLEAN"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

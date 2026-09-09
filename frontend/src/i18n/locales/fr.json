@@ -811,7 +811,8 @@
             "memory": "Mémoire",
             "power": "Alimentation",
             "fans_temperature": "Ventilateurs/temp.",
-            "storage": "Stockage/RAID"
+            "storage": "Stockage/RAID",
+            "temperature": "Température"
         }
     },
     "compliance": {

@@ -811,7 +811,8 @@
             "memory": "Memory",
             "power": "Power",
             "fans_temperature": "Fans/temp",
-            "storage": "Storage/RAID"
+            "storage": "Storage/RAID",
+            "temperature": "Temperature"
         }
     },
     "compliance": {

@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Cpu, MemoryStick, HardDrive } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Thermometer } from 'lucide-react'
 import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralRouterStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
-import { HostUtilizationRow } from '../components/UtilizationTile'
+import { HostUtilizationRow, UtilizationTile, temperatureColor } from '../components/UtilizationTile'
 
 function formatDate(iso: string): string {
   try {
@@ -332,6 +332,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="tunnel_up">{t('alerts.eventTunnelUp')}</option>
                 <option value="disk_space_low">{t('alerts.eventDiskSpaceLow')}</option>
                 <option value="memory_high">{t('alerts.eventMemoryHigh')}</option>
+                <option value="temperature_high">{t('alerts.eventTemperatureHigh')}</option>
                 <option value="interface_errors">{t('alerts.eventInterfaceErrors')}</option>
                 <option value="interface_overload">{t('alerts.eventInterfaceOverload')}</option>
                 <option value="idrac_health_degraded">{t('alerts.eventIdracHealthDegraded')}</option>
@@ -1775,25 +1776,91 @@ export function PhysicalServersPanel() {
 // "check now" command, unlike Dell — the underlying data already refreshes
 // on the agent's own hourly poll (services/resource_monitor.py), same
 // cadence reasoning as Dell's own comment above.
+function RouterDeviceCard({ tenant, device, pending, onOverride }: {
+  tenant: string; device: CentralRouterStatus; pending: boolean
+  onOverride: (tenant: string, deviceId: number, isRouter: boolean | null) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span className="font-mono text-sm text-slate-800">{device.name || '—'}</span>
+          {device.board_name && <span className="text-xs text-slate-500 ml-2">{device.board_name}</span>}
+        </div>
+        <span className="text-xs text-slate-500">
+          {device.last_check_at ? new Date(device.last_check_at).toLocaleString() : '—'}
+        </span>
+      </div>
+      <HostUtilizationRow
+        cpuPct={device.cpu_used_pct} memPct={device.mem_used_pct} memTotalBytes={device.mem_total_bytes}
+        disks={[{ label: t('dell.component.storage') as string, pct: device.disk_used_pct, totalBytes: device.disk_total_bytes }]}
+        cpuLabel={t('dell.component.cpu') as string} memLabel={t('dell.component.memory') as string}
+        diskLabel={t('dell.component.storage') as string}
+        CpuIcon={Cpu} MemIcon={MemoryStick} DiskIcon={HardDrive}
+      />
+      {device.temperature_c !== null && (
+        <div className="flex">
+          <UtilizationTile
+            label={t('dell.component.temperature') as string} pct={device.temperature_c}
+            formatValue={v => `${Math.round(v)}°C`} colorFn={temperatureColor} Icon={Thermometer}
+          />
+        </div>
+      )}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-xs text-slate-500">{t('routersCentral.classification')}:</span>
+        {pending ? (
+          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('routersCentral.queued')}</span>
+        ) : (
+          <select
+            value={device.is_override ? String(device.is_router) : 'auto'}
+            onChange={e => {
+              const v = e.target.value
+              onOverride(tenant, device.id, v === 'auto' ? null : v === 'true')
+            }}
+            className="text-xs border border-slate-300 rounded px-1.5 py-1"
+          >
+            <option value="auto">{t('routersCentral.auto', { detected: device.is_router ? t('routersCentral.router') : t('routersCentral.other') })}</option>
+            <option value="true">{t('routersCentral.forceRouter')}</option>
+            <option value="false">{t('routersCentral.forceOther')}</option>
+          </select>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function RoutersCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; router: CentralRouterStatus }>>([])
+  const [pending, setPending] = useState<Array<{ tenant: string; device_id: number }>>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [showOthers, setShowOthers] = useState<Record<string, boolean>>({})
 
   const reload = async () => {
     try {
-      const s = await centralApi.routersStatusAll()
+      const [s, p] = await Promise.all([centralApi.routersStatusAll(), centralApi.pendingDeviceRouterOverrides()])
       const flat: Array<{ tenant: string; router: CentralRouterStatus }> = []
       for (const tRow of s.tenants) {
         for (const router of tRow.routers) flat.push({ tenant: tRow.tenant, router })
       }
       setRows(flat)
+      setPending(p.pending ?? [])
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleOverride = async (tenant: string, deviceId: number, isRouter: boolean | null) => {
+    try {
+      await centralApi.requestDeviceRouterOverride(tenant, deviceId, isRouter)
+      await reload()
+    } catch (e) {
+      setErr((e as Error).message)
     }
   }
 
@@ -1803,9 +1870,11 @@ export function RoutersCentralPanel() {
     return () => clearInterval(iv)
   }, [])
 
-  const byTenant: Record<string, CentralRouterStatus[]> = {}
+  const pendingSet = new Set(pending.map(p => `${p.tenant}:${p.device_id}`))
+  const byTenant: Record<string, { routers: CentralRouterStatus[]; others: CentralRouterStatus[] }> = {}
   for (const { tenant, router } of rows) {
-    (byTenant[tenant] ??= []).push(router)
+    const bucket = (byTenant[tenant] ??= { routers: [], others: [] })
+    ;(router.is_router ? bucket.routers : bucket.others).push(router)
   }
 
   return (
@@ -1824,29 +1893,29 @@ export function RoutersCentralPanel() {
       ) : rows.length === 0 ? (
         <div className="text-sm text-slate-500">{t('routersCentral.noRouters')}</div>
       ) : (
-        Object.entries(byTenant).map(([tenant, routers]) => (
+        Object.entries(byTenant).map(([tenant, { routers, others }]) => (
           <div key={tenant} className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
             <h3 className="text-sm font-semibold text-slate-700">{tenant}</h3>
-            {routers.map(router => (
-              <div key={router.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <span className="font-mono text-sm text-slate-800">{router.name || '—'}</span>
-                    {router.board_name && <span className="text-xs text-slate-500 ml-2">{router.board_name}</span>}
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    {router.last_check_at ? new Date(router.last_check_at).toLocaleString() : '—'}
-                  </span>
-                </div>
-                <HostUtilizationRow
-                  cpuPct={router.cpu_used_pct} memPct={router.mem_used_pct} memTotalBytes={router.mem_total_bytes}
-                  disks={[{ label: t('dell.component.storage') as string, pct: router.disk_used_pct, totalBytes: router.disk_total_bytes }]}
-                  cpuLabel={t('dell.component.cpu') as string} memLabel={t('dell.component.memory') as string}
-                  diskLabel={t('dell.component.storage') as string}
-                  CpuIcon={Cpu} MemIcon={MemoryStick} DiskIcon={HardDrive}
-                />
-              </div>
+            {routers.map(device => (
+              <RouterDeviceCard key={device.id} tenant={tenant} device={device}
+                pending={pendingSet.has(`${tenant}:${device.id}`)} onOverride={handleOverride} />
             ))}
+            {others.length > 0 && (
+              <div className="pt-1">
+                <button onClick={() => setShowOthers(s => ({ ...s, [tenant]: !s[tenant] }))}
+                  className="text-xs text-indigo-600 hover:underline">
+                  {showOthers[tenant] ? t('routersCentral.hideOthers') : t('routersCentral.showOthers', { count: others.length })}
+                </button>
+                {showOthers[tenant] && (
+                  <div className="space-y-3 pt-2">
+                    {others.map(device => (
+                      <RouterDeviceCard key={device.id} tenant={tenant} device={device}
+                        pending={pendingSet.has(`${tenant}:${device.id}`)} onOverride={handleOverride} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))
       )}
