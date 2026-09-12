@@ -379,14 +379,27 @@ try {
         } catch (Throwable $e) {}
     }
 
-    // 2c. Linux host discovery/refresh scan command
+    // 2c. Linux pending-update refresh command (managed hosts only — see
+    // uplink.py's "linux_scan" handler docstring for why this no longer
+    // probes/identifies new hosts remotely).
     $linux_scan_marker = $state_dir . '/linux_scan_pending_' . $safe;
     if (is_file($linux_scan_marker)) {
         $commands[] = 'linux_scan';
         @unlink($linux_scan_marker);
         try {
             $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "linux_scan_delivered", ?, ?)')
-                ->execute([$tenant_header, "Skan hostow Linux dostarczony do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+                ->execute([$tenant_header, "Odswiezenie hostow Linux dostarczone do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
+    }
+
+    // 2d. Windows pending-update refresh command — mirrors 2c above.
+    $windows_scan_marker = $state_dir . '/windows_scan_pending_' . $safe;
+    if (is_file($windows_scan_marker)) {
+        $commands[] = 'windows_scan';
+        @unlink($windows_scan_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_scan_delivered", ?, ?)')
+                ->execute([$tenant_header, "Odswiezenie hostow Windows dostarczone do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
         } catch (Throwable $e) {}
     }
 

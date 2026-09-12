@@ -1159,10 +1159,16 @@ try {
             break;
 
         case 'request_linux_scan':
-            // Queue a Linux-host discovery/refresh pass for a specific
-            // tenant (services/linux_manage.py's discover_linux_hosts()) —
-            // finds new SSH hosts on the network and refreshes pending-
-            // update counts for already-managed ones. Mirrors
+            // Queue a pending-update refresh pass for a specific tenant's
+            // ALREADY-MANAGED Linux hosts (services/linux_manage.py's
+            // refresh_managed_hosts_updates()) — never probes/tries
+            // credentials against unknown IPs. New-host discovery is
+            // deliberately agent-local only (the weekly automatic scan, or
+            // that agent's own "Skanuj sieć teraz" button) — Central
+            // triggering credential attempts against arbitrary network
+            // devices it can't see was flagged as an operational/security
+            // concern (SSH auth failures logged against unrelated
+            // Mikrotik/other devices that happen to share port 22). Mirrors
             // request_supply_chain_scan exactly (bare tenant-scoped marker,
             // no host id needed).
             $tenant = $_GET['tenant'] ?? '';
@@ -1183,6 +1189,37 @@ try {
             if (is_dir($state_dir)) {
                 foreach (glob($state_dir . '/linux_scan_pending_*') as $f) {
                     $tenant = substr(basename($f), strlen('linux_scan_pending_'));
+                    $pending[] = ['tenant' => $tenant, 'queued_at' => date('c', filemtime($f))];
+                }
+            }
+            echo json_encode(['pending' => $pending]);
+            break;
+
+        case 'request_windows_scan':
+            // Windows mirror of request_linux_scan above — refreshes
+            // already-managed Windows hosts' pending-update counts
+            // (services/windows_manage.py's refresh_managed_hosts_updates()),
+            // never discovers/probes new hosts. Previously the Windows
+            // Central panel mistakenly reused request_linux_scan, which
+            // meant its "Skanuj" button silently did nothing for Windows.
+            $tenant = $_GET['tenant'] ?? '';
+            if ($tenant === '') { http_response_code(400); echo json_encode(['error'=>'tenant required']); break; }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . '/windows_scan_pending_' . $safe, date('c'));
+            echo json_encode(['ok'=>true,'tenant'=>$tenant,'queued_at'=>date('c'),'note'=>'Delivered on next heartbeat (max 2 min)']);
+            break;
+
+        case 'pending_windows_scans':
+            require_global($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $pending = [];
+            if (is_dir($state_dir)) {
+                foreach (glob($state_dir . '/windows_scan_pending_*') as $f) {
+                    $tenant = substr(basename($f), strlen('windows_scan_pending_'));
                     $pending[] = ['tenant' => $tenant, 'queued_at' => date('c', filemtime($f))];
                 }
             }

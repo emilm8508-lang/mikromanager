@@ -1246,7 +1246,7 @@ export function WindowsCentralPanel() {
     try {
       const [s, ps, pu, pr, pt] = await Promise.all([
         centralApi.windowsHostsStatusAll(),
-        centralApi.pendingLinuxScans(),
+        centralApi.pendingWindowsScans(),
         centralApi.pendingWindowsUpdates(),
         centralApi.pendingWindowsRestarts(),
         centralApi.pendingWindowsManageToggles(),
@@ -1284,11 +1284,7 @@ export function WindowsCentralPanel() {
 
   const scanNow = async (tenant: string) => {
     setBusyScan(tenant)
-    // Windows discovery reuses the SAME "scan the network" trigger as
-    // Linux (request_linux_scan runs vuln_scan.run_scan(), which now
-    // also calls windows_manage.discover_windows_hosts() at its end) —
-    // no separate "scan for Windows hosts" command needed.
-    try { await centralApi.requestLinuxScan(tenant); await reload() }
+    try { await centralApi.requestWindowsScan(tenant); await reload() }
     catch (e) { alert((e as Error).message) }
     finally { setBusyScan(null) }
   }
@@ -1298,7 +1294,7 @@ export function WindowsCentralPanel() {
     if (targets.length === 0) return
     setBusyScan('__all__')
     try {
-      await Promise.all(targets.map(tn => centralApi.requestLinuxScan(tn)))
+      await Promise.all(targets.map(tn => centralApi.requestWindowsScan(tn)))
       await reload()
     } catch (e) {
       alert((e as Error).message)

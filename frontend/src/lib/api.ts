@@ -1823,6 +1823,10 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_windows_restarts'),
   windowsHostsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; windows_hosts: CentralWindowsHostStatus[]; manage_enabled: boolean }> }>('windows_hosts_status_all'),
+  requestWindowsScan: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_windows_scan', { tenant }),
+  pendingWindowsScans: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_windows_scans'),
   requestWindowsManageToggle: (tenant: string, enabled: boolean) =>
     centralRequest<{ ok: boolean; tenant: string; enabled: boolean; queued_at: string; note: string }>(
       'request_windows_manage_toggle', { tenant, enabled: String(enabled) },

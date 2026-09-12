@@ -669,11 +669,25 @@ async def _handle_commands(commands: list) -> None:
       - "update"                                          — self-update the app
       - "supply_chain_scan"                                — run pip-audit/npm
         audit/Bandit/eslint-security now; result rides the next snapshot
-      - "linux_scan"                                        — discover new
-        Linux hosts + refresh pending-update counts for managed ones now;
-        NOT gated on MIKROTIK_LINUX_MANAGE_ENABLED (read-only SSH identity/
-        check-for-updates probes, no privileged command — see
-        linux_apt_upgrade below for the one that is gated)
+      - "linux_scan"                                        — refresh
+        pending-update counts for already-managed Linux hosts now.
+        Deliberately does NOT probe/try credentials against new/unknown
+        IPs (that used to be discover_linux_hosts()'s behavior here, and
+        showed up as a wall of SSH AuthenticationException log noise
+        against unrelated devices — e.g. Mikrotik routers also listen on
+        port 22 — every time Central queued this). New-host discovery
+        stays agent-local only: the weekly automatic vuln_scan pass, or
+        this agent's own "Skanuj sieć teraz" button. NOT gated on
+        MIKROTIK_LINUX_MANAGE_ENABLED (read-only check-for-updates probes,
+        no privileged command — see linux_apt_upgrade below for the one
+        that is gated)
+      - "windows_scan"                                       — Windows
+        mirror of "linux_scan" above (refresh_managed_hosts_updates() for
+        already-managed Windows hosts only). NOT gated on
+        MIKROTIK_WINDOWS_MANAGE_ENABLED — same reasoning as discovery
+        itself being ungated (see windows_manage.discover_windows_hosts()'s
+        docstring): this is a read-only Search()/systeminfo probe, not the
+        install/restart action that flag actually protects.
       - {"type":"firmware_upgrade","device_id":N,
          "backup":bool}                                   — upgrade Mikrotik firmware
       - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
@@ -745,7 +759,11 @@ async def _handle_commands(commands: list) -> None:
         elif cmd == "linux_scan":
             print("[uplink] received LINUX_SCAN command from central — starting")
             from services import linux_manage
-            asyncio.create_task(linux_manage.discover_linux_hosts())
+            asyncio.create_task(linux_manage.refresh_managed_hosts_updates())
+        elif cmd == "windows_scan":
+            print("[uplink] received WINDOWS_SCAN command from central — starting")
+            from services import windows_manage
+            asyncio.create_task(windows_manage.refresh_managed_hosts_updates())
         elif isinstance(cmd, dict):
             cmd_type = cmd.get("type")
             if cmd_type == "firmware_upgrade":
