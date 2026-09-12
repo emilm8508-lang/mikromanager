@@ -535,6 +535,7 @@ export interface CentralLinuxHostStatus {
   upgradable_count: number | null
   reboot_required: boolean
   last_upgrade_at: string | null
+  last_check_at: string | null
   last_status: string | null
   mem_used_pct: number | null
   mem_total_bytes: number | null
@@ -551,6 +552,7 @@ export interface CentralWindowsHostStatus {
   upgradable_count: number | null
   reboot_required: boolean
   last_upgrade_at: string | null
+  last_check_at: string | null
   last_status: string | null
   mem_used_pct: number | null
   mem_total_bytes: number | null

@@ -1158,6 +1158,7 @@ export function LinuxCentralPanel() {
                 <th>Host</th>
                 <th>{t('linuxCentral.distro')}</th>
                 <th>{t('linuxCentral.pending')}</th>
+                <th>{t('linuxCentral.lastCheck')}</th>
                 <th>{t('linuxCentral.lastUpgrade')}</th>
                 <th></th>
               </tr>
@@ -1182,6 +1183,7 @@ export function LinuxCentralPanel() {
                           <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('linuxCentral.rebootRequired')}</span>
                         )}
                       </td>
+                      <td className="text-xs text-slate-500">{host.last_check_at ? new Date(host.last_check_at).toLocaleString() : '—'}</td>
                       <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
                       <td className="text-right space-x-2">
                         {queued ? (
@@ -1395,6 +1397,7 @@ export function WindowsCentralPanel() {
                 <th>Host</th>
                 <th>{t('windowsCentral.os')}</th>
                 <th>{t('windowsCentral.pending')}</th>
+                <th>{t('windowsCentral.lastCheck')}</th>
                 <th>{t('windowsCentral.lastUpgrade')}</th>
                 <th></th>
               </tr>
@@ -1420,6 +1423,7 @@ export function WindowsCentralPanel() {
                           <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t('windowsCentral.rebootRequired')}</span>
                         )}
                       </td>
+                      <td className="text-xs text-slate-500">{host.last_check_at ? new Date(host.last_check_at).toLocaleString() : '—'}</td>
                       <td className="text-xs text-slate-500">{host.last_upgrade_at ? new Date(host.last_upgrade_at).toLocaleString() : '—'}</td>
                       <td className="text-right space-x-2">
                         {updateQueued ? (

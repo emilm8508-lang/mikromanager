@@ -329,13 +329,30 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
             db.commit()
         discovered += 1
 
-    # Refresh pending-update counts for already-managed hosts — best-effort
-    # per host, one host's WinRM failure never aborts the rest of the pass.
-    # Uses EACH host's own credential (its assigned override, if any, else
-    # the shared one) — previously used the single shared credential
-    # captured at the top of this function for every host regardless of
-    # a per-host override, silently ignoring it on every automatic
-    # discovery-refresh pass even after being explicitly assigned.
+    checked = await refresh_managed_hosts_updates(on_event, shared_cred=(username, password, domain))
+
+    return {"candidates": len(port_by_ip), "discovered": discovered, "refreshed": checked}
+
+
+async def refresh_managed_hosts_updates(on_event: Optional[Callable] = None,
+                                         shared_cred: Optional[tuple] = None) -> int:
+    """Refresh pending-update counts (+ compliance, + watched services) for
+    already-managed hosts — best-effort per host, one host's WinRM failure
+    never aborts the rest of the pass. Uses EACH host's own credential (its
+    assigned override, if any, else the shared one).
+
+    Extracted out of discover_windows_hosts() so it can ALSO run on
+    resource_monitor.py's tighter MIKROTIK_RESOURCE_CHECK_MIN cadence
+    (default 30 min) instead of only at vuln_scan's weekly pass — that
+    weekly-only cadence is exactly why a host's Central badge could show a
+    stale, too-low pending-update count days after new updates appeared on
+    the real host."""
+    if shared_cred is None:
+        shared_cred = _shared_credential()
+        if not shared_cred:
+            return 0
+    username, password, domain = shared_cred
+
     with SessionLocal() as db:
         managed_snapshot = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
 
@@ -356,10 +373,10 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
             else:
                 _persist_check_result(host_id, ok=False, error=result["error"])
         except Exception as e:
-            print(f"[windows_manage] discovery refresh error for {ip}: {e}")
+            print(f"[windows_manage] update refresh error for {ip}: {e}")
 
-        # Compliance hardening checks — same weekly cadence, own TTL (see
-        # linux_manage.discover_linux_hosts()'s identical block).
+        # Compliance hardening checks — own TTL (see
+        # linux_manage.refresh_managed_hosts_updates()'s identical block).
         from services import compliance
         if not last_compliance_at or (datetime.utcnow() - last_compliance_at).days >= compliance.COMPLIANCE_CHECK_DAYS:
             try:
@@ -375,7 +392,7 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
         except Exception as e:
             print(f"[windows_manage] services check error for {ip}: {e}")
 
-    return {"candidates": len(port_by_ip), "discovered": discovered, "refreshed": checked}
+    return checked
 
 
 async def full_network_scan_and_discover(on_event: Optional[Callable] = None) -> dict:
@@ -1366,6 +1383,7 @@ def public_summary() -> list:
                 "id": h.id, "ip": h.ip, "hostname": h.hostname, "os_name": h.os_name,
                 "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
                 "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
+                "last_check_at": h.last_check_at.isoformat() if h.last_check_at else None,
                 "last_status": h.last_status,
                 "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
                 "cpu_used_pct": h.cpu_used_pct,

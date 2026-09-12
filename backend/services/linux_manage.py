@@ -249,12 +249,31 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
             db.commit()
         discovered += 1
 
-    # Refresh pending-update counts for already-managed, actionable hosts —
-    # keeps "N updates pending" visible (locally and via the Central
-    # summary) without requiring a manual per-host "Check" click after
-    # every scan. Best-effort per host: one host's SSH failure (offline,
-    # credential rotated, network blip) never aborts the rest of the pass.
-    checked = 0
+    checked = await refresh_managed_hosts_updates(on_event, cred=(username, password))
+
+    return {"candidates": len(candidate_ips), "discovered": discovered, "refreshed": checked}
+
+
+async def refresh_managed_hosts_updates(on_event: Optional[Callable] = None,
+                                         cred: Optional[tuple] = None) -> int:
+    """Refresh pending-update counts (+ compliance) for already-managed,
+    actionable hosts — keeps "N updates pending" visible (locally and via
+    the Central summary) without requiring a manual per-host "Check" click.
+    Best-effort per host: one host's SSH failure (offline, credential
+    rotated, network blip) never aborts the rest of the pass.
+
+    Extracted out of discover_linux_hosts() so it can ALSO run on
+    resource_monitor.py's tighter MIKROTIK_RESOURCE_CHECK_MIN cadence
+    (default 30 min) instead of only at vuln_scan's weekly pass — that
+    weekly-only cadence left Central's (and the local UI's) pending-update
+    counts up to a week stale, which is exactly what made a host's real,
+    current Windows-Update-style count look wrong at a glance."""
+    if cred is None:
+        cred = _shared_credential()
+        if not cred:
+            return 0
+    username, password = cred
+
     with SessionLocal() as db:
         managed_hosts = db.execute(
             select(LinuxHost).where(LinuxHost.managed == True,  # noqa: E712
@@ -262,6 +281,7 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
         ).scalars().all()
         managed_snapshot = [(h.id, h.ip, h.package_manager, h.last_compliance_check_at) for h in managed_hosts]
 
+    checked = 0
     vs._emit(on_event, {"type": "phase", "phase": "linux_refresh", "total": len(managed_snapshot)})
     for idx, (host_id, ip, pkg_mgr, last_compliance_at) in enumerate(managed_snapshot, 1):
         vs._emit(on_event, {"type": "progress", "phase": "linux_refresh",
@@ -276,11 +296,10 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
             else:
                 _persist_check_result(host_id, ok=False, error=result["error"])
         except Exception as e:
-            print(f"[linux_manage] discovery refresh error for {ip}: {e}")
+            print(f"[linux_manage] update refresh error for {ip}: {e}")
 
-        # Compliance hardening checks — same weekly cadence as the rest of
-        # this refresh pass, TTL-gated separately (mirrors last_package_
-        # audit_at's reasoning: no point re-running this on every scan).
+        # Compliance hardening checks — own TTL (mirrors last_package_
+        # audit_at's reasoning: no point re-running this every cycle).
         if not last_compliance_at or (datetime.utcnow() - last_compliance_at).days >= _COMPLIANCE_CHECK_DAYS():
             try:
                 from services import compliance
@@ -288,7 +307,7 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
             except Exception as e:
                 print(f"[linux_manage] compliance check error for {ip}: {e}")
 
-    return {"candidates": len(candidate_ips), "discovered": discovered, "refreshed": checked}
+    return checked
 
 
 def _COMPLIANCE_CHECK_DAYS() -> int:
@@ -1149,6 +1168,7 @@ def public_summary() -> list:
                 "id": h.id, "ip": h.ip, "hostname": h.hostname, "distro_pretty": h.distro_pretty,
                 "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
                 "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
+                "last_check_at": h.last_check_at.isoformat() if h.last_check_at else None,
                 "last_status": h.last_status,
                 "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
                 "cpu_used_pct": h.cpu_used_pct,

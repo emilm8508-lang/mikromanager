@@ -29,7 +29,10 @@ cheap DB reads, no new device connections on the fast path.
     numbers on their own slow, independent schedule (MIKROTIK_
     RESOURCE_CHECK_MIN, default 30 min — deliberately left as-is, the
     user's complaint was specifically about network devices) and persist
-    them to LinuxHost/WindowsHost/*Disk.
+    them to LinuxHost/WindowsHost/*Disk. The same 30-min cycle also calls
+    refresh_managed_hosts_updates() (pending apt/Windows-Update counts) —
+    previously that only ran at vuln_scan's weekly discovery pass, so a
+    host's "N updates pending" badge could sit stale for up to a week.
 
 Threshold-crossing detection follows tunnel_monitor.py's pattern (state
 persisted to a JSON file under data/, self-dedup, never pruned on a
@@ -747,6 +750,20 @@ async def _refresh_loop():
                 await windows_manage.refresh_managed_hosts_resources()
             except Exception as e:
                 print(f"[resource_monitor] windows refresh error: {e}")
+            # Pending-update (Windows Update / apt) counts used to only be
+            # refreshed at vuln_scan's weekly discovery pass — up to a week
+            # stale, which is exactly why Central's badge could show "1"
+            # for a host that by now has several more updates pending. Same
+            # cadence as the resource refresh above (SSH/WinRM is already
+            # being opened for that on this cycle).
+            try:
+                await linux_manage.refresh_managed_hosts_updates()
+            except Exception as e:
+                print(f"[resource_monitor] linux update-check refresh error: {e}")
+            try:
+                await windows_manage.refresh_managed_hosts_updates()
+            except Exception as e:
+                print(f"[resource_monitor] windows update-check refresh error: {e}")
         except asyncio.CancelledError:
             break
         except Exception as e:
