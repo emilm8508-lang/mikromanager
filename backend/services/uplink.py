@@ -667,6 +667,8 @@ async def _handle_commands(commands: list) -> None:
 
     Supported commands (mixed types in one list):
       - "update"                                          — self-update the app
+      - "restart"                                          — restart the agent
+        process now (supervisor in run.py brings it back up)
       - "supply_chain_scan"                                — run pip-audit/npm
         audit/Bandit/eslint-security now; result rides the next snapshot
       - "linux_scan"                                        — refresh

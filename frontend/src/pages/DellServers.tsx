@@ -366,6 +366,14 @@ export function DellServers() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dell-servers'] }); setModal(null) },
   })
 
+  const checkAll = useMutation({
+    // Redfish GET / local iDRAC-Service-Module query, same read-only
+    // per-server check as ServerCard's own "Sprawdź teraz" — safe to fan
+    // out to every server at once, nothing here writes to the hardware.
+    mutationFn: () => Promise.all(servers.map(s => dellApi.check(s.id))),
+    onSuccess: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['dell-servers'] }), 8000),
+  })
+
   return (
     <div className="p-6 space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
@@ -388,8 +396,13 @@ export function DellServers() {
       <DiscoverPanel />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700">{t('dell.serversTitle')}</h2>
+          {servers.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => checkAll.mutate()} disabled={checkAll.isPending}>
+              <RefreshCw size={12} className={checkAll.isPending ? 'animate-spin' : ''} /> {t('dell.checkAllNow', { count: servers.length })}
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? (

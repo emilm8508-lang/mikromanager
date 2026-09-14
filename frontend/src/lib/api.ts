@@ -814,7 +814,6 @@ export interface VulnPackageOut {
 
 export const vulnApi = {
   status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
-  run: () => api.post('/vuln/run').then(r => r.data),
   packages: (params?: { host_id?: number; q?: string }) =>
     api.get<VulnPackageOut[]>('/vuln/packages', { params }).then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),
@@ -972,7 +971,6 @@ export const linuxApi = {
     api.post<{ queued: boolean }>(`/linux/hosts/${hostId}/run-script`, { script, use_sudo: useSudo, reason }).then(r => r.data),
   runScriptBulk: (ids: number[], script: string, useSudo: boolean, reason: string) =>
     api.post<{ queued: number }>('/linux/hosts/run-script-bulk', { ids, script, use_sudo: useSudo, reason }).then(r => r.data),
-  discover: () => api.post<{ started: boolean }>('/linux/discover').then(r => r.data),
   getSettings: () => api.get<LinuxSettings>('/linux/settings').then(r => r.data),
   setSettings: (credentialId: number | null) =>
     api.put<LinuxSettings>('/linux/settings', { credential_id: credentialId }).then(r => r.data),
@@ -1128,7 +1126,6 @@ export const windowsApi = {
     api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/run-script`, { script, reason }).then(r => r.data),
   runScriptBulk: (ids: number[], script: string, reason: string) =>
     api.post<{ queued: number }>('/windows/hosts/run-script-bulk', { ids, script, reason }).then(r => r.data),
-  discover: () => api.post<{ started: boolean }>('/windows/discover').then(r => r.data),
   getSettings: () => api.get<WindowsSettings>('/windows/settings').then(r => r.data),
   setSettings: (credentialId: number | null, manageEnabled?: boolean) =>
     api.put<WindowsSettings>('/windows/settings', { credential_id: credentialId, manage_enabled: manageEnabled }).then(r => r.data),

@@ -532,6 +532,7 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
+  const [busyAll, setBusyAll] = useState(false)
   const [editing, setEditing] = useState<Record<number, { port: string; interval: string; channels: number[] }>>({})
 
   const [showAddForm, setShowAddForm] = useState(false)
@@ -618,6 +619,28 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
     }
   }
 
+  const checkAllNow = async () => {
+    // Only enabled devices - a disabled one has no channel assigned yet
+    // (see the needChannelBeforeEnable guard above) and checking it would
+    // just report a result nobody configured an alert for.
+    const targets = devices.filter(d => d.enabled)
+    if (targets.length === 0) return
+    setBusyAll(true)
+    try {
+      // Each check is a live ping/TCP probe the agent performs on its own
+      // tenant's devices and reports back - safe to run concurrently,
+      // no shared state between devices to race on. No per-device alert()
+      // popups here (unlike the single checkNow above) - reload() below
+      // refreshes every row's status/last-seen in place instead.
+      await Promise.all(targets.map(d => centralApi.edgeDeviceCheckNow(d.id)))
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusyAll(false)
+    }
+  }
+
   const del = async (d: EdgeDevice) => {
     if (!confirm(t('edge.confirmDelete', { name: d.name }) as string)) return
     try { await centralApi.edgeDeviceDelete(d.id); await reload() }
@@ -664,6 +687,12 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{t('edge.title')}</h3>
           <div className="flex items-center gap-3">
+            {devices.some(d => d.enabled) && (
+              <button onClick={checkAllNow} disabled={busyAll || busy !== null}
+                className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+                {t('edge.checkAllNow', { count: devices.filter(d => d.enabled).length })}
+              </button>
+            )}
             <button onClick={() => setShowAddForm(v => !v)} disabled={channels.length === 0}
               className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
               {showAddForm ? t('common.cancel') : `+ ${t('edge.addManual')}`}
@@ -835,7 +864,7 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
                               {d.enabled ? t('alerts.enabled') : t('alerts.disabled')}
                             </button>
                             <button onClick={() => beginEdit(d)} className="text-xs text-indigo-600 hover:underline">{t('common.edit')}</button>
-                            <button onClick={() => checkNow(d)} disabled={busy === d.id}
+                            <button onClick={() => checkNow(d)} disabled={busy === d.id || busyAll}
                               className="text-xs text-indigo-600 hover:underline">{t('edge.checkNow')}</button>
                             {d.source === 'manual' && (
                               <button onClick={() => del(d)} className="text-xs text-red-600 hover:underline">{t('common.delete')}</button>
@@ -958,6 +987,24 @@ function SupplyChainCentralPanel() {
     }
   }
 
+  const scanAll = async () => {
+    const targets = rows.map(r => r.tenant).filter(tn => !pendingSet.has(tn))
+    if (targets.length === 0) return
+    setBusy('__all__')
+    try {
+      // Same reasoning as LinuxCentralPanel/WindowsCentralPanel's scanAll —
+      // each request just writes an OVH-side marker file for its own
+      // tenant, so firing them concurrently is safe (no shared state to
+      // race on between tenants).
+      await Promise.all(targets.map(tn => centralApi.requestSupplyChainScan(tn)))
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -968,6 +1015,12 @@ function SupplyChainCentralPanel() {
         {t('supplyChainCentral.intro')}
       </div>
       {err && <div className="text-sm text-red-600">{err}</div>}
+      {rows.length > 0 && (
+        <button onClick={scanAll} disabled={busy !== null}
+          className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+          {t('supplyChainCentral.scanAll', { count: rows.length })}
+        </button>
+      )}
       {loading ? (
         <div className="text-sm text-slate-500">{t('common.loading')}</div>
       ) : rows.length === 0 ? (
@@ -1693,6 +1746,23 @@ export function PhysicalServersPanel() {
     finally { setBusyCheck(null) }
   }
 
+  const checkAll = async () => {
+    const targets = rows.filter(({ tenant, server }) => !checkPendingSet.has(`${tenant}:${server.id}`))
+    if (targets.length === 0) return
+    setBusyCheck('__all__')
+    try {
+      // Read-only health re-check (Redfish GET / local iSM query) queued
+      // per server, same fan-out reasoning as the Linux/Windows/supply-
+      // chain "scan all" buttons — each just writes its own marker file.
+      await Promise.all(targets.map(({ tenant, server }) => centralApi.requestDellCheck(tenant, server.id)))
+      await reload()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setBusyCheck(null)
+    }
+  }
+
   const byTenant: Record<string, CentralDellServerStatus[]> = {}
   for (const { tenant, server } of rows) {
     (byTenant[tenant] ??= []).push(server)
@@ -1705,7 +1775,15 @@ export function PhysicalServersPanel() {
           <h2 className="text-lg font-semibold text-slate-900">{t('dellCentral.title')}</h2>
           <p className="text-sm text-slate-500">{t('dellCentral.intro')}</p>
         </div>
-        <button onClick={reload} className="text-xs text-indigo-600 hover:underline shrink-0">{t('common.refresh')}</button>
+        <div className="flex items-center gap-2 shrink-0">
+          {rows.length > 0 && (
+            <button onClick={checkAll} disabled={busyCheck !== null}
+              className="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+              {t('dellCentral.checkAll', { count: rows.length })}
+            </button>
+          )}
+          <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+        </div>
       </div>
       {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{err}</div>}
 

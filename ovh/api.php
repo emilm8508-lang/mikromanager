@@ -2084,6 +2084,7 @@ try {
 
         case 'alert_channel_test':
             require_global($identity);
+            require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
             $stmt = $pdo->prepare('SELECT * FROM notification_channels WHERE id=?'); $stmt->execute([$id]);
             $ch = $stmt->fetch(PDO::FETCH_ASSOC);

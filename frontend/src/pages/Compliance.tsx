@@ -85,6 +85,7 @@ function TargetRow({ targetType, targetId, label, passed, failed, unknown, total
 
 export function Compliance() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['compliance-summary'],
     queryFn: complianceApi.summary,
@@ -92,6 +93,17 @@ export function Compliance() {
   })
 
   const rows = data ?? []
+
+  const runAll = useMutation({
+    // Each POST just queues a background check (returns immediately,
+    // {queued: true} — see backend/api/compliance.py) and every check is
+    // its own independent, read-only SSH/WinRM/API probe, so firing them
+    // all at once is safe.
+    mutationFn: () => Promise.all(rows.map(r => complianceApi.run(r.target_type, r.target_id))),
+    onSuccess: () => {
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['compliance-summary'] }), 8000)
+    },
+  })
 
   return (
     <div className="p-6 space-y-4 max-w-4xl">
@@ -102,8 +114,13 @@ export function Compliance() {
       <p className="text-sm text-slate-500">{t('compliance.subtitle')}</p>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700">{t('compliance.targetsTitle')}</h2>
+          {rows.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => runAll.mutate()} disabled={runAll.isPending}>
+              <RefreshCw size={12} className={runAll.isPending ? 'animate-spin' : ''} /> {t('compliance.runAllNow', { count: rows.length })}
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? (
