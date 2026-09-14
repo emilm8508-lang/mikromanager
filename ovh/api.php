@@ -1803,6 +1803,36 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'wazuh_status_all':
+            // Same pattern again — see services/wazuh_monitor.py's
+            // public_summary() (only the most recent poll's new alerts,
+            // above the configured rule.level threshold).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $alerts = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $alerts = $meta['wazuh_status'] ?? []; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'alerts' => $alerts,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'request_device_logs':
             // Ask the agent to fetch the last N raw log lines from one of its
             // devices. Delivered on next heartbeat; result rides along on the

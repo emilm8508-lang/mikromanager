@@ -16,6 +16,7 @@ from services import crypto as crypto_svc
 from services import changelog as changelog_svc
 from services import prtg_client as prtg_svc
 from services import checkmk_client as checkmk_svc
+from services import wazuh_client as wazuh_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -365,6 +366,34 @@ async def checkmk_configure(cfg: CheckmkConfig):
 async def checkmk_test():
     """GET the API root only — never mutates Checkmk state."""
     return await checkmk_svc.test_connection()
+
+
+# ── Wazuh connector (monitoring aggregation — alert stream only, see
+# services/wazuh_client.py's docstring for why vulnerability/SCA/inventory
+# are deliberately NOT pulled from here) ─────────────────────────────────
+
+class WazuhConfig(BaseModel):
+    indexer_url: str
+    indexer_username: str
+    indexer_password: str = ""  # empty = keep existing (see wazuh_client.configure)
+    verify_ssl: bool = True
+
+
+@router.get("/wazuh/status")
+async def wazuh_status():
+    return wazuh_svc.status()
+
+
+@router.post("/wazuh/config")
+async def wazuh_configure(cfg: WazuhConfig):
+    return wazuh_svc.configure(indexer_url=cfg.indexer_url, indexer_username=cfg.indexer_username,
+                                indexer_password=cfg.indexer_password, verify_ssl=cfg.verify_ssl)
+
+
+@router.post("/wazuh/test")
+async def wazuh_test():
+    """GET the indexer root only — never mutates Wazuh state."""
+    return await wazuh_svc.test_connection()
 
 
 @router.get("/changelog")

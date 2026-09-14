@@ -259,6 +259,14 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             return "✅ {$prefix}Check_MK: host ponownie dostępny\n"
                  . "Tenant: {$tenant}\n"
                  . "Urządzenie: {$device}";
+        case 'wazuh_alert':
+            $level = $event['rule_level'] ?? '?';
+            $desc = $event['rule_description'] ?? '?';
+            $icon = (is_numeric($level) && (int)$level >= 12) ? '🔴' : '🟠';
+            return "{$icon} {$prefix}Wazuh: nowy alert (poziom {$level})\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Urządzenie: {$device}\n"
+                 . "Reguła: {$desc}";
         case 'device_log_critical':
             $severity = $event['severity'] ?? '?';
             $topics = $event['topics'] ?? '';

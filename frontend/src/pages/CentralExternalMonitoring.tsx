@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type CentralPrtgSensor, type CentralCheckmkService, type CentralCheckmkHost } from '../lib/api'
+import { centralApi, centralConfig, type CentralPrtgSensor, type CentralCheckmkService, type CentralCheckmkHost, type CentralWazuhAlert } from '../lib/api'
 import { Activity } from 'lucide-react'
 
 type PrtgRow = { tenant: string; sensor: CentralPrtgSensor }
 type ServiceRow = { tenant: string; service: CentralCheckmkService }
 type HostRow = { tenant: string; host: CentralCheckmkHost }
+type WazuhRow = { tenant: string; alert: CentralWazuhAlert }
 
 function ProblemCard({ tenant, title, detail }: { tenant: string; title: string; detail: string }) {
   return (
@@ -25,15 +26,17 @@ export function CentralExternalMonitoring() {
   const [prtgRows, setPrtgRows] = useState<PrtgRow[]>([])
   const [serviceRows, setServiceRows] = useState<ServiceRow[]>([])
   const [hostRows, setHostRows] = useState<HostRow[]>([])
+  const [wazuhRows, setWazuhRows] = useState<WazuhRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [tenantFilter, setTenantFilter] = useState<string>('all')
 
   const reload = async () => {
     try {
-      const [prtg, checkmk] = await Promise.all([
+      const [prtg, checkmk, wazuh] = await Promise.all([
         centralApi.prtgStatusAll(),
         centralApi.checkmkStatusAll(),
+        centralApi.wazuhStatusAll(),
       ])
       const pRows: PrtgRow[] = []
       for (const tRow of prtg.tenants) {
@@ -45,9 +48,14 @@ export function CentralExternalMonitoring() {
         for (const service of tRow.services) sRows.push({ tenant: tRow.tenant, service })
         for (const host of tRow.hosts) hRows.push({ tenant: tRow.tenant, host })
       }
+      const wRows: WazuhRow[] = []
+      for (const tRow of wazuh.tenants) {
+        for (const alert of tRow.alerts) wRows.push({ tenant: tRow.tenant, alert })
+      }
       setPrtgRows(pRows)
       setServiceRows(sRows)
       setHostRows(hRows)
+      setWazuhRows(wRows)
       setErr(null)
     } catch (e) {
       setErr((e as Error).message)
@@ -76,12 +84,14 @@ export function CentralExternalMonitoring() {
 
   const tenants = [...new Set([
     ...prtgRows.map(r => r.tenant), ...serviceRows.map(r => r.tenant), ...hostRows.map(r => r.tenant),
+    ...wazuhRows.map(r => r.tenant),
   ])].sort()
   const visiblePrtg = prtgRows.filter(r => tenantFilter === 'all' || r.tenant === tenantFilter)
   const visibleServices = serviceRows.filter(r => tenantFilter === 'all' || r.tenant === tenantFilter)
   const visibleHosts = hostRows.filter(r => tenantFilter === 'all' || r.tenant === tenantFilter)
-  const totalCount = prtgRows.length + serviceRows.length + hostRows.length
-  const visibleCount = visiblePrtg.length + visibleServices.length + visibleHosts.length
+  const visibleWazuh = wazuhRows.filter(r => tenantFilter === 'all' || r.tenant === tenantFilter)
+  const totalCount = prtgRows.length + serviceRows.length + hostRows.length + wazuhRows.length
+  const visibleCount = visiblePrtg.length + visibleServices.length + visibleHosts.length + visibleWazuh.length
 
   return (
     <div className="p-6 space-y-4 max-w-5xl">
@@ -143,6 +153,18 @@ export function CentralExternalMonitoring() {
                 {visibleHosts.map((row, i) => (
                   <ProblemCard key={`host:${row.tenant}:${i}`} tenant={row.tenant}
                     title={row.host.device_name} detail={row.host.state_name} />
+                ))}
+              </div>
+            </div>
+          )}
+          {visibleWazuh.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold text-slate-700">{t('externalMonitoringCentral.sectionWazuh')}</h2>
+              <div className="space-y-3">
+                {visibleWazuh.map((row, i) => (
+                  <ProblemCard key={`wazuh:${row.tenant}:${i}`} tenant={row.tenant}
+                    title={`${row.alert.device_name}${row.alert.rule_level != null ? ` — ${t('externalMonitoringCentral.wazuhLevel')} ${row.alert.rule_level}` : ''}`}
+                    detail={row.alert.rule_description || '—'} />
                 ))}
               </div>
             </div>

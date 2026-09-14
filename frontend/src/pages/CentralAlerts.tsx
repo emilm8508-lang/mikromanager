@@ -347,6 +347,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="checkmk_service_ok">{t('alerts.eventCheckmkServiceOk')}</option>
                 <option value="checkmk_host_down">{t('alerts.eventCheckmkHostDown')}</option>
                 <option value="checkmk_host_up">{t('alerts.eventCheckmkHostUp')}</option>
+                <option value="wazuh_alert">{t('alerts.eventWazuhAlert')}</option>
               </select>
             </label>
             <label className="text-sm">

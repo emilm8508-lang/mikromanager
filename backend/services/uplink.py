@@ -262,6 +262,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] Check_MK monitor error: {e}")
 
     try:
+        from services import wazuh_monitor
+        alert_events += await wazuh_monitor.collect_wazuh_events()
+    except Exception as e:
+        print(f"[uplink] Wazuh monitor error: {e}")
+
+    try:
         from services import prtg_monitor
         await prtg_monitor.collect_activity()
     except Exception as e:
@@ -391,6 +397,13 @@ async def _build_snapshot() -> dict:
         checkmk_status = {"services": [], "hosts": []}
 
     try:
+        from services import wazuh_monitor
+        wazuh_status = wazuh_monitor.public_summary()
+    except Exception as e:
+        print(f"[uplink] Wazuh status summary error: {e}")
+        wazuh_status = []
+
+    try:
         from services import inventory
         # Deliberately NOT added to _build_request_body()'s plaintext
         # envelope fields (unlike linux_hosts_status/tunnel_status/
@@ -436,6 +449,7 @@ async def _build_snapshot() -> dict:
         "compliance_status": compliance_status,
         "prtg_status": prtg_status,
         "checkmk_status": checkmk_status,
+        "wazuh_status": wazuh_status,
         "inventory_summary": inventory_summary,
     }
 
@@ -481,6 +495,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "compliance_status": snapshot.get("compliance_status", []),
             "prtg_status": snapshot.get("prtg_status", []),
             "checkmk_status": snapshot.get("checkmk_status", {"services": [], "hosts": []}),
+            "wazuh_status": snapshot.get("wazuh_status", []),
             # Deliberately narrower than vuln_findings_summary (which stays
             # encrypted-only, CRITICAL/HIGH/MEDIUM) — CRITICAL/HIGH only,
             # an explicit user-approved tradeoff to make Central visibility

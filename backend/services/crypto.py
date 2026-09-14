@@ -110,11 +110,13 @@ def rotate_key() -> dict:
                 rotated += 1
         db.commit()
 
-    # Same rotation for the file-based PRTG/Check_MK connector secrets —
-    # not DB rows, but must not go stale once the old key is replaced below.
-    from services import prtg_client, checkmk_client
+    # Same rotation for the file-based PRTG/Check_MK/Wazuh connector
+    # secrets — not DB rows, but must not go stale once the old key is
+    # replaced below.
+    from services import prtg_client, checkmk_client, wazuh_client
     rotated += prtg_client.reencrypt_with_keys(old_fernet, new_fernet)
     rotated += checkmk_client.reencrypt_with_keys(old_fernet, new_fernet)
+    rotated += wazuh_client.reencrypt_with_keys(old_fernet, new_fernet)
 
     tmp_path = KEY_FILE + ".new"
     with open(tmp_path, "wb") as f:

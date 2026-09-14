@@ -9,7 +9,7 @@ import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
   HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp, Upload,
-  DatabaseBackup, Activity, Boxes,
+  DatabaseBackup, Activity, Boxes, ShieldAlert,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
@@ -401,6 +401,114 @@ function CheckmkPanel() {
               <span className="text-slate-800">{status?.site || '—'}</span>
               <span className="text-slate-500">{t('central.checkmkUsername')}:</span>
               <span className="text-slate-800">{status?.username || '—'}</span>
+              <span className="text-slate-500">TLS:</span>
+              <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="secondary" onClick={() => test.mutate()}
+                disabled={!status?.enabled || test.isPending}>
+                <RefreshCw size={13} /> {t('central.testConnection')}
+              </Button>
+              {testResult && (
+                testResult.ok ? (
+                  <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 size={13} /> {t('central.connectionOk')}</span>
+                ) : (
+                  <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Wazuh connector (SIEM alert stream only — see services/wazuh_client.py's
+// docstring for why vulnerability/SCA/inventory are deliberately not pulled) ─
+
+function WazuhPanel() {
+  const { t } = useTranslation()
+  const { data: status, refetch } = useQuery({
+    queryKey: ['wazuh-status'],
+    queryFn: systemApi.wazuhStatus,
+  })
+
+  const [form, setForm] = useState({ indexer_url: '', indexer_username: '', indexer_password: '', verify_ssl: true })
+  const [editing, setEditing] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    if (status && !editing) {
+      setForm({
+        indexer_url: status.indexer_url || '', indexer_username: status.indexer_username || '',
+        indexer_password: '', verify_ssl: status.verify_ssl ?? true,
+      })
+    }
+  }, [status, editing])
+
+  const save = useMutation({
+    mutationFn: () => systemApi.wazuhConfigure(form),
+    onSuccess: () => { setEditing(false); setTestResult(null); refetch() },
+  })
+
+  const test = useMutation({
+    mutationFn: systemApi.wazuhTest,
+    onSuccess: (r) => setTestResult(r),
+    onError: (e) => setTestResult({ ok: false, error: errorMessage(e) }),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={15} className="text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-700">{t('central.wazuhHeader')}</h2>
+            {status?.enabled ? (
+              <Badge variant="green">{t('central.enabled')}</Badge>
+            ) : (
+              <Badge variant="gray">{t('central.disabled')}</Badge>
+            )}
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Settings size={13} /> {t('common.edit')}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('central.wazuhHint')}</p>
+        {editing ? (
+          <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
+            <Input label={t('central.wazuhIndexerUrl')} placeholder="https://wazuh.klient.local:9200"
+              value={form.indexer_url} onChange={e => setForm(f => ({ ...f, indexer_url: e.target.value }))} required />
+            <Input label={t('central.wazuhIndexerUsername')} placeholder="admin"
+              value={form.indexer_username} onChange={e => setForm(f => ({ ...f, indexer_username: e.target.value }))} required />
+            <Input label={t('central.wazuhIndexerPassword')} type="password"
+              placeholder={status?.has_password ? t('central.apiKeyKeep') as string : ''}
+              value={form.indexer_password} onChange={e => setForm(f => ({ ...f, indexer_password: e.target.value }))} />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.verify_ssl}
+                onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
+              {t('central.verifySsl')}
+            </label>
+            {save.isError && (
+              <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null); save.reset() }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-[160px_1fr] gap-y-1.5">
+              <span className="text-slate-500">{t('central.wazuhIndexerUrl')}:</span>
+              <span className="font-mono text-xs text-slate-800 break-all">{status?.indexer_url || '—'}</span>
+              <span className="text-slate-500">{t('central.wazuhIndexerUsername')}:</span>
+              <span className="text-slate-800">{status?.indexer_username || '—'}</span>
               <span className="text-slate-500">TLS:</span>
               <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
             </div>
@@ -1428,6 +1536,7 @@ export function Central() {
             <UplinkPanel />
             <PrtgPanel />
             <CheckmkPanel />
+            <WazuhPanel />
           </div>
         )
         : tab === 'monitoring' ? <MonitoringPanel />

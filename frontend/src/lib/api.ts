@@ -340,6 +340,14 @@ export interface ConnectorTestResult {
   sample_count?: number
 }
 
+export interface WazuhStatus {
+  enabled: boolean
+  indexer_url: string
+  indexer_username: string
+  has_password: boolean
+  verify_ssl: boolean
+}
+
 export interface SelfVersion {
   commit: string | null
   commit_time: number | null
@@ -383,6 +391,11 @@ export const systemApi = {
   checkmkConfigure: (data: { url: string; site: string; username: string; secret: string; verify_ssl: boolean }) =>
     api.post<CheckmkStatus>('/system/checkmk/config', data).then(r => r.data),
   checkmkTest: () => api.post<ConnectorTestResult>('/system/checkmk/test').then(r => r.data),
+
+  wazuhStatus: () => api.get<WazuhStatus>('/system/wazuh/status').then(r => r.data),
+  wazuhConfigure: (data: { indexer_url: string; indexer_username: string; indexer_password: string; verify_ssl: boolean }) =>
+    api.post<WazuhStatus>('/system/wazuh/config', data).then(r => r.data),
+  wazuhTest: () => api.post<ConnectorTestResult>('/system/wazuh/test').then(r => r.data),
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
   cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
@@ -661,6 +674,13 @@ export interface CentralCheckmkService {
 export interface CentralCheckmkHost {
   device_name: string
   state_name: string
+}
+
+export interface CentralWazuhAlert {
+  device_name: string
+  agent_name: string | null
+  rule_level: number | null
+  rule_description: string | null
 }
 
 // CRITICAL/HIGH-only CVE findings an agent includes in its plaintext
@@ -1848,6 +1868,8 @@ export const centralApi = {
 
   checkmkStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; services: CentralCheckmkService[]; hosts: CentralCheckmkHost[] }> }>('checkmk_status_all'),
+  wazuhStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; alerts: CentralWazuhAlert[] }> }>('wazuh_status_all'),
   vulnFindingsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralVulnHostFindings[] }> }>('vuln_findings_status_all'),
   requestVulnRemediation: (tenant: string, product: string, version: string, cveId: string, status: string, note: string) =>
