@@ -148,6 +148,7 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2 tunnels",
+                                      "neighbors":  "Neighbors",
                                       "network":  "Network",
                                       "firmware":  "Firmware"
                                   },
@@ -388,6 +389,11 @@
                      "oldVersion":  "Old version",
                      "newVersion":  "New version",
                      "backupBeforeUpgrade":  "Backup device before upgrade",
+                     "backupsTitle":  "Backups",
+                     "backupDate":  "Date",
+                     "backupFilename":  "Filename",
+                     "backupTrigger":  "Trigger",
+                     "backupSize":  "Size",
                      "upgradeConfirmWithBackup":  "Device will be BACKED UP and then firmware upgraded. Device reboots, offline ~2-3 min. Continue?"
                  },
     "auth": {
@@ -538,8 +544,10 @@
         "bootstrapButton": "Create and log in",
         "notConfigured": "Set up the API URL in the \"Viewer\" tab first",
         "notGlobalAdmin": "This account doesn't have global admin rights — user management is only available to admins without a restriction to specific customers.",
-        "switchAccount": "Log in with a different account",
-        "loggedInAs": "Logged in as {{username}}",
+        "totpPendingConfirm": "An admin gave you a 2FA code — confirm it:",
+        "totpConfirmButton": "Confirm",
+        "totpConfirmOk": "2FA confirmed.",
+        "totpConfirmFailed": "Invalid code.",
         "addUser": "Add user",
         "role": "Role",
         "allTenants": "All customers (global access)",

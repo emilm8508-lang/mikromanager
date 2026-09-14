@@ -148,6 +148,7 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-туннели",
+                                      "neighbors":  "Соседи",
                                       "network":  "Сеть",
                                       "firmware":  "Firmware"
                                   },
@@ -388,6 +389,11 @@
                      "oldVersion":  "Staraya versiya",
                      "newVersion":  "Novaya versiya",
                      "backupBeforeUpgrade":  "Backup pered obnovleniem",
+                     "backupsTitle":  "Резервные копии",
+                     "backupDate":  "Дата",
+                     "backupFilename":  "Файл",
+                     "backupTrigger":  "Источник",
+                     "backupSize":  "Размер",
                      "upgradeConfirmWithBackup":  "Sozdadim BACKUP i obnovim firmware. Perezagruzka, offline ~2-3 min. Prodolzhit?"
                  },
     "auth": {
@@ -538,8 +544,10 @@
         "bootstrapButton": "Создать и войти",
         "notConfigured": "Сначала настройте URL API на вкладке «Viewer»",
         "notGlobalAdmin": "У этой учётной записи нет прав глобального администратора — управление пользователями доступно только администраторам без ограничения на конкретных клиентов.",
-        "switchAccount": "Войти с другой учётной записью",
-        "loggedInAs": "Вы вошли как {{username}}",
+        "totpPendingConfirm": "Администратор выдал вам код 2FA — подтвердите его:",
+        "totpConfirmButton": "Подтвердить",
+        "totpConfirmOk": "2FA подтверждена.",
+        "totpConfirmFailed": "Неверный код.",
         "addUser": "Добавить пользователя",
         "role": "Роль",
         "allTenants": "Все клиенты (глобальный доступ)",

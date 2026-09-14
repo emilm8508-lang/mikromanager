@@ -5,7 +5,7 @@ import { devicesApi } from '../lib/api'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle, Download, RefreshCw, Gauge, MemoryStick, HardDrive, Cpu } from 'lucide-react'
+import { ArrowLeft, Network, Globe, Shield, Wifi, List, Server, Activity, AlertTriangle, Download, RefreshCw, Gauge, MemoryStick, HardDrive, Cpu, Radar } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
 import axios from 'axios'
@@ -21,7 +21,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'resource' | 'firmware' | 'network'
+type Tab = 'interfaces' | 'addresses' | 'routes' | 'firewall' | 'wireless' | 'dhcp' | 'tunnels' | 'neighbors' | 'resource' | 'firmware' | 'network'
 
 function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; emptyLabel: string }) {
   if (!data || data.length === 0) return <p className="text-sm text-slate-500 py-4 text-center">{emptyLabel}</p>
@@ -89,6 +89,12 @@ function FirmwareTab({ deviceId }: { deviceId: number }) {
 
   const doBackup = useMutation({
     mutationFn: () => devicesApi.firmwareBackup(deviceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['device-backups', deviceId] }),
+  })
+
+  const { data: backups = [] } = useQuery({
+    queryKey: ['device-backups', deviceId],
+    queryFn: () => devicesApi.backups(deviceId),
   })
 
   const inProgress = ['starting', 'backing_up', 'downloading', 'rebooting'].includes(status?.status)
@@ -153,6 +159,38 @@ function FirmwareTab({ deviceId }: { deviceId: number }) {
               {status.log.map((l: string, i: number) => <div key={i}>{l}</div>)}
             </div>
           )}
+        </div>
+      )}
+
+      {backups.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-slate-700">{t('firmware.backupsTitle')}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="px-3 py-1.5 text-left text-slate-500 font-medium">{t('firmware.backupDate')}</th>
+                  <th className="px-3 py-1.5 text-left text-slate-500 font-medium">{t('firmware.backupFilename')}</th>
+                  <th className="px-3 py-1.5 text-left text-slate-500 font-medium">{t('firmware.backupTrigger')}</th>
+                  <th className="px-3 py-1.5 text-left text-slate-500 font-medium">{t('firmware.backupSize')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.map(b => (
+                  <tr key={b.id} className="border-b border-slate-100">
+                    <td className="px-3 py-1.5 text-slate-700 whitespace-nowrap">
+                      {b.created_at ? new Date(b.created_at).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-700 font-mono">{b.filename ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-500">{b.trigger ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-500 font-mono">
+                      {b.size_bytes != null ? `${(b.size_bytes / 1024).toFixed(1)} KB` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -259,6 +297,7 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
     wireless: () => devicesApi.wireless(deviceId),
     dhcp: () => devicesApi.dhcpLeases(deviceId),
     tunnels: () => devicesApi.tunnels(deviceId),
+    neighbors: () => devicesApi.neighbors(deviceId),
     resource: () => devicesApi.resource(deviceId),
   }
 
@@ -358,6 +397,7 @@ export function DeviceDetail() {
     { id: 'wireless', label: t('deviceDetail.tabs.wireless'), icon: Wifi },
     { id: 'dhcp', label: t('deviceDetail.tabs.dhcp'), icon: Server },
     { id: 'tunnels', label: t('deviceDetail.tabs.tunnels'), icon: Network },
+    { id: 'neighbors', label: t('deviceDetail.tabs.neighbors'), icon: Radar },
     { id: 'network', label: t('deviceDetail.tabs.network'), icon: Gauge },
     { id: 'firmware', label: t('deviceDetail.tabs.firmware'), icon: Download },
   ]

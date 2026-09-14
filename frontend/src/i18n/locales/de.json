@@ -148,6 +148,7 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-Tunnel",
+                                      "neighbors":  "Nachbargeräte",
                                       "network":  "Netzwerk",
                                       "firmware":  "Firmware"
                                   },
@@ -388,6 +389,11 @@
                      "oldVersion":  "Alte Version",
                      "newVersion":  "Neue Version",
                      "backupBeforeUpgrade":  "Backup vor Update",
+                     "backupsTitle":  "Backups",
+                     "backupDate":  "Datum",
+                     "backupFilename":  "Dateiname",
+                     "backupTrigger":  "Auslöser",
+                     "backupSize":  "Größe",
                      "upgradeConfirmWithBackup":  "Geraet wird gesichert und dann Firmware aktualisiert. Neustart, ~2-3 min offline. Fortfahren?"
                  },
     "auth": {
@@ -538,8 +544,10 @@
         "bootstrapButton": "Anlegen und anmelden",
         "notConfigured": "Zuerst die API-URL im Tab „Viewer“ konfigurieren",
         "notGlobalAdmin": "Dieses Konto hat keine globalen Administratorrechte — die Benutzerverwaltung steht nur Admins ohne Einschränkung auf bestimmte Kunden zur Verfügung.",
-        "switchAccount": "Mit anderem Konto anmelden",
-        "loggedInAs": "Angemeldet als {{username}}",
+        "totpPendingConfirm": "Ein Admin hat dir einen 2FA-Code gegeben — bestätige ihn:",
+        "totpConfirmButton": "Bestätigen",
+        "totpConfirmOk": "2FA bestätigt.",
+        "totpConfirmFailed": "Ungültiger Code.",
         "addUser": "Benutzer hinzufügen",
         "role": "Rolle",
         "allTenants": "Alle Kunden (globaler Zugriff)",

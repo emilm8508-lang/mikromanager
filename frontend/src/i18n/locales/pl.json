@@ -151,6 +151,7 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "Tunele L2",
+                                      "neighbors":  "Sąsiedzi",
                                       "network":  "Sieć",
                                       "firmware":  "Firmware"
                                   },
@@ -413,6 +414,11 @@
                      "oldVersion":  "Poprzednia wersja",
                      "newVersion":  "Nowa wersja",
                      "backupBeforeUpgrade":  "Zrob backup przed upgrade",
+                     "backupsTitle":  "Kopie zapasowe",
+                     "backupDate":  "Data",
+                     "backupFilename":  "Plik",
+                     "backupTrigger":  "Źródło",
+                     "backupSize":  "Rozmiar",
                      "upgradeConfirmWithBackup":  "ZaBACKUPUJEMY urzadzenie i potem zaktualizujemy firmware. Urzadzenie zostanie zrestartowane, offline ~2-3 min. Kontynuowac?"
                  },
     "alerts":  {
@@ -669,8 +675,10 @@
         "bootstrapButton": "Utwórz i zaloguj",
         "notConfigured": "Najpierw skonfiguruj URL API w zakładce „Viewer”",
         "notGlobalAdmin": "To konto nie ma uprawnień administratora globalnego — zarządzanie użytkownikami jest dostępne tylko dla adminów bez ograniczenia do konkretnych klientów.",
-        "switchAccount": "Zaloguj innym kontem",
-        "loggedInAs": "Zalogowano jako {{username}}",
+        "totpPendingConfirm": "Administrator wygenerował Ci kod 2FA — potwierdź go:",
+        "totpConfirmButton": "Potwierdź",
+        "totpConfirmOk": "2FA potwierdzone.",
+        "totpConfirmFailed": "Nieprawidłowy kod.",
         "addUser": "Dodaj użytkownika",
         "role": "Rola",
         "allTenants": "Wszyscy klienci (dostęp globalny)",

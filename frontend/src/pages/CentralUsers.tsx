@@ -24,25 +24,127 @@ export function UsersPanel() {
   const { t } = useTranslation()
   const [session, setSessionState] = useState(centralSession.load())
 
+  // Best-effort SERVER-side revocation before dropping the local token —
+  // previously this just did centralSession.clear(), which only forgot the
+  // token in this browser tab; the token itself stayed valid on the server
+  // until its natural TTL (default 7 days), so "logging out" didn't
+  // actually revoke access if the token had leaked. Never blocks on
+  // failure (an already-dead/expired token 401s here, which is fine —
+  // the goal, "this token no longer works", is already true either way).
+  const doLogout = async () => {
+    try { await centralAuthApi.logout() } catch { /* token already invalid server-side — fine */ }
+    centralSession.clear()
+    setSessionState(null)
+  }
+
   if (!session) {
     return <UsersLoginForm onLoggedIn={s => setSessionState(s)} />
   }
+
+  // Shown for EVERY logged-in account regardless of role/scope — TOTP
+  // confirmation and logout are "my own account" actions, not admin-only
+  // user management, so they must not be hidden behind the global-admin
+  // gate below.
+  const accountBar = (
+    <MyAccountBar session={session} onLogout={doLogout}
+      onSessionInvalid={() => { centralSession.clear(); setSessionState(null) }} />
+  )
+
   if (session.role !== 'admin' || (session.allowedTenants !== null && session.allowedTenants !== undefined)) {
     // Only a GLOBAL admin manages accounts — a tenant-scoped admin manages
     // their own tenant's devices/rules, not the server's user directory.
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-4 text-sm text-slate-600">
-        <p>{t('centralUsers.notGlobalAdmin')}</p>
-        <button
-          onClick={() => { centralSession.clear(); setSessionState(null) }}
-          className="mt-2 text-xs text-indigo-600 hover:text-indigo-500"
-        >
-          {t('centralUsers.switchAccount')}
-        </button>
+      <div className="space-y-3">
+        {accountBar}
+        <div className="bg-white rounded-lg border border-slate-200 p-4 text-sm text-slate-600">
+          <p>{t('centralUsers.notGlobalAdmin')}</p>
+        </div>
       </div>
     )
   }
-  return <UsersManagePanel session={session} onLogout={() => { centralSession.clear(); setSessionState(null) }} />
+  return (
+    <div className="space-y-3">
+      {accountBar}
+      <UsersManagePanel />
+    </div>
+  )
+}
+
+// "My account" — the one piece of Central per-user auth reachable by every
+// logged-in account, not just global admins: logout, and confirming a TOTP
+// secret an admin just (re)generated for you via UsersManagePanel's "Reset
+// TOTP" (which sets totp_secret but deliberately leaves totp_enabled=0
+// until the account owner proves they can compute a code from it — see
+// ovh/api.php's user_totp_reset/me_totp_confirm). Without this, an account
+// could get a secret reset but could never actually finish turning 2FA on.
+function MyAccountBar({ session, onLogout, onSessionInvalid }: {
+  session: SessionValue
+  onLogout: () => void
+  onSessionInvalid: () => void
+}) {
+  const { t } = useTranslation()
+  const [me, setMe] = useState<{ totp_enabled: boolean; totp_secret_set: boolean } | null>(null)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
+
+  useEffect(() => {
+    centralAuthApi.me()
+      .then(m => setMe({ totp_enabled: m.totp_enabled, totp_secret_set: m.totp_secret_set }))
+      .catch(() => onSessionInvalid()) // token died server-side (expired/revoked elsewhere) — drop it here too
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const confirmTotp = async () => {
+    setBusy(true)
+    setMsg(null)
+    try {
+      await centralAuthApi.totpConfirm(code.trim())
+      setMe(m => m ? { ...m, totp_enabled: true } : m)
+      setCode('')
+      setMsg({ text: t('centralUsers.totpConfirmOk') as string, ok: true })
+    } catch (e) {
+      setMsg({ text: (e as Error).message || (t('centralUsers.totpConfirmFailed') as string), ok: false })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center justify-between flex-wrap gap-2 text-sm">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-slate-800">{session.username}</span>
+          <Badge variant="gray" className="text-[10px]">
+            {session.role === 'admin' ? t('auth.roleAdmin') : t('auth.roleViewer')}
+          </Badge>
+          {session.allowedTenants == null ? (
+            <Badge variant="blue" className="text-[10px]">{t('centralUsers.allTenants')}</Badge>
+          ) : (
+            <span className="text-xs text-slate-500">{session.allowedTenants.join(', ') || '—'}</span>
+          )}
+          {me?.totp_enabled && (
+            <Badge variant="green" className="text-[10px] inline-flex items-center gap-1">
+              <ShieldCheck size={9} /> {t('centralUsers.totpOn')}
+            </Badge>
+          )}
+        </div>
+        <button onClick={onLogout} className="text-xs text-slate-500 hover:text-red-600">{t('auth.logout')}</button>
+      </div>
+      {me?.totp_secret_set && !me.totp_enabled && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-200">
+          <span className="text-xs text-amber-700">{t('centralUsers.totpPendingConfirm')}</span>
+          <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+            maxLength={6} inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
+            className="w-20 text-xs border border-slate-300 rounded px-1.5 py-1 font-mono" />
+          <Button size="sm" variant="secondary" onClick={confirmTotp} disabled={busy || code.length !== 6}>
+            {t('centralUsers.totpConfirmButton')}
+          </Button>
+        </div>
+      )}
+      {msg && <p className={`text-xs ${msg.ok ? 'text-green-700' : 'text-red-600'}`}>{msg.text}</p>}
+    </div>
+  )
 }
 
 export type SessionValue = NonNullable<ReturnType<typeof centralSession.load>>
@@ -171,7 +273,7 @@ function BootstrapAdminForm({ onDone, onBack }: { onDone: (s: SessionValue) => v
   )
 }
 
-function UsersManagePanel({ session, onLogout }: { session: NonNullable<ReturnType<typeof centralSession.load>>; onLogout: () => void }) {
+function UsersManagePanel() {
   const { t } = useTranslation()
   const [users, setUsers] = useState<CentralUser[]>([])
   const [tenants, setTenants] = useState<string[]>([])
@@ -256,19 +358,11 @@ function UsersManagePanel({ session, onLogout }: { session: NonNullable<ReturnTy
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-slate-900">{t('centralUsers.title')}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">{t('centralUsers.loggedInAs', { username: session.username })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowForm(v => !v)}
-            className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700">
-            {showForm ? t('common.cancel') : `+ ${t('centralUsers.addUser')}`}
-          </button>
-          <button onClick={onLogout} className="px-3 py-1.5 text-sm text-slate-500 hover:text-red-600">
-            {t('auth.logout')}
-          </button>
-        </div>
+        <h3 className="font-semibold text-slate-900">{t('centralUsers.title')}</h3>
+        <button onClick={() => setShowForm(v => !v)}
+          className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700">
+          {showForm ? t('common.cancel') : `+ ${t('centralUsers.addUser')}`}
+        </button>
       </div>
 
       {showForm && (

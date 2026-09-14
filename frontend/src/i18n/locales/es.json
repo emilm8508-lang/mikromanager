@@ -148,6 +148,7 @@
                                       "wireless":  "Inalámbrica",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "Túneles L2",
+                                      "neighbors":  "Vecinos",
                                       "network":  "Red",
                                       "firmware":  "Firmware"
                                   },
@@ -388,6 +389,11 @@
                      "oldVersion":  "Version anterior",
                      "newVersion":  "Nueva version",
                      "backupBeforeUpgrade":  "Backup antes de actualizar",
+                     "backupsTitle":  "Copias de seguridad",
+                     "backupDate":  "Fecha",
+                     "backupFilename":  "Archivo",
+                     "backupTrigger":  "Origen",
+                     "backupSize":  "Tamaño",
                      "upgradeConfirmWithBackup":  "Se creara BACKUP y luego se actualizara firmware. Reinicio, offline ~2-3 min. Continuar?"
                  },
     "auth": {
@@ -538,8 +544,10 @@
         "bootstrapButton": "Crear e iniciar sesión",
         "notConfigured": "Configure primero la URL de la API en la pestaña «Viewer»",
         "notGlobalAdmin": "Esta cuenta no tiene permisos de administrador global — la gestión de usuarios solo está disponible para administradores sin restricción a clientes específicos.",
-        "switchAccount": "Iniciar sesión con otra cuenta",
-        "loggedInAs": "Sesión iniciada como {{username}}",
+        "totpPendingConfirm": "Un administrador te dio un código 2FA — confírmalo:",
+        "totpConfirmButton": "Confirmar",
+        "totpConfirmOk": "2FA confirmado.",
+        "totpConfirmFailed": "Código no válido.",
         "addUser": "Añadir usuario",
         "role": "Rol",
         "allTenants": "Todos los clientes (acceso global)",

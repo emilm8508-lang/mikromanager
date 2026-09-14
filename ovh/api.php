@@ -160,7 +160,7 @@ function resolve_user_session(PDO $pdo, string $token): ?array {
     if ($token === '') return null;
     $hash = hash('sha256', $token);
     $stmt = $pdo->prepare(
-        'SELECT u.id, u.username, u.role, u.allowed_tenants, u.is_active, s.id AS session_id
+        'SELECT u.id, u.username, u.role, u.allowed_tenants, u.is_active, u.totp_enabled, u.totp_secret, s.id AS session_id
          FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > NOW()'
     );
@@ -169,7 +169,18 @@ function resolve_user_session(PDO $pdo, string $token): ?array {
     if (!$row || !(int)$row['is_active']) return null;
     $pdo->prepare('UPDATE sessions SET last_seen_at = NOW() WHERE id = ?')->execute([$row['session_id']]);
     $allowed = $row['allowed_tenants'] !== null ? (json_decode($row['allowed_tenants'], true) ?: []) : null;
-    return ['id' => (int)$row['id'], 'username' => $row['username'], 'role' => $row['role'], 'allowed_tenants' => $allowed];
+    return [
+        'id' => (int)$row['id'], 'username' => $row['username'], 'role' => $row['role'], 'allowed_tenants' => $allowed,
+        // Booleans only, never the raw secret, here — this is the login/
+        // session identity endpoint, not the (admin-only) totp_reset one
+        // that hands out an actual secret to relay to the user out-of-band.
+        // "secret_set but not enabled" is exactly the state a fresh
+        // user_totp_reset leaves an account in, and me_totp_confirm is the
+        // only thing that can move it to enabled=1 — the frontend needs to
+        // tell those two apart to know whether to show a confirm-code box.
+        'totp_enabled' => (bool)$row['totp_enabled'],
+        'totp_secret_set' => $row['totp_secret'] !== null && $row['totp_secret'] !== '',
+    ];
 }
 
 function require_user_session(PDO $pdo, string $token): array {
@@ -236,8 +247,7 @@ $action = $_GET['action'] ?? 'tenants';
 $threshold = (int)($config['offline_threshold_sec'] ?? 300);
 $user_auth_actions = [
     'login', 'logout', 'me', 'me_totp_confirm', 'users_list', 'user_add', 'user_update', 'user_delete', 'user_totp_reset',
-    'anydesk_status', 'anydesk_sync_now', 'anydesk_import_csv', 'anydesk_client_map_list', 'anydesk_client_map_add', 'anydesk_client_map_delete',
-    'anydesk_sessions', 'anydesk_session_classify', 'anydesk_summary', 'anydesk_unassigned',
+    'anydesk_client_map_list', 'anydesk_sessions',
 ];
 
 try {
@@ -525,148 +535,24 @@ try {
             // ── AnyDesk time tracking — global-admin only, entirely separate
             // from tenant-scoped accounts (this is the consultant's own
             // billing data, never exposed to a client's own login). ────────
-
-            case 'anydesk_status':
-                require_admin_session($pdo, bearer_token());
-                anydesk_maybe_sync($pdo, $config);
-                $state = anydesk_sync_state($config);
-                $total = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions')->fetchColumn();
-                $unclassified = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions WHERE category IS NULL')->fetchColumn();
-                $unassigned = (int)$pdo->query('SELECT COUNT(*) FROM anydesk_sessions WHERE tenant IS NULL')->fetchColumn();
-                echo json_encode([
-                    'configured' => $config['anydesk_license_id'] !== '' && $config['anydesk_api_key'] !== '',
-                    'last_sync_at' => $state['last_sync_at'],
-                    'last_error' => $state['last_error'],
-                    'sessions_total' => $total,
-                    'sessions_unclassified' => $unclassified,
-                    'sessions_unassigned' => $unassigned,
-                ]);
-                break;
-
-            case 'anydesk_unassigned':
-                // Distinct not-yet-mapped remote clients (grouped, not one
-                // row per session) — feeds the "Przypisz nieprzypisane"
-                // review flow: assign a tenant once per unique cid instead
-                // of hunting through the full session list one row at a
-                // time. Grouped by to_cid only (the client side of an
-                // operator-initiated outbound connection, the dominant
-                // case) — an inbound session where the client is from_cid
-                // instead is a known, unhandled edge case for now.
-                require_admin_session($pdo, bearer_token());
-                $rows = $pdo->query(
-                    'SELECT to_cid AS cid, MAX(to_alias) AS alias, COUNT(*) AS session_count, MAX(start_time) AS last_seen
-                     FROM anydesk_sessions
-                     WHERE tenant IS NULL
-                     GROUP BY to_cid
-                     ORDER BY session_count DESC, last_seen DESC'
-                )->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode(['unassigned' => $rows]);
-                break;
-
-            case 'anydesk_sync_now':
-                require_admin_session($pdo, bearer_token());
-                echo json_encode(anydesk_sync($pdo, $config));
-                break;
-
-            case 'anydesk_import_csv':
-                // Works on ANY AnyDesk license (no API key needed) — the
-                // manual alternative to anydesk_sync_now for accounts below
-                // the Standard tier, which doesn't include the REST-API.
-                require_admin_session($pdo, bearer_token());
-                $data = json_decode((string)file_get_contents('php://input'), true);
-                if (!is_array($data)) $data = [];
-                $csv = (string)($data['csv'] ?? '');
-                if ($csv === '') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'csv required']);
-                    break;
-                }
-                if (strlen($csv) > 5 * 1024 * 1024) {
-                    http_response_code(413);
-                    echo json_encode(['error' => 'csv too large (max 5MB)']);
-                    break;
-                }
-                $parsed = anydesk_parse_csv_content($csv);
-                if ($parsed['error'] !== null) {
-                    http_response_code(400);
-                    echo json_encode(['error' => $parsed['error']]);
-                    break;
-                }
-                echo json_encode(anydesk_import_csv_rows($pdo, $parsed['rows']));
-                break;
+            //
+            // This used to be a full OVH-side admin panel (status, manual
+            // sync, CSV import, client-mapping add/delete, per-session
+            // classification, monthly billing summary) — superseded by a
+            // local-agent trace-file-based equivalent that needs no paid
+            // AnyDesk business API (see frontend/src/pages/AnydeskSessions.tsx,
+            // CHANGELOG 1.59-1.62: "Merge AnyDesk time tracking into the
+            // local trace-based history"). The two actions below survive
+            // only because AnydeskSessions.tsx's "Importuj z Centrali" bar
+            // still reads them, as a one-time (repeatable) bridge that pulls
+            // whatever a user had already set up here before that switch —
+            // the rest of the old panel was never wired to any UI after the
+            // move and has been removed.
 
             case 'anydesk_client_map_list':
                 require_admin_session($pdo, bearer_token());
                 $rows = $pdo->query('SELECT id, tenant, anydesk_cid, label, created_at FROM anydesk_client_map ORDER BY tenant, anydesk_cid')->fetchAll(PDO::FETCH_ASSOC);
                 echo json_encode(['mappings' => $rows]);
-                break;
-
-            case 'anydesk_client_map_add':
-                require_admin_session($pdo, bearer_token());
-                $data = json_decode((string)file_get_contents('php://input'), true);
-                if (!is_array($data)) $data = [];
-                $tenant = trim((string)($data['tenant'] ?? ''));
-                $cid = anydesk_normalize_cid($data['anydesk_cid'] ?? '');
-                $label = trim((string)($data['label'] ?? '')) ?: null;
-                // Deliberately NOT restricted to $config['tenants'] (agents
-                // with a configured api_key) — AnyDesk time tracking covers
-                // any billing client, including ones with no MikroManager
-                // agent at all. This is its own free-text client namespace.
-                if ($tenant === '' || strlen($tenant) > 64) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'tenant (client name) required, max 64 chars']);
-                    break;
-                }
-                if ($cid === '') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'anydesk_cid required (digits only)']);
-                    break;
-                }
-                try {
-                    $stmt = $pdo->prepare('INSERT INTO anydesk_client_map (tenant, anydesk_cid, label) VALUES (?, ?, ?)');
-                    $stmt->execute([$tenant, $cid, $label]);
-                } catch (PDOException $e) {
-                    http_response_code(409);
-                    echo json_encode(['error' => 'this AnyDesk ID is already mapped']);
-                    break;
-                }
-                // Retroactively fix sessions imported/synced BEFORE this
-                // mapping existed — without this, a mapping added after the
-                // fact only applies to future syncs, and already-unassigned
-                // sessions stay stuck as unassigned forever. Compared in PHP
-                // (not SQL "= ?") so a row whose from_cid/to_cid was stored
-                // BEFORE anydesk_normalize_cid() existed (stray whitespace
-                // etc. never stripped) still matches correctly — this must
-                // keep working without ever needing a re-import/re-sync,
-                // since the source file may no longer be available later.
-                $candidates = $pdo->query('SELECT id, from_cid, to_cid FROM anydesk_sessions WHERE tenant IS NULL')->fetchAll(PDO::FETCH_ASSOC);
-                $fixIds = [];
-                foreach ($candidates as $row) {
-                    if (anydesk_normalize_cid($row['from_cid']) === $cid || anydesk_normalize_cid($row['to_cid']) === $cid) {
-                        $fixIds[] = (int)$row['id'];
-                    }
-                }
-                $retroCount = 0;
-                if (!empty($fixIds)) {
-                    $placeholders = implode(',', array_fill(0, count($fixIds), '?'));
-                    $upd = $pdo->prepare("UPDATE anydesk_sessions SET tenant = ? WHERE id IN ({$placeholders})");
-                    $upd->execute(array_merge([$tenant], $fixIds));
-                    $retroCount = $upd->rowCount();
-                }
-                echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId(), 'retroactively_assigned' => $retroCount]);
-                break;
-
-            case 'anydesk_client_map_delete':
-                require_admin_session($pdo, bearer_token());
-                $id = (int)($_GET['id'] ?? 0);
-                if ($id <= 0) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'id required']);
-                    break;
-                }
-                $stmt = $pdo->prepare('DELETE FROM anydesk_client_map WHERE id = ?');
-                $stmt->execute([$id]);
-                echo json_encode(['ok' => true, 'deleted' => $stmt->rowCount()]);
                 break;
 
             case 'anydesk_sessions':
@@ -709,56 +595,6 @@ try {
                 echo json_encode(['sessions' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
                 break;
 
-            case 'anydesk_session_classify':
-                $admin = require_admin_session($pdo, bearer_token());
-                $data = json_decode((string)file_get_contents('php://input'), true);
-                if (!is_array($data)) $data = [];
-                $id = (int)($data['id'] ?? 0);
-                $category = $data['category'] ?? null;
-                $note = array_key_exists('note', $data) ? (string)$data['note'] : null;
-                if ($id <= 0) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'id required']);
-                    break;
-                }
-                if ($category !== null && !in_array($category, ['billable', 'training', 'internal'], true)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'category must be billable, training, internal, or null']);
-                    break;
-                }
-                $pdo->prepare('UPDATE anydesk_sessions SET category=?, note=?, classified_by=?, classified_at=NOW() WHERE id=?')
-                    ->execute([$category, $note, $admin['username'], $id]);
-                echo json_encode(['ok' => true]);
-                break;
-
-            case 'anydesk_summary':
-                require_admin_session($pdo, bearer_token());
-                $where = ['end_time IS NOT NULL'];
-                $params = [];
-                if (($from = trim((string)($_GET['from'] ?? ''))) !== '') {
-                    $where[] = 'start_time >= ?';
-                    $params[] = $from;
-                }
-                if (($to = trim((string)($_GET['to'] ?? ''))) !== '') {
-                    $where[] = 'start_time <= ?';
-                    $params[] = $to;
-                }
-                $sql = "SELECT
-                            COALESCE(tenant, '(unassigned)') AS tenant,
-                            DATE_FORMAT(start_time, '%Y-%m') AS month,
-                            SUM(CASE WHEN category = 'billable' THEN billed_minutes ELSE 0 END) AS billable_minutes,
-                            SUM(CASE WHEN category = 'training' THEN billed_minutes ELSE 0 END) AS training_minutes,
-                            SUM(CASE WHEN category = 'internal' THEN billed_minutes ELSE 0 END) AS internal_minutes,
-                            SUM(CASE WHEN category IS NULL THEN billed_minutes ELSE 0 END) AS unclassified_minutes,
-                            COUNT(*) AS session_count
-                        FROM anydesk_sessions
-                        WHERE " . implode(' AND ', $where) . '
-                        GROUP BY tenant, month
-                        ORDER BY month DESC, tenant';
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute($params);
-                echo json_encode(['summary' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-                break;
         }
     } else {
     // ── Legacy actions — session token OR the shared viewer_password ───────

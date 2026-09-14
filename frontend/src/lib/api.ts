@@ -179,7 +179,10 @@ export const devicesApi = {
     api.post('/devices/firmware/upgrade-bulk', { ids, backup }).then(r => r.data),
   firmwareStatuses: (ids: number[]) =>
     api.get(`/devices/firmware/statuses`, { params: { ids: ids.join(',') } }).then(r => r.data),
-  backups: (id: number) => api.get(`/devices/${id}/backups`).then(r => r.data),
+  backups: (id: number) => api.get<Array<{
+    id: number; device_id: number; created_at: string | null; filename: string | null
+    trigger: string | null; size_bytes: number | null; downloaded_locally: boolean
+  }>>(`/devices/${id}/backups`).then(r => r.data),
   interfaceStats: (id: number) =>
     api.get<{ interfaces: DeviceInterfaceStat[] }>(`/devices/${id}/interface-stats`).then(r => r.data.interfaces),
   setIfaceThreshold: (id: number, mbps: number | null) =>
@@ -1513,7 +1516,10 @@ export const centralAuthApi = {
     centralRequest<{ token: string; username: string; role: AuthRole; allowed_tenants: string[] | null; expires_at: string }>(
       'login', {}, { method: 'POST', body: { username, password, totp_code } }),
   logout: () => centralRequest<{ ok: boolean }>('logout', {}, { method: 'POST' }),
-  me: () => centralRequest<{ id: number; username: string; role: AuthRole; allowed_tenants: string[] | null }>('me'),
+  me: () => centralRequest<{
+    id: number; username: string; role: AuthRole; allowed_tenants: string[] | null
+    totp_enabled: boolean; totp_secret_set: boolean
+  }>('me'),
   totpConfirm: (code: string) => centralRequest<{ ok: boolean }>('me_totp_confirm', {}, { method: 'POST', body: { code } }),
 }
 

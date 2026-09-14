@@ -148,6 +148,7 @@
                                       "wireless":  "Wireless",
                                       "dhcp":  "DHCP",
                                       "tunnels":  "L2-тунелі",
+                                      "neighbors":  "Сусіди",
                                       "network":  "Мережа",
                                       "firmware":  "Firmware"
                                   },
@@ -388,6 +389,11 @@
                      "oldVersion":  "Stara versiya",
                      "newVersion":  "Nova versiya",
                      "backupBeforeUpgrade":  "Backup pered onovlennyam",
+                     "backupsTitle":  "Резервні копії",
+                     "backupDate":  "Дата",
+                     "backupFilename":  "Файл",
+                     "backupTrigger":  "Джерело",
+                     "backupSize":  "Розмір",
                      "upgradeConfirmWithBackup":  "Stvorymo BACKUP i onovymo firmware. Perezavantazhennya, offline ~2-3 hv. Prodovzhyty?"
                  },
     "auth": {
@@ -538,8 +544,10 @@
         "bootstrapButton": "Створити та увійти",
         "notConfigured": "Спочатку налаштуйте URL API на вкладці «Viewer»",
         "notGlobalAdmin": "Цей обліковий запис не має прав глобального адміністратора — керування користувачами доступне лише адміністраторам без обмеження на конкретних клієнтів.",
-        "switchAccount": "Увійти з іншим обліковим записом",
-        "loggedInAs": "Увійшли як {{username}}",
+        "totpPendingConfirm": "Адміністратор видав вам код 2FA — підтвердьте його:",
+        "totpConfirmButton": "Підтвердити",
+        "totpConfirmOk": "2FA підтверджено.",
+        "totpConfirmFailed": "Невірний код.",
         "addUser": "Додати користувача",
         "role": "Роль",
         "allTenants": "Усі клієнти (глобальний доступ)",
