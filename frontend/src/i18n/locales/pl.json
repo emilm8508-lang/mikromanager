@@ -692,6 +692,7 @@
         "newPasswordPrompt": "Nowe hasło (min. 8 znaków)",
         "passwordResetOk": "Hasło zostało zmienione",
         "confirmTotpReset": "Zresetować TOTP dla {{username}}? Stary kod przestanie działać.",
+        "confirmTotpDisable": "Wyłączyć MFA dla {{username}}? Logowanie będzie możliwe samym hasłem, dopóki nie włączysz go z powrotem.",
         "inactive": "Nieaktywny",
         "totpOn": "MFA włączone",
         "totpOff": "MFA wyłączone",
@@ -699,6 +700,7 @@
         "totpResetHint": "Nowy sekret TOTP — przekaż go użytkownikowi, by zeskanował/wpisał go w swojej aplikacji uwierzytelniającej:",
         "resetPassword": "Zresetuj hasło",
         "resetTotp": "Zresetuj TOTP",
+        "disableTotp": "Wyłącz MFA",
         "deactivate": "Dezaktywuj",
         "activate": "Aktywuj",
         "empty": "Brak użytkowników"

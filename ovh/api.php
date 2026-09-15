@@ -468,6 +468,27 @@ try {
                     $sets[] = 'allowed_tenants=?'; $vals[] = $a !== null ? json_encode(array_values(array_map('strval', $a))) : null;
                 }
                 if (array_key_exists('is_active', $data)) { $sets[] = 'is_active=?'; $vals[] = $data['is_active'] ? 1 : 0; }
+                if (array_key_exists('totp_enabled', $data)) {
+                    if (!empty($data['totp_enabled'])) {
+                        // Only allow turning it back ON if a secret already
+                        // exists — otherwise there's nothing for totp_verify()
+                        // in the login action to check the entered code
+                        // against, and the account would be locked out at its
+                        // next login instead of just skipping the check (which
+                        // is exactly what totp_enabled=0 already does safely).
+                        // Re-establishing MFA from scratch still goes through
+                        // user_totp_reset (new secret) + me_totp_confirm.
+                        $stmt4 = $pdo->prepare('SELECT totp_secret FROM users WHERE id = ?');
+                        $stmt4->execute([$id]);
+                        $existing_secret = $stmt4->fetchColumn();
+                        if (empty($existing_secret)) {
+                            http_response_code(400);
+                            echo json_encode(['error' => 'cannot enable MFA without an existing secret — use user_totp_reset first']);
+                            break;
+                        }
+                    }
+                    $sets[] = 'totp_enabled=?'; $vals[] = !empty($data['totp_enabled']) ? 1 : 0;
+                }
                 if (array_key_exists('password', $data) && $data['password'] !== '') {
                     if (strlen((string)$data['password']) < 8) {
                         http_response_code(400);

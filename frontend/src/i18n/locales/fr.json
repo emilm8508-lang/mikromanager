@@ -560,6 +560,7 @@
         "newPasswordPrompt": "Nouveau mot de passe (min. 8 caractères)",
         "passwordResetOk": "Mot de passe modifié",
         "confirmTotpReset": "Réinitialiser le TOTP pour {{username}} ? L'ancien code cessera de fonctionner.",
+        "confirmTotpDisable": "Désactiver le MFA pour {{username}} ? La connexion se fera uniquement par mot de passe jusqu'à sa réactivation.",
         "inactive": "Inactif",
         "totpOn": "MFA activé",
         "totpOff": "MFA désactivé",
@@ -567,6 +568,7 @@
         "totpResetHint": "Nouveau secret TOTP — transmettez-le à l'utilisateur pour qu'il le scanne/saisisse dans son application d'authentification :",
         "resetPassword": "Réinitialiser le mot de passe",
         "resetTotp": "Réinitialiser le TOTP",
+        "disableTotp": "Désactiver le MFA",
         "deactivate": "Désactiver",
         "activate": "Activer",
         "empty": "Aucun utilisateur"

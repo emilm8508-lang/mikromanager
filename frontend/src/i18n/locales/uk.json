@@ -560,6 +560,7 @@
         "newPasswordPrompt": "Новий пароль (мін. 8 символів)",
         "passwordResetOk": "Пароль змінено",
         "confirmTotpReset": "Скинути TOTP для {{username}}? Старий код перестане працювати.",
+        "confirmTotpDisable": "Вимкнути MFA для {{username}}? Вхід буде можливий лише за паролем, доки не увімкнете знову.",
         "inactive": "Неактивний",
         "totpOn": "MFA увімкнено",
         "totpOff": "MFA вимкнено",
@@ -567,6 +568,7 @@
         "totpResetHint": "Новий секрет TOTP — передайте його користувачу для сканування/введення в застосунку автентифікації:",
         "resetPassword": "Скинути пароль",
         "resetTotp": "Скинути TOTP",
+        "disableTotp": "Вимкнути MFA",
         "deactivate": "Деактивувати",
         "activate": "Активувати",
         "empty": "Немає користувачів"

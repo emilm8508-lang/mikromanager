@@ -560,6 +560,7 @@
         "newPasswordPrompt": "Neues Passwort (mind. 8 Zeichen)",
         "passwordResetOk": "Passwort geändert",
         "confirmTotpReset": "TOTP für {{username}} zurücksetzen? Der alte Code funktioniert dann nicht mehr.",
+        "confirmTotpDisable": "MFA für {{username}} deaktivieren? Anmeldung ist dann nur mit Passwort möglich, bis es wieder aktiviert wird.",
         "inactive": "Inaktiv",
         "totpOn": "MFA aktiviert",
         "totpOff": "MFA deaktiviert",
@@ -567,6 +568,7 @@
         "totpResetHint": "Neues TOTP-Secret — geben Sie es dem Benutzer zum Scannen/Eingeben in der Authenticator-App:",
         "resetPassword": "Passwort zurücksetzen",
         "resetTotp": "TOTP zurücksetzen",
+        "disableTotp": "MFA deaktivieren",
         "deactivate": "Deaktivieren",
         "activate": "Aktivieren",
         "empty": "Keine Benutzer"

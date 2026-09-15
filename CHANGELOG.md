@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.27 — 2026-09-15
+- Add a "Disable MFA" action in Central's Użytkownicy tab, separate from the existing "Reset TOTP": Reset always issues a brand new secret (everyone with the old one in their authenticator has to re-scan), which was overkill for the common case of "just let this account in with the password right now" (e.g. while diagnosing the login-timeout issue fixed in 2.26). Disable flips totp_enabled off without touching the stored secret, so re-enabling later needs no re-provisioning - blocked from turning MFA back ON if no secret exists yet (that path still goes through Reset TOTP + the self-service confirm step), so it can't leave an account in a state where login would compute a code against nothing.
+
 ## 2.26 — 2026-09-15
 - Fix per-user OVH ("Central account") login on the agent occasionally rejecting entirely correct credentials with a generic "invalid username, password, or code". Root cause: services/ovh_auth.py's login() had a hardcoded 6s timeout for a request that also costs the server a bcrypt password_verify() (+ TOTP check) - on a slower moment for shared hosting, that's genuinely not always enough. A timeout there is silently treated as "OVH unreachable" and falls back to the local emergency account (correct behavior for an actual outage), which then correctly rejects a central-only account it's never heard of - surfacing as an ordinary credential rejection with no hint that OVH was just slow to answer, not wrong. Bumped to 20s, matching the budget uplink.py's own heartbeat already uses for the exact same host.
 

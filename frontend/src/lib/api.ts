@@ -1547,7 +1547,7 @@ export const centralUsersApi = {
   list: () => centralRequest<{ users: CentralUser[] }>('users_list'),
   add: (data: { username: string; password: string; role: AuthRole; allowed_tenants?: string[] | null }) =>
     centralRequest<{ ok: boolean; id: number }>('user_add', {}, { method: 'POST', body: data }),
-  update: (data: { id: number; role?: AuthRole; allowed_tenants?: string[] | null; is_active?: boolean; password?: string }) =>
+  update: (data: { id: number; role?: AuthRole; allowed_tenants?: string[] | null; is_active?: boolean; password?: string; totp_enabled?: boolean }) =>
     centralRequest<{ ok: boolean }>('user_update', {}, { method: 'POST', body: data }),
   delete: (id: number) => centralRequest<{ ok: boolean; deleted: number }>('user_delete', { id: String(id) }, { method: 'DELETE' }),
   totpReset: (id: number) => centralRequest<{ secret: string; otpauth_uri: string }>('user_totp_reset', { id: String(id) }, { method: 'POST' }),

@@ -7,7 +7,7 @@ import {
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { LogIn, Trash2, KeyRound, ShieldCheck, UserPlus } from 'lucide-react'
+import { LogIn, Trash2, KeyRound, ShieldCheck, ShieldOff, UserPlus } from 'lucide-react'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -355,6 +355,19 @@ function UsersManagePanel() {
     } catch (e) { alert((e as Error).message) }
   }
 
+  // Disables the login-time TOTP check WITHOUT touching the stored secret
+  // (unlike resetTotp, which always generates a brand new one) — for
+  // quickly unblocking an account (e.g. OVH was too slow to answer within
+  // the old 6s login timeout — see services/ovh_auth.py — and the operator
+  // just needs password-only access right now) without forcing everyone
+  // who already has the current secret in their authenticator app to
+  // re-scan a new one afterward.
+  const disableTotp = async (u: CentralUser) => {
+    if (!confirm(t('centralUsers.confirmTotpDisable', { username: u.username }) as string)) return
+    try { await centralUsersApi.update({ id: u.id, totp_enabled: false }); await reload() }
+    catch (e) { alert((e as Error).message) }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -439,6 +452,10 @@ function UsersManagePanel() {
                   className="text-slate-500 hover:text-indigo-600 p-1"><KeyRound size={14} /></button>
                 <button onClick={() => resetTotp(u)} title={t('centralUsers.resetTotp') as string}
                   className="text-slate-500 hover:text-indigo-600 p-1"><ShieldCheck size={14} /></button>
+                {u.totp_enabled && (
+                  <button onClick={() => disableTotp(u)} title={t('centralUsers.disableTotp') as string}
+                    className="text-slate-500 hover:text-amber-600 p-1"><ShieldOff size={14} /></button>
+                )}
                 <button onClick={() => toggleActive(u)} className="text-xs text-slate-500 hover:text-indigo-600 px-1">
                   {u.is_active ? t('centralUsers.deactivate') : t('centralUsers.activate')}
                 </button>

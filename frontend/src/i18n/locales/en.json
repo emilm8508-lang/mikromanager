@@ -560,6 +560,7 @@
         "newPasswordPrompt": "New password (min. 8 characters)",
         "passwordResetOk": "Password changed",
         "confirmTotpReset": "Reset TOTP for {{username}}? The old code will stop working.",
+        "confirmTotpDisable": "Disable MFA for {{username}}? They'll be able to log in with just the password until it's re-enabled.",
         "inactive": "Inactive",
         "totpOn": "MFA enabled",
         "totpOff": "MFA disabled",
@@ -567,6 +568,7 @@
         "totpResetHint": "New TOTP secret — hand it to the user to scan/enter in their authenticator app:",
         "resetPassword": "Reset password",
         "resetTotp": "Reset TOTP",
+        "disableTotp": "Disable MFA",
         "deactivate": "Deactivate",
         "activate": "Activate",
         "empty": "No users"

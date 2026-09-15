@@ -560,6 +560,7 @@
         "newPasswordPrompt": "Nueva contraseña (mín. 8 caracteres)",
         "passwordResetOk": "Contraseña cambiada",
         "confirmTotpReset": "¿Restablecer TOTP para {{username}}? El código anterior dejará de funcionar.",
+        "confirmTotpDisable": "¿Desactivar MFA para {{username}}? Podrá iniciar sesión solo con la contraseña hasta que se reactive.",
         "inactive": "Inactivo",
         "totpOn": "MFA activado",
         "totpOff": "MFA desactivado",
@@ -567,6 +568,7 @@
         "totpResetHint": "Nuevo secreto TOTP — entrégueselo al usuario para escanearlo/introducirlo en su app de autenticación:",
         "resetPassword": "Restablecer contraseña",
         "resetTotp": "Restablecer TOTP",
+        "disableTotp": "Desactivar MFA",
         "deactivate": "Desactivar",
         "activate": "Activar",
         "empty": "No hay usuarios"
