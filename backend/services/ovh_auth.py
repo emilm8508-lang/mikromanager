@@ -51,7 +51,17 @@ async def login(username: str, password: str, totp_code: str = "") -> dict:
         "totp_code": totp_code,
         "tenant": uplink._config.get("tenant", ""),
     }
-    timeout = aiohttp.ClientTimeout(total=6)
+    # Matches uplink.py's own 20s budget for the same OVH host, not a
+    # separate, tighter guess — this request also costs the server a
+    # bcrypt password_verify() (+ TOTP check), so on a slower moment for
+    # shared hosting it genuinely needs more than a few seconds. A
+    # previous 6s timeout here was found to fire under exactly that
+    # condition: the request would time out, get treated as OvhUnreachable
+    # (see the except clause below), and silently fall back to the local
+    # emergency account — which then correctly rejects central credentials
+    # it has never heard of, surfacing as an ordinary "invalid credentials"
+    # with no hint that OVH was actually just slow to answer.
+    timeout = aiohttp.ClientTimeout(total=20)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, params={"action": "login"}, json=body) as resp:
