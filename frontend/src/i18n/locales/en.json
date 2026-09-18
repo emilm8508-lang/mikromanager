@@ -130,7 +130,9 @@
                     "criticalityLow":  "Low",
                     "criticalityMedium":  "Medium",
                     "criticalityHigh":  "High",
-                    "criticalityCritical":  "Critical"
+                    "criticalityCritical":  "Critical",
+                    "drpExcludeLabel":  "Standard configuration — skip in DRP documentation",
+                    "drpExcludeHint":  "Excludes this device from the generated disaster-recovery Word document (e.g. a switch where only the admin password was ever changed)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unknown model",

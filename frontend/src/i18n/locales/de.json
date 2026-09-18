@@ -130,7 +130,9 @@
                     "criticalityLow":  "Niedrig",
                     "criticalityMedium":  "Mittel",
                     "criticalityHigh":  "Hoch",
-                    "criticalityCritical":  "Kritisch"
+                    "criticalityCritical":  "Kritisch",
+                    "drpExcludeLabel":  "Standardkonfiguration — in DRP-Dokumentation auslassen",
+                    "drpExcludeHint":  "Schließt dieses Gerät aus dem generierten Notfall-Word-Dokument aus (z. B. ein Switch, bei dem nur das Admin-Passwort geändert wurde)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Unbekanntes Modell",

@@ -186,6 +186,21 @@ CREATE TABLE IF NOT EXISTS agent_backups (
     INDEX idx_tenant_time (tenant, created_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Mikrotik disaster-recovery Word documents (services/drp_docs.py),
+-- uploaded the same encrypted-blob way as agent_backups above (see
+-- ovh/drp.php) — a separate table/endpoint rather than reusing
+-- agent_backups since these are a different kind of artifact (a
+-- generated report, not a restorable agent-state snapshot) with their
+-- own, much smaller retention count.
+CREATE TABLE IF NOT EXISTS drp_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant VARCHAR(64) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    payload MEDIUMTEXT NOT NULL,
+    size_bytes INT NOT NULL DEFAULT 0,
+    INDEX idx_tenant_time (tenant, created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- AnyDesk-based consultant time tracking (Centrala / global-admin only).
 -- Maps a client's AnyDesk client-ID to a tenant, and stores the synced
 -- session log pulled from AnyDesk's own REST API (see ovh/anydesk.php) —

@@ -98,6 +98,17 @@ class Device(Base):
     # device_router_override command.
     is_router_override = Column(Boolean, nullable=True)
 
+    # Manual opt-out from DRP/disaster-recovery documentation (services/
+    # drp_docs.py) — NULL/False (default) means "include this device";
+    # True is for devices with genuinely stock configuration (the user's
+    # own example: a switch where only the admin password was ever
+    # changed) where a full config export adds nothing worth reading in a
+    # rebuild-from-scratch document. Per-device and manual on purpose —
+    # there's no reliable way to detect "unmodified from factory" from the
+    # config alone (defaults differ by model/RouterOS version), so this is
+    # a judgment call only the operator can make.
+    drp_exclude = Column(Boolean, nullable=True, default=False)
+
     credential = relationship("Credential", back_populates="devices")
 
 
@@ -736,6 +747,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN temperature_c FLOAT"))
             if "is_router_override" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN is_router_override BOOLEAN"))
+            if "drp_exclude" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN drp_exclude BOOLEAN DEFAULT 0"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

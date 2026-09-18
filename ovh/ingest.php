@@ -403,6 +403,22 @@ try {
         } catch (Throwable $e) {}
     }
 
+    // 2e. Mikrotik DRP document generation — one-shot, mirrors 2c/2d above.
+    // The finished document itself does NOT come back through this
+    // channel (JSON only, and a multi-device config dump can run several
+    // MB) — the agent uploads it separately via ovh/drp.php once
+    // generation finishes, same relationship ingest.php already has with
+    // backup.php for agent-state backups.
+    $drp_doc_marker = $state_dir . '/drp_doc_generate_pending_' . $safe;
+    if (is_file($drp_doc_marker)) {
+        $commands[] = 'drp_doc_generate';
+        @unlink($drp_doc_marker);
+        try {
+            $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "drp_doc_generate_delivered", ?, ?)')
+                ->execute([$tenant_header, "Zlecenie dokumentacji DRP dostarczone do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+        } catch (Throwable $e) {}
+    }
+
     // 3. Firmware upgrade commands (may be multiple queued for one tenant)
     foreach (glob($state_dir . "/fw_upgrade_{$safe}_*.pending") as $f) {
         $base = basename($f, '.pending');

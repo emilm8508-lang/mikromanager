@@ -22,9 +22,12 @@ function EditDeviceModal({ device, onClose }: { device: Device; onClose: () => v
   const qc = useQueryClient()
   const [owner, setOwner] = useState(device.owner ?? '')
   const [criticality, setCriticality] = useState(device.criticality ?? '')
+  const [drpExclude, setDrpExclude] = useState(device.drp_exclude ?? false)
 
   const save = useMutation({
-    mutationFn: () => devicesApi.update(device.id, { owner: owner || undefined, criticality: criticality || undefined }),
+    mutationFn: () => devicesApi.update(device.id, {
+      owner: owner || undefined, criticality: criticality || undefined, drp_exclude: drpExclude,
+    }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['devices'] }); onClose() },
   })
 
@@ -42,6 +45,15 @@ function EditDeviceModal({ device, onClose }: { device: Device; onClose: () => v
           <option value="critical">{t('devices.criticalityCritical')}</option>
         </select>
       </div>
+      {(device.vendor ?? 'mikrotik') === 'mikrotik' && (
+        <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" className="mt-0.5" checked={drpExclude} onChange={e => setDrpExclude(e.target.checked)} />
+          <span>
+            {t('devices.drpExcludeLabel')}
+            <span className="block text-xs text-slate-500 mt-0.5">{t('devices.drpExcludeHint')}</span>
+          </span>
+        </label>
+      )}
       <div className="flex gap-2 justify-end pt-2">
         <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>

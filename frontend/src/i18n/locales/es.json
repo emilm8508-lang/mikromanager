@@ -130,7 +130,9 @@
                     "criticalityLow":  "Baja",
                     "criticalityMedium":  "Media",
                     "criticalityHigh":  "Alta",
-                    "criticalityCritical":  "Crítica"
+                    "criticalityCritical":  "Crítica",
+                    "drpExcludeLabel":  "Configuración estándar — omitir en la documentación DRP",
+                    "drpExcludeHint":  "Excluye este dispositivo del documento Word de recuperación ante desastres generado (p. ej. un switch donde solo se cambió la contraseña de administrador)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Modelo desconocido",

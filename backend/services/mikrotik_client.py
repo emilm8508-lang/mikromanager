@@ -459,6 +459,41 @@ class MikrotikClient:
         """System log — REST or API only (not exposed via SNMP)."""
         return await self._rest_or_api("log", "/log")
 
+    async def get_config_export(self, ssh_port: int = 22, timeout_sec: int = 20) -> str:
+        """Plain-text /export of the device's full configuration, for
+        services/drp_docs.py's disaster-recovery documentation — the one
+        thing REST/API/SNMP can't give directly (they're resource-oriented,
+        not a CLI console), so this is the one MikrotikClient method that
+        goes over SSH instead, mirroring linux_manage.py's plain (no-sudo
+        needed — RouterOS SSH already runs as the logged-in user's own
+        privilege level) exec pattern.
+
+        Deliberately plain `/export`, never `/export show-sensitive` — the
+        default already redacts secrets (PPP/hotspot passwords, etc.), and
+        this output can end up in a generated Word document; the point of
+        that document is "type these commands back in", not "here are all
+        the passwords too". Raises on any SSH/auth failure — the caller
+        decides how to report a device it couldn't reach, same as every
+        other best-effort per-device step in that module."""
+        def _sync() -> str:
+            import paramiko
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            try:
+                client.connect(self.ip, port=ssh_port, username=self.username, password=self.password,
+                                timeout=timeout_sec, banner_timeout=timeout_sec, auth_timeout=timeout_sec,
+                                look_for_keys=False, allow_agent=False)
+                _, stdout, _ = client.exec_command("/export", timeout=timeout_sec)
+                return stdout.read().decode("utf-8", errors="ignore")
+            finally:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_API_EXECUTOR, _sync)
+
     async def get_firewall_rules(self) -> dict:
         async def _get_one(rest_path, api_path):
             try:

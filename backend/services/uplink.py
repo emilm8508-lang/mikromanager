@@ -87,6 +87,17 @@ def backup_url() -> str:
     return url.rstrip("/") + "/backup.php"
 
 
+def drp_url() -> str:
+    """URL of ovh/drp.php, same side-by-side deployment convention as
+    api_url()/backup_url() above. Used by services/drp_docs.py."""
+    url = _config["url"]
+    if not url:
+        return ""
+    if "ingest.php" in url:
+        return url.replace("ingest.php", "drp.php")
+    return url.rstrip("/") + "/drp.php"
+
+
 def status() -> dict:
     return {
         "enabled": is_configured(),
@@ -705,6 +716,12 @@ async def _handle_commands(commands: list) -> None:
         itself being ungated (see windows_manage.discover_windows_hosts()'s
         docstring): this is a read-only Search()/systeminfo probe, not the
         install/restart action that flag actually protects.
+      - "drp_doc_generate"                                    — build the
+        Mikrotik disaster-recovery Word document (services/drp_docs.py:
+        one /export per non-excluded Mikrotik device) and upload it
+        encrypted to Central. Read-only against every device (/export is
+        a query, never a write) — no MANAGE_ENABLED gate, same reasoning
+        as dell_check below.
       - {"type":"firmware_upgrade","device_id":N,
          "backup":bool}                                   — upgrade Mikrotik firmware
       - {"type":"fetch_logs","device_id":N,"limit":N}      — fetch last N log
@@ -781,6 +798,10 @@ async def _handle_commands(commands: list) -> None:
             print("[uplink] received WINDOWS_SCAN command from central — starting")
             from services import windows_manage
             asyncio.create_task(windows_manage.refresh_managed_hosts_updates())
+        elif cmd == "drp_doc_generate":
+            print("[uplink] received DRP_DOC_GENERATE command from central — starting")
+            from services import drp_docs
+            asyncio.create_task(drp_docs.generate_document())
         elif isinstance(cmd, dict):
             cmd_type = cmd.get("type")
             if cmd_type == "firmware_upgrade":

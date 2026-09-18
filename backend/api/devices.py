@@ -34,6 +34,7 @@ class DeviceUpdate(BaseModel):
     owner: Optional[str] = None
     criticality: Optional[str] = None
     iface_mbps_threshold: Optional[float] = None
+    drp_exclude: Optional[bool] = None
 
 
 class DeviceOut(BaseModel):
@@ -69,6 +70,7 @@ class DeviceOut(BaseModel):
     iface_mbps_threshold: Optional[float] = None
     wan_status: Optional[str] = None  # "up" | "down" | None (no known public WAN iface)
     wan_iface: Optional[str] = None
+    drp_exclude: Optional[bool] = False
 
     class Config:
         from_attributes = True

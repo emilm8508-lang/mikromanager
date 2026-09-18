@@ -130,7 +130,9 @@
                     "criticalityLow":  "Низька",
                     "criticalityMedium":  "Середня",
                     "criticalityHigh":  "Висока",
-                    "criticalityCritical":  "Критична"
+                    "criticalityCritical":  "Критична",
+                    "drpExcludeLabel":  "Стандартна конфігурація — пропустити в документації DRP",
+                    "drpExcludeHint":  "Виключає цей пристрій зі згенерованого документа Word на випадок аварії (наприклад, комутатор, де змінювався лише пароль адміністратора)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Невідома модель",

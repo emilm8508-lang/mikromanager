@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, DeviceLogFetchResult, generateEncKey } from '../lib/api'
+import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, DeviceLogFetchResult, generateEncKey, decryptEnvelopeToBytes } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -589,6 +589,7 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
   })
 
   const [showBackups, setShowBackups] = useState(false)
+  const [showDrp, setShowDrp] = useState(false)
 
   // Two-click confirm — browser confirm() gets blocked after N dialogs
   // (Firefox "prevent additional dialogs" checkbox), so we do it inline.
@@ -707,7 +708,16 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
         <DatabaseBackup size={11} />
         {t('central.backupsBtn')}
       </button>
+      <button
+        onClick={() => setShowDrp(true)}
+        className="text-xs px-2.5 py-1 rounded border bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 inline-flex items-center gap-1"
+        title={t('central.drpTooltip') as string}
+      >
+        <FileText size={11} />
+        {t('central.drpBtn')}
+      </button>
       <BackupsModal tenant={tenant.id} open={showBackups} onClose={() => setShowBackups(false)} />
+      <DrpModal tenant={tenant.id} open={showDrp} onClose={() => setShowDrp(false)} />
     </div>
   )
 }
@@ -786,6 +796,107 @@ function BackupsModal({ tenant, open, onClose }: { tenant: string; open: boolean
               >
                 <Download size={11} />
                 {downloadingId === b.id ? t('common.loading') : t('central.backupsDownload')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  )
+}
+
+// Lists this tenant's Mikrotik disaster-recovery (DRP) Word documents and
+// lets an admin queue a fresh one or download an existing one — unlike
+// BackupsModal above, "download" here decrypts client-side and hands the
+// browser an actual .docx file, since the whole point is opening it
+// directly rather than feeding it to a separate restore script.
+function DrpModal({ tenant, open, onClose }: { tenant: string; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['central-drp-docs', tenant],
+    queryFn: () => centralApi.drpDocList(tenant),
+    enabled: open,
+    refetchInterval: open ? 15000 : false,
+  })
+  const { data: pending } = useQuery({
+    queryKey: ['central-pending-drp'],
+    queryFn: () => centralApi.pendingDrpDocGenerates(),
+    enabled: open,
+    refetchInterval: open ? 15000 : false,
+  })
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const knownKey = centralConfig.load()?.tenantKeys?.[tenant]
+  const queued = (pending?.pending ?? []).some(p => p.tenant === tenant)
+
+  const generate = useMutation({
+    mutationFn: () => centralApi.requestDrpDocGenerate(tenant),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['central-pending-drp'] }),
+  })
+
+  const download = async (id: number, createdAt: string) => {
+    setDownloadingId(id)
+    setDownloadError(null)
+    try {
+      if (!knownKey) throw new Error(t('central.drpKeyRequired') as string)
+      const result = await centralApi.drpDocDownload(tenant, id)
+      const bytes = await decryptEnvelopeToBytes(result.envelope, knownKey)
+      const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `drp-${tenant}-${createdAt.replace(/[^0-9]/g, '').slice(0, 14)}.docx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setDownloadError((e as Error).message)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('central.drpModalTitle', { tenant })}>
+      <p className="text-xs text-slate-500 mb-3">{t('central.drpModalHint')}</p>
+      {!knownKey && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+          {t('central.drpKeyUnknown')}
+        </p>
+      )}
+      <div className="flex justify-end mb-3">
+        <Button size="sm" variant="secondary" onClick={() => generate.mutate()} disabled={generate.isPending || queued}>
+          <FileText size={13} />
+          {queued ? t('central.drpQueued') : t('central.drpGenerateNow')}
+        </Button>
+      </div>
+      {generate.isError && <p className="text-xs text-red-600 mb-2">{(generate.error as Error).message}</p>}
+      {downloadError && <p className="text-xs text-red-600 mb-2">{downloadError}</p>}
+      {isLoading ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('common.loading')}</p>
+      ) : error ? (
+        <p className="text-sm text-red-600 py-4 text-center">{(error as Error).message}</p>
+      ) : !data || data.documents.length === 0 ? (
+        <p className="text-sm text-slate-500 py-4 text-center">{t('central.drpEmpty')}</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {data.documents.map(d => (
+            <li key={d.id} className="py-2 flex items-center justify-between text-sm">
+              <div>
+                <p className="text-slate-800">{new Date(d.created_at).toLocaleString()}</p>
+                <p className="text-xs text-slate-400">{(d.size_bytes / 1024).toFixed(1)} KB</p>
+              </div>
+              <button
+                onClick={() => download(d.id, d.created_at)}
+                disabled={downloadingId === d.id || !knownKey}
+                className="text-xs px-2.5 py-1 rounded border bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 disabled:opacity-40 inline-flex items-center gap-1"
+              >
+                <Download size={11} />
+                {downloadingId === d.id ? t('common.loading') : t('central.drpDownload')}
               </button>
             </li>
           ))}

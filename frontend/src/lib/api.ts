@@ -110,6 +110,7 @@ export interface Device {
   iface_mbps_threshold?: number | null
   wan_status?: 'up' | 'down' | null
   wan_iface?: string | null
+  drp_exclude?: boolean | null
 }
 
 export interface DeviceInterfaceStat {
@@ -1761,6 +1762,24 @@ async function decryptEnvelope(envelope: any, keyB64: string): Promise<any> {
   return JSON.parse(text)
 }
 
+// Sibling of decryptEnvelope() above for envelopes whose plaintext is raw
+// BINARY content (a generated .docx, an agent-backup archive) rather than
+// JSON text — services/agent_backup.py's/drp_docs.py's envelope shape
+// (v:1, no plaintext metadata alongside the ciphertext, unlike the
+// snapshot envelope's v:2). Returns the decrypted bytes directly instead
+// of decoding+JSON.parse-ing them, which would corrupt binary data.
+export async function decryptEnvelopeToBytes(envelope: any, keyB64: string): Promise<ArrayBuffer> {
+  if (envelope?.v !== 1 || envelope?.alg !== 'aes-256-gcm') {
+    throw new Error(`unsupported envelope: v=${envelope?.v} alg=${envelope?.alg}`)
+  }
+  const rawKey = b64ToBuffer(keyB64)
+  if (rawKey.byteLength !== 32) throw new Error('decryption key must be 32 bytes')
+  const nonce = b64ToBuffer(envelope.nonce)
+  const ct = b64ToBuffer(envelope.ciphertext)
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt'])
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct)
+}
+
 export interface CentralUsageTenant {
   tenant: string
   bytes: number
@@ -1902,6 +1921,20 @@ export const centralApi = {
   backupDownload: (tenant: string, id: number) =>
     centralRequest<{ created_at: string; size_bytes: number; envelope: Record<string, unknown> }>(
       'backup_download', { tenant, id: String(id) },
+    ),
+
+  // Mikrotik DRP (disaster-recovery) documents — generated on the agent
+  // (services/drp_docs.py) on request, admin-only on the OVH side same as
+  // backups above.
+  requestDrpDocGenerate: (tenant: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string; note: string }>('request_drp_doc_generate', { tenant }),
+  pendingDrpDocGenerates: () =>
+    centralRequest<{ pending: Array<{ tenant: string; queued_at: string }> }>('pending_drp_doc_generates'),
+  drpDocList: (tenant: string) =>
+    centralRequest<{ documents: Array<{ id: number; created_at: string; size_bytes: number }> }>('drp_doc_list', { tenant }),
+  drpDocDownload: (tenant: string, id: number) =>
+    centralRequest<{ created_at: string; size_bytes: number; envelope: Record<string, unknown> }>(
+      'drp_doc_download', { tenant, id: String(id) },
     ),
 
   // Alerts

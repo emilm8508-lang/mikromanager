@@ -133,7 +133,9 @@
                     "criticalityLow":  "Niska",
                     "criticalityMedium":  "Średnia",
                     "criticalityHigh":  "Wysoka",
-                    "criticalityCritical":  "Krytyczna"
+                    "criticalityCritical":  "Krytyczna",
+                    "drpExcludeLabel":  "Konfiguracja standardowa — pomiń w dokumentacji DRP",
+                    "drpExcludeHint":  "Wyklucza to urządzenie z generowanego dokumentu Word z dokumentacją awaryjną (np. switch, w którym zmieniono tylko hasło administratora)."
                 },
     "deviceDetail":  {
                          "unknownModel":  "Nieznany model",
@@ -371,6 +373,16 @@
                     "backupsDownload":  "Pobierz",
                     "backupsKeyWillBeIncluded":  "Klucz E2E tego klienta jest zapisany lokalnie w tej przeglądarce — zostanie dołączony do pobieranego pliku. Traktuj wtedy ten plik jak jawny zrzut haseł (nie wysyłaj byle jakim kanałem).",
                     "backupsKeyUnknown":  "Klucz E2E tego klienta nie jest zapisany w tej przeglądarce — pobrany plik będzie samym zaszyfrowanym backupem, klucz trzeba będzie podać osobno przy przywracaniu.",
+                    "drpBtn":  "DRP",
+                    "drpTooltip":  "Dokumentacja awaryjna (DRP) urządzeń Mikrotik tego klienta",
+                    "drpModalTitle":  "Dokumentacja DRP — {{tenant}}",
+                    "drpModalHint":  "Pełny eksport konfiguracji (/export) każdego uwzględnionego urządzenia Mikrotik u tego klienta — pomija urządzenia oznaczone jako 'konfiguracja standardowa' w zakładce Urządzenia. Generowanie trwa chwilę (agent łączy się po SSH z każdym urządzeniem) — dokument pojawi się na liście poniżej po zakończeniu.",
+                    "drpGenerateNow":  "Generuj teraz",
+                    "drpQueued":  "W kolejce...",
+                    "drpEmpty":  "Brak wygenerowanych dokumentów DRP dla tego klienta.",
+                    "drpDownload":  "Pobierz .docx",
+                    "drpKeyUnknown":  "Klucz E2E tego klienta nie jest zapisany w tej przeglądarce — dodaj go w sekcji kluczy, żeby móc pobrać i odszyfrować dokument.",
+                    "drpKeyRequired":  "Brak klucza E2E tego klienta w tej przeglądarce — nie można odszyfrować dokumentu.",
                     "restartQueued":  "restart w kolejce",
                     "confirmRestart":  "Zrestartowac agenta klienta {{tenant}}? Za max 2 min agent otrzyma komende i wykona os._exit(0) — supervisor go zrestartuje.",
                     "confirmClick":  "Kliknij aby potwierdzic",
