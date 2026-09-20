@@ -504,7 +504,7 @@ $installer = $session.CreateUpdateInstaller()
 $installer.Updates = $toInstall
 $installResult = $installer.Install()
 [PSCustomObject]@{{ ResultCode = $installResult.ResultCode; RebootRequired = $installResult.RebootRequired; Count = $toInstall.Count }} |
-    ConvertTo-Json -Compress | Set-Content -Path "$env:TEMP\mm_winupdate_{job_id}_result.json"
+    ConvertTo-Json -Compress | Set-Content -Path "C:\Windows\Temp\mm_winupdate_{job_id}_result.json"
 """
 
 
@@ -527,12 +527,27 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
         read_timeout_sec=30, operation_timeout_sec=25,
     )
     task_name = f"MikroManagerUpdate_{job_id}"
-    # PowerShell-side path expressions (expanded by the REMOTE shell, not
-    # here) — quoted wherever used in a script so a %TEMP% containing a
-    # space (a Windows username with a space in it is common) doesn't
-    # split the argument.
-    script_path = f"$env:TEMP\\mm_winupdate_{job_id}.ps1"
-    result_path = f"$env:TEMP\\mm_winupdate_{job_id}_result.json"
+    # Deliberately C:\Windows\Temp, NOT $env:TEMP — confirmed live (two
+    # separate bugs, both hiding behind the schtasks quoting bug below
+    # until that one was fixed) that $env:TEMP is the wrong tool here:
+    # (1) the write step and the later Get-Content/Remove-Item cleanup run
+    # as the WinRM-authenticated user (via _run_ps_safe, real PowerShell,
+    # $env:TEMP correctly expands there), but the install SCRIPT itself
+    # runs as SYSTEM (/RU SYSTEM below) — SYSTEM's $env:TEMP is a
+    # different physical directory, so a result file the script writes to
+    # "$env:TEMP\..." as SYSTEM is invisible to the later read as the
+    # WinRM user, which is always looking in ITS OWN temp dir instead.
+    # (2) even setting that aside, the path baked into the schtasks /TR
+    # value is passed to a freshly-launched powershell.exe's -File
+    # argument via CreateProcess, never through anything that interprets
+    # PowerShell syntax — "$env:TEMP" there is inert literal text, not a
+    # variable reference (confirmed: powershell.exe -File "$env:TEMP\x"
+    # fails with "Specify a valid path for the -File parameter"). A fixed,
+    # identity-independent path sidesteps both problems at once (and,
+    # having no spaces, drops the need for the space-safety quoting the
+    # old comment here was originally about).
+    script_path = f"C:\\Windows\\Temp\\mm_winupdate_{job_id}.ps1"
+    result_path = f"C:\\Windows\\Temp\\mm_winupdate_{job_id}_result.json"
     script_body = _INSTALL_TASK_SCRIPT.format(job_id=job_id)
 
     try:
@@ -544,14 +559,22 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
         if r.status_code != 0:
             return {"ok": False, "error": f"couldn't write install script: {r.std_err.decode('utf-8', errors='ignore')[-1000:]}"}
 
-        # run_cmd(exe, args) — args is a real argument LIST (each item is
-        # one argv entry), not a shell command line, so schtasks.exe gets
-        # exactly the tokens below with no re-parsing/splitting in between.
-        # The /TR value is itself the one place we build a sub-command
-        # line by hand (schtasks stores it as a single string) — its own
-        # embedded file path is double-quoted for the same %TEMP%-with-a-
-        # space reason as above.
-        tr_value = f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{script_path}"'
+        # run_cmd(exe, args) passes each list item as its own argument, but
+        # confirmed live (against real Windows argv parsing, CommandLineToArgvW)
+        # that this does NOT protect an argument containing embedded spaces
+        # from being split BY SCHTASKS ITSELF: /TR's value ends up rejoined
+        # onto one WinRS-side command line before schtasks.exe ever parses
+        # it, so an unquoted multi-word value silently splits into several
+        # top-level schtasks arguments — this is exactly what produced the
+        # observed "Invalid argument/option - '-NoProfile'" (schtasks saw
+        # /TR's value as just "powershell.exe", then choked on -NoProfile
+        # as its own next, unrecognized argument). Fix: wrap the ENTIRE
+        # value in its own literal double quotes, with the inner -File
+        # path's quotes backslash-escaped — the standard Windows
+        # command-line idiom for "a quoted value inside a quoted value" —
+        # so schtasks' own parser reassembles it as a single /TR token
+        # regardless of how the text was rejoined upstream.
+        tr_value = f'"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \\"{script_path}\\""'
         r = session.run_cmd("schtasks", [
             "/Create", "/TN", task_name, "/TR", tr_value,
             "/SC", "ONCE", "/ST", "00:00", "/RL", "HIGHEST", "/RU", "SYSTEM", "/F",
@@ -620,7 +643,17 @@ def _restart_sync(ip: str, port: int, username: str, password: str, domain: Opti
         read_timeout_sec=15, operation_timeout_sec=10,
     )
     try:
-        r = session.run_cmd("shutdown", ["/r", "/t", "60", "/c", reason, "/d", "p:4:1"])
+        # A multi-word reason (the whole point of asking for one) hits the
+        # exact same bug just fixed in _install_updates_sync()'s /TR value:
+        # run_cmd's argument list does not survive WinRS as separate argv
+        # entries, so an unquoted reason with spaces would arrive at
+        # shutdown.exe split across several of ITS OWN top-level arguments
+        # instead of one /c value (confirmed live via CommandLineToArgvW,
+        # same as the schtasks case). Quote it the same way; strip any
+        # embedded '"' first since shutdown.exe has no escape syntax for
+        # one inside an already-quoted /c value the way schtasks' /TR did.
+        quoted_reason = '"' + reason.replace('"', "'") + '"'
+        r = session.run_cmd("shutdown", ["/r", "/t", "60", "/c", quoted_reason, "/d", "p:4:1"])
         if r.status_code != 0:
             return {"ok": False, "error": r.std_err.decode("utf-8", errors="ignore")[-1000:]}
         return {"ok": True}
