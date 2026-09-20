@@ -566,6 +566,86 @@ function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
+const ACTION_STATUS_BADGE: Record<string, { variant: 'gray' | 'blue' | 'green' | 'red'; icon: React.ElementType }> = {
+  queued: { variant: 'gray', icon: RefreshCw },
+  delivered: { variant: 'blue', icon: Send },
+  done: { variant: 'green', icon: CheckCircle2 },
+  failed: { variant: 'red', icon: XCircle },
+}
+
+// One place to see every action requested across all the separate
+// "trigger this on an agent" buttons scattered through Central (agent
+// update/restart, firmware upgrade, Linux/Windows apt-upgrade/restart,
+// DRP doc generation, Dell checks, ...) — previously each lived only in
+// its own modal/panel with no unified view of what's still queued vs.
+// already delivered vs. actually finished. Backed by ovh/api.php's new
+// recent_actions action, which merges still-pending marker files with
+// matching activity_log rows (both "delivered to agent" and, where an
+// action reports one, an agent-confirmed "done"/"failed").
+function RecentActionsPanel() {
+  const { t } = useTranslation()
+  const [collapsed, setCollapsed] = useState(false)
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['central-recent-actions'],
+    queryFn: () => centralApi.recentActions(30),
+    refetchInterval: 15_000,
+  })
+  const actions = data?.actions ?? []
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <Activity size={15} className="text-indigo-600" />
+            {t('central.recentActionsTitle')}
+            {actions.length > 0 && <Badge variant="gray">{actions.length}</Badge>}
+          </h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => refetch()} className="text-slate-400 hover:text-indigo-600" title={t('common.refresh') as string}>
+              <RefreshCw size={13} />
+            </button>
+            <button onClick={() => setCollapsed(v => !v)} className="text-slate-400 hover:text-indigo-600">
+              {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+            </button>
+          </div>
+        </div>
+      </CardHeader>
+      {!collapsed && (
+        <CardContent className="p-0">
+          {isLoading ? (
+            <p className="px-5 py-4 text-center text-slate-500 text-sm">{t('common.loading')}</p>
+          ) : error ? (
+            <p className="px-5 py-4 text-center text-red-600 text-sm">{(error as Error).message}</p>
+          ) : actions.length === 0 ? (
+            <p className="px-5 py-4 text-center text-slate-500 text-sm">{t('central.recentActionsEmpty')}</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+              {actions.map((a, i) => {
+                const badge = ACTION_STATUS_BADGE[a.status] ?? ACTION_STATUS_BADGE.queued
+                const Icon = badge.icon
+                return (
+                  <div key={i} className="flex items-center gap-3 px-5 py-2 text-sm">
+                    <TenantBadge tenant={a.tenant} />
+                    <span className="flex-1 min-w-0 text-slate-700 truncate">
+                      {a.label}{a.target ? ` (#${a.target})` : ''}
+                    </span>
+                    <Badge variant={badge.variant} className="text-[10px] inline-flex items-center gap-1 shrink-0">
+                      <Icon size={9} />
+                      {t(`central.recentActionsStatus.${a.status}`)}
+                    </Badge>
+                    <span className="text-xs text-slate-400 shrink-0 w-14 text-right">{formatAge(Math.floor((Date.now() - new Date(a.at).getTime()) / 1000))}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pendingRestart }: {
   tenant: CentralTenant
   viewerCommit: string | null
@@ -1533,6 +1613,8 @@ function ViewerPanel() {
           )}
         </div>
       )}
+
+      <RecentActionsPanel />
 
       <UsageBar />
 

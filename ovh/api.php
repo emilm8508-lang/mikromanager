@@ -2281,6 +2281,128 @@ try {
             echo json_encode(['activity' => $rows]);
             break;
 
+        case 'recent_actions':
+            // Unified "what have I asked agents to do lately, and did it
+            // happen" view — this app has accumulated many separate
+            // request_*/pending_* action types (agent update/restart,
+            // firmware upgrade, Linux/Windows apt-upgrade/restart, DRP doc
+            // generation, Dell checks, vuln remediation, ...) with no
+            // single place to see them together. Two halves, merged:
+            //   1. Still-queued markers (not yet delivered) — one glob per
+            //      known filename pattern, reusing the EXACT patterns each
+            //      request_*/pending_* action above already uses (kept in
+            //      sync with those, not derived cleverly, so a new action
+            //      type must be added here explicitly too — same
+            //      explicit-over-generic style as the rest of this file).
+            //   2. Delivered/completed/failed — activity_log already has
+            //      both halves (ingest.php logs "*_delivered" when a
+            //      marker is drained; agent-reported completions arrive
+            //      via activity_process() from the snapshot's
+            //      activity_events) tenant-scoped the same way as the
+            //      activity_log action just above.
+            $limit = min(200, max(1, (int)($_GET['limit'] ?? 100)));
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            $queued = [];
+
+            $bare_patterns = [
+                'update_pending_'          => 'Aktualizacja agenta',
+                'restart_pending_'         => 'Restart agenta',
+                'supplychain_pending_'     => 'Skan łańcucha dostaw',
+                'linux_scan_pending_'      => 'Odświeżenie hostów Linux',
+                'windows_scan_pending_'    => 'Odświeżenie hostów Windows',
+                'drp_doc_generate_pending_' => 'Dokumentacja DRP',
+            ];
+            if (is_dir($state_dir)) {
+                foreach ($bare_patterns as $prefix => $label) {
+                    foreach (glob($state_dir . '/' . $prefix . '*') as $f) {
+                        $tenant = basename($f);
+                        if (strpos($tenant, $prefix) !== 0) continue;
+                        $tenant = substr($tenant, strlen($prefix));
+                        if (!tenant_allowed($identity, $tenant)) continue;
+                        $queued[] = ['tenant' => $tenant, 'label' => $label, 'target' => null,
+                                     'status' => 'queued', 'at' => date('c', filemtime($f))];
+                    }
+                }
+                $id_patterns = [
+                    'fw_upgrade_'             => ['Aktualizacja firmware',        '/^fw_upgrade_(.+)_(\d+)_[bn]$/'],
+                    'linux_upgrade_'          => ['Aktualizacja apt',             '/^linux_upgrade_(.+)_(\d+)$/'],
+                    'linux_restart_'          => ['Restart hosta Linux',         '/^linux_restart_(.+)_(\d+)$/'],
+                    'win_update_'             => ['Aktualizacja Windows',         '/^win_update_(.+)_(\d+)$/'],
+                    'win_restart_'            => ['Restart hosta Windows',       '/^win_restart_(.+)_(\d+)$/'],
+                    'dell_check_'             => ['Sprawdzenie iDRAC',           '/^dell_check_(.+)_(\d+)$/'],
+                    'vuln_remediation_'       => ['Status podatności',           '/^vuln_remediation_(.+)_[0-9a-f]{40}$/'],
+                    'device_router_override_' => ['Klasyfikacja urządzenia',     '/^device_router_override_(.+)_(\d+)$/'],
+                    'logs_request_'           => ['Pobranie logów',              '/^logs_request_(.+)_(\d+)_(\d+)$/'],
+                    'win_manage_toggle_'      => ['Przełącznik zarządzania Windows', '/^win_manage_toggle_(.+)_[01]$/'],
+                ];
+                foreach ($id_patterns as $prefix => $pat) {
+                    [$label, $re] = $pat;
+                    foreach (glob($state_dir . '/' . $prefix . '*.pending') as $f) {
+                        $base = basename($f, '.pending');
+                        if (!preg_match($re, $base, $m)) continue;
+                        $tenant = $m[1];
+                        if (!tenant_allowed($identity, $tenant)) continue;
+                        $queued[] = ['tenant' => $tenant, 'label' => $label, 'target' => $m[2] ?? null,
+                                     'status' => 'queued', 'at' => date('c', filemtime($f))];
+                    }
+                }
+            }
+
+            $action_event_types = [
+                'update_delivered', 'restart_delivered', 'agent_restart', 'agent_updated',
+                'supply_chain_scan_delivered',
+                'linux_scan_delivered', 'windows_scan_delivered',
+                'drp_doc_generate_delivered', 'drp_doc_generate_done', 'drp_doc_generate_failed',
+                'firmware_upgrade_delivered', 'firmware_upgraded', 'firmware_upgrade_failed',
+                'linux_apt_upgrade_delivered', 'linux_apt_upgraded', 'linux_apt_upgrade_failed',
+                'linux_restart_delivered', 'linux_restarted',
+                'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
+                'windows_restart_delivered', 'windows_restarted',
+                'windows_manage_toggle_delivered',
+                'dell_check_delivered',
+                'vuln_remediation_delivered',
+                'device_router_override_delivered',
+                'device_logs_delivered',
+            ];
+            $ph = implode(',', array_fill(0, count($action_event_types), '?'));
+            $sql = "SELECT tenant, ts, event_type, message, details FROM activity_log WHERE event_type IN ($ph)";
+            $params = $action_event_types;
+            if ($identity['allowed_tenants'] !== null) {
+                if (empty($identity['allowed_tenants'])) {
+                    $log_rows = [];
+                } else {
+                    $ph2 = implode(',', array_fill(0, count($identity['allowed_tenants']), '?'));
+                    $sql .= " AND tenant IN ($ph2)";
+                    $params = array_merge($params, $identity['allowed_tenants']);
+                }
+            }
+            if (!isset($log_rows)) {
+                $stmt = $pdo->prepare($sql . ' ORDER BY ts DESC LIMIT ' . ($limit * 3));
+                $stmt->execute($params);
+                $log_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            $delivered = array_map(function ($r) {
+                $details = $r['details'] ? (json_decode($r['details'], true) ?: []) : [];
+                if (substr($r['event_type'], -7) === 'failed') {
+                    $status = 'failed';
+                } elseif (substr($r['event_type'], -10) === '_delivered') {
+                    $status = 'delivered';
+                } else {
+                    $status = 'done';
+                }
+                return [
+                    'tenant' => $r['tenant'], 'label' => $r['message'],
+                    'target' => $details['host_id'] ?? $details['device_id'] ?? $details['server_id'] ?? null,
+                    'status' => $status, 'at' => $r['ts'],
+                ];
+            }, $log_rows);
+
+            $all = array_merge($queued, $delivered);
+            usort($all, function ($a, $b) { return strtotime($b['at']) <=> strtotime($a['at']); });
+            echo json_encode(['actions' => array_slice($all, 0, $limit)]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

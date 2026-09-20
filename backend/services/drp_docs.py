@@ -45,7 +45,7 @@ from docx.shared import Pt
 from sqlalchemy import select
 
 from models.database import SessionLocal, Device, Credential
-from services import uplink
+from services import activity, uplink
 from services.agent_backup import encrypt_archive
 from services.crypto import decrypt as decrypt_secret
 from services.mikrotik_client import MikrotikClient
@@ -229,6 +229,7 @@ async def generate_document() -> dict:
 
         if not rows:
             _state["last_error"] = "no eligible Mikrotik devices (none configured, or all excluded)"
+            activity.record("drp_doc_generate_failed", error=_state["last_error"])
             return {"ok": False, "error": _state["last_error"]}
 
         loop = asyncio.get_event_loop()
@@ -263,6 +264,15 @@ async def generate_document() -> dict:
                 except Exception as e:
                     _state["last_error"] = f"zapisano lokalnie, ale wysyłka do Centrali nie powiodła się: {e}"
 
+        # Reported back to Central via the same activity_events pipeline
+        # every other completion event in this app uses — without this,
+        # a command triggered remotely from Central (see uplink.py's
+        # "drp_doc_generate" handler) would only ever show as "delivered"
+        # there, never as actually finished (see the new "recent actions"
+        # panel this feeds).
+        activity.record("drp_doc_generate_done", devices_included=included, devices_skipped=skipped,
+                         uploaded_to_central=uploaded, size_bytes=len(doc_bytes))
+
         return {
             "ok": True, "local_path": local_path, "size_bytes": len(doc_bytes),
             "devices_included": included, "devices_skipped": skipped,
@@ -270,6 +280,7 @@ async def generate_document() -> dict:
         }
     except Exception as e:
         _state["last_error"] = str(e)
+        activity.record("drp_doc_generate_failed", error=str(e))
         return {"ok": False, "error": str(e)}
     finally:
         _state["in_progress"] = False

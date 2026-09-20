@@ -429,6 +429,10 @@ try {
                 'backup' => $m[2] === 'b',
             ];
             @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "firmware_upgrade_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Aktualizacja firmware dostarczona do agenta {$tenant_header}", json_encode(['device_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
         }
     }
 
@@ -558,6 +562,10 @@ try {
                 'limit' => (int)$m[2],
             ];
             @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "device_logs_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Zlecenie pobrania logow dostarczone do agenta {$tenant_header}", json_encode(['device_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
         }
     }
 

@@ -1059,6 +1059,33 @@ function activity_format_message(string $type, array $e): string {
             return "Aktualizacja firmware urządzenia {$name} nie powiodła się: {$err}";
         case 'backup_completed':
             return "Backup urządzenia {$name} utworzony";
+        case 'linux_apt_upgraded':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Host Linux {$host} zaktualizowany (apt)" . (!empty($e['reboot_required']) ? " — wymaga restartu" : "");
+        case 'linux_apt_upgrade_failed':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Aktualizacja apt na hoście Linux {$host} nie powiodła się: " . ($e['error'] ?? 'unknown error');
+        case 'linux_restarted':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Host Linux {$host} zrestartowany (powód: " . ($e['reason'] ?? '?') . ")";
+        case 'windows_update_installed':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Host Windows {$host} zaktualizowany" . (!empty($e['reboot_required']) ? " — wymaga restartu" : "");
+        case 'windows_update_failed':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Aktualizacja Windows na hoście {$host} nie powiodła się: " . ($e['error'] ?? 'unknown error');
+        case 'windows_restarted':
+            $host = $e['identity'] ?? $e['ip'] ?? '?';
+            return "Host Windows {$host} zrestartowany (powód: " . ($e['reason'] ?? '?') . ")";
+        case 'drp_doc_generate_done':
+            $inc = $e['devices_included'] ?? '?';
+            $skip = $e['devices_skipped'] ?? 0;
+            $up = !empty($e['uploaded_to_central']) ? ", wysłano do Centrali" : ", tylko lokalnie (brak enc_key)";
+            return "Dokumentacja DRP gotowa: {$inc} urządzeń, {$skip} pominiętych{$up}";
+        case 'drp_doc_generate_failed':
+            return "Generowanie dokumentacji DRP nie powiodło się: " . ($e['error'] ?? 'unknown error');
+        case 'agent_restart':
+            return "Agent zrestartowany na żądanie z Centrali";
         case 'wan_ip_changed':
             $old_ip = $e['old_ip'] ?? '?';
             $new_ip = $e['new_ip'] ?? '?';

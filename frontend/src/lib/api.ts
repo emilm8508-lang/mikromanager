@@ -1717,6 +1717,14 @@ export interface ActivityEntry {
   details: any
 }
 
+export interface CentralRecentAction {
+  tenant: string
+  label: string
+  target: string | number | null
+  status: 'queued' | 'delivered' | 'done' | 'failed'
+  at: string
+}
+
 export interface DeviceLogFetchResult {
   device_id: number
   device_label?: string
@@ -1986,6 +1994,12 @@ export const centralApi = {
       'activity_log',
       tenant ? { tenant, limit: String(limit) } : { limit: String(limit) },
     ),
+
+  // Unified "recently requested actions" view (agent update/restart,
+  // firmware upgrade, Linux/Windows apt-upgrade/restart, DRP doc
+  // generation, Dell checks, ...) — see ovh/api.php's recent_actions.
+  recentActions: (limit: number = 50) =>
+    centralRequest<{ actions: CentralRecentAction[] }>('recent_actions', { limit: String(limit) }),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })
