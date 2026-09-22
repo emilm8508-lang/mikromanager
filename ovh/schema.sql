@@ -133,7 +133,11 @@ CREATE TABLE IF NOT EXISTS edge_verifications (
     check_port INT NULL,
     requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     verifier_tenants TEXT NOT NULL,        -- JSON array of tenant slugs asked to check
-    results TEXT NOT NULL DEFAULT '[]',    -- JSON array of {tenant, ok, method, detail, at}
+    -- No DEFAULT here — MySQL rejects a DEFAULT on a TEXT/BLOB column on
+    -- older/strict configurations (confirmed on OVH's shared hosting).
+    -- Not needed anyway: edge_start_verification()'s INSERT always sets
+    -- this explicitly to '[]'.
+    results TEXT NOT NULL,                 -- JSON array of {tenant, ok, method, detail, at}
     resolved_at DATETIME NULL,
     resolution VARCHAR(16) NULL,           -- 'false_positive' | 'confirmed_down' | 'timeout_down'
     INDEX idx_edge (edge_id),
