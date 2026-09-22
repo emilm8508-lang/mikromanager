@@ -77,6 +77,12 @@ function canonical_commands(array $commands): string {
                 $c['targets'] ?? []
             );
             $parts[] = 'edge_check_targets:' . implode(',', $enc);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'edge_verify_targets') {
+            $enc = array_map(
+                fn($t) => (int)($t['verification_id'] ?? 0) . ':' . ($t['ip'] ?? '') . '/' . (int)($t['check_port'] ?? 0),
+                $c['targets'] ?? []
+            );
+            $parts[] = 'edge_verify_targets:' . implode(',', $enc);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'device_router_override') {
             $is_router = $c['is_router'] ?? null;
             $value_str = $is_router === null ? 'null' : ($is_router ? '1' : '0');
@@ -312,15 +318,36 @@ try {
                 if (!is_array($r) || empty($r['ip'])) continue;
                 try {
                     edge_ingest_check_result(
-                        $pdo, $tenant_header, (string)$r['ip'],
+                        $pdo, $config, $tenant_header, (string)$r['ip'],
                         !empty($r['ok']), (string)($r['method'] ?? 'agent'), (string)($r['detail'] ?? '')
                     );
                 } catch (Throwable $e) { error_log('[mm-edge-selfcheck] ' . $e->getMessage()); }
             }
         }
     } catch (Throwable $e) { error_log('[mm-edge-selfcheck] ' . $e->getMessage()); }
-    try { edge_check_due($pdo, 8); }
+    // This tenant's agent reporting back the result of a cross-tenant
+    // verification it ran on ANOTHER tenant's behalf (see
+    // edge_start_verification()/edge_ingest_verify_result() in
+    // notifications.php, and services/edge_selfcheck.py's
+    // check_verify_targets() / the "edge_verify_targets" command below).
+    try {
+        $evr = is_array($public_meta) ? ($public_meta['edge_verify_results'] ?? null) : null;
+        if (is_array($evr)) {
+            foreach ($evr as $r) {
+                if (!is_array($r) || empty($r['ip']) || empty($r['verification_id'])) continue;
+                try {
+                    edge_ingest_verify_result(
+                        $pdo, $config, $tenant_header, (int)$r['verification_id'], (string)$r['ip'],
+                        !empty($r['ok']), (string)($r['method'] ?? 'agent'), (string)($r['detail'] ?? '')
+                    );
+                } catch (Throwable $e) { error_log('[mm-edge-verify] ' . $e->getMessage()); }
+            }
+        }
+    } catch (Throwable $e) { error_log('[mm-edge-verify] ' . $e->getMessage()); }
+    try { edge_check_due($pdo, $config, 8); }
     catch (Throwable $e) { error_log('[mm-edge] ' . $e->getMessage()); }
+    try { edge_verify_timeout_sweep($pdo, $config); }
+    catch (Throwable $e) { error_log('[mm-edge-verify] ' . $e->getMessage()); }
     try { tenant_stale_check_due($pdo, $config); }
     catch (Throwable $e) { error_log('[mm-tenant-stale] ' . $e->getMessage()); }
 
@@ -583,6 +610,39 @@ try {
     $edge_targets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($edge_targets) {
         $commands[] = ['type' => 'edge_check_targets', 'targets' => $edge_targets];
+    }
+
+    // 5b. Cross-tenant verification targets — addresses OWNED BY OTHER
+    // TENANTS that THIS tenant's agent was picked (at random, by
+    // edge_start_verification() in notifications.php) to independently
+    // ping/TCP-check as an outside vantage point, before OVH declares that
+    // other tenant's WAN link offline. Same "resent every heartbeat, not
+    // drained" shape as 5. above, but scoped to only the ones this tenant
+    // hasn't already answered (edge_ingest_verify_result() records that).
+    // The agent never learns anything about the owning tenant beyond the
+    // bare IP/port to check — see services/edge_selfcheck.py.
+    $stmt = $pdo->prepare(
+        "SELECT id, ip, check_port, verifier_tenants, results FROM edge_verifications
+         WHERE resolved_at IS NULL AND requested_at > (NOW() - INTERVAL 30 MINUTE)"
+    );
+    $stmt->execute();
+    $verify_targets = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $verifiers = json_decode($row['verifier_tenants'] ?? '[]', true) ?: [];
+        if (!in_array($tenant_header, $verifiers, true)) continue;
+        $already = false;
+        foreach ((json_decode($row['results'] ?? '[]', true) ?: []) as $r) {
+            if (($r['tenant'] ?? null) === $tenant_header) { $already = true; break; }
+        }
+        if ($already) continue;
+        $verify_targets[] = [
+            'verification_id' => (int)$row['id'],
+            'ip' => $row['ip'],
+            'check_port' => $row['check_port'] !== null ? (int)$row['check_port'] : null,
+        ];
+    }
+    if ($verify_targets) {
+        $commands[] = ['type' => 'edge_verify_targets', 'targets' => $verify_targets];
     }
 
     // 6. Manual router/switch classification overrides (per device, may be

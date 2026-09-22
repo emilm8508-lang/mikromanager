@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS edge_devices (
     last_state_change DATETIME NULL,
     consecutive_fails INT NOT NULL DEFAULT 0,
     last_check_detail VARCHAR(255) NULL,
+    -- Set while a cross-tenant verification is in flight (see
+    -- edge_verifications below) — blocks a second verification from being
+    -- started for the same device, and tells edge_apply_check_result() to
+    -- treat this device specially: a fresh success resolves it immediately
+    -- as a false positive, a fresh failure just waits for the verifiers.
+    verify_pending TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_tenant_ip (tenant, ip),
     -- Identifies "this WAN interface on this device" independently of its
@@ -105,6 +111,34 @@ CREATE TABLE IF NOT EXISTS edge_devices (
 -- enabled=1 with your real channel/interval settings) and delete the rest,
 -- then:
 -- ALTER TABLE edge_devices ADD UNIQUE KEY uniq_tenant_device_iface (tenant, source_device_id, source_iface);
+-- Existing install upgrading to this version, run once:
+-- ALTER TABLE edge_devices ADD COLUMN verify_pending TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Cross-tenant WAN-down verification (see edge_apply_check_result()/
+-- edge_start_verification()/edge_ingest_verify_result() in
+-- notifications.php). Before OVH's own active probe or an agent's own
+-- self-check is allowed to flip an edge device from online/unknown to
+-- offline (and fire the Telegram/webhook alert), 1-2 OTHER tenants'
+-- agents are asked to independently ping/TCP-check the SAME address as
+-- an outside vantage point — this is what catches the false-positive case
+-- where the reporting agent (or OVH's own network) is the thing that's
+-- actually unreachable, not the client's WAN. One row per verification
+-- attempt; a device can only have one unresolved row at a time
+-- (edge_devices.verify_pending gates that).
+CREATE TABLE IF NOT EXISTS edge_verifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    edge_id INT NOT NULL,
+    owner_tenant VARCHAR(64) NOT NULL,
+    ip VARCHAR(64) NOT NULL,
+    check_port INT NULL,
+    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    verifier_tenants TEXT NOT NULL,        -- JSON array of tenant slugs asked to check
+    results TEXT NOT NULL DEFAULT '[]',    -- JSON array of {tenant, ok, method, detail, at}
+    resolved_at DATETIME NULL,
+    resolution VARCHAR(16) NULL,           -- 'false_positive' | 'confirmed_down' | 'timeout_down'
+    INDEX idx_edge (edge_id),
+    INDEX idx_unresolved (resolved_at, requested_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Activity log (v1.7) — timeline of interesting events (firmware upgraded,
 -- agent restarted after update, backups, etc.). Purely informational, shown

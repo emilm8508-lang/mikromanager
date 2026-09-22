@@ -430,7 +430,7 @@ function edge_tcp_check(string $ip, int $port, int $timeout = 3): array {
  * Runs at most for $max_seconds to avoid blocking the caller (ingest.php).
  * Remaining devices will be checked on the next tick.
  */
-function edge_check_due(PDO $pdo, int $max_seconds = 8): int {
+function edge_check_due(PDO $pdo, array $config, int $max_seconds = 8): int {
     $stmt = $pdo->query(
         "SELECT * FROM edge_devices
          WHERE enabled = 1
@@ -446,7 +446,7 @@ function edge_check_due(PDO $pdo, int $max_seconds = 8): int {
     foreach ($devices as $d) {
         if ((microtime(true) - $started) > $max_seconds) break;
         try {
-            edge_check_one($pdo, $d);
+            edge_check_one($pdo, $config, $d);
         } catch (Throwable $e) {
             // One device's check failing (network hiccup, or — as happened
             // in practice — a schema drift like a column added in code but
@@ -539,31 +539,65 @@ function tenant_stale_check_due(PDO $pdo, array $config): void {
  * edge_ingest_check_result() further down) — this stays a real, independent
  * fallback, not replaced.
  */
-function edge_check_one(PDO $pdo, array $d): array {
+function edge_check_one(PDO $pdo, array $config, array $d): array {
     $ip = (string)$d['ip'];
     $port = $d['check_port'] !== null ? (int)$d['check_port'] : null;
     $check = edge_check_ip($ip, $port);
-    return edge_apply_check_result($pdo, $d, $check['ok'], $check['method'], $check['detail']);
+    return edge_apply_check_result($pdo, $config, $d, $check['ok'], $check['method'], $check['detail']);
 }
 
 
 /**
  * Debounce + state-change + edge_events + notification dispatch — the
- * actual state machine, extracted from edge_check_one() so it can be fed
- * by TWO independent sources of a check result: OVH's own active probe
- * (edge_check_one() above, unchanged) AND an agent's self-reported result
- * (edge_ingest_check_result() below, new). Same result shape/behavior
- * either way — the state machine has no idea (and doesn't need to know)
- * which source produced $ok/$method/$detail.
+ * actual state machine, fed by THREE independent sources of a check
+ * result: OVH's own active probe (edge_check_one()), an agent's
+ * self-reported result for its own tenant (edge_ingest_check_result()),
+ * and a cross-tenant verification's resolution (edge_resolve_verification(),
+ * via $force=true). Same result shape/behavior either way — the state
+ * machine has no idea (and doesn't need to know) which source produced
+ * $ok/$method/$detail.
+ *
+ * A device newly going offline is NOT alerted on the spot — see the
+ * verify_pending gate and edge_start_verification() call below — unless
+ * $force is set (that IS the delayed, cross-tenant-confirmed decision) or
+ * no other tenant was available to ask.
  */
-function edge_apply_check_result(PDO $pdo, array $d, bool $ok, string $method, string $detail): array {
+function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, string $method, string $detail, bool $force = false): array {
     $prev = $d['last_status'];
     $consecutive = (int)$d['consecutive_fails'];
-    $new_status = $ok ? 'online' : 'offline';
+    $now = date('Y-m-d H:i:s');
+
+    // A cross-tenant verification is already in flight for this device
+    // (edge_start_verification() below started it on a previous call) — a
+    // fresh success resolves it immediately as a false positive, no need to
+    // wait for the asked verifier(s) too. A fresh failure just gets
+    // recorded; the actual offline decision stays with
+    // edge_ingest_verify_result()/edge_verify_timeout_sweep() below, which
+    // call back into this function with $force=true once resolved — that
+    // is the one case allowed to skip this gate (it IS the resolution).
+    if (!empty($d['verify_pending']) && !$force) {
+        if ($ok) {
+            $pdo->prepare('UPDATE edge_devices SET verify_pending = 0, consecutive_fails = 0, last_check = ?, last_check_detail = ? WHERE id = ?')
+                ->execute([$now, $detail, $d['id']]);
+            $pdo->prepare("UPDATE edge_verifications SET resolved_at = NOW(), resolution = 'false_positive' WHERE edge_id = ? AND resolved_at IS NULL")
+                ->execute([$d['id']]);
+            return ['ok' => true, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail];
+        }
+        $pdo->prepare('UPDATE edge_devices SET consecutive_fails = ?, last_check = ?, last_check_detail = ? WHERE id = ?')
+            ->execute([$consecutive + 1, $now, $detail, $d['id']]);
+        return ['ok' => false, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
+    }
 
     // State-change rule: transition to offline only after 2 consecutive fails
     // (avoids flapping on a single dropped packet). Online transition is immediate.
-    if ($ok) {
+    if ($force) {
+        // The debounce decision was already made by whoever resolved the
+        // cross-tenant verification (edge_ingest_verify_result()/
+        // edge_verify_timeout_sweep()) — this call is that resolution, not
+        // a new report, so it always pushes the offline transition through.
+        $effective = 'offline';
+        $consecutive = max($consecutive, 2);
+    } elseif ($ok) {
         $consecutive = 0;
         $effective = 'online';
     } else {
@@ -573,7 +607,25 @@ function edge_apply_check_result(PDO $pdo, array $d, bool $ok, string $method, s
     }
 
     $state_changed = ($prev !== $effective);
-    $now = date('Y-m-d H:i:s');
+
+    // About to declare this device offline for the very first time — before
+    // alerting, try to get 1-2 OTHER tenants' agents to independently
+    // confirm the address is actually unreachable first. This is exactly
+    // the scenario that produced false "WAN down" alerts during a past
+    // OVH-side connectivity incident: the evidence was OVH's own network
+    // (or the reporting agent itself being unreachable), never the client's
+    // real WAN. See edge_start_verification()'s own docstring.
+    if (!$force && $state_changed && $effective === 'offline' && (int)($config['edge_cross_verify_count'] ?? 2) > 0) {
+        if (edge_start_verification($pdo, $config, $d)) {
+            $pdo->prepare('UPDATE edge_devices SET last_check = ?, consecutive_fails = ?, last_check_detail = ? WHERE id = ?')
+                ->execute([$now, $consecutive, $detail, $d['id']]);
+            return ['ok' => false, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
+        }
+        // No other tenant available to ask (single-tenant deployment, or
+        // none with a recent heartbeat) — fall through to the original,
+        // immediate-alert behavior below. Never suppress a real outage just
+        // because nobody was available to double-check it.
+    }
 
     // Update device row
     if ($state_changed) {
@@ -660,7 +712,7 @@ function edge_apply_check_result(PDO $pdo, array $d, bool $ok, string $method, s
  * (a stale/deleted device, or a target the agent hasn't been told about
  * yet) - never an error that could break snapshot ingestion.
  */
-function edge_ingest_check_result(PDO $pdo, string $tenant, string $ip, bool $ok, string $method, string $detail): void {
+function edge_ingest_check_result(PDO $pdo, array $config, string $tenant, string $ip, bool $ok, string $method, string $detail): void {
     $stmt = $pdo->prepare('SELECT * FROM edge_devices WHERE tenant = ? AND ip = ?');
     $stmt->execute([$tenant, $ip]);
     $d = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -672,7 +724,165 @@ function edge_ingest_check_result(PDO $pdo, string $tenant, string $ip, bool $ok
     // column). Tag it here so a status that flips because the agent's
     // check finally succeeded is visibly different from one OVH's own
     // probe produced, in the same history the operator already reads.
-    edge_apply_check_result($pdo, $d, $ok, $method, "(agent) {$detail}");
+    edge_apply_check_result($pdo, $config, $d, $ok, $method, "(agent) {$detail}");
+}
+
+
+/**
+ * Pick up to $count OTHER tenants (never the device's own owner_tenant) to
+ * ask for an independent cross-check, preferring ones with a recent
+ * heartbeat (last_seen within 10 min) — asking a tenant whose own agent is
+ * itself offline would just add a guaranteed-unanswered verifier and delay
+ * the eventual timeout-fallback alert for nothing. Only considers tenants
+ * actually present in config.php (a stale/removed tenants-table row that
+ * no longer has a config entry could never receive a signed command
+ * anyway). Returns an empty array (never an error) when nobody qualifies —
+ * the caller treats that as "no verification possible, alert immediately",
+ * exactly today's pre-cross-verify behavior.
+ */
+function edge_pick_verifier_tenants(PDO $pdo, array $config, string $owner_tenant, int $count): array {
+    $known = array_values(array_diff(array_keys($config['tenants'] ?? []), [$owner_tenant]));
+    if (empty($known)) return [];
+    $placeholders = implode(',', array_fill(0, count($known), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT id FROM tenants WHERE id IN ($placeholders)
+           AND last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, last_seen, NOW()) < 600
+         ORDER BY RAND() LIMIT " . max(1, $count)
+    );
+    $stmt->execute($known);
+    return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
+}
+
+
+/**
+ * Start a cross-tenant verification for a device about to be declared
+ * offline for the first time (called from edge_apply_check_result() right
+ * as it's about to flip to 'offline'). Picks verifier tenants, records the
+ * pending edge_verifications row, and marks the device verify_pending —
+ * the actual offline transition/alert is deferred to whichever resolves it
+ * later: edge_ingest_verify_result() (a verifier's agent reports back) or
+ * edge_verify_timeout_sweep() (nobody answered in time).
+ *
+ * Returns true if a verification was actually started (caller must NOT
+ * alert yet), false if no verifier tenant was available (caller falls back
+ * to the original immediate-alert behavior — never silently suppresses a
+ * real outage just because nobody could be asked to double-check it).
+ */
+function edge_start_verification(PDO $pdo, array $config, array $d): bool {
+    $count = (int)($config['edge_cross_verify_count'] ?? 2);
+    $tenants = edge_pick_verifier_tenants($pdo, $config, (string)$d['tenant'], $count);
+    if (empty($tenants)) return false;
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO edge_verifications (edge_id, owner_tenant, ip, check_port, verifier_tenants, results)
+         VALUES (?, ?, ?, ?, ?, "[]")'
+    );
+    $stmt->execute([$d['id'], $d['tenant'], $d['ip'], $d['check_port'], json_encode($tenants)]);
+    $pdo->prepare('UPDATE edge_devices SET verify_pending = 1 WHERE id = ?')->execute([$d['id']]);
+    return true;
+}
+
+
+/**
+ * A verifier tenant's agent reported back the result of an independent
+ * ping/TCP check it ran, at OVH's request, against ANOTHER tenant's
+ * suspect-offline WAN address (services/edge_selfcheck.py's
+ * check_verify_targets() / the "edge_verify_targets" command) — the
+ * cross-tenant confirmation step edge_start_verification() kicked off.
+ * Folds this one verifier's answer into the pending edge_verifications
+ * row and resolves it the moment enough is known: a single success
+ * resolves immediately as a false positive (no need to wait for the
+ * second verifier); every asked verifier having now reported failure
+ * resolves as confirmed and pushes the real offline transition/alert
+ * through.
+ *
+ * Deliberately re-validates that the reporting tenant is actually one of
+ * the verifiers THIS row asked, and hasn't already answered — a stale or
+ * replayed report is silently ignored, never trusted just because it
+ * carries a plausible-looking verification_id.
+ */
+function edge_ingest_verify_result(PDO $pdo, array $config, string $verifier_tenant, int $verification_id, string $ip, bool $ok, string $method, string $detail): void {
+    $stmt = $pdo->prepare('SELECT * FROM edge_verifications WHERE id = ?');
+    $stmt->execute([$verification_id]);
+    $v = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$v || $v['resolved_at'] !== null || $v['ip'] !== $ip) return;
+
+    $verifiers = json_decode($v['verifier_tenants'], true) ?: [];
+    if (!in_array($verifier_tenant, $verifiers, true)) return;
+
+    $results = json_decode($v['results'], true) ?: [];
+    foreach ($results as $r) {
+        if (($r['tenant'] ?? null) === $verifier_tenant) return; // already answered
+    }
+    $results[] = ['tenant' => $verifier_tenant, 'ok' => $ok, 'method' => $method, 'detail' => $detail, 'at' => date('c')];
+    $pdo->prepare('UPDATE edge_verifications SET results = ? WHERE id = ?')->execute([json_encode($results), $verification_id]);
+    $v['results'] = json_encode($results);
+
+    $any_ok = false;
+    foreach ($results as $r) { if (!empty($r['ok'])) { $any_ok = true; break; } }
+
+    if ($any_ok) {
+        edge_resolve_verification($pdo, $config, $v, 'false_positive');
+    } elseif (count($results) >= count($verifiers)) {
+        edge_resolve_verification($pdo, $config, $v, 'confirmed_down');
+    }
+    // else: still waiting on the remaining verifier(s) — leave unresolved.
+}
+
+
+/**
+ * Finish a pending cross-tenant verification: always clears the device's
+ * verify_pending flag, then either quietly resets it back to healthy
+ * ('false_positive' — a verifier reached it fine, treat like any other
+ * successful check, reset the debounce counter) or pushes the real
+ * offline transition/alert through now via edge_apply_check_result()'s
+ * $force=true path ('confirmed_down'/'timeout_down' — that decision has
+ * already been made here, force bypasses its normal $ok-based debounce).
+ */
+function edge_resolve_verification(PDO $pdo, array $config, array $v, string $resolution): void {
+    $pdo->prepare('UPDATE edge_verifications SET resolved_at = NOW(), resolution = ? WHERE id = ?')
+        ->execute([$resolution, $v['id']]);
+
+    $stmt = $pdo->prepare('SELECT * FROM edge_devices WHERE id = ?');
+    $stmt->execute([$v['edge_id']]);
+    $d = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$d) return;
+
+    $pdo->prepare('UPDATE edge_devices SET verify_pending = 0 WHERE id = ?')->execute([$d['id']]);
+    $d['verify_pending'] = 0;
+
+    if ($resolution === 'false_positive') {
+        $pdo->prepare('UPDATE edge_devices SET consecutive_fails = 0 WHERE id = ?')->execute([$d['id']]);
+        return;
+    }
+    edge_apply_check_result($pdo, $config, $d, false, 'cross-verify',
+        "confirmed offline by cross-tenant check (verification #{$v['id']}, {$resolution})", true);
+}
+
+
+/**
+ * Opportunistic tick (same "no real cron on shared hosting" trick as
+ * edge_check_due()/tenant_stale_check_due(), called on every ingest.php
+ * request): force-resolves any edge_verifications still unanswered after
+ * edge_cross_verify_timeout_min. Never leaves a suspect-offline device
+ * silently looking online forever just because the chosen verifier
+ * tenants' agents happened to be offline or slow themselves — falls back
+ * to alerting on the original evidence alone, exactly like the
+ * pre-cross-verify behavior, just delayed by the timeout window.
+ */
+function edge_verify_timeout_sweep(PDO $pdo, array $config): void {
+    $max_age_min = (int)($config['edge_cross_verify_timeout_min'] ?? 15);
+    $stmt = $pdo->prepare(
+        'SELECT * FROM edge_verifications WHERE resolved_at IS NULL AND requested_at < (NOW() - INTERVAL ? MINUTE)'
+    );
+    $stmt->execute([$max_age_min]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $v) {
+        try {
+            edge_resolve_verification($pdo, $config, $v, 'timeout_down');
+        } catch (Throwable $e) {
+            error_log('[mm-edge-verify] timeout resolve ' . ($v['id'] ?? '?') . ': ' . $e->getMessage());
+        }
+    }
 }
 
 

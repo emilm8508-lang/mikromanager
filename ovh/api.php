@@ -2231,7 +2231,7 @@ try {
             $d = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$d) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
             require_tenant($identity, $d['tenant']);
-            $res = edge_check_one($pdo,$d);
+            $res = edge_check_one($pdo,$config,$d);
             echo json_encode(['ok'=>true,'result'=>$res]);
             break;
 

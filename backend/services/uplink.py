@@ -298,6 +298,13 @@ async def _build_snapshot() -> dict:
         edge_check_results = []
 
     try:
+        from services import edge_selfcheck
+        edge_verify_results = await edge_selfcheck.check_verify_targets()
+    except Exception as e:
+        print(f"[uplink] edge cross-verify error: {e}")
+        edge_verify_results = []
+
+    try:
         fw_status = await firmware_status.collect_firmware_status()
     except Exception as e:
         print(f"[uplink] firmware status error: {e}")
@@ -444,6 +451,7 @@ async def _build_snapshot() -> dict:
         "alert_events": alert_events,
         "edge_ips": edge_ips,
         "edge_check_results": edge_check_results,
+        "edge_verify_results": edge_verify_results,
         "firmware_status": fw_status,
         "activity_events": activity_events,
         "log_fetch_results": log_fetch_results,
@@ -493,6 +501,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "alert_events": snapshot.get("alert_events", []),
             "edge_ips": snapshot.get("edge_ips", []),
             "edge_check_results": snapshot.get("edge_check_results", []),
+            "edge_verify_results": snapshot.get("edge_verify_results", []),
             "firmware_status": snapshot.get("firmware_status"),
             "activity_events": snapshot.get("activity_events", []),
             "supply_chain_status": snapshot.get("supply_chain_status"),
@@ -614,6 +623,12 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "edge_check_targets":
             enc = ",".join(f"{t.get('ip') or ''}/{int(t.get('check_port') or 0)}" for t in (c.get("targets") or []))
             parts.append(f"edge_check_targets:{enc}")
+        elif isinstance(c, dict) and c.get("type") == "edge_verify_targets":
+            enc = ",".join(
+                f"{int(t.get('verification_id') or 0)}:{t.get('ip') or ''}/{int(t.get('check_port') or 0)}"
+                for t in (c.get("targets") or [])
+            )
+            parts.append(f"edge_verify_targets:{enc}")
         elif isinstance(c, dict) and c.get("type") == "device_router_override":
             device_id = int(c.get("device_id") or 0)
             # "null"/"true"/"false" as literal strings - is_router is a
@@ -770,6 +785,15 @@ async def _handle_commands(commands: list) -> None:
         one-off action, so just stored for the next snapshot cycle's
         check_all() to use. No MANAGE_ENABLED gate: outbound ping/TCP
         connect to addresses OVH already tracks for this same tenant.
+      - {"type":"edge_verify_targets","targets":[{"verification_id":int,
+         "ip":str,"check_port":int|None}, ...]}                — addresses
+        owned by OTHER tenants that OVH picked this agent (at random) to
+        independently ping/TCP-check, before declaring that other
+        tenant's WAN link offline (cross-tenant false-positive guard —
+        see services/edge_selfcheck.py's module docstring). Same
+        resent-wholesale shape as edge_check_targets. No MANAGE_ENABLED
+        gate: same outbound-only ping/TCP, just to an address this agent
+        doesn't otherwise know anything about beyond the bare IP/port.
       - {"type":"device_router_override","device_id":N,
          "is_router":bool|None}                                 — manually
         confirm/correct whether a device counts as a "router" for
@@ -906,6 +930,10 @@ async def _handle_commands(commands: list) -> None:
                 from services import edge_selfcheck
                 targets = cmd.get("targets") or []
                 edge_selfcheck.set_targets(targets)
+            elif cmd_type == "edge_verify_targets":
+                from services import edge_selfcheck
+                targets = cmd.get("targets") or []
+                edge_selfcheck.set_verify_targets(targets)
             elif cmd_type == "device_router_override":
                 device_id = cmd.get("device_id")
                 is_router = cmd.get("is_router")
