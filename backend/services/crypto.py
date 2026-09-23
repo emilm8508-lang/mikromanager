@@ -64,10 +64,12 @@ def key_status() -> dict:
     # settings, services/prtg_client.py + checkmk_client.py) — still Fernet-
     # encrypted with this same key, so they belong in the same lifecycle
     # count and get re-encrypted below on rotation.
-    from services import prtg_client, checkmk_client
+    from services import prtg_client, checkmk_client, servicedesk_client
     if prtg_client.has_secret():
         count += 1
     if checkmk_client.has_secret():
+        count += 1
+    if servicedesk_client.has_secret():
         count += 1
 
     return {"key_created_at": created_at, "encrypted_field_count": count}
@@ -113,10 +115,11 @@ def rotate_key() -> dict:
     # Same rotation for the file-based PRTG/Check_MK/Wazuh connector
     # secrets — not DB rows, but must not go stale once the old key is
     # replaced below.
-    from services import prtg_client, checkmk_client, wazuh_client
+    from services import prtg_client, checkmk_client, wazuh_client, servicedesk_client
     rotated += prtg_client.reencrypt_with_keys(old_fernet, new_fernet)
     rotated += checkmk_client.reencrypt_with_keys(old_fernet, new_fernet)
     rotated += wazuh_client.reencrypt_with_keys(old_fernet, new_fernet)
+    rotated += servicedesk_client.reencrypt_with_keys(old_fernet, new_fernet)
 
     tmp_path = KEY_FILE + ".new"
     with open(tmp_path, "wb") as f:

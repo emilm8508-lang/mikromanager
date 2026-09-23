@@ -9,7 +9,7 @@ import {
   Cloud, Settings, Send, CheckCircle2, XCircle, AlertTriangle,
   Server, Network, ChevronRight, Wifi, WifiOff, RefreshCw, Shield, ShieldOff, Lock,
   HardDrive, Trash2, GitCommit, Download, FileText, ChevronDown, ChevronUp, Upload,
-  DatabaseBackup, Activity, Boxes, ShieldAlert,
+  DatabaseBackup, Activity, Boxes, ShieldAlert, Ticket,
 } from 'lucide-react'
 import { TenantBadge, tenantColor } from '../components/ui/TenantBadge'
 import { useTranslation } from 'react-i18next'
@@ -509,6 +509,112 @@ function WazuhPanel() {
               <span className="font-mono text-xs text-slate-800 break-all">{status?.indexer_url || '—'}</span>
               <span className="text-slate-500">{t('central.wazuhIndexerUsername')}:</span>
               <span className="text-slate-800">{status?.indexer_username || '—'}</span>
+              <span className="text-slate-500">TLS:</span>
+              <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="secondary" onClick={() => test.mutate()}
+                disabled={!status?.enabled || test.isPending}>
+                <RefreshCw size={13} /> {t('central.testConnection')}
+              </Button>
+              {testResult && (
+                testResult.ok ? (
+                  <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 size={13} /> {t('central.connectionOk')}</span>
+                ) : (
+                  <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── ManageEngine ServiceDesk Plus connector (on-premise — NIS2/KSC incident
+// and request register, see services/servicedesk_client.py's docstring) ──────
+// Deliberately settings + test-connection only for now, same as PRTG/Check_MK
+// started out — which local events should create a ticket here is a later,
+// separate decision, not wired up yet.
+
+function ServicedeskPanel() {
+  const { t } = useTranslation()
+  const { data: status, refetch } = useQuery({
+    queryKey: ['servicedesk-status'],
+    queryFn: systemApi.servicedeskStatus,
+  })
+
+  const [form, setForm] = useState({ url: '', authtoken: '', verify_ssl: true })
+  const [editing, setEditing] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    if (status && !editing) {
+      setForm({ url: status.url || '', authtoken: '', verify_ssl: status.verify_ssl ?? true })
+    }
+  }, [status, editing])
+
+  const save = useMutation({
+    mutationFn: () => systemApi.servicedeskConfigure(form),
+    onSuccess: () => { setEditing(false); setTestResult(null); refetch() },
+  })
+
+  const test = useMutation({
+    mutationFn: systemApi.servicedeskTest,
+    onSuccess: (r) => setTestResult(r),
+    onError: (e) => setTestResult({ ok: false, error: errorMessage(e) }),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Ticket size={15} className="text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-700">{t('central.servicedeskHeader')}</h2>
+            {status?.enabled ? (
+              <Badge variant="green">{t('central.enabled')}</Badge>
+            ) : (
+              <Badge variant="gray">{t('central.disabled')}</Badge>
+            )}
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Settings size={13} /> {t('common.edit')}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('central.servicedeskHint')}</p>
+        {editing ? (
+          <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
+            <Input label={t('central.servicedeskUrl')} placeholder="http://sdp.klient.local:8080"
+              value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
+            <Input label={t('central.servicedeskAuthtoken')} type="password"
+              placeholder={status?.has_authtoken ? t('central.apiKeyKeep') as string : ''}
+              value={form.authtoken} onChange={e => setForm(f => ({ ...f, authtoken: e.target.value }))} />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.verify_ssl}
+                onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
+              {t('central.verifySsl')}
+            </label>
+            {save.isError && (
+              <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null); save.reset() }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-[160px_1fr] gap-y-1.5">
+              <span className="text-slate-500">URL:</span>
+              <span className="font-mono text-xs text-slate-800 break-all">{status?.url || '—'}</span>
+              <span className="text-slate-500">{t('central.servicedeskAuthtoken')}:</span>
+              <span className="text-slate-800">{status?.has_authtoken ? '••••••••' : '—'}</span>
               <span className="text-slate-500">TLS:</span>
               <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
             </div>
@@ -1730,6 +1836,7 @@ export function Central() {
             <PrtgPanel />
             <CheckmkPanel />
             <WazuhPanel />
+            <ServicedeskPanel />
           </div>
         )
         : tab === 'monitoring' ? <MonitoringPanel />

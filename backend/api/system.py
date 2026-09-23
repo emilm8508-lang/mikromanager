@@ -17,6 +17,7 @@ from services import changelog as changelog_svc
 from services import prtg_client as prtg_svc
 from services import checkmk_client as checkmk_svc
 from services import wazuh_client as wazuh_svc
+from services import servicedesk_client as servicedesk_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -394,6 +395,32 @@ async def wazuh_configure(cfg: WazuhConfig):
 async def wazuh_test():
     """GET the indexer root only — never mutates Wazuh state."""
     return await wazuh_svc.test_connection()
+
+
+# ── ManageEngine ServiceDesk Plus connector (on-premise, NIS2/KSC incident
+# and request register — see services/servicedesk_client.py's docstring)
+# ─────────────────────────────────────────────────────────────────────────
+
+class ServicedeskConfig(BaseModel):
+    url: str
+    authtoken: str = ""  # empty = keep existing (see servicedesk_client.configure)
+    verify_ssl: bool = True
+
+
+@router.get("/servicedesk/status")
+async def servicedesk_status():
+    return servicedesk_svc.status()
+
+
+@router.post("/servicedesk/config")
+async def servicedesk_configure(cfg: ServicedeskConfig):
+    return servicedesk_svc.configure(url=cfg.url, authtoken=cfg.authtoken, verify_ssl=cfg.verify_ssl)
+
+
+@router.post("/servicedesk/test")
+async def servicedesk_test():
+    """GET 1 request row only — never mutates SDP state."""
+    return await servicedesk_svc.test_connection()
 
 
 @router.get("/changelog")

@@ -349,6 +349,13 @@ export interface WazuhStatus {
   verify_ssl: boolean
 }
 
+export interface ServicedeskStatus {
+  enabled: boolean
+  url: string
+  has_authtoken: boolean
+  verify_ssl: boolean
+}
+
 export interface SelfVersion {
   commit: string | null
   commit_time: number | null
@@ -397,6 +404,11 @@ export const systemApi = {
   wazuhConfigure: (data: { indexer_url: string; indexer_username: string; indexer_password: string; verify_ssl: boolean }) =>
     api.post<WazuhStatus>('/system/wazuh/config', data).then(r => r.data),
   wazuhTest: () => api.post<ConnectorTestResult>('/system/wazuh/test').then(r => r.data),
+
+  servicedeskStatus: () => api.get<ServicedeskStatus>('/system/servicedesk/status').then(r => r.data),
+  servicedeskConfigure: (data: { url: string; authtoken: string; verify_ssl: boolean }) =>
+    api.post<ServicedeskStatus>('/system/servicedesk/config', data).then(r => r.data),
+  servicedeskTest: () => api.post<ConnectorTestResult>('/system/servicedesk/test').then(r => r.data),
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
   cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),
