@@ -431,7 +431,25 @@ SUPPORTED_PACKAGE_MANAGERS = ("apt", "dnf")
 
 def _check_command(pkg_mgr: str) -> str:
     if pkg_mgr == "apt":
-        return "apt-get update -qq && apt list --upgradable 2>/dev/null"
+        # -s/--simulate predicts the SAME operation _upgrade_command()
+        # actually runs later (plain "upgrade", never "dist-upgrade") —
+        # deliberately NOT `apt list --upgradable`, which only lists
+        # already-installed packages that have a newer version and
+        # silently omits any NEW package apt's resolver has to install
+        # alongside them. A kernel update is the textbook case: the
+        # already-installed linux-generic/linux-image-generic/
+        # linux-headers-generic meta-packages show as "upgradable", but
+        # the real, much bigger download is the brand-new
+        # linux-image-X.Y.Z-N-generic + linux-headers-... +
+        # linux-modules-... packages apt installs alongside them (apt(8):
+        # "even if that means installing a new package instead of
+        # upgrading an existing one") — invisible to `apt list
+        # --upgradable`, which is exactly why Central showed "4 updates"
+        # for a host where a real `apt upgrade` needed 8 packages / 113 MB.
+        # Runs unprivileged like the old command did (simulate mode reads
+        # the index `apt-get update` just refreshed, doesn't need to lock
+        # anything for real).
+        return "apt-get update -qq && apt-get -s upgrade 2>/dev/null"
     if pkg_mgr == "dnf":
         # Exit code 100 means "updates available" (NOT an error) — handled
         # specially by the caller, see check_updates()/_run_check().
@@ -474,8 +492,16 @@ def _lock_message(output: str, pkg_mgr: str) -> Optional[str]:
 def _parse_upgradable(output: str, pkg_mgr: str) -> list:
     """Parses the check command's output into a list of package names,
     capped at 200 entries for storage. Formats differ per tool:
-      apt:  'firefox/jammy-updates 115.0 amd64 [upgradable from: 114.0]'
+      apt:  'Inst firefox [114.0] (115.0 jammy-updates [amd64])'  (upgrade)
+            'Inst linux-image-5.15.0-194-generic (5.15.0-194.204 ... [amd64])'  (new dependency)
       dnf:  'firefox.x86_64          115.0-1.el9        updates'
+
+    apt's simulate output also has 'Conf ...' lines (configuration step,
+    one per 'Inst' line, same package) and, for a dist-upgrade-style
+    removal, 'Remv ...' — neither relevant to plain "upgrade" (see
+    _check_command's docstring for why this isn't dist-upgrade), so only
+    'Inst ' lines are counted here; every actual install/upgrade action
+    has exactly one.
     """
     packages = []
     for line in output.splitlines():
@@ -483,9 +509,10 @@ def _parse_upgradable(output: str, pkg_mgr: str) -> list:
         if not line:
             continue
         if pkg_mgr == "apt":
-            if line.startswith("Listing"):
+            if not line.startswith("Inst "):
                 continue
-            name = line.split("/")[0].strip()
+            parts = line.split()
+            name = parts[1] if len(parts) >= 2 else None
         else:
             if line.startswith("Last metadata") or line.startswith("Obsoleting"):
                 continue
@@ -568,7 +595,8 @@ _ACTIVE_STATUSES = ("starting", "checking", "updating", "upgrading", "running_sc
 
 async def check_updates(host_id: int) -> dict:
     """Runs the check command for the host's package manager (apt: update
-    index + list upgradable; dnf: check-update) — read-only aside from
+    index + simulate an upgrade to see the FULL package set it would touch,
+    including new dependencies; dnf: check-update) — read-only aside from
     refreshing apt's package index, never installs anything. Separate from
     upgrade_host(), same UX split as services/firmware.py's
     check_updates() vs upgrade_device()."""
