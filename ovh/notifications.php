@@ -560,22 +560,44 @@ function edge_check_one(PDO $pdo, array $config, array $d): array {
  * A device newly going offline is NOT alerted on the spot — see the
  * verify_pending gate and edge_start_verification() call below — unless
  * $force is set (that IS the delayed, cross-tenant-confirmed decision) or
- * no other tenant was available to ask.
+ * no other tenant was available to ask. A symmetric guard protects the
+ * OPPOSITE, quieter direction: a device's own agent checking its OWN WAN
+ * address is prone to NAT hairpin false positives (many routers happily
+ * answer a ping/TCP-connect aimed at their own public IP from inside their
+ * own LAN, even though a genuinely external client gets nothing) —
+ * confirmed live: an edge device showed "online" indefinitely, from
+ * exactly this, while OVH's own probe couldn't even test it (no raw ICMP
+ * socket) and a real external ping timed out 100%. That guard fires
+ * whenever a $self_reported "ok" report would erase EXISTING doubt
+ * (another source's accumulated fails, or an already non-online status) —
+ * not merely when it happens to flip the status — because a hairpin-biased
+ * self-check succeeding every ~2 minutes would otherwise keep resetting
+ * OVH's own, much slower (~15 min) probe before it ever reached the 2
+ * consecutive fails needed to even start a down-verification.
  */
-function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, string $method, string $detail, bool $force = false): array {
+function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, string $method, string $detail, bool $force = false, bool $self_reported = false): array {
     $prev = $d['last_status'];
     $consecutive = (int)$d['consecutive_fails'];
     $now = date('Y-m-d H:i:s');
 
     // A cross-tenant verification is already in flight for this device
-    // (edge_start_verification() below started it on a previous call) — a
-    // fresh success resolves it immediately as a false positive, no need to
-    // wait for the asked verifier(s) too. A fresh failure just gets
-    // recorded; the actual offline decision stays with
-    // edge_ingest_verify_result()/edge_verify_timeout_sweep() below, which
-    // call back into this function with $force=true once resolved — that
-    // is the one case allowed to skip this gate (it IS the resolution).
+    // (edge_start_verification() below started it on a previous call).
+    // 'down' direction (suspected offline): a fresh success resolves it
+    // immediately as a false positive, no need to wait for the asked
+    // verifier(s) too — unchanged from before. 'up' direction (a
+    // self-check optimistically claimed online): deliberately NEVER
+    // resolved by a repeat report through this same path, trusted or not —
+    // that source is exactly what's being doubted, so it carries no new
+    // information either way. Only the actual verifier's answer
+    // (edge_ingest_verify_result()) or a timeout (edge_verify_timeout_sweep())
+    // can settle it, both calling back in here with $force=true — that is
+    // the one case allowed to skip this gate (it IS the resolution).
     if (!empty($d['verify_pending']) && !$force) {
+        if (($d['verify_direction'] ?? 'down') === 'up') {
+            $pdo->prepare('UPDATE edge_devices SET last_check = ?, last_check_detail = ? WHERE id = ?')
+                ->execute([$now, $detail, $d['id']]);
+            return ['ok' => $ok, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
+        }
         if ($ok) {
             $pdo->prepare('UPDATE edge_devices SET verify_pending = 0, consecutive_fails = 0, last_check = ?, last_check_detail = ? WHERE id = ?')
                 ->execute([$now, $detail, $d['id']]);
@@ -588,15 +610,51 @@ function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, st
         return ['ok' => false, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
     }
 
+    $cross_verify_count = (int)($config['edge_cross_verify_count'] ?? 2);
+
+    // Guard against the OPPOSITE, quieter failure mode from the down-side
+    // guard further below: see this function's own docstring for the
+    // NAT-hairpin reasoning. Deliberately checked BEFORE the debounce
+    // computation, and gated on "is there existing doubt this would erase"
+    // ($consecutive > 0, i.e. some OTHER source has already recorded a
+    // fail, or $prev isn't 'online' yet) rather than merely "does this
+    // change the status" — a self-reported success unconditionally resets
+    // $consecutive to 0 a few lines below, so if this only fired on an
+    // actual state CHANGE, a hairpin-biased self-check reporting "ok" every
+    // ~2 minutes would keep erasing OVH's own probe's fails (every ~15 min)
+    // before they could ever reach the 2-in-a-row needed to even START a
+    // down-verification — exactly what let a real outage sit shown as
+    // "online" indefinitely. A steady-state healthy device ($consecutive
+    // already 0, already 'online') has nothing to protect and passes
+    // straight through below, same as always — no extra verification churn
+    // for the common case. OVH's own probe isn't behind the tenant's NAT,
+    // so it has no hairpin bias and is never gated here ($self_reported is
+    // only ever true from edge_ingest_check_result()).
+    if (!$force && $self_reported && $ok && ($consecutive > 0 || $prev !== 'online') && $cross_verify_count > 0) {
+        if (edge_start_verification($pdo, $config, $d, 'up')) {
+            $pdo->prepare('UPDATE edge_devices SET last_check = ?, last_check_detail = ? WHERE id = ?')
+                ->execute([$now, $detail, $d['id']]);
+            return ['ok' => true, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
+        }
+        // No other tenant available to ask — fall through and trust the
+        // self-check as before (pre-existing behavior for a lone-tenant
+        // deployment; still far better than never clearing a suspected
+        // outage at all).
+    }
+
     // State-change rule: transition to offline only after 2 consecutive fails
-    // (avoids flapping on a single dropped packet). Online transition is immediate.
+    // (avoids flapping on a single dropped packet). A trusted source's
+    // (OVH's own probe, or a resolved cross-tenant verification) online
+    // transition is immediate — a $self_reported one with reason for doubt
+    // was already gated above.
     if ($force) {
-        // The debounce decision was already made by whoever resolved the
-        // cross-tenant verification (edge_ingest_verify_result()/
-        // edge_verify_timeout_sweep()) — this call is that resolution, not
-        // a new report, so it always pushes the offline transition through.
-        $effective = 'offline';
-        $consecutive = max($consecutive, 2);
+        // The debounce/trust decision was already made by whoever resolved
+        // the cross-tenant verification — this call IS that resolution,
+        // not a new report, so it always pushes the direction through
+        // ($ok tells us which way: true for a confirmed-online resolution,
+        // false for confirmed-offline/timeout).
+        $effective = $ok ? 'online' : 'offline';
+        $consecutive = $ok ? 0 : max($consecutive, 2);
     } elseif ($ok) {
         $consecutive = 0;
         $effective = 'online';
@@ -615,8 +673,8 @@ function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, st
     // OVH-side connectivity incident: the evidence was OVH's own network
     // (or the reporting agent itself being unreachable), never the client's
     // real WAN. See edge_start_verification()'s own docstring.
-    if (!$force && $state_changed && $effective === 'offline' && (int)($config['edge_cross_verify_count'] ?? 2) > 0) {
-        if (edge_start_verification($pdo, $config, $d)) {
+    if (!$force && $state_changed && $effective === 'offline' && $cross_verify_count > 0) {
+        if (edge_start_verification($pdo, $config, $d, 'down')) {
             $pdo->prepare('UPDATE edge_devices SET last_check = ?, consecutive_fails = ?, last_check_detail = ? WHERE id = ?')
                 ->execute([$now, $consecutive, $detail, $d['id']]);
             return ['ok' => false, 'state_changed' => false, 'new_status' => $prev, 'method' => $method, 'detail' => $detail, 'pending_verification' => true];
@@ -724,7 +782,7 @@ function edge_ingest_check_result(PDO $pdo, array $config, string $tenant, strin
     // column). Tag it here so a status that flips because the agent's
     // check finally succeeded is visibly different from one OVH's own
     // probe produced, in the same history the operator already reads.
-    edge_apply_check_result($pdo, $config, $d, $ok, $method, "(agent) {$detail}");
+    edge_apply_check_result($pdo, $config, $d, $ok, $method, "(agent) {$detail}", false, true);
 }
 
 
@@ -755,30 +813,35 @@ function edge_pick_verifier_tenants(PDO $pdo, array $config, string $owner_tenan
 
 
 /**
- * Start a cross-tenant verification for a device about to be declared
- * offline for the first time (called from edge_apply_check_result() right
- * as it's about to flip to 'offline'). Picks verifier tenants, records the
- * pending edge_verifications row, and marks the device verify_pending —
- * the actual offline transition/alert is deferred to whichever resolves it
- * later: edge_ingest_verify_result() (a verifier's agent reports back) or
- * edge_verify_timeout_sweep() (nobody answered in time).
+ * Start a cross-tenant verification for a device about to change state for
+ * the first time (called from edge_apply_check_result() right as it's
+ * about to flip). $direction is 'down' (about to declare offline — the
+ * original use case) or 'up' (a self-check optimistically claimed online,
+ * see edge_apply_check_result()'s docstring for the NAT-hairpin reasoning).
+ * Picks verifier tenants, records the pending edge_verifications row, and
+ * marks the device verify_pending — the actual transition/alert is
+ * deferred to whichever resolves it later: edge_ingest_verify_result() (a
+ * verifier's agent reports back) or edge_verify_timeout_sweep() (nobody
+ * answered in time).
  *
  * Returns true if a verification was actually started (caller must NOT
- * alert yet), false if no verifier tenant was available (caller falls back
- * to the original immediate-alert behavior — never silently suppresses a
- * real outage just because nobody could be asked to double-check it).
+ * apply the change yet), false if no verifier tenant was available (caller
+ * falls back to the original immediate behavior — never silently
+ * suppresses a real change just because nobody could be asked to
+ * double-check it).
  */
-function edge_start_verification(PDO $pdo, array $config, array $d): bool {
+function edge_start_verification(PDO $pdo, array $config, array $d, string $direction = 'down'): bool {
     $count = (int)($config['edge_cross_verify_count'] ?? 2);
     $tenants = edge_pick_verifier_tenants($pdo, $config, (string)$d['tenant'], $count);
     if (empty($tenants)) return false;
 
     $stmt = $pdo->prepare(
-        'INSERT INTO edge_verifications (edge_id, owner_tenant, ip, check_port, verifier_tenants, results)
-         VALUES (?, ?, ?, ?, ?, "[]")'
+        'INSERT INTO edge_verifications (edge_id, owner_tenant, ip, check_port, verifier_tenants, results, direction)
+         VALUES (?, ?, ?, ?, ?, "[]", ?)'
     );
-    $stmt->execute([$d['id'], $d['tenant'], $d['ip'], $d['check_port'], json_encode($tenants)]);
-    $pdo->prepare('UPDATE edge_devices SET verify_pending = 1 WHERE id = ?')->execute([$d['id']]);
+    $stmt->execute([$d['id'], $d['tenant'], $d['ip'], $d['check_port'], json_encode($tenants), $direction]);
+    $pdo->prepare('UPDATE edge_devices SET verify_pending = 1, verify_direction = ? WHERE id = ?')
+        ->execute([$direction, $d['id']]);
     return true;
 }
 
@@ -786,15 +849,23 @@ function edge_start_verification(PDO $pdo, array $config, array $d): bool {
 /**
  * A verifier tenant's agent reported back the result of an independent
  * ping/TCP check it ran, at OVH's request, against ANOTHER tenant's
- * suspect-offline WAN address (services/edge_selfcheck.py's
+ * suspect-status WAN address (services/edge_selfcheck.py's
  * check_verify_targets() / the "edge_verify_targets" command) — the
  * cross-tenant confirmation step edge_start_verification() kicked off.
  * Folds this one verifier's answer into the pending edge_verifications
- * row and resolves it the moment enough is known: a single success
- * resolves immediately as a false positive (no need to wait for the
- * second verifier); every asked verifier having now reported failure
- * resolves as confirmed and pushes the real offline transition/alert
- * through.
+ * row and resolves it the moment enough is known — the bar differs by
+ * direction, deliberately asymmetric:
+ *   'down' (suspected offline): a single success resolves immediately as
+ *     a false positive (low bar to clear a suspected outage); every asked
+ *     verifier having now reported failure resolves as confirmed (high
+ *     bar to actually alert).
+ *   'up' (a self-check optimistically claimed online, NAT-hairpin risk —
+ *     see edge_apply_check_result()'s docstring): the FIRST answer either
+ *     way is decisive and resolves immediately — a single independent
+ *     success is enough to trust the claim (low bar to confirm genuinely
+ *     good news), but a single independent failure is enough to reject it
+ *     (low bar to distrust a hairpin-prone self-claim; no need to wait for
+ *     a second verifier to pile on).
  *
  * Deliberately re-validates that the reporting tenant is actually one of
  * the verifiers THIS row asked, and hasn't already answered — a stale or
@@ -818,6 +889,11 @@ function edge_ingest_verify_result(PDO $pdo, array $config, string $verifier_ten
     $pdo->prepare('UPDATE edge_verifications SET results = ? WHERE id = ?')->execute([json_encode($results), $verification_id]);
     $v['results'] = json_encode($results);
 
+    if (($v['direction'] ?? 'down') === 'up') {
+        edge_resolve_verification($pdo, $config, $v, $ok ? 'confirmed_up' : 'up_rejected');
+        return;
+    }
+
     $any_ok = false;
     foreach ($results as $r) { if (!empty($r['ok'])) { $any_ok = true; break; } }
 
@@ -832,12 +908,24 @@ function edge_ingest_verify_result(PDO $pdo, array $config, string $verifier_ten
 
 /**
  * Finish a pending cross-tenant verification: always clears the device's
- * verify_pending flag, then either quietly resets it back to healthy
- * ('false_positive' — a verifier reached it fine, treat like any other
- * successful check, reset the debounce counter) or pushes the real
- * offline transition/alert through now via edge_apply_check_result()'s
- * $force=true path ('confirmed_down'/'timeout_down' — that decision has
- * already been made here, force bypasses its normal $ok-based debounce).
+ * verify_pending flag, then acts per $resolution:
+ *   'false_positive' ('down' direction — a verifier reached it fine):
+ *     quietly reset back to healthy, reset the debounce counter, like any
+ *     other successful check.
+ *   'confirmed_down' / 'timeout_down' ('down' direction): push the real
+ *     offline transition/alert through now via edge_apply_check_result()'s
+ *     $force=true, $ok=false path — that decision has already been made
+ *     here, force bypasses its normal debounce.
+ *   'confirmed_up' ('up' direction — a verifier independently reached it
+ *     too): push the real ONLINE transition through via $force=true,
+ *     $ok=true — the self-check's claim turned out to be genuine.
+ *   'up_rejected' / 'timeout_up' ('up' direction — a verifier couldn't
+ *     reach it, or nobody answered in time): the self-check's claim is
+ *     discarded, NOT applied — status and counters are left exactly as
+ *     they were before that (untrusted) claim came in. This is the one
+ *     resolution that does nothing beyond clearing verify_pending —
+ *     deliberately: an unconfirmed "it's up" is not information, it's
+ *     noise, so there is nothing to roll forward.
  */
 function edge_resolve_verification(PDO $pdo, array $config, array $v, string $resolution): void {
     $pdo->prepare('UPDATE edge_verifications SET resolved_at = NOW(), resolution = ? WHERE id = ?')
@@ -855,8 +943,12 @@ function edge_resolve_verification(PDO $pdo, array $config, array $v, string $re
         $pdo->prepare('UPDATE edge_devices SET consecutive_fails = 0 WHERE id = ?')->execute([$d['id']]);
         return;
     }
-    edge_apply_check_result($pdo, $config, $d, false, 'cross-verify',
-        "confirmed offline by cross-tenant check (verification #{$v['id']}, {$resolution})", true);
+    if (in_array($resolution, ['up_rejected', 'timeout_up'], true)) {
+        return;
+    }
+    $confirmed_ok = ($resolution === 'confirmed_up');
+    edge_apply_check_result($pdo, $config, $d, $confirmed_ok, 'cross-verify',
+        "confirmed {$resolution} by cross-tenant check (verification #{$v['id']})", true);
 }
 
 
@@ -878,7 +970,8 @@ function edge_verify_timeout_sweep(PDO $pdo, array $config): void {
     $stmt->execute([$max_age_min]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $v) {
         try {
-            edge_resolve_verification($pdo, $config, $v, 'timeout_down');
+            $resolution = ($v['direction'] ?? 'down') === 'up' ? 'timeout_up' : 'timeout_down';
+            edge_resolve_verification($pdo, $config, $v, $resolution);
         } catch (Throwable $e) {
             error_log('[mm-edge-verify] timeout resolve ' . ($v['id'] ?? '?') . ': ' . $e->getMessage());
         }

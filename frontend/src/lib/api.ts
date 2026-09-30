@@ -1700,6 +1700,8 @@ export interface EdgeDevice {
   last_state_change: string | null
   consecutive_fails: number
   last_check_detail: string | null
+  verify_pending: number
+  verify_direction: 'down' | 'up' | null
   created_at: string
 }
 

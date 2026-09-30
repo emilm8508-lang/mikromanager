@@ -2155,12 +2155,13 @@ try {
 
         // Edge monitoring
         case 'edge_devices':
-            $rows = $pdo->query('SELECT id,tenant,name,ip,check_port,interval_sec,channel_ids,enabled,source,source_device_id,source_device_name,source_iface,last_seen_from_agent,last_check,last_status,last_state_change,consecutive_fails,last_check_detail,created_at FROM edge_devices ORDER BY tenant,name')->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $pdo->query('SELECT id,tenant,name,ip,check_port,interval_sec,channel_ids,enabled,source,source_device_id,source_device_name,source_iface,last_seen_from_agent,last_check,last_status,last_state_change,consecutive_fails,last_check_detail,verify_pending,verify_direction,created_at FROM edge_devices ORDER BY tenant,name')->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$r) {
                 $r['channel_ids'] = json_decode($r['channel_ids']??'[]',true)?:[];
                 $r['enabled']=(int)$r['enabled']; $r['interval_sec']=(int)$r['interval_sec'];
                 $r['check_port'] = $r['check_port']!==null ? (int)$r['check_port'] : null;
                 $r['consecutive_fails']=(int)$r['consecutive_fails'];
+                $r['verify_pending']=(int)$r['verify_pending'];
             }
             unset($r);
             $rows = array_values(array_filter($rows, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));

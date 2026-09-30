@@ -805,6 +805,12 @@ function EdgeMonitoringPanel({ channels, tenants }: { channels: AlertChannel[]; 
                       </td>
                       <td>
                         {statusBadge(d.last_status)}
+                        {!!d.verify_pending && (
+                          <span className="ml-1 text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700"
+                            title={t('edge.verifyPendingHint') as string}>
+                            {d.verify_direction === 'up' ? t('edge.verifyPendingUp') : t('edge.verifyPendingDown')}
+                          </span>
+                        )}
                         {d.last_check_detail && (
                           <div className="text-[10px] text-slate-400 mt-0.5 max-w-[220px]" title={d.last_check_detail}>
                             {d.last_check_detail}
