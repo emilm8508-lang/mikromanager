@@ -614,23 +614,40 @@ function edge_apply_check_result(PDO $pdo, array $config, array $d, bool $ok, st
 
     // Guard against the OPPOSITE, quieter failure mode from the down-side
     // guard further below: see this function's own docstring for the
-    // NAT-hairpin reasoning. Deliberately checked BEFORE the debounce
-    // computation, and gated on "is there existing doubt this would erase"
-    // ($consecutive > 0, i.e. some OTHER source has already recorded a
-    // fail, or $prev isn't 'online' yet) rather than merely "does this
-    // change the status" — a self-reported success unconditionally resets
-    // $consecutive to 0 a few lines below, so if this only fired on an
-    // actual state CHANGE, a hairpin-biased self-check reporting "ok" every
-    // ~2 minutes would keep erasing OVH's own probe's fails (every ~15 min)
-    // before they could ever reach the 2-in-a-row needed to even START a
-    // down-verification — exactly what let a real outage sit shown as
-    // "online" indefinitely. A steady-state healthy device ($consecutive
-    // already 0, already 'online') has nothing to protect and passes
-    // straight through below, same as always — no extra verification churn
-    // for the common case. OVH's own probe isn't behind the tenant's NAT,
-    // so it has no hairpin bias and is never gated here ($self_reported is
-    // only ever true from edge_ingest_check_result()).
-    if (!$force && $self_reported && $ok && ($consecutive > 0 || $prev !== 'online') && $cross_verify_count > 0) {
+    // NAT-hairpin reasoning. Two independent reasons trigger it:
+    //   1. $consecutive > 0 || $prev !== 'online' — some OTHER source has
+    //      already recorded doubt this self-report would erase. Checked
+    //      BEFORE the debounce computation (which unconditionally zeroes
+    //      $consecutive a few lines below) rather than only on an actual
+    //      state CHANGE, for the same reason as #2 below.
+    //   2. $d['check_port'] === null — OVH's own probe can NEVER
+    //      corroborate this device AT ALL (no raw ICMP socket on this
+    //      hosting - see edge_check_ip()'s icmp_unavailable branch), so
+    //      reason #1 above can never accumulate here: OVH's active probe
+    //      also can't even run on its own schedule once a self-check is
+    //      active, because BOTH sources share the same last_check column
+    //      that edge_check_due()'s "is it due" query reads - a self-check
+    //      every ~2 min keeps that timestamp too fresh for OVH's ~15 min
+    //      interval to ever look due. This is exactly what let a real,
+    //      confirmed-externally-unreachable device sit shown as "online"
+    //      indefinitely even after guard #1 shipped. Throttled by
+    //      last_up_verify_at so an ICMP-only device gets a fresh
+    //      cross-tenant spot-check about once per interval_sec, not on
+    //      every single heartbeat.
+    // A steady-state healthy, check_port-configured device (consecutive
+    // already 0, already 'online', check_port set) has nothing to protect
+    // and passes straight through below, same as always — no extra
+    // verification churn for the common case. OVH's own probe isn't
+    // behind the tenant's NAT, so it has no hairpin bias and is never
+    // gated here ($self_reported is only ever true from
+    // edge_ingest_check_result()).
+    $needs_verify = $consecutive > 0 || $prev !== 'online';
+    if (!$needs_verify && $d['check_port'] === null) {
+        $last_verified = $d['last_up_verify_at'] ?? null;
+        $interval_sec = max(60, (int)($d['interval_sec'] ?? 900));
+        $needs_verify = !$last_verified || (time() - strtotime($last_verified)) >= $interval_sec;
+    }
+    if (!$force && $self_reported && $ok && $needs_verify && $cross_verify_count > 0) {
         if (edge_start_verification($pdo, $config, $d, 'up')) {
             $pdo->prepare('UPDATE edge_devices SET last_check = ?, last_check_detail = ? WHERE id = ?')
                 ->execute([$now, $detail, $d['id']]);
@@ -919,13 +936,23 @@ function edge_ingest_verify_result(PDO $pdo, array $config, string $verifier_ten
  *   'confirmed_up' ('up' direction — a verifier independently reached it
  *     too): push the real ONLINE transition through via $force=true,
  *     $ok=true — the self-check's claim turned out to be genuine.
- *   'up_rejected' / 'timeout_up' ('up' direction — a verifier couldn't
- *     reach it, or nobody answered in time): the self-check's claim is
- *     discarded, NOT applied — status and counters are left exactly as
- *     they were before that (untrusted) claim came in. This is the one
- *     resolution that does nothing beyond clearing verify_pending —
- *     deliberately: an unconfirmed "it's up" is not information, it's
- *     noise, so there is nothing to roll forward.
+ *   'up_rejected' ('up' direction — a verifier actually answered and
+ *     ALSO could not reach it): this is real, external, non-hairpin-biased
+ *     evidence the device is genuinely unreachable, not mere silence — so
+ *     it pushes the real OFFLINE transition through via $force=true,
+ *     $ok=false, the same as a 'confirmed_down' resolution. This matters
+ *     especially for a check_port-IS-NULL device, where OVH's own probe
+ *     structurally can never reach this conclusion on its own (no raw
+ *     ICMP socket) — without this, a rejected self-claim would otherwise
+ *     have nothing else to ever flip the status.
+ *   'timeout_up' ('up' direction — NOBODY answered in time): true silence,
+ *     not a rejection — status and counters are left exactly as they were
+ *     before that (untrusted) claim came in, the one resolution that does
+ *     nothing beyond clearing verify_pending. Deliberately asymmetric with
+ *     'timeout_down' (which DOES alert on silence) — a missed "confirm
+ *     it's really down" alert is far costlier than a missed "confirm it's
+ *     really back up", so silence defaults toward alerting for 'down' but
+ *     toward NOT trusting an unconfirmed self-claim for 'up'.
  */
 function edge_resolve_verification(PDO $pdo, array $config, array $v, string $resolution): void {
     $pdo->prepare('UPDATE edge_verifications SET resolved_at = NOW(), resolution = ? WHERE id = ?')
@@ -939,13 +966,26 @@ function edge_resolve_verification(PDO $pdo, array $config, array $v, string $re
     $pdo->prepare('UPDATE edge_devices SET verify_pending = 0 WHERE id = ?')->execute([$d['id']]);
     $d['verify_pending'] = 0;
 
+    if (($v['direction'] ?? 'down') === 'up') {
+        // Any 'up'-direction outcome counts as "just spot-checked" for the
+        // check_port-IS-NULL throttle in edge_apply_check_result() — even
+        // a rejection/timeout means we asked and got an answer (or gave it
+        // a fair chance to), so the next self-reported "ok" shouldn't
+        // trigger another round for another interval_sec.
+        $pdo->prepare('UPDATE edge_devices SET last_up_verify_at = NOW() WHERE id = ?')->execute([$d['id']]);
+    }
+
     if ($resolution === 'false_positive') {
         $pdo->prepare('UPDATE edge_devices SET consecutive_fails = 0 WHERE id = ?')->execute([$d['id']]);
         return;
     }
-    if (in_array($resolution, ['up_rejected', 'timeout_up'], true)) {
+    if ($resolution === 'timeout_up') {
         return;
     }
+    // confirmed_down / timeout_down / confirmed_up / up_rejected all push a
+    // real transition through: $ok is true only for confirmed_up, false
+    // for everything else (see this function's own docstring for why
+    // up_rejected counts as decisive evidence, not mere silence).
     $confirmed_ok = ($resolution === 'confirmed_up');
     edge_apply_check_result($pdo, $config, $d, $confirmed_ok, 'cross-verify',
         "confirmed {$resolution} by cross-tenant check (verification #{$v['id']})", true);

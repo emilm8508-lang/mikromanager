@@ -89,6 +89,14 @@ CREATE TABLE IF NOT EXISTS edge_devices (
     -- currently-open row so edge_apply_check_result() doesn't need a join
     -- just to decide how to treat the next incoming report.
     verify_direction VARCHAR(8) NULL,
+    -- Last time an 'up'-direction verification RESOLVED for this device
+    -- (any outcome — confirmed, rejected, or timed out all count as "just
+    -- spot-checked"). Used only for devices with check_port IS NULL, where
+    -- OVH's own probe can never independently corroborate a self-check at
+    -- all (no raw ICMP socket on shared hosting) — throttles how often a
+    -- self-reported "online" claim triggers a fresh cross-tenant check to
+    -- about once per interval_sec, instead of every single heartbeat.
+    last_up_verify_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_tenant_ip (tenant, ip),
     -- Identifies "this WAN interface on this device" independently of its
@@ -120,6 +128,7 @@ CREATE TABLE IF NOT EXISTS edge_devices (
 -- Existing install upgrading to this version, run once:
 -- ALTER TABLE edge_devices ADD COLUMN verify_pending TINYINT(1) NOT NULL DEFAULT 0;
 -- ALTER TABLE edge_devices ADD COLUMN verify_direction VARCHAR(8) NULL;
+-- ALTER TABLE edge_devices ADD COLUMN last_up_verify_at DATETIME NULL;
 
 -- Cross-tenant edge-device verification (see edge_apply_check_result()/
 -- edge_start_verification()/edge_ingest_verify_result() in
