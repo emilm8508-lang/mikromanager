@@ -2106,6 +2106,34 @@ try {
             echo json_encode(['ok'=>true,'id'=>(int)$pdo->lastInsertId()]);
             break;
 
+        case 'alert_rule_update':
+            require_write($identity);
+            $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }
+            $rt = $pdo->prepare('SELECT tenant FROM alert_rules WHERE id=?'); $rt->execute([$id]);
+            $existing_tenant = $rt->fetchColumn();
+            if ($existing_tenant === false) { http_response_code(404); echo json_encode(['error'=>'not found']); break; }
+            if ($existing_tenant === null) { require_global($identity); } else { require_tenant($identity, $existing_tenant); }
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) { http_response_code(400); echo json_encode(['error'=>'invalid body']); break; }
+            $ev = (string)($data['event_type']??''); $chs = $data['channel_ids'] ?? [];
+            if ($ev==='' || !is_array($chs) || empty($chs)) { http_response_code(400); echo json_encode(['error'=>'event_type and channel_ids required']); break; }
+            $new_tenant = trim((string)($data['tenant']??''))?:null;
+            if ($new_tenant === null) {
+                require_global($identity); // only a global admin may make a rule apply to every tenant
+            } else {
+                require_tenant($identity, $new_tenant);
+            }
+            $stmt = $pdo->prepare('UPDATE alert_rules SET name=?, tenant=?, event_type=?, min_count=?, cooldown_sec=?, channel_ids=? WHERE id=?');
+            $stmt->execute([
+                trim((string)($data['name']??''))?:null,
+                $new_tenant,
+                $ev, max(1,(int)($data['min_count']??1)), max(0,(int)($data['cooldown_sec']??3600)),
+                json_encode(array_values(array_map('intval',$chs))),
+                $id,
+            ]);
+            echo json_encode(['ok'=>true]);
+            break;
+
         case 'alert_rule_delete':
             require_write($identity);
             $id = (int)($_GET['id']??0); if ($id<=0) { http_response_code(400); echo json_encode(['error'=>'id required']); break; }

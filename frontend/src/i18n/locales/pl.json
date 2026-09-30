@@ -497,6 +497,7 @@
                     "eventCheckmkHostUp":  "Check_MK: host ponownie dostepny",
                     "eventWazuhAlert":  "Wazuh: nowy alert",
                      "minCount":  "Minimalna liczba",
+                     "minCountHint":  "Wiekszosc typow zdarzen (temperatura, pamiec, dysk, tunel, logi critical...) zawsze zglasza 1 - dla nich ustaw prog na 1, inaczej regula NIGDY sie nie uruchomi. Tylko 'nieudane logowania' liczy realna liczbe prob - tam wyzszy prog ma sens.",
                      "cooldownMin":  "Cooldown (min)",
                      "cooldown":  "Cooldown",
                      "threshold":  "Prog",

@@ -1972,6 +1972,8 @@ export const centralApi = {
   alertRules: () => centralRequest<{ rules: AlertRule[] }>('alert_rules'),
   alertRuleAdd: (data: AlertRuleInput) =>
     centralRequest<{ ok: boolean; id: number }>('alert_rule_add', {}, { method: 'POST', body: data }),
+  alertRuleUpdate: (id: number, data: AlertRuleInput) =>
+    centralRequest<{ ok: boolean }>('alert_rule_update', { id: String(id) }, { method: 'POST', body: data }),
   alertRuleDelete: (id: number) =>
     centralRequest<{ ok: boolean; deleted: number }>('alert_rule_delete', { id: String(id) }, { method: 'DELETE' }),
   alertRuleToggle: (id: number) =>

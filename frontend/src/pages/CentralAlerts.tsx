@@ -227,10 +227,17 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
   const [name, setName] = useState('')
   const [tenant, setTenant] = useState('')
   const [eventType, setEventType] = useState('failed_logins')
-  const [minCount, setMinCount] = useState(5)
+  // Default 1, not some higher number - most event types (anything that's
+  // a one-off "it happened" transition: temperature_high, memory_high,
+  // disk_space_low, tunnel_down, device_log_critical, ...) always report
+  // count=1 per event, so a threshold above 1 can never match at all.
+  // Only failed_logins-style events report a real multi-occurrence count -
+  // see alerts.minCountHint below, shown right next to the field.
+  const [minCount, setMinCount] = useState(1)
   const [cooldownMin, setCooldownMin] = useState(60)
   const [selectedChannels, setSelectedChannels] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   const reload = async () => {
     setLoading(true)
@@ -247,20 +254,38 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
 
   useEffect(() => { reload() }, [])
 
+  const resetForm = () => {
+    setShowForm(false); setEditingId(null)
+    setName(''); setTenant(''); setEventType('failed_logins')
+    setMinCount(1); setCooldownMin(60); setSelectedChannels([])
+  }
+
+  const beginEdit = (r: AlertRule) => {
+    setEditingId(r.id)
+    setName(r.name ?? ''); setTenant(r.tenant ?? ''); setEventType(r.event_type)
+    setMinCount(r.min_count); setCooldownMin(Math.round(r.cooldown_sec / 60))
+    setSelectedChannels(r.channel_ids)
+    setShowForm(true)
+  }
+
   const submit = async () => {
     if (selectedChannels.length === 0) { alert(t('alerts.selectChannel')); return }
     setSubmitting(true)
     try {
-      await centralApi.alertRuleAdd({
+      const payload = {
         name: name.trim() || undefined,
         tenant: tenant || undefined,
         event_type: eventType,
         min_count: minCount,
         cooldown_sec: cooldownMin * 60,
         channel_ids: selectedChannels,
-      })
-      setShowForm(false)
-      setName(''); setTenant(''); setMinCount(5); setCooldownMin(60); setSelectedChannels([])
+      }
+      if (editingId != null) {
+        await centralApi.alertRuleUpdate(editingId, payload)
+      } else {
+        await centralApi.alertRuleAdd(payload)
+      }
+      resetForm()
       await reload()
     } catch (e) {
       alert((e as Error).message)
@@ -288,7 +313,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
     <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-slate-900">{t('alerts.rulesTitle')}</h3>
-        <button onClick={() => setShowForm(v => !v)} disabled={channels.length === 0}
+        <button onClick={() => showForm ? resetForm() : setShowForm(true)} disabled={channels.length === 0}
           className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
           {showForm ? t('common.cancel') : `+ ${t('alerts.addRule')}`}
         </button>
@@ -354,6 +379,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
               <span className="text-slate-600">{t('alerts.minCount')}</span>
               <input type="number" min={1} value={minCount} onChange={e => setMinCount(parseInt(e.target.value) || 1)}
                 className="w-full mt-1 border border-slate-300 rounded px-2 py-1" />
+              <span className="block mt-1 text-xs text-slate-400">{t('alerts.minCountHint')}</span>
             </label>
             <label className="text-sm">
               <span className="text-slate-600">{t('alerts.cooldownMin')}</span>
@@ -375,7 +401,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
           </div>
           <button onClick={submit} disabled={submitting}
             className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
-            {submitting ? '...' : t('common.save')}
+            {submitting ? '...' : editingId != null ? t('common.save') : t('alerts.addRule')}
           </button>
         </div>
       )}
@@ -416,6 +442,9 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                   <button onClick={() => toggle(r.id)}
                     className={`text-xs px-2 py-0.5 rounded ${r.enabled ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                     {r.enabled ? t('alerts.enabled') : t('alerts.disabled')}
+                  </button>
+                  <button onClick={() => beginEdit(r)} className="text-xs text-indigo-600 hover:underline">
+                    {t('common.edit')}
                   </button>
                   <button onClick={() => del(r.id)} className="text-xs text-red-600 hover:underline">
                     {t('common.delete')}
