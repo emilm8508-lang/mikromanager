@@ -9,6 +9,7 @@
                 "vulnerabilities":  "Вразливості",
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
+                "hyperv":  "Hyper-V",
                 "inventory":  "Інвентар",
                 "software":  "ПЗ",
                 "compliance":  "Відповідність",
@@ -762,6 +763,20 @@
         "buttonBulk": "Запустити на вибраних ({{count}})",
         "selectedCount": "{{count}} вибраних хостів",
         "selectForBulk": "Вибрати для групового запуску"
+    },
+    "hyperv": {
+        "intro": "Хости Windows з виявленою роллю Hyper-V (серед вже керованих хостів Windows) - список ВМ, стан, використання ЦП/памʼяті.",
+        "noHosts": "Хости Hyper-V не виявлено - переконайтеся, що хост Windows позначено як керований.",
+        "noVms": "На цьому хості немає віртуальних машин.",
+        "running": "працює",
+        "logicalCpus": "логічних ядер",
+        "vmName": "Імʼя",
+        "state": "Стан",
+        "cpu": "ЦП",
+        "memoryAssigned": "Виділено памʼяті",
+        "memoryDemand": "Запитано памʼяті",
+        "heartbeat": "Heartbeat",
+        "uptime": "Час роботи"
     },
     "inventory": {
         "subtitle": "Усе, що знайшов сканер, згруповано — мережеві пристрої, хости Windows і Linux (лише серверні порти: SSH для Linux, SMB/RDP для Windows), а все інше — лише якщо є реальна вразливість.",

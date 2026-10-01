@@ -9,6 +9,7 @@
                 "vulnerabilities":  "Podatności",
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
+                "hyperv":  "Hyper-V",
                 "inventory":  "Inwentarz",
                 "software":  "Oprogramowanie",
                 "compliance":  "Zgodność",
@@ -478,6 +479,8 @@
                     "eventVulnOverdue":  "Podatności po terminie SLA",
                     "eventTunnelDown":  "Tunel VPN padl (WireGuard/IPsec)",
                     "eventTunnelUp":  "Tunel VPN wrocil (WireGuard/IPsec)",
+                    "eventHypervVmDown":  "Hyper-V: maszyna wirtualna przestala dzialac",
+                    "eventHypervVmUp":  "Hyper-V: maszyna wirtualna znowu dziala",
                     "eventDiskSpaceLow":  "Dysk prawie pelny",
                     "eventMemoryHigh":  "Wysokie zuzycie pamieci",
                     "eventTemperatureHigh": "Wysoka temperatura urzadzenia",
@@ -909,6 +912,20 @@
         "selectedCount": "{{count}} zaznaczonych hostów",
         "selectForBulk": "Zaznacz do zbiorczego uruchomienia"
     },
+    "hyperv": {
+        "intro": "Hosty Windows z wykrytą rolą Hyper-V (spośród już zarządzanych hostów Windows) — lista maszyn wirtualnych, stan, zużycie CPU/pamięci.",
+        "noHosts": "Brak wykrytych hostów Hyper-V — upewnij się, że host Windows jest oznaczony jako zarządzany.",
+        "noVms": "Brak maszyn wirtualnych na tym hoście.",
+        "running": "uruchomione",
+        "logicalCpus": "rdzeni logicznych",
+        "vmName": "Nazwa",
+        "state": "Stan",
+        "cpu": "CPU",
+        "memoryAssigned": "Pamięć przydzielona",
+        "memoryDemand": "Pamięć żądana",
+        "heartbeat": "Heartbeat",
+        "uptime": "Uptime"
+    },
     "inventory": {
         "subtitle": "Wszystko, co znalazł skaner, pogrupowane — urządzenia sieciowe, hosty Windows i Linux (tylko z portami typowymi dla serwera: SSH dla Linuksa, SMB/RDP dla Windows), a wszystko inne tylko jeśli ma realną podatność.",
         "groupNetwork": "Urządzenia sieciowe",
@@ -1136,6 +1153,13 @@
         "name": "Tunel",
         "status": "Status",
         "queryError": "błąd zapytania"
+    },
+    "hypervCentral": {
+        "title": "Hyper-V — wszyscy klienci",
+        "noHosts": "Brak wykrytych hostów Hyper-V u żadnego klienta.",
+        "host": "Host",
+        "vms": "VM uruchomione/razem",
+        "notRunning": "Nieuruchomione VM"
     },
     "dellCentral": {
         "title": "Serwery Dell (iDRAC) — wszyscy klienci",

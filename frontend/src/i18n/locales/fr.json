@@ -9,6 +9,7 @@
                 "vulnerabilities":  "Vulnérabilités",
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
+                "hyperv":  "Hyper-V",
                 "inventory":  "Inventaire",
                 "software":  "Logiciels",
                 "compliance":  "Conformité",
@@ -762,6 +763,20 @@
         "buttonBulk": "Exécuter sur la sélection ({{count}})",
         "selectedCount": "{{count}} hôtes sélectionnés",
         "selectForBulk": "Sélectionner pour une exécution groupée"
+    },
+    "hyperv": {
+        "intro": "Hôtes Windows avec le rôle Hyper-V détecté (parmi les hôtes Windows déjà gérés) - liste des VM, état, utilisation CPU/mémoire.",
+        "noHosts": "Aucun hôte Hyper-V détecté - assurez-vous que l'hôte Windows est marqué comme géré.",
+        "noVms": "Aucune machine virtuelle sur cet hôte.",
+        "running": "en cours",
+        "logicalCpus": "cœurs logiques",
+        "vmName": "Nom",
+        "state": "État",
+        "cpu": "CPU",
+        "memoryAssigned": "Mémoire allouée",
+        "memoryDemand": "Mémoire demandée",
+        "heartbeat": "Heartbeat",
+        "uptime": "Disponibilité"
     },
     "inventory": {
         "subtitle": "Tout ce que le scanner a trouvé, groupé — appareils réseau, hôtes Windows et Linux (uniquement les ports typiques d'un serveur : SSH pour Linux, SMB/RDP pour Windows), et tout le reste uniquement s'il a une vulnérabilité réelle.",

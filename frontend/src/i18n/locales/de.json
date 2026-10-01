@@ -9,6 +9,7 @@
                 "vulnerabilities":  "Schwachstellen",
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
+                "hyperv":  "Hyper-V",
                 "inventory":  "Inventar",
                 "software":  "Software",
                 "compliance":  "Compliance",
@@ -762,6 +763,20 @@
         "buttonBulk": "Skript auf ausgewählten ausführen ({{count}})",
         "selectedCount": "{{count}} ausgewählte Hosts",
         "selectForBulk": "Für Sammelausführung auswählen"
+    },
+    "hyperv": {
+        "intro": "Windows-Hosts mit erkannter Hyper-V-Rolle (unter bereits verwalteten Windows-Hosts) - VM-Liste, Status, CPU-/Speichernutzung.",
+        "noHosts": "Keine Hyper-V-Hosts erkannt - stellen Sie sicher, dass der Windows-Host als verwaltet markiert ist.",
+        "noVms": "Keine virtuellen Maschinen auf diesem Host.",
+        "running": "läuft",
+        "logicalCpus": "logische Kerne",
+        "vmName": "Name",
+        "state": "Status",
+        "cpu": "CPU",
+        "memoryAssigned": "Zugewiesener Speicher",
+        "memoryDemand": "Angeforderter Speicher",
+        "heartbeat": "Heartbeat",
+        "uptime": "Laufzeit"
     },
     "inventory": {
         "subtitle": "Alles, was der Scanner gefunden hat, gruppiert — Netzwerkgeräte, Windows- und Linux-Hosts (nur serverähnliche Ports: SSH für Linux, SMB/RDP für Windows), und alles andere nur bei einer tatsächlichen Schwachstelle.",

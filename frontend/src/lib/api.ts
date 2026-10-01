@@ -642,6 +642,23 @@ export interface CentralTunnelStatus {
   detail: string | null
 }
 
+// Redacted Hyper-V host+VM summary an agent includes in its snapshot
+// envelope (see services/hyperv_manage.py's public_summary()) — only
+// managed=True Windows hosts confirmed to actually run Hyper-V, and only
+// the VM NAMES currently not running (never the full healthy VM list,
+// nothing an operator needs a remote glance at).
+export interface CentralHypervHostStatus {
+  id: number
+  ip: string
+  hostname: string | null
+  logical_processor_count: number | null
+  memory_capacity_bytes: number | null
+  vm_count_total: number | null
+  vm_count_running: number | null
+  vms_not_running: string[]
+  last_check_at: string | null
+}
+
 // Redacted per-WAN-interface status an agent includes in its snapshot
 // envelope (see services/edge_discovery.py's public_summary()) — checked
 // locally by the agent from the router's own RouterOS "WAN" interface-list
@@ -1183,6 +1200,44 @@ export const windowsApi = {
     api.get<{ disks: HostDisk[] }>(`/windows/hosts/${hostId}/disks`).then(r => r.data.disks),
   checkResources: (hostId: number) =>
     api.post<{ queued: boolean }>(`/windows/hosts/${hostId}/resources/check`).then(r => r.data),
+}
+
+// ── Hyper-V host/VM inventory (local agent) ───────────────────────────────────
+
+export interface HypervHostOut {
+  id: number
+  windows_host_id: number
+  ip: string
+  hostname: string | null
+  logical_processor_count: number | null
+  memory_capacity_bytes: number | null
+  vm_count_total: number | null
+  vm_count_running: number | null
+  last_check_at: string | null
+  last_status: 'ok' | 'error' | 'not_hyperv' | null
+  last_error: string | null
+}
+
+export interface HypervVmOut {
+  id: number
+  name: string
+  state: string | null
+  status: string | null
+  cpu_usage_pct: number | null
+  memory_assigned_bytes: number | null
+  memory_demand_bytes: number | null
+  memory_startup_bytes: number | null
+  uptime_sec: number | null
+  heartbeat: string | null
+  last_seen_at: string | null
+}
+
+export const hypervApi = {
+  hosts: () => api.get<{ hosts: HypervHostOut[] }>('/hyperv/hosts').then(r => r.data.hosts),
+  vms: (hypervHostId: number) =>
+    api.get<{ vms: HypervVmOut[] }>(`/hyperv/hosts/${hypervHostId}/vms`).then(r => r.data.vms),
+  refresh: (windowsHostId: number) =>
+    api.post<{ ok?: boolean; error?: string; not_hyperv?: boolean }>(`/hyperv/hosts/${windowsHostId}/refresh`).then(r => r.data),
 }
 
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
@@ -1899,6 +1954,8 @@ export const centralApi = {
     centralRequest<{ pending: Array<{ tenant: string; enabled: boolean; queued_at: string }> }>('pending_windows_manage_toggles'),
   tunnelStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
+  hypervHostsStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   wanLinksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   complianceStatusAll: () =>

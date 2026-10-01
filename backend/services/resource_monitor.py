@@ -750,6 +750,16 @@ async def _refresh_loop():
                 await windows_manage.refresh_managed_hosts_resources()
             except Exception as e:
                 print(f"[resource_monitor] windows refresh error: {e}")
+            # Same WinRM session cost already being paid for the Windows
+            # resource check above — see services/hyperv_manage.py's own
+            # docstring for why this polling is split from its event
+            # detection (collect_hyperv_events(), called every ~2 min from
+            # uplink.py instead of here).
+            try:
+                from services import hyperv_manage
+                await hyperv_manage.refresh_managed_hyperv_hosts()
+            except Exception as e:
+                print(f"[resource_monitor] hyperv refresh error: {e}")
             # Pending-update (Windows Update / apt) counts used to only be
             # refreshed at vuln_scan's weekly discovery pass — up to a week
             # stale, which is exactly why Central's badge could show "1"

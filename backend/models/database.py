@@ -526,6 +526,52 @@ class WindowsManageSettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class HypervHost(Base):
+    """One managed WindowsHost confirmed to actually run the Hyper-V role
+    (services/hyperv_manage.py) — a separate table rather than extra columns
+    on WindowsHost, since not every managed Windows host is a hypervisor and
+    this carries its own refresh cadence/status independent of the plain
+    OS-level resource check. host-level CPU/memory utilization is NOT
+    duplicated here — WindowsHost.cpu_used_pct/mem_used_pct (already
+    collected every cycle) already reflect it; this table only adds what's
+    genuinely new: the VM inventory (HypervVM below) and host capacity."""
+    __tablename__ = "hyperv_hosts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    windows_host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=False, unique=True)
+    logical_processor_count = Column(Integer, nullable=True)
+    memory_capacity_bytes = Column(Integer, nullable=True)
+    vm_count_total = Column(Integer, nullable=True)
+    vm_count_running = Column(Integer, nullable=True)
+    last_check_at = Column(DateTime, nullable=True)
+    last_status = Column(String, nullable=True)    # "ok" | "error" | "not_hyperv"
+    last_error = Column(Text, nullable=True)
+
+
+class HypervVM(Base):
+    """One virtual machine on a HypervHost, as reported by `Get-VM` —
+    overwritten in place on every refresh cycle (live inventory mirror, not
+    an operator-curated list, so unlike LinuxHost/WindowsHost there's no
+    managed=False-until-reviewed gate here; nothing is ever acted upon,
+    only displayed/alerted on)."""
+    __tablename__ = "hyperv_vms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hyperv_host_id = Column(Integer, ForeignKey("hyperv_hosts.id"), nullable=False)
+    name = Column(String, nullable=False)
+    state = Column(String, nullable=True)            # "Running" | "Off" | "Saved" | "Paused" | ...
+    status = Column(String, nullable=True)           # Get-VM's own human-readable Status text
+    cpu_usage_pct = Column(Integer, nullable=True)
+    memory_assigned_bytes = Column(Integer, nullable=True)
+    memory_demand_bytes = Column(Integer, nullable=True)
+    memory_startup_bytes = Column(Integer, nullable=True)
+    uptime_sec = Column(Integer, nullable=True)
+    heartbeat = Column(String, nullable=True)        # Integration Services heartbeat state, if enabled in the guest
+    last_seen_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("hyperv_host_id", "name", name="uq_hyperv_vm"),)
+
+
 class ComplianceCheckResult(Base):
     """Result of one configuration-hardening check (services/compliance.py)
     against one managed target — read-only pass/fail, not a vulnerability

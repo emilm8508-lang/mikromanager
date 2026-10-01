@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cpu, MemoryStick, HardDrive, Thermometer } from 'lucide-react'
-import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralRouterStatus } from '../lib/api'
+import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralHypervHostStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralRouterStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
 import { HostUtilizationRow, UtilizationTile, temperatureColor } from '../components/UtilizationTile'
 
@@ -355,6 +355,8 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="vuln_overdue">{t('alerts.eventVulnOverdue')}</option>
                 <option value="tunnel_down">{t('alerts.eventTunnelDown')}</option>
                 <option value="tunnel_up">{t('alerts.eventTunnelUp')}</option>
+                <option value="hyperv_vm_down">{t('alerts.eventHypervVmDown')}</option>
+                <option value="hyperv_vm_up">{t('alerts.eventHypervVmUp')}</option>
                 <option value="disk_space_low">{t('alerts.eventDiskSpaceLow')}</option>
                 <option value="memory_high">{t('alerts.eventMemoryHigh')}</option>
                 <option value="temperature_high">{t('alerts.eventTemperatureHigh')}</option>
@@ -1640,6 +1642,84 @@ function TunnelCentralPanel() {
 }
 
 
+function HypervCentralPanel() {
+  const { t } = useTranslation()
+  const [rows, setRows] = useState<Array<{ tenant: string; host: CentralHypervHostStatus }>>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+
+  const reload = async () => {
+    try {
+      const s = await centralApi.hypervHostsStatusAll()
+      const flat: Array<{ tenant: string; host: CentralHypervHostStatus }> = []
+      for (const tRow of s.tenants) {
+        for (const h of tRow.hosts) flat.push({ tenant: tRow.tenant, host: h })
+      }
+      setRows(flat)
+      setErr(null)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    reload()
+    const iv = setInterval(reload, 30000)
+    return () => clearInterval(iv)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">{t('hypervCentral.title')}</h3>
+        <button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>
+      </div>
+      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-slate-500">{t('common.loading')}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-slate-500">{t('hypervCentral.noHosts')}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="py-1">Tenant</th>
+                <th>{t('hypervCentral.host')}</th>
+                <th>{t('hypervCentral.vms')}</th>
+                <th>{t('hypervCentral.notRunning')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ tenant, host }) => (
+                <tr key={`${tenant}:${host.id}`} className="border-b border-slate-100 align-top">
+                  <td className="py-2">{tenant}</td>
+                  <td className="font-mono text-xs">{host.hostname || host.ip}</td>
+                  <td>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      (host.vm_count_running ?? 0) === (host.vm_count_total ?? 0)
+                        ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {host.vm_count_running ?? 0}/{host.vm_count_total ?? 0}
+                    </span>
+                  </td>
+                  <td className="text-xs text-slate-600">
+                    {host.vms_not_running.length === 0 ? '—' : host.vms_not_running.join(', ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function WanLinksCentralPanel() {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Array<{ tenant: string; link: CentralWanLinkStatus }>>([])
@@ -2134,6 +2214,7 @@ export function MonitoringPanel() {
       <EdgeMonitoringPanel channels={channels} tenants={tenants} />
       <WanLinksCentralPanel />
       <TunnelCentralPanel />
+      <HypervCentralPanel />
       <SupplyChainCentralPanel />
     </div>
   )

@@ -9,6 +9,7 @@
                 "vulnerabilities":  "Vulnerabilities",
                 "linuxHosts":  "Linux",
                 "windowsHosts":  "Windows",
+                "hyperv":  "Hyper-V",
                 "inventory":  "Inventory",
                 "software":  "Software",
                 "compliance":  "Compliance",
@@ -762,6 +763,20 @@
         "buttonBulk": "Run script on selected ({{count}})",
         "selectedCount": "{{count}} selected hosts",
         "selectForBulk": "Select for bulk run"
+    },
+    "hyperv": {
+        "intro": "Windows hosts with the Hyper-V role detected (among already-managed Windows hosts) - VM list, state, CPU/memory usage.",
+        "noHosts": "No Hyper-V hosts detected - make sure the Windows host is marked as managed.",
+        "noVms": "No virtual machines on this host.",
+        "running": "running",
+        "logicalCpus": "logical cores",
+        "vmName": "Name",
+        "state": "State",
+        "cpu": "CPU",
+        "memoryAssigned": "Memory assigned",
+        "memoryDemand": "Memory demand",
+        "heartbeat": "Heartbeat",
+        "uptime": "Uptime"
     },
     "inventory": {
         "subtitle": "Everything the scanner has found, grouped — network devices, Windows and Linux hosts (server-like ports only: SSH for Linux, SMB/RDP for Windows), and anything else only if it has an actual vulnerability finding.",
