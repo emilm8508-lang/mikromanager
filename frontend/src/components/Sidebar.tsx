@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -276,12 +276,14 @@ export function Sidebar() {
   const centralHostsNavItem = { to: '/central/hosts', label: t('centralHosts.navLabel'), icon: TerminalSquare }
   const centralVulnNavItem = { to: '/central/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert }
   const centralExternalMonitoringNavItem = { to: '/central/external-monitoring', label: t('externalMonitoringCentral.navLabel'), icon: Activity }
+  const centralFirewallUsageNavItem = { to: '/central/firewall-usage', label: t('firewallUsageCentral.navLabel'), icon: ShieldQuestion }
+  const centralFirewallLogsNavItem = { to: '/central/firewall-logs', label: t('firewallLogsCentral.navLabel'), icon: ScrollText }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem]
+    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem]
     : [...agentNav, centralNavItem]
 
   return (

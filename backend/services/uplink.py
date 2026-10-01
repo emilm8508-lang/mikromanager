@@ -387,6 +387,13 @@ async def _build_snapshot() -> dict:
         hyperv_status = []
 
     try:
+        from services import firewall_analysis
+        firewall_status = firewall_analysis.public_summary()
+    except Exception as e:
+        print(f"[uplink] firewall analysis summary error: {e}")
+        firewall_status = []
+
+    try:
         from services import dell_monitor
         dell_servers_status = dell_monitor.public_summary()
     except Exception as e:
@@ -476,6 +483,7 @@ async def _build_snapshot() -> dict:
         "windows_manage_enabled": windows_manage_enabled,
         "tunnel_status": tunnel_status,
         "hyperv_status": hyperv_status,
+        "firewall_status": firewall_status,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -524,6 +532,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "windows_manage_enabled": snapshot.get("windows_manage_enabled", False),
             "tunnel_status": snapshot.get("tunnel_status", []),
             "hyperv_status": snapshot.get("hyperv_status", []),
+            "firewall_status": snapshot.get("firewall_status", []),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),

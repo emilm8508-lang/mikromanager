@@ -153,6 +153,31 @@ class DeviceInterfaceStats(Base):
     __table_args__ = (UniqueConstraint("device_id", "iface_name", name="uq_device_iface_stats"),)
 
 
+class DeviceFirewallAnalysis(Base):
+    """Per-Mikrotik-device firewall rule-usage + firewall-log activity
+    summary (services/firewall_analysis.py) — feeds Central's two
+    dedicated firewall pages (rule usage, log activity), since Central
+    never has a live connection to any device and needs SOMETHING
+    persisted to show. Separate table from Device (not extra columns
+    there) since this is a periodically-overwritten summary, not core
+    device identity/config — mirrors HypervHost's own separation from
+    WindowsHost for the same reason. One row per device, overwritten on
+    every hourly poll (no history kept, same as DeviceInterfaceStats)."""
+    __tablename__ = "device_firewall_analysis"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, unique=True)
+    checked_at = Column(DateTime, nullable=True)
+    rules_active = Column(Integer, nullable=True)
+    rules_unused = Column(Integer, nullable=True)
+    unused_rule_labels = Column(Text, nullable=True)   # JSON list, capped
+    log_count = Column(Integer, nullable=True)
+    log_top_sources = Column(Text, nullable=True)      # JSON list of {ip, count}, capped
+    log_recent = Column(Text, nullable=True)           # JSON list of parsed entries, capped
+    last_status = Column(String, nullable=True)        # "ok" | "error"
+    last_error = Column(Text, nullable=True)
+
+
 class ScanRange(Base):
     __tablename__ = "scan_ranges"
 

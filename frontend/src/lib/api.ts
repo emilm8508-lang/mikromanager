@@ -659,6 +659,22 @@ export interface CentralHypervHostStatus {
   last_check_at: string | null
 }
 
+// Redacted per-device firewall rule-usage + firewall-log activity summary
+// an agent includes in its snapshot envelope (see services/
+// firewall_analysis.py's public_summary()) — capped lists only, never
+// the full raw rule set or full log text.
+export interface CentralFirewallDeviceStatus {
+  device_id: number
+  device_name: string
+  checked_at: string | null
+  rules_active: number | null
+  rules_unused: number | null
+  unused_rule_labels: string[]
+  log_count: number | null
+  log_top_sources: Array<{ ip: string; count: number }>
+  log_recent: Array<{ time?: string; chain?: string; proto?: string; src?: string; src_port?: string; dst?: string; dst_port?: string }>
+}
+
 // Redacted per-WAN-interface status an agent includes in its snapshot
 // envelope (see services/edge_discovery.py's public_summary()) — checked
 // locally by the agent from the router's own RouterOS "WAN" interface-list
@@ -1956,6 +1972,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; tunnels: CentralTunnelStatus[] }> }>('tunnel_status_all'),
   hypervHostsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
+  firewallStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
   wanLinksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   complianceStatusAll: () =>

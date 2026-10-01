@@ -1129,6 +1129,26 @@
         "countLow": "niskie: {{count}}",
         "allSeverities": "Wszystkie priorytety"
     },
+    "firewallUsageCentral": {
+        "navLabel": "Reguly firewalla",
+        "title": "Wykorzystanie regul firewalla — wszyscy klienci",
+        "intro": "Liczniki trafien pakietow per regula (RouterOS /ip firewall filter i nat) zbierane co godzine przez agenta kazdego klienta - reguly z zerem trafien to kandydaci do usuniecia.",
+        "noDevices": "Brak danych u zadnego klienta - sprawdzenia jeszcze sie nie wykonaly (co godzine) albo zadne urzadzenie nie ma skonfigurowanych poswiadczen.",
+        "unusedOfActive": "{{unused}} z {{active}} nieuzywanych"
+    },
+    "firewallLogsCentral": {
+        "navLabel": "Logi firewalla",
+        "title": "Aktywnosc w logach firewalla — wszyscy klienci",
+        "intro": "Wpisy z logu o temacie \"firewall\" (reguly z log=yes), sparsowane na chain/protokol/adresy - zbierane co godzine razem z licznikami regul. Nie jest to pelna, ciagla historia - tylko to, co bylo w buforze logu urzadzenia przy ostatnim sprawdzeniu.",
+        "noDevices": "Brak danych u zadnego klienta.",
+        "entryCount": "{{count}} wpisow",
+        "topSources": "Najczestsze zrodla",
+        "time": "Czas",
+        "chain": "Chain",
+        "proto": "Protokol",
+        "src": "Zrodlo",
+        "dst": "Cel"
+    },
     "externalMonitoringCentral": {
         "navLabel": "PRTG / Check_MK / Wazuh",
         "title": "PRTG / Check_MK / Wazuh — wszyscy klienci",

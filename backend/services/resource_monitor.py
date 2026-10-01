@@ -791,6 +791,16 @@ async def _mikrotik_refresh_loop():
             await asyncio.sleep(delay)
             delay = DEVICE_RESOURCE_CHECK_MIN * 60
             await _poll_mikrotik_devices()
+            # Firewall rule-usage + firewall-log activity summaries for
+            # Central's two dedicated firewall pages — own connection
+            # (not threaded through _poll_mikrotik_devices/_poll_device_logs
+            # above) so a problem here can never affect the existing
+            # resource/critical-log polling. See services/firewall_analysis.py.
+            try:
+                from services import firewall_analysis
+                await firewall_analysis.refresh_all_devices()
+            except Exception as e:
+                print(f"[resource_monitor] firewall analysis refresh error: {e}")
         except asyncio.CancelledError:
             break
         except Exception as e:

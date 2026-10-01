@@ -15,6 +15,8 @@ import { CentralDellServers } from './pages/CentralDellServers'
 import { CentralRouters } from './pages/CentralRouters'
 import { CentralHosts } from './pages/CentralHosts'
 import { CentralVulnerabilities } from './pages/CentralVulnerabilities'
+import { CentralFirewallUsage } from './pages/CentralFirewallUsage'
+import { CentralFirewallLogs } from './pages/CentralFirewallLogs'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
@@ -61,6 +63,8 @@ export default function App() {
             <Route path="/central/routers" element={<CentralRouters />} />
             <Route path="/central/hosts" element={<CentralHosts />} />
             <Route path="/central/vulnerabilities" element={<CentralVulnerabilities />} />
+            <Route path="/central/firewall-usage" element={<CentralFirewallUsage />} />
+            <Route path="/central/firewall-logs" element={<CentralFirewallLogs />} />
           </Routes>
         </main>
       </div>
