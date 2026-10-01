@@ -163,7 +163,11 @@
                          "ifaceThresholdPlaceholder":  "np. 800",
                          "ifaceName":  "Interfejs",
                          "ifaceErrors":  "Błędy RX/TX",
-                         "ifaceDrops":  "Drops RX/TX"
+                         "ifaceDrops":  "Drops RX/TX",
+                         "firewallUsage":  {
+                             "title":  "Analiza wykorzystania reguł",
+                             "summary":  "{{unused}} z {{total}} aktywnych reguł nigdy nie dopasowało pakietu (0 trafień) — kandydaci do usunięcia:"
+                         }
                      },
     "credentials":  {
                         "title":  "Poświadczenia",
@@ -249,7 +253,9 @@
                  "noLogs":  "Brak logów do wyświetlenia",
                  "live":  "Na żywo",
                  "stopStream":  "Zatrzymaj",
-                 "startStream":  "Strumieniuj live"
+                 "startStream":  "Strumieniuj live",
+                 "searchPlaceholder":  "Szukaj (adres IP, port, treść)...",
+                 "firewallOnly":  "Tylko firewall"
              },
     "map":  {
                 "title":  "Mapa sieci",

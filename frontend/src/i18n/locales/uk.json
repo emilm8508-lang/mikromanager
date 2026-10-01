@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "напр. 800",
                          "ifaceName":  "Інтерфейс",
                          "ifaceErrors":  "Помилки RX/TX",
-                         "ifaceDrops":  "Втрати RX/TX"
+                         "ifaceDrops":  "Втрати RX/TX",
+                         "firewallUsage":  {
+                             "title":  "Аналіз використання правил",
+                             "summary":  "{{unused}} із {{total}} активних правил жодного разу не збіглося з пакетом (0 збігів) - кандидати на видалення:"
+                         }
                      },
     "credentials":  {
                         "title":  "Облікові дані",
@@ -246,7 +250,9 @@
                  "noLogs":  "Журналів для показу немає",
                  "live":  "Live",
                  "stopStream":  "Стоп",
-                 "startStream":  "Live-потік"
+                 "startStream":  "Live-потік",
+                 "searchPlaceholder":  "Пошук (IP-адреса, порт, текст)...",
+                 "firewallOnly":  "Тільки firewall"
              },
     "map":  {
                 "title":  "Карта мережі",

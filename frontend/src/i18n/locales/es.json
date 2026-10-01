@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "p. ej. 800",
                          "ifaceName":  "Interfaz",
                          "ifaceErrors":  "Errores RX/TX",
-                         "ifaceDrops":  "Descartes RX/TX"
+                         "ifaceDrops":  "Descartes RX/TX",
+                         "firewallUsage":  {
+                             "title":  "Análisis de uso de reglas",
+                             "summary":  "{{unused}} de {{total}} reglas activas nunca coincidieron con un paquete (0 coincidencias) - candidatas a eliminar:"
+                         }
                      },
     "credentials":  {
                         "title":  "Credenciales",
@@ -246,7 +250,9 @@
                  "noLogs":  "Sin registros que mostrar",
                  "live":  "En vivo",
                  "stopStream":  "Detener",
-                 "startStream":  "Transmitir en vivo"
+                 "startStream":  "Transmitir en vivo",
+                 "searchPlaceholder":  "Buscar (dirección IP, puerto, texto)...",
+                 "firewallOnly":  "Solo firewall"
              },
     "map":  {
                 "title":  "Mapa de red",

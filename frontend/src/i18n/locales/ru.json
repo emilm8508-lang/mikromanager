@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "напр. 800",
                          "ifaceName":  "Интерфейс",
                          "ifaceErrors":  "Ошибки RX/TX",
-                         "ifaceDrops":  "Потери RX/TX"
+                         "ifaceDrops":  "Потери RX/TX",
+                         "firewallUsage":  {
+                             "title":  "Анализ использования правил",
+                             "summary":  "{{unused}} из {{total}} активных правил ни разу не совпали ни с одним пакетом (0 совпадений) - кандидаты на удаление:"
+                         }
                      },
     "credentials":  {
                         "title":  "Учётные данные",
@@ -246,7 +250,9 @@
                  "noLogs":  "Журналов для отображения нет",
                  "live":  "Live",
                  "stopStream":  "Стоп",
-                 "startStream":  "Live-поток"
+                 "startStream":  "Live-поток",
+                 "searchPlaceholder":  "Поиск (IP-адрес, порт, текст)...",
+                 "firewallOnly":  "Только firewall"
              },
     "map":  {
                 "title":  "Карта сети",

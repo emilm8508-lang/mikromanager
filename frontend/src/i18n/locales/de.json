@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "z. B. 800",
                          "ifaceName":  "Schnittstelle",
                          "ifaceErrors":  "RX/TX-Fehler",
-                         "ifaceDrops":  "RX/TX-Drops"
+                         "ifaceDrops":  "RX/TX-Drops",
+                         "firewallUsage":  {
+                             "title":  "Analyse der Regelnutzung",
+                             "summary":  "{{unused}} von {{total}} aktiven Regeln haben noch nie ein Paket abgeglichen (0 Treffer) - Kandidaten zum Entfernen:"
+                         }
                      },
     "credentials":  {
                         "title":  "Zugangsdaten",
@@ -246,7 +250,9 @@
                  "noLogs":  "Keine Protokolle zum Anzeigen",
                  "live":  "Live",
                  "stopStream":  "Stopp",
-                 "startStream":  "Live streamen"
+                 "startStream":  "Live streamen",
+                 "searchPlaceholder":  "Suche (IP-Adresse, Port, Text)...",
+                 "firewallOnly":  "Nur Firewall"
              },
     "map":  {
                 "title":  "Netzwerkkarte",

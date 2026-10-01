@@ -54,6 +54,51 @@ function DataTable({ data, emptyLabel }: { data: Record<string, unknown>[]; empt
   )
 }
 
+// Rule-usage analysis for the Firewall tab — RouterOS already returns
+// packet/byte hit counters on every /ip/firewall/filter and /ip/firewall/
+// nat entry (no extra request needed, this is the same data the raw
+// DataTable below already renders) — this just surfaces the one thing
+// that's genuinely hard to see in a raw property dump: which rules have
+// NEVER matched a single packet, i.e. candidates for cleanup. Disabled
+// rules are deliberately excluded (a disabled rule reading 0 packets is
+// expected, not a finding).
+function _ruleLabel(r: Record<string, unknown>): string {
+  const chain = String(r.chain ?? '?')
+  const action = String(r.action ?? '?')
+  const bits = [chain, action]
+  if (r['dst-port']) bits.push(`dport ${r['dst-port']}`)
+  if (r['protocol']) bits.push(String(r['protocol']))
+  if (r['src-address']) bits.push(`src ${r['src-address']}`)
+  if (r['dst-address']) bits.push(`dst ${r['dst-address']}`)
+  if (r['comment']) bits.push(`"${r['comment']}"`)
+  return bits.join(' · ')
+}
+
+function FirewallUsageSummary({ filter, nat }: { filter: Record<string, unknown>[]; nat: Record<string, unknown>[] }) {
+  const { t } = useTranslation()
+  const rows = [...(filter ?? []), ...(nat ?? [])]
+  const active = rows.filter(r => String(r.disabled ?? 'false').toLowerCase() !== 'true')
+  const unused = active.filter(r => Number(r.packets ?? 0) === 0)
+  if (active.length === 0) return null
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-slate-700 font-medium">{t('deviceDetail.firewallUsage.title')}</span>
+        <span className="text-slate-500">
+          {t('deviceDetail.firewallUsage.summary', { unused: unused.length, total: active.length })}
+        </span>
+      </div>
+      {unused.length > 0 && (
+        <ul className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 space-y-1 max-h-48 overflow-y-auto">
+          {unused.map((r, i) => (
+            <li key={i} className="font-mono">{_ruleLabel(r)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function FirmwareTab({ deviceId }: { deviceId: number }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -337,6 +382,7 @@ function TabContent({ deviceId, tab }: { deviceId: number; tab: Tab }) {
     const fw = data as { filter: Record<string, unknown>[]; nat: Record<string, unknown>[] }
     return (
       <div className="space-y-4">
+        <FirewallUsageSummary filter={fw.filter ?? []} nat={fw.nat ?? []} />
         <div>
           <h3 className="text-xs font-semibold text-slate-600 mb-2">Filter</h3>
           <DataTable data={fw.filter ?? []} emptyLabel={t('common.noData')} />

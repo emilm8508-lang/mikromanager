@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "e.g. 800",
                          "ifaceName":  "Interface",
                          "ifaceErrors":  "RX/TX errors",
-                         "ifaceDrops":  "RX/TX drops"
+                         "ifaceDrops":  "RX/TX drops",
+                         "firewallUsage":  {
+                             "title":  "Rule usage analysis",
+                             "summary":  "{{unused}} of {{total}} active rules never matched a single packet (0 hits) - cleanup candidates:"
+                         }
                      },
     "credentials":  {
                         "title":  "Credentials",
@@ -246,7 +250,9 @@
                  "noLogs":  "No logs to display",
                  "live":  "Live",
                  "stopStream":  "Stop",
-                 "startStream":  "Stream live"
+                 "startStream":  "Stream live",
+                 "searchPlaceholder":  "Search (IP address, port, text)...",
+                 "firewallOnly":  "Firewall only"
              },
     "map":  {
                 "title":  "Network map",

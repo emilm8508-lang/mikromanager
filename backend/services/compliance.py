@@ -251,6 +251,34 @@ async def _check_wan_management_exposed(client, filter_rows: list) -> tuple:
     return True, "Brak wykrytych reguł dopuszczających zarządzanie z WAN bez ograniczenia adresu źródłowego."
 
 
+def _check_drop_rules_logged(filter_rows: list) -> tuple:
+    """Standard practice: a terminal drop/reject rule should have log=yes
+    so dropped traffic is actually visible in /log (and, by extension, in
+    the agent's own Logi page — which now has a dedicated "tylko firewall"
+    filter specifically to read this) — otherwise a real scan/attack
+    attempt against this device leaves literally no trace to investigate
+    after the fact. Only looks at the LAST active drop/reject per chain
+    (the one that actually matters for "what happens to everything else"),
+    same reasoning as _check_input_chain_default_drop above."""
+    terminal_drops = []
+    for chain in ("input", "forward"):
+        rules = [r for r in (filter_rows or [])
+                 if isinstance(r, dict) and r.get("chain") == chain and _rule_active(r)
+                 and r.get("action") in ("drop", "reject")]
+        if rules:
+            terminal_drops.append((chain, rules[-1]))
+    if not terminal_drops:
+        return None, "Brak aktywnych reguł drop/reject w chain=input/forward — nie można ocenić."
+    unlogged = [chain for chain, r in terminal_drops if str(r.get("log", "false")).lower() not in ("true", "yes")]
+    if unlogged:
+        return False, (
+            f"Reguła drop/reject w chain={', '.join(unlogged)} nie ma włączonego logowania (log=yes). "
+            f"Zalecenie: ustaw log=yes (opcjonalnie log-prefix, np. \"DROP-INPUT: \") na końcowej regule drop, "
+            f"żeby odrzucony ruch był widoczny w logach do analizy (zakładka Logi, filtr \"tylko firewall\")."
+        )
+    return True, "Końcowe reguły drop/reject w chain=input/forward mają włączone logowanie (log=yes)."
+
+
 MIKROTIK_FIREWALL_CHECKS = [
     {"id": "mikrotik.forward_chain_not_fully_open",
      "title": "Reguły NAT (port forwarding) mają odpowiadające reguły filtra w chain=forward", "severity": "high"},
@@ -258,6 +286,8 @@ MIKROTIK_FIREWALL_CHECKS = [
      "title": "Łańcuch input kończy się jawną regułą drop", "severity": "medium"},
     {"id": "mikrotik.wan_management_restricted",
      "title": "Dostęp do zarządzania z WAN ograniczony adresem źródłowym", "severity": "high"},
+    {"id": "mikrotik.drop_rules_logged",
+     "title": "Reguły drop/reject na końcu łańcucha mają włączone logowanie", "severity": "low"},
 ]
 
 
@@ -421,6 +451,11 @@ async def run_mikrotik_checks(device_id: int) -> list:
 
         passed, detail = await _check_wan_management_exposed(client, filter_rows)
         meta = checks_meta["mikrotik.wan_management_restricted"]
+        results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
+                         "passed": passed, "detail": detail})
+
+        passed, detail = _check_drop_rules_logged(filter_rows)
+        meta = checks_meta["mikrotik.drop_rules_logged"]
         results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
                          "passed": passed, "detail": detail})
     except Exception as e:

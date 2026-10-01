@@ -160,7 +160,11 @@
                          "ifaceThresholdPlaceholder":  "ex. 800",
                          "ifaceName":  "Interface",
                          "ifaceErrors":  "Erreurs RX/TX",
-                         "ifaceDrops":  "Pertes RX/TX"
+                         "ifaceDrops":  "Pertes RX/TX",
+                         "firewallUsage":  {
+                             "title":  "Analyse d'utilisation des règles",
+                             "summary":  "{{unused}} règles actives sur {{total}} n'ont jamais correspondu à un paquet (0 correspondance) - candidates à la suppression :"
+                         }
                      },
     "credentials":  {
                         "title":  "Identifiants",
@@ -246,7 +250,9 @@
                  "noLogs":  "Aucun journal à afficher",
                  "live":  "En direct",
                  "stopStream":  "Arrêter",
-                 "startStream":  "Diffuser en direct"
+                 "startStream":  "Diffuser en direct",
+                 "searchPlaceholder":  "Rechercher (adresse IP, port, texte)...",
+                 "firewallOnly":  "Firewall uniquement"
              },
     "map":  {
                 "title":  "Carte réseau",
