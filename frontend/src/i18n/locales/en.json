@@ -319,6 +319,8 @@
                     "endpointcentralAuthType":  "Authentication type",
                     "endpointcentralAuthLocal":  "Endpoint Central local account",
                     "endpointcentralAuthAd":  "Active Directory account",
+                    "endpointcentralAuthApiKey":  "API key (recommended, works with 2FA)",
+                    "endpointcentralApiKey":  "API key",
                     "endpointcentralDomain":  "Domain",
                     "endpointcentralSampleHint":  "API response preview (read-only) — path starts with /api/. Used to confirm the data format before building pages.",
                     "endpointcentralSampleRun":  "Fetch",

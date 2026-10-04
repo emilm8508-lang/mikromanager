@@ -319,6 +319,8 @@
                     "endpointcentralAuthType":  "Authentifizierungstyp",
                     "endpointcentralAuthLocal":  "Lokales Endpoint-Central-Konto",
                     "endpointcentralAuthAd":  "Active-Directory-Konto",
+                    "endpointcentralAuthApiKey":  "API-Schlüssel (empfohlen, funktioniert mit 2FA)",
+                    "endpointcentralApiKey":  "API-Schlüssel",
                     "endpointcentralDomain":  "Domäne",
                     "endpointcentralSampleHint":  "Vorschau der API-Antwort (nur lesend) — Pfad beginnt mit /api/. Dient zur Bestätigung des Datenformats vor dem Bau der Seiten.",
                     "endpointcentralSampleRun":  "Abrufen",

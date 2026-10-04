@@ -429,8 +429,8 @@ async def servicedesk_test():
 
 class EndpointCentralConfig(BaseModel):
     url: str
-    username: str
-    password: str = ""  # empty = keep existing
+    username: str = ""  # unused for auth_type="api_key"
+    password: str = ""  # empty = keep existing; holds the API key for "api_key"
     auth_type: str = "local_authentication"
     domain: str = ""
     verify_ssl: bool = True

@@ -354,7 +354,7 @@ export interface EndpointCentralStatus {
   url: string
   username: string
   has_password: boolean
-  auth_type: 'local_authentication' | 'ad_authentication'
+  auth_type: 'local_authentication' | 'ad_authentication' | 'api_key'
   domain: string
   verify_ssl: boolean
 }

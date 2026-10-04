@@ -319,6 +319,8 @@
                     "endpointcentralAuthType":  "Tipo de autenticación",
                     "endpointcentralAuthLocal":  "Cuenta local de Endpoint Central",
                     "endpointcentralAuthAd":  "Cuenta de Active Directory",
+                    "endpointcentralAuthApiKey":  "Clave API (recomendado, funciona con 2FA)",
+                    "endpointcentralApiKey":  "Clave API",
                     "endpointcentralDomain":  "Dominio",
                     "endpointcentralSampleHint":  "Vista previa de la respuesta de la API (solo lectura) — la ruta empieza por /api/. Sirve para confirmar el formato de los datos antes de construir las páginas.",
                     "endpointcentralSampleRun":  "Obtener",

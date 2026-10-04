@@ -319,6 +319,8 @@
                     "endpointcentralAuthType":  "Тип автентифікації",
                     "endpointcentralAuthLocal":  "Локальний обліковий запис Endpoint Central",
                     "endpointcentralAuthAd":  "Обліковий запис Active Directory",
+                    "endpointcentralAuthApiKey":  "Ключ API (рекомендовано, працює з 2FA)",
+                    "endpointcentralApiKey":  "Ключ API",
                     "endpointcentralDomain":  "Домен",
                     "endpointcentralSampleHint":  "Перегляд відповіді API (лише читання) — шлях починається з /api/. Потрібен для підтвердження формату даних перед створенням сторінок.",
                     "endpointcentralSampleRun":  "Отримати",

@@ -710,19 +710,22 @@ function EndpointCentralPanel() {
           <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
             <Input label={t('central.endpointcentralUrl')} placeholder="https://endpoint.klient.local:8383"
               value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
-            <Input label={t('central.endpointcentralUsername')}
-              value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
-            <Input label={t('central.endpointcentralPassword')} type="password"
-              placeholder={status?.has_password ? t('central.apiKeyKeep') as string : ''}
-              value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             <label className="text-sm block">
               <span className="text-slate-600">{t('central.endpointcentralAuthType')}</span>
               <select value={form.auth_type} onChange={e => setForm(f => ({ ...f, auth_type: e.target.value }))}
                 className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
+                <option value="api_key">{t('central.endpointcentralAuthApiKey')}</option>
                 <option value="local_authentication">{t('central.endpointcentralAuthLocal')}</option>
                 <option value="ad_authentication">{t('central.endpointcentralAuthAd')}</option>
               </select>
             </label>
+            {form.auth_type !== 'api_key' && (
+              <Input label={t('central.endpointcentralUsername')}
+                value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
+            )}
+            <Input label={t(form.auth_type === 'api_key' ? 'central.endpointcentralApiKey' : 'central.endpointcentralPassword')} type="password"
+              placeholder={status?.has_password ? t('central.apiKeyKeep') as string : ''}
+              value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             {form.auth_type === 'ad_authentication' && (
               <Input label={t('central.endpointcentralDomain')}
                 value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} />

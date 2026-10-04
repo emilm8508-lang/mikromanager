@@ -49,6 +49,8 @@ _SAMPLE_MAX_CHARS = 20000
 
 
 def is_configured() -> bool:
+    if _config["auth_type"] == "api_key":
+        return bool(_config["url"] and _config["password"])
     return bool(_config["url"] and _config["username"] and _config["password"])
 
 
@@ -71,7 +73,7 @@ def configure(url: str, username: str, password: str = "", auth_type: str = "loc
     _config["username"] = username
     if password:
         _config["password"] = password
-    _config["auth_type"] = auth_type if auth_type in ("local_authentication", "ad_authentication") else "local_authentication"
+    _config["auth_type"] = auth_type if auth_type in ("local_authentication", "ad_authentication", "api_key") else "local_authentication"
     _config["domain"] = domain
     _config["verify_ssl"] = verify_ssl
     _persist()
@@ -132,11 +134,46 @@ def _find_token(obj: Any) -> Optional[str]:
     return None
 
 
+_TWO_FACTOR_MSG = ("konto ma włączone 2FA (kod OTP) — logowanie hasłem nie wystarczy; "
+                   "użyj typu uwierzytelniania \"Klucz API\" (Admin > Integrations > API Key Management)")
+
+
+def _two_factor_required(data: Any) -> bool:
+    """The login answers HTTP 200 with a two_factor_data block (and no
+    auth_token) when the account has 2FA on — seen live against a real
+    instance."""
+    try:
+        tf = data["message_response"]["authentication"]["two_factor_data"]
+        return bool(tf.get("is_TwoFactor_Enabled")) and _find_token(data) is None
+    except Exception:
+        return False
+
+
+async def _api_key_check() -> dict:
+    """API-key mode: the key itself is sent as the Authorization header (no
+    login round trip, so 2FA on the owning account doesn't matter). Proven
+    with one read-only call, since there's no login to confirm it."""
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(f"{_config['url']}/api/1.4/som/computers?pagelimit=1",
+                                    headers={"Authorization": _config["password"]},
+                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                text = await resp.text()
+                if resp.status == 200:
+                    return {"ok": True, "token": _config["password"], "api_version": "1.4 (klucz API)"}
+                return {"ok": False, "error": f"HTTP {resp.status} {text[:200]}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 async def login() -> dict:
     """Returns {"ok": True, "token": str, "api_version": "1.4"|"1.3"} or
     {"ok": False, "error": str}. Never raises."""
     if not is_configured():
         return {"ok": False, "error": "not configured"}
+    if _config["auth_type"] == "api_key":
+        return await _api_key_check()
     b64_pw = base64.b64encode(_config["password"].encode("utf-8")).decode()
     body = {"username": _config["username"], "password": b64_pw, "auth_type": _config["auth_type"]}
     if _config["auth_type"] == "ad_authentication" and _config["domain"]:
@@ -154,6 +191,8 @@ async def login() -> dict:
                     token = _find_token(data)
                     if resp.status == 200 and token:
                         return {"ok": True, "token": token, "api_version": "1.4"}
+                    if _two_factor_required(data):
+                        return {"ok": False, "error": _TWO_FACTOR_MSG}
                     errors.append(f"1.4: HTTP {resp.status} {str(data)[:200]}")
             except Exception as e:
                 errors.append(f"1.4: {e}")
