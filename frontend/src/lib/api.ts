@@ -349,6 +349,24 @@ export interface WazuhStatus {
   verify_ssl: boolean
 }
 
+export interface EndpointCentralStatus {
+  enabled: boolean
+  url: string
+  username: string
+  has_password: boolean
+  auth_type: 'local_authentication' | 'ad_authentication'
+  domain: string
+  verify_ssl: boolean
+}
+
+export interface EndpointCentralSample {
+  ok: boolean
+  status?: number
+  body?: string
+  truncated?: boolean
+  error?: string
+}
+
 export interface ServicedeskStatus {
   enabled: boolean
   url: string
@@ -409,6 +427,14 @@ export const systemApi = {
   servicedeskConfigure: (data: { url: string; authtoken: string; verify_ssl: boolean }) =>
     api.post<ServicedeskStatus>('/system/servicedesk/config', data).then(r => r.data),
   servicedeskTest: () => api.post<ConnectorTestResult>('/system/servicedesk/test').then(r => r.data),
+
+  endpointcentralStatus: () => api.get<EndpointCentralStatus>('/system/endpointcentral/status').then(r => r.data),
+  endpointcentralConfigure: (data: { url: string; username: string; password: string; auth_type: string; domain: string; verify_ssl: boolean }) =>
+    api.post<EndpointCentralStatus>('/system/endpointcentral/config', data).then(r => r.data),
+  endpointcentralTest: () =>
+    api.post<ConnectorTestResult & { api_version?: string }>('/system/endpointcentral/test').then(r => r.data),
+  endpointcentralSample: (path: string) =>
+    api.post<EndpointCentralSample>('/system/endpointcentral/sample', { path }).then(r => r.data),
   firmwareCompliance: () => api.get<FirmwareComplianceReport>('/system/firmware-compliance').then(r => r.data),
   cryptoStatus: () => api.get<CryptoStatus>('/system/crypto/status').then(r => r.data),
   rotateKey: () => api.post<{ ok: boolean; rotated_fields: number }>('/system/crypto/rotate-key').then(r => r.data),

@@ -638,6 +638,157 @@ function ServicedeskPanel() {
   )
 }
 
+// ── ManageEngine Endpoint Central connector (on-premise — client workstation
+// patch/inventory state, see services/endpointcentral_client.py) ─────────────
+// Connector-only for now: settings, login test, and a raw-response sample
+// tool, so real response shapes can be confirmed against a live instance
+// before any data page is built on them.
+
+function EndpointCentralPanel() {
+  const { t } = useTranslation()
+  const { data: status, refetch } = useQuery({
+    queryKey: ['endpointcentral-status'],
+    queryFn: systemApi.endpointcentralStatus,
+  })
+
+  const [form, setForm] = useState({ url: '', username: '', password: '', auth_type: 'local_authentication', domain: '', verify_ssl: true })
+  const [editing, setEditing] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; api_version?: string } | null>(null)
+  const [samplePath, setSamplePath] = useState('/api/1.4/som/computers')
+  const [sample, setSample] = useState<{ ok: boolean; status?: number; body?: string; truncated?: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    if (status && !editing) {
+      setForm({
+        url: status.url || '', username: status.username || '', password: '',
+        auth_type: status.auth_type || 'local_authentication', domain: status.domain || '',
+        verify_ssl: status.verify_ssl ?? true,
+      })
+    }
+  }, [status, editing])
+
+  const save = useMutation({
+    mutationFn: () => systemApi.endpointcentralConfigure(form),
+    onSuccess: () => { setEditing(false); setTestResult(null); refetch() },
+  })
+
+  const test = useMutation({
+    mutationFn: systemApi.endpointcentralTest,
+    onSuccess: (r) => setTestResult(r),
+    onError: (e) => setTestResult({ ok: false, error: errorMessage(e) }),
+  })
+
+  const runSample = useMutation({
+    mutationFn: () => systemApi.endpointcentralSample(samplePath),
+    onSuccess: (r) => setSample(r),
+    onError: (e) => setSample({ ok: false, error: errorMessage(e) }),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Boxes size={15} className="text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-700">{t('central.endpointcentralHeader')}</h2>
+            {status?.enabled ? (
+              <Badge variant="green">{t('central.enabled')}</Badge>
+            ) : (
+              <Badge variant="gray">{t('central.disabled')}</Badge>
+            )}
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Settings size={13} /> {t('common.edit')}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-500">{t('central.endpointcentralHint')}</p>
+        {editing ? (
+          <form onSubmit={e => { e.preventDefault(); save.mutate() }} className="space-y-3">
+            <Input label={t('central.endpointcentralUrl')} placeholder="https://endpoint.klient.local:8383"
+              value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
+            <Input label={t('central.endpointcentralUsername')}
+              value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
+            <Input label={t('central.endpointcentralPassword')} type="password"
+              placeholder={status?.has_password ? t('central.apiKeyKeep') as string : ''}
+              value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+            <label className="text-sm block">
+              <span className="text-slate-600">{t('central.endpointcentralAuthType')}</span>
+              <select value={form.auth_type} onChange={e => setForm(f => ({ ...f, auth_type: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
+                <option value="local_authentication">{t('central.endpointcentralAuthLocal')}</option>
+                <option value="ad_authentication">{t('central.endpointcentralAuthAd')}</option>
+              </select>
+            </label>
+            {form.auth_type === 'ad_authentication' && (
+              <Input label={t('central.endpointcentralDomain')}
+                value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} />
+            )}
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.verify_ssl}
+                onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
+              {t('central.verifySsl')}
+            </label>
+            {save.isError && (
+              <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" onClick={() => { setEditing(false); setTestResult(null); save.reset() }}>{t('common.cancel')}</Button>
+              <Button type="submit" variant="primary" disabled={save.isPending}>{t('common.save')}</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-[160px_1fr] gap-y-1.5">
+              <span className="text-slate-500">URL:</span>
+              <span className="font-mono text-xs text-slate-800 break-all">{status?.url || '—'}</span>
+              <span className="text-slate-500">{t('central.endpointcentralUsername')}:</span>
+              <span className="text-slate-800">{status?.username || '—'}</span>
+              <span className="text-slate-500">TLS:</span>
+              <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="secondary" onClick={() => test.mutate()}
+                disabled={!status?.enabled || test.isPending}>
+                <RefreshCw size={13} /> {t('central.testConnection')}
+              </Button>
+              {testResult && (
+                testResult.ok ? (
+                  <span className="text-xs text-green-700 flex items-center gap-1">
+                    <CheckCircle2 size={13} /> {t('central.connectionOk')}{testResult.api_version ? ` (API ${testResult.api_version})` : ''}
+                  </span>
+                ) : (
+                  <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
+                )
+              )}
+            </div>
+            {status?.enabled && (
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-xs text-slate-500">{t('central.endpointcentralSampleHint')}</p>
+                <div className="flex gap-2">
+                  <input value={samplePath} onChange={e => setSamplePath(e.target.value)}
+                    className="flex-1 border border-slate-300 rounded px-2 py-1 text-xs font-mono" />
+                  <Button size="sm" variant="secondary" onClick={() => runSample.mutate()} disabled={runSample.isPending}>
+                    {t('central.endpointcentralSampleRun')}
+                  </Button>
+                </div>
+                {sample && (
+                  <pre className="text-[11px] bg-slate-50 border border-slate-200 rounded p-2 max-h-72 overflow-auto whitespace-pre-wrap break-all">
+                    {sample.error ? sample.error : `HTTP ${sample.status}${sample.truncated ? ' (obcięto)' : ''}\n${sample.body ?? ''}`}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Viewer panel (used on your laptop) ───────────────────────────────────────
 
 function ViewerConfigForm({ onSaved }: { onSaved: () => void }) {
@@ -1837,6 +1988,7 @@ export function Central() {
             <CheckmkPanel />
             <WazuhPanel />
             <ServicedeskPanel />
+            <EndpointCentralPanel />
           </div>
         )
         : tab === 'monitoring' ? <MonitoringPanel />

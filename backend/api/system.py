@@ -18,6 +18,7 @@ from services import prtg_client as prtg_svc
 from services import checkmk_client as checkmk_svc
 from services import wazuh_client as wazuh_svc
 from services import servicedesk_client as servicedesk_svc
+from services import endpointcentral_client as endpointcentral_svc
 from services.crypto import decrypt
 from services.mikrotik_client import MikrotikClient
 from models.database import SessionLocal, Device, Credential
@@ -421,6 +422,47 @@ async def servicedesk_configure(cfg: ServicedeskConfig):
 async def servicedesk_test():
     """GET 1 request row only — never mutates SDP state."""
     return await servicedesk_svc.test_connection()
+
+
+# ── ManageEngine Endpoint Central connector (on-premise — client workstation
+# patch/inventory state, see services/endpointcentral_client.py) ─────────────
+
+class EndpointCentralConfig(BaseModel):
+    url: str
+    username: str
+    password: str = ""  # empty = keep existing
+    auth_type: str = "local_authentication"
+    domain: str = ""
+    verify_ssl: bool = True
+
+
+class EndpointCentralSampleIn(BaseModel):
+    path: str
+
+
+@router.get("/endpointcentral/status")
+async def endpointcentral_status():
+    return endpointcentral_svc.status()
+
+
+@router.post("/endpointcentral/config")
+async def endpointcentral_configure(cfg: EndpointCentralConfig):
+    return endpointcentral_svc.configure(
+        url=cfg.url, username=cfg.username, password=cfg.password,
+        auth_type=cfg.auth_type, domain=cfg.domain, verify_ssl=cfg.verify_ssl)
+
+
+@router.post("/endpointcentral/test")
+async def endpointcentral_test():
+    """Login only — never mutates Endpoint Central state."""
+    return await endpointcentral_svc.test_connection()
+
+
+@router.post("/endpointcentral/sample")
+async def endpointcentral_sample(body: EndpointCentralSampleIn):
+    """Read-only GET of one /api/ path, raw (truncated) body returned — for
+    confirming real response shapes before building pages on them."""
+    return await endpointcentral_svc.fetch_sample(body.path)
 
 
 @router.get("/changelog")
