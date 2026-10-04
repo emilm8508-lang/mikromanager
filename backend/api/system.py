@@ -429,11 +429,12 @@ async def servicedesk_test():
 
 class EndpointCentralConfig(BaseModel):
     url: str
-    username: str = ""  # unused for auth_type="api_key"
-    password: str = ""  # empty = keep existing; holds the API key for "api_key"
+    username: str
+    password: str = ""  # empty = keep existing
     auth_type: str = "local_authentication"
     domain: str = ""
     verify_ssl: bool = True
+    totp_secret: str = ""  # empty = keep existing; only for accounts with 2FA
 
 
 class EndpointCentralSampleIn(BaseModel):
@@ -449,7 +450,8 @@ async def endpointcentral_status():
 async def endpointcentral_configure(cfg: EndpointCentralConfig):
     return endpointcentral_svc.configure(
         url=cfg.url, username=cfg.username, password=cfg.password,
-        auth_type=cfg.auth_type, domain=cfg.domain, verify_ssl=cfg.verify_ssl)
+        auth_type=cfg.auth_type, domain=cfg.domain, verify_ssl=cfg.verify_ssl,
+        totp_secret=cfg.totp_secret)
 
 
 @router.post("/endpointcentral/test")

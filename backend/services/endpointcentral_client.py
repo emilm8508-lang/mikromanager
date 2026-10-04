@@ -41,16 +41,16 @@ _config = {
     "password": "",       # plaintext in memory; encrypted on disk
     "auth_type": "local_authentication",   # or "ad_authentication"
     "domain": "",         # only for ad_authentication
+    "totp_secret": "",    # base32 secret of the account's authenticator app; only for 2FA accounts
     "verify_ssl": True,
 }
+_AUTH_TYPES = ("local_authentication", "ad_authentication")
 
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "endpointcentral.json")
 _SAMPLE_MAX_CHARS = 20000
 
 
 def is_configured() -> bool:
-    if _config["auth_type"] == "api_key":
-        return bool(_config["url"] and _config["password"])
     return bool(_config["url"] and _config["username"] and _config["password"])
 
 
@@ -60,6 +60,7 @@ def status() -> dict:
         "url": _config["url"],
         "username": _config["username"],
         "has_password": bool(_config["password"]),
+        "has_totp": bool(_config["totp_secret"]),
         "auth_type": _config["auth_type"],
         "domain": _config["domain"],
         "verify_ssl": _config["verify_ssl"],
@@ -67,13 +68,15 @@ def status() -> dict:
 
 
 def configure(url: str, username: str, password: str = "", auth_type: str = "local_authentication",
-              domain: str = "", verify_ssl: bool = True) -> dict:
-    """Empty password means 'keep existing' — mirrors prtg_client.configure()."""
+              domain: str = "", verify_ssl: bool = True, totp_secret: str = "") -> dict:
+    """Empty password/totp_secret mean 'keep existing' — mirrors prtg_client.configure()."""
     _config["url"] = url.rstrip("/")
     _config["username"] = username
     if password:
         _config["password"] = password
-    _config["auth_type"] = auth_type if auth_type in ("local_authentication", "ad_authentication", "api_key") else "local_authentication"
+    if totp_secret:
+        _config["totp_secret"] = totp_secret.replace(" ", "").upper()
+    _config["auth_type"] = auth_type if auth_type in _AUTH_TYPES else "local_authentication"
     _config["domain"] = domain
     _config["verify_ssl"] = verify_ssl
     _persist()
@@ -83,8 +86,9 @@ def configure(url: str, username: str, password: str = "", auth_type: str = "loc
 def _persist():
     os.makedirs(os.path.dirname(_CONFIG_PATH), exist_ok=True)
     to_save = dict(_config)
-    if to_save["password"]:
-        to_save["password"] = encrypt(to_save["password"])
+    for field in ("password", "totp_secret"):
+        if to_save[field]:
+            to_save[field] = encrypt(to_save[field])
     tmp = _CONFIG_PATH + ".tmp"
     with open(tmp, "w") as f:
         json.dump(to_save, f, indent=2)
@@ -100,14 +104,16 @@ def _load():
         for key in ("url", "username", "auth_type", "domain"):
             if saved.get(key):
                 _config[key] = saved[key]
+        if _config["auth_type"] not in _AUTH_TYPES:
+            _config["auth_type"] = "local_authentication"
         if "verify_ssl" in saved:
             _config["verify_ssl"] = bool(saved["verify_ssl"])
-        pw = saved.get("password")
-        if pw:
-            try:
-                _config["password"] = decrypt(pw)
-            except Exception:
-                print("[endpointcentral] could not decrypt stored password — reconfigure via UI")
+        for field in ("password", "totp_secret"):
+            if saved.get(field):
+                try:
+                    _config[field] = decrypt(saved[field])
+                except Exception:
+                    print(f"[endpointcentral] could not decrypt stored {field} — reconfigure via UI")
     except Exception as e:
         print(f"[endpointcentral] config load error: {e}")
 
@@ -134,46 +140,52 @@ def _find_token(obj: Any) -> Optional[str]:
     return None
 
 
-_TWO_FACTOR_MSG = ("konto ma włączone 2FA (kod OTP) — logowanie hasłem nie wystarczy; "
-                   "użyj typu uwierzytelniania \"Klucz API\" (Admin > Integrations > API Key Management)")
+_TWO_FACTOR_MSG = ("konto ma włączone 2FA (kod OTP) — podaj sekret TOTP tego konta (klucz z aplikacji "
+                   "Authenticator) albo użyj osobnego konta API bez 2FA")
 
 
-def _two_factor_required(data: Any) -> bool:
+def _two_factor_data(data: Any) -> Optional[dict]:
     """The login answers HTTP 200 with a two_factor_data block (and no
     auth_token) when the account has 2FA on — seen live against a real
-    instance."""
+    instance. Returns that block, or None if 2FA isn't what's blocking."""
     try:
         tf = data["message_response"]["authentication"]["two_factor_data"]
-        return bool(tf.get("is_TwoFactor_Enabled")) and _find_token(data) is None
+        if tf.get("is_TwoFactor_Enabled") and _find_token(data) is None:
+            return tf
     except Exception:
-        return False
+        pass
+    return None
 
 
-async def _api_key_check() -> dict:
-    """API-key mode: the key itself is sent as the Authorization header (no
-    login round trip, so 2FA on the owning account doesn't matter). Proven
-    with one read-only call, since there's no login to confirm it."""
-    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+async def _otp_validate(session: aiohttp.ClientSession, uid: str) -> dict:
+    """Second login step for 2FA accounts (documented: POST
+    /api/1.4/desktop/authentication/otpValidate with uid + otp). The OTP is
+    computed from the stored TOTP secret, so a background poller can re-login
+    whenever the token expires without anyone typing a code."""
+    if not _config["totp_secret"]:
+        return {"ok": False, "error": _TWO_FACTOR_MSG}
     try:
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(f"{_config['url']}/api/1.4/som/computers?pagelimit=1",
-                                    headers={"Authorization": _config["password"]},
-                                    timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                text = await resp.text()
-                if resp.status == 200:
-                    return {"ok": True, "token": _config["password"], "api_version": "1.4 (klucz API)"}
-                return {"ok": False, "error": f"HTTP {resp.status} {text[:200]}"}
+        import pyotp
+        otp = pyotp.TOTP(_config["totp_secret"]).now()
     except Exception as e:
-        return {"ok": False, "error": str(e)}
-
+        return {"ok": False, "error": f"niepoprawny sekret TOTP: {e}"}
+    try:
+        async with session.post(f"{_config['url']}/api/1.4/desktop/authentication/otpValidate",
+                                 json={"uid": uid, "otp": otp, "rememberme_enabled": False},
+                                 timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            data = await resp.json(content_type=None)
+            token = _find_token(data)
+            if resp.status == 200 and token:
+                return {"ok": True, "token": token, "api_version": "1.4 (2FA)"}
+            return {"ok": False, "error": f"OTP: HTTP {resp.status} {str(data)[:200]}"}
+    except Exception as e:
+        return {"ok": False, "error": f"OTP: {e}"}
 
 async def login() -> dict:
     """Returns {"ok": True, "token": str, "api_version": "1.4"|"1.3"} or
     {"ok": False, "error": str}. Never raises."""
     if not is_configured():
         return {"ok": False, "error": "not configured"}
-    if _config["auth_type"] == "api_key":
-        return await _api_key_check()
     b64_pw = base64.b64encode(_config["password"].encode("utf-8")).decode()
     body = {"username": _config["username"], "password": b64_pw, "auth_type": _config["auth_type"]}
     if _config["auth_type"] == "ad_authentication" and _config["domain"]:
@@ -191,8 +203,9 @@ async def login() -> dict:
                     token = _find_token(data)
                     if resp.status == 200 and token:
                         return {"ok": True, "token": token, "api_version": "1.4"}
-                    if _two_factor_required(data):
-                        return {"ok": False, "error": _TWO_FACTOR_MSG}
+                    tf = _two_factor_data(data)
+                    if tf:
+                        return await _otp_validate(session, tf.get("unique_userID", ""))
                     errors.append(f"1.4: HTTP {resp.status} {str(data)[:200]}")
             except Exception as e:
                 errors.append(f"1.4: {e}")
@@ -236,7 +249,9 @@ async def fetch_sample(path: str) -> dict:
             async with session.get(f"{_config['url']}{path}", headers={"Authorization": res["token"]},
                                     timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 text = await resp.text()
-                return {"ok": resp.status == 200, "status": resp.status,
+                # Errors come back as HTTP 200 with "status":"error" in the body.
+                body_ok = '"status":"error"' not in text.replace(" ", "")
+                return {"ok": resp.status == 200 and body_ok, "status": resp.status,
                         "body": text[:_SAMPLE_MAX_CHARS], "truncated": len(text) > _SAMPLE_MAX_CHARS}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -254,17 +269,21 @@ def reencrypt_with_keys(old_fernet, new_fernet) -> int:
             saved = json.load(f)
     except Exception:
         return 0
-    pw = saved.get("password")
-    if not pw:
+    count = 0
+    for field in ("password", "totp_secret"):
+        if not saved.get(field):
+            continue
+        try:
+            plaintext = old_fernet.decrypt(saved[field].encode()).decode()
+        except Exception:
+            continue
+        saved[field] = new_fernet.encrypt(plaintext.encode()).decode()
+        _config[field] = plaintext
+        count += 1
+    if not count:
         return 0
-    try:
-        plaintext = old_fernet.decrypt(pw.encode()).decode()
-    except Exception:
-        return 0
-    saved["password"] = new_fernet.encrypt(plaintext.encode()).decode()
     tmp = _CONFIG_PATH + ".tmp"
     with open(tmp, "w") as f:
         json.dump(saved, f, indent=2)
     os.replace(tmp, _CONFIG_PATH)
-    _config["password"] = plaintext
-    return 1
+    return count

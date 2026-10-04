@@ -354,7 +354,8 @@ export interface EndpointCentralStatus {
   url: string
   username: string
   has_password: boolean
-  auth_type: 'local_authentication' | 'ad_authentication' | 'api_key'
+  has_totp: boolean
+  auth_type: 'local_authentication' | 'ad_authentication'
   domain: string
   verify_ssl: boolean
 }
@@ -429,7 +430,7 @@ export const systemApi = {
   servicedeskTest: () => api.post<ConnectorTestResult>('/system/servicedesk/test').then(r => r.data),
 
   endpointcentralStatus: () => api.get<EndpointCentralStatus>('/system/endpointcentral/status').then(r => r.data),
-  endpointcentralConfigure: (data: { url: string; username: string; password: string; auth_type: string; domain: string; verify_ssl: boolean }) =>
+  endpointcentralConfigure: (data: { url: string; username: string; password: string; auth_type: string; domain: string; verify_ssl: boolean; totp_secret: string }) =>
     api.post<EndpointCentralStatus>('/system/endpointcentral/config', data).then(r => r.data),
   endpointcentralTest: () =>
     api.post<ConnectorTestResult & { api_version?: string }>('/system/endpointcentral/test').then(r => r.data),

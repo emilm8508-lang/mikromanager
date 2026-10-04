@@ -651,7 +651,7 @@ function EndpointCentralPanel() {
     queryFn: systemApi.endpointcentralStatus,
   })
 
-  const [form, setForm] = useState({ url: '', username: '', password: '', auth_type: 'local_authentication', domain: '', verify_ssl: true })
+  const [form, setForm] = useState({ url: '', username: '', password: '', auth_type: 'local_authentication', domain: '', verify_ssl: true, totp_secret: '' })
   const [editing, setEditing] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; api_version?: string } | null>(null)
   const [samplePath, setSamplePath] = useState('/api/1.4/som/computers')
@@ -662,7 +662,7 @@ function EndpointCentralPanel() {
       setForm({
         url: status.url || '', username: status.username || '', password: '',
         auth_type: status.auth_type || 'local_authentication', domain: status.domain || '',
-        verify_ssl: status.verify_ssl ?? true,
+        verify_ssl: status.verify_ssl ?? true, totp_secret: '',
       })
     }
   }, [status, editing])
@@ -714,22 +714,23 @@ function EndpointCentralPanel() {
               <span className="text-slate-600">{t('central.endpointcentralAuthType')}</span>
               <select value={form.auth_type} onChange={e => setForm(f => ({ ...f, auth_type: e.target.value }))}
                 className="w-full mt-1 border border-slate-300 rounded px-2 py-1">
-                <option value="api_key">{t('central.endpointcentralAuthApiKey')}</option>
                 <option value="local_authentication">{t('central.endpointcentralAuthLocal')}</option>
                 <option value="ad_authentication">{t('central.endpointcentralAuthAd')}</option>
               </select>
             </label>
-            {form.auth_type !== 'api_key' && (
-              <Input label={t('central.endpointcentralUsername')}
-                value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
-            )}
-            <Input label={t(form.auth_type === 'api_key' ? 'central.endpointcentralApiKey' : 'central.endpointcentralPassword')} type="password"
+            <Input label={t('central.endpointcentralUsername')}
+              value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
+            <Input label={t('central.endpointcentralPassword')} type="password"
               placeholder={status?.has_password ? t('central.apiKeyKeep') as string : ''}
               value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             {form.auth_type === 'ad_authentication' && (
               <Input label={t('central.endpointcentralDomain')}
                 value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} />
             )}
+            <Input label={t('central.endpointcentralTotpSecret')} type="password"
+              placeholder={status?.has_totp ? t('central.apiKeyKeep') as string : ''}
+              value={form.totp_secret} onChange={e => setForm(f => ({ ...f, totp_secret: e.target.value }))} />
+            <p className="text-[11px] text-slate-500 -mt-2">{t('central.endpointcentralTotpHint')}</p>
             <label className="flex items-center gap-2 text-xs text-slate-600">
               <input type="checkbox" checked={form.verify_ssl}
                 onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
