@@ -1371,6 +1371,9 @@ export const hostMonApi = {
   refresh: (id: number) => api.post(`/hostmon/hosts/${id}/refresh`).then(r => r.data),
   report: (id: number, hours: number) =>
     api.get<HostReport>(`/hostmon/hosts/${id}/report`, { params: { hours } }).then(r => r.data),
+  // The labels are the UI's own hostmon.* texts, so the file comes out in the user's language.
+  exportReport: (data: { format: 'docx' | 'csv' | 'json'; hours: number; host_ids: number[] | null; labels: Record<string, string> }) =>
+    api.post('/hostmon/export', data, { responseType: 'blob' }).then(r => r.data as Blob),
 }
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 

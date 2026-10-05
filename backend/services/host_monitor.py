@@ -850,7 +850,7 @@ def get_report(host_id: int, hours: int = 72) -> dict:
                 "probe_port": h.probe_port, "resolved_ip": h.resolved_ip, "resolved_mac": h.resolved_mac,
                 "probe_state": h.probe_state, "probe_state_since": _iso(h.probe_state_since),
                 "last_probe_at": _iso(h.last_probe_at), "last_collect_at": _iso(h.last_collect_at),
-                "last_error": h.last_error}
+                "last_error": h.last_error, "created_at": _iso(h.created_at)}
         try:
             presence = json.loads(h.presence) if h.presence else None
         except ValueError:

@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { Radar, Search, RefreshCw, Trash2, Plus, ChevronDown, ChevronUp, Lightbulb, Network } from 'lucide-react'
+import { Radar, Search, RefreshCw, Trash2, Plus, ChevronDown, ChevronUp, Lightbulb, Network, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
 
@@ -35,6 +35,78 @@ const SEVERITY_ROW: Record<string, string> = {
 
 const CONFIDENCE_VARIANT: Record<string, 'green' | 'yellow' | 'gray'> = {
   high: 'green', medium: 'yellow', low: 'gray',
+}
+
+// ── Export ───────────────────────────────────────────────────────────────────
+
+function flattenLabels(obj: any, prefix = '', out: Record<string, string> = {}): Record<string, string> {
+  for (const [k, v] of Object.entries(obj ?? {})) {
+    if (typeof v === 'string') out[prefix + k] = v
+    else if (v && typeof v === 'object') flattenLabels(v, `${prefix}${k}.`, out)
+  }
+  return out
+}
+
+// Word report (for non-technical readers) + CSV/JSON data. hostIds undefined
+// = every monitored host. The report texts come from the UI's translations.
+function ExportMenu({ hostIds, hours: fixedHours, label }: { hostIds?: number[]; hours?: number; label: string }) {
+  const { t, i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [ownHours, setOwnHours] = useState(72)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+  const hours = fixedHours ?? ownHours
+
+  const run = async (format: 'docx' | 'csv' | 'json') => {
+    setOpen(false)
+    setBusy(true)
+    setError(false)
+    try {
+      const bundle = i18n.getResourceBundle(i18n.resolvedLanguage || 'pl', 'translation') as any
+      const blob = await hostMonApi.exportReport({
+        format, hours, host_ids: hostIds ?? null, labels: flattenLabels(bundle?.hostmon),
+      })
+      const d = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `mikromanager-hosts-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.${format}`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      setError(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="relative inline-flex items-center gap-2">
+      {fixedHours === undefined && (
+        <select value={ownHours} onChange={e => setOwnHours(Number(e.target.value))}
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm">
+          {[24, 72, 168, 720].map(h => <option key={h} value={h}>{h < 168 ? `${h} h` : `${h / 24} d`}</option>)}
+        </select>
+      )}
+      <Button size="sm" variant="secondary" onClick={() => setOpen(o => !o)} disabled={busy}>
+        <Download size={13} /> {busy ? t('hostmon.exporting') : label}
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[11rem]">
+            {(['docx', 'csv', 'json'] as const).map(f => (
+              <button key={f} onClick={() => run(f)}
+                className="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+                {t(f === 'docx' ? 'hostmon.exportWord' : f === 'csv' ? 'hostmon.exportCsv' : 'hostmon.exportJson')}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {error && <span className="text-xs text-red-700">{t('hostmon.exportError')}</span>}
+    </div>
+  )
 }
 
 // ── Search + add ─────────────────────────────────────────────────────────────
@@ -221,6 +293,7 @@ function HostDetail({ host }: { host: WatchedHostOut }) {
             {h < 168 ? `${h} h` : `${h / 24} d`}
           </Button>
         ))}
+        <div className="ml-auto"><ExportMenu hostIds={[host.id]} hours={hours} label={t('hostmon.exportThis') as string} /></div>
       </div>
 
       {/* Probable cause */}
@@ -431,9 +504,12 @@ export function HostMonitor() {
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><Radar size={20} /> {t('hostmon.title')}</h1>
-        <p className="text-sm text-slate-500 mt-1">{t('hostmon.intro')}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-[16rem]">
+          <h1 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><Radar size={20} /> {t('hostmon.title')}</h1>
+          <p className="text-sm text-slate-500 mt-1">{t('hostmon.intro')}</p>
+        </div>
+        {hosts.length > 0 && <ExportMenu label={t('hostmon.exportAll') as string} />}
       </div>
 
       <AddPanel />
