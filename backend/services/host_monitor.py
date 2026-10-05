@@ -829,6 +829,124 @@ def _external_state(ips: set) -> dict:
     return {"prtg": prtg, "checkmk": checkmk}
 
 
+# ── Central (OVH) feed ───────────────────────────────────────────────────────
+# Two deliberately different sensitivity levels, same split the inventory /
+# hyperv data already use:
+#   public_summary()    -> plaintext envelope field "hostmon_status": host NAME,
+#                          state, outage counts and causes - enough for Central
+#                          to show who has a problem and why, no IP/MAC.
+#   encrypted_details() -> only inside the E2E-encrypted snapshot body: the
+#                          host's IP/MAC, switch port and its recent log lines
+#                          (which carry other devices' addresses).
+_CENTRAL_TTL_SEC = 60
+_central_cache = {"at": 0.0, "summary": [], "details": {}}
+_CENTRAL_EVENTS_PER_HOST = 25
+_CENTRAL_RECENT_OUTAGES = 5
+_ALERT_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "hostmon_alert_state.json")
+
+
+def _build_central_payload() -> None:
+    now = datetime.now()
+    day_ago = now - timedelta(hours=24)
+    with SessionLocal() as db:
+        ids = [h.id for h in db.execute(select(WatchedHost).where(WatchedHost.enabled.is_(True))
+                                        .order_by(WatchedHost.name)).scalars().all()]
+    summary, details = [], {}
+    for hid in ids:
+        try:
+            r = get_report(hid, 168)
+        except LookupError:
+            continue
+        outages = r["outages"]
+        down_24h, count_24h = 0.0, 0
+        for o in outages:
+            s = max(datetime.fromisoformat(o["start"]), day_ago)
+            e = datetime.fromisoformat(o["end"]) if o["end"] else now
+            if e > s:
+                down_24h += (e - s).total_seconds()
+            if datetime.fromisoformat(o["start"]) >= day_ago:
+                count_24h += 1
+        h = r["host"]
+        summ = r["summary"] or {}
+        summary.append({
+            "id": h["id"], "name": h["name"], "state": h["probe_state"], "state_since": h["probe_state_since"],
+            "last_probe_at": h["last_probe_at"], "outages_24h": count_24h, "outages_7d": len(outages),
+            "downtime_24h_sec": int(down_24h), "main_cause": summ.get("code"),
+            "periodic_sec": summ.get("periodic_sec"),
+            "recent_outages": [
+                {"start": f["start"], "end": f["end"], "duration_sec": f["duration_sec"],
+                 "code": f["code"], "confidence": f["confidence"]}
+                for f in sorted(r["findings"], key=lambda f: f["start"], reverse=True)[:_CENTRAL_RECENT_OUTAGES]
+            ],
+        })
+        cutoff = (now - timedelta(hours=48)).isoformat()
+        events = []
+        for ev in r["events"]:                     # newest first
+            if ev["ts"] < cutoff or len(events) >= _CENTRAL_EVENTS_PER_HOST:
+                break
+            events.append({"ts": ev["ts"], "source": ev["source"], "kind": ev["kind"], "device": ev["device"],
+                           "message": (ev["message"] or "")[:300], "matched_on": ev["matched_on"],
+                           "severity": ev["severity"], "data": ev["data"], "cause": classify_event(ev)})
+        details[str(hid)] = {"ip": h["resolved_ip"] or h["ip"], "mac": h["resolved_mac"] or h["mac"],
+                             "ports": (r["presence"] or {}).get("ports") or [], "events": events}
+    _central_cache.update(at=time.time(), summary=summary, details=details)
+
+
+def _central_payload() -> dict:
+    if time.time() - _central_cache["at"] > _CENTRAL_TTL_SEC:
+        _build_central_payload()
+    return _central_cache
+
+
+def public_summary() -> List[dict]:
+    return _central_payload()["summary"]
+
+
+def encrypted_details() -> Dict[str, dict]:
+    return _central_payload()["details"]
+
+
+async def collect_alert_events() -> List[dict]:
+    """alert_events for Central/Telegram: one hostmon_host_down / _up per
+    reachability transition the probe recorded since the last call (a
+    watermark on the HostEvent id, so each transition is reported exactly
+    once). The very first call only sets the watermark — enabling this on an
+    agent that already has history must not replay old outages as new alerts."""
+    try:
+        with open(_ALERT_STATE_PATH) as f:
+            last = int(json.load(f).get("last_event_id", 0))
+        first_run = False
+    except (OSError, ValueError, TypeError):
+        last, first_run = 0, True
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(HostEvent, WatchedHost.name).join(WatchedHost, WatchedHost.id == HostEvent.host_id)
+            .where(HostEvent.kind.in_(("probe_down", "probe_up")), HostEvent.id > last).order_by(HostEvent.id)
+        ).all()
+    if rows:
+        last = rows[-1][0].id
+    if first_run or rows:
+        os.makedirs(os.path.dirname(_ALERT_STATE_PATH), exist_ok=True)
+        try:
+            with open(_ALERT_STATE_PATH, "w") as f:
+                json.dump({"last_event_id": last}, f)
+        except OSError as e:
+            print(f"[host_monitor] alert state persist error: {e}")
+    if first_run:
+        return []
+
+    out = []
+    for ev, name in rows:
+        d = json.loads(ev.data) if ev.data else {}
+        out.append({
+            "type": "hostmon_host_down" if ev.kind == "probe_down" else "hostmon_host_up",
+            "device_name": name, "duration_sec": d.get("duration_sec"),
+            "count": 1, "detected_at": datetime.utcnow().isoformat(),
+        })
+    return out
+
+
 def get_report(host_id: int, hours: int = 72) -> dict:
     now = datetime.now()
     hours = max(1, min(int(hours), RETENTION_DAYS * 24))

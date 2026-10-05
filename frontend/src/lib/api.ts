@@ -702,6 +702,23 @@ export interface CentralFirewallDeviceStatus {
   log_recent: Array<{ time?: string; chain?: string; proto?: string; src?: string; src_port?: string; dst?: string; dst_port?: string }>
 }
 
+// Host-monitoring summary an agent includes in its plaintext snapshot envelope
+// (services/host_monitor.py's public_summary()): names, state, outage counts
+// and causes only - IP/MAC and log lines stay in the encrypted snapshot.
+export interface CentralHostmonHostStatus {
+  id: number
+  name: string
+  state: 'up' | 'down' | null
+  state_since: string | null
+  last_probe_at: string | null
+  outages_24h: number
+  outages_7d: number
+  downtime_24h_sec: number
+  main_cause: string | null
+  periodic_sec: number | null
+  recent_outages: Array<{ start: string; end: string | null; duration_sec: number; code: string; confidence: 'high' | 'medium' | 'low' | null }>
+}
+
 // Redacted per-WAN-interface status an agent includes in its snapshot
 // envelope (see services/edge_discovery.py's public_summary()) — checked
 // locally by the agent from the router's own RouterOS "WAN" interface-list
@@ -2093,6 +2110,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  hostmonStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHostmonHostStatus[] }> }>('hostmon_status_all'),
   wanLinksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; links: CentralWanLinkStatus[] }> }>('wan_links_status_all'),
   complianceStatusAll: () =>

@@ -14,7 +14,7 @@ function errText(e: unknown): string {
   return anyE?.response?.data?.detail || anyE?.message || String(e)
 }
 
-function formatDuration(sec: number | null | undefined): string {
+export function formatDuration(sec: number | null | undefined): string {
   if (sec == null) return '—'
   if (sec < 60) return `${sec} s`
   const m = Math.floor(sec / 60)
@@ -23,7 +23,7 @@ function formatDuration(sec: number | null | undefined): string {
   return h < 24 ? `${h} h ${m % 60} min` : `${Math.floor(h / 24)} d ${h % 24} h`
 }
 
-function formatTs(iso: string | null | undefined): string {
+export function formatTs(iso: string | null | undefined): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }
 
@@ -238,7 +238,7 @@ function AddPanel() {
 
 // ── Host detail ──────────────────────────────────────────────────────────────
 
-function eventText(e: HostEventOut, t: (k: string, o?: any) => string): string {
+export function eventText(e: HostEventOut, t: (k: string, o?: any) => string): string {
   const d = e.data || {}
   switch (e.kind) {
     case 'probe_down': return t('hostmon.kind.probe_down', { target: d.target })

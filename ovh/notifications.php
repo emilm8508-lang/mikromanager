@@ -259,6 +259,17 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             return "✅ {$prefix}Check_MK: host ponownie dostępny\n"
                  . "Tenant: {$tenant}\n"
                  . "Urządzenie: {$device}";
+        case 'hostmon_host_down':
+            return "🔴 {$prefix}Monitoring hostów: host przestał odpowiadać\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}";
+        case 'hostmon_host_up':
+            $dur = (int)($event['duration_sec'] ?? 0);
+            $msg = "✅ {$prefix}Monitoring hostów: host odpowiada ponownie\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}";
+            if ($dur > 0) $msg .= "\nPrzerwa trwała: " . ($dur >= 60 ? floor($dur / 60) . ' min ' . ($dur % 60) . ' s' : $dur . ' s');
+            return $msg;
         case 'wazuh_alert':
             $level = $event['rule_level'] ?? '?';
             $desc = $event['rule_description'] ?? '?';

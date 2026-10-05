@@ -279,12 +279,13 @@ export function Sidebar() {
   const centralExternalMonitoringNavItem = { to: '/central/external-monitoring', label: t('externalMonitoringCentral.navLabel'), icon: Activity }
   const centralFirewallUsageNavItem = { to: '/central/firewall-usage', label: t('firewallUsageCentral.navLabel'), icon: ShieldQuestion }
   const centralFirewallLogsNavItem = { to: '/central/firewall-logs', label: t('firewallLogsCentral.navLabel'), icon: ScrollText }
+  const centralHostmonNavItem = { to: '/central/hostmon', label: t('hostmonCentral.navLabel'), icon: Radar }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem]
+    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem, centralHostmonNavItem]
     : [...agentNav, centralNavItem]
 
   return (

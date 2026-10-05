@@ -501,6 +501,8 @@
                     "eventTunnelUp":  "Tunel VPN wrocil (WireGuard/IPsec)",
                     "eventHypervVmDown":  "Hyper-V: maszyna wirtualna przestala dzialac",
                     "eventHypervVmUp":  "Hyper-V: maszyna wirtualna znowu dziala",
+                    "eventHostmonDown":  "Monitoring hostów: host przestał odpowiadać",
+                    "eventHostmonUp":  "Monitoring hostów: host odpowiada ponownie",
                     "eventDiskSpaceLow":  "Dysk prawie pelny",
                     "eventMemoryHigh":  "Wysokie zuzycie pamieci",
                     "eventTemperatureHigh": "Wysoka temperatura urzadzenia",
@@ -1276,6 +1278,21 @@
         "countMedium": "srednie: {{count}}",
         "countLow": "niskie: {{count}}",
         "allSeverities": "Wszystkie priorytety"
+    },
+    "hostmonCentral": {
+        "navLabel": "Monitoring hostów",
+        "title": "Monitoring hostów — wszyscy klienci",
+        "intro": "Hosty, które agenci klientów monitorują dokładniej (np. urządzenie tracące łączność): stan, przerwy z ostatnich 24 h i 7 dni oraz prawdopodobna przyczyna. Po rozwinięciu — adres IP, MAC, port przełącznika i ostatnie zdarzenia z logów; te dane są szyfrowane końcówka-do-końcówki, więc wymagają zaimportowanego klucza klienta.",
+        "noHosts": "Żaden klient nie monitoruje jeszcze żadnego hosta albo agent nie wysłał jeszcze danych (wymagana aktualna wersja agenta).",
+        "filterAll": "Wszystkie hosty",
+        "filterDown": "Tylko niedostępne",
+        "filterOutages": "Z przerwami w ostatnich 24 h",
+        "details": "Szczegóły",
+        "outages7d": "przerwy 7 dni",
+        "mainCause": "główna przyczyna",
+        "recentEvents": "Ostatnie zdarzenia (48 h)",
+        "noKey": "Brak klucza szyfrowania tego klienta — zaimportuj go w sekcji kopii kluczy w Centrali, żeby zobaczyć adres IP, MAC i logi hosta.",
+        "noDetails": "Agent tego klienta nie przesłał jeszcze szczegółów tego hosta (starsza wersja agenta albo dane jeszcze się nie zebrały)."
     },
     "firewallUsageCentral": {
         "navLabel": "Reguly firewalla",

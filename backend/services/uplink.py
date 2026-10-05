@@ -255,6 +255,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] hyperv monitor error: {e}")
 
     try:
+        from services import host_monitor
+        alert_events += await host_monitor.collect_alert_events()
+    except Exception as e:
+        print(f"[uplink] host monitor alert events error: {e}")
+
+    try:
         from services import resource_monitor
         alert_events += await resource_monitor.collect_resource_events()
     except Exception as e:
@@ -393,6 +399,18 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] firewall analysis summary error: {e}")
         firewall_status = []
 
+    # Host monitoring: the name/state/outage summary goes in the plaintext
+    # envelope (see _build_request_body), but the per-host details (IP, MAC,
+    # switch port, recent log lines - which carry other devices' addresses)
+    # stay inside the E2E-encrypted snapshot body only, like inventory_summary.
+    try:
+        from services import host_monitor
+        hostmon_status = host_monitor.public_summary()
+        hostmon_details = host_monitor.encrypted_details()
+    except Exception as e:
+        print(f"[uplink] host monitor summary error: {e}")
+        hostmon_status, hostmon_details = [], {}
+
     try:
         from services import dell_monitor
         dell_servers_status = dell_monitor.public_summary()
@@ -484,6 +502,8 @@ async def _build_snapshot() -> dict:
         "tunnel_status": tunnel_status,
         "hyperv_status": hyperv_status,
         "firewall_status": firewall_status,
+        "hostmon_status": hostmon_status,
+        "hostmon_details": hostmon_details,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -533,6 +553,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "tunnel_status": snapshot.get("tunnel_status", []),
             "hyperv_status": snapshot.get("hyperv_status", []),
             "firewall_status": snapshot.get("firewall_status", []),
+            "hostmon_status": snapshot.get("hostmon_status", []),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
