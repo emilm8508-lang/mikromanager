@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -250,6 +250,7 @@ export function Sidebar() {
     { to: '/linux', label: t('nav.linuxHosts'), icon: TerminalSquare },
     { to: '/windows', label: t('nav.windowsHosts'), icon: MonitorSmartphone },
     { to: '/hyperv', label: t('nav.hyperv'), icon: Layers },
+    { to: '/hostmon', label: t('nav.hostMonitor'), icon: Radar },
     { to: '/inventory', label: t('nav.inventory'), icon: Boxes },
     { to: '/software', label: t('nav.software'), icon: Package },
     { to: '/compliance', label: t('nav.compliance'), icon: ListChecks },

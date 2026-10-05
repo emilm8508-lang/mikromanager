@@ -517,6 +517,21 @@ class MikrotikClient:
         except Exception:
             return []
 
+    async def get_arp(self) -> list:
+        try:
+            return await self._rest_or_api("ip/arp", "/ip/arp")
+        except Exception:
+            return []
+
+    async def get_bridge_hosts(self) -> list:
+        """The bridge's learned MAC table — which physical port/interface a
+        MAC was last seen on (services/host_monitor.py uses it to tie a host
+        to its switch port)."""
+        try:
+            return await self._rest_or_api("interface/bridge/host", "/interface/bridge/host")
+        except Exception:
+            return []
+
     async def get_wireguard_status(self) -> dict:
         """WireGuard interfaces + per-peer status. See _wireguard_peer_status
         for the up/down rule (last-handshake recency, disabled flag).

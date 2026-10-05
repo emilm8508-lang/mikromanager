@@ -1283,6 +1283,95 @@ export const hypervApi = {
     api.post<{ ok?: boolean; error?: string; not_hyperv?: boolean }>(`/hyperv/hosts/${windowsHostId}/refresh`).then(r => r.data),
 }
 
+// ── Host monitoring ("Monitoring hostów") ─────────────────────────────────────
+
+export interface HostMonSearchResult {
+  name: string | null
+  ip: string | null
+  mac: string | null
+  sources: string[]
+  devices: string[]
+  comment: string | null
+  watched: boolean
+}
+
+export interface WatchedHostOut {
+  id: number
+  name: string
+  ip: string | null
+  mac: string | null
+  note: string | null
+  enabled: boolean
+  probe_port: number | null
+  resolved_ip: string | null
+  resolved_mac: string | null
+  probe_state: 'up' | 'down' | null
+  probe_state_since: string | null
+  last_probe_at: string | null
+  last_collect_at: string | null
+  last_error: string | null
+  events_24h?: number
+  outages_24h?: number
+}
+
+export interface HostEventOut {
+  id: number
+  ts: string
+  source: string
+  kind: string | null
+  device: string | null
+  topics: string | null
+  message: string | null
+  matched_on: string | null
+  severity: 'info' | 'warn' | 'error'
+  data: Record<string, any> | null
+}
+
+export interface HostFindingOut {
+  start: string
+  end: string | null
+  duration_sec: number
+  code: string
+  confidence: 'high' | 'medium' | 'low' | null
+  evidence: number[]
+  also: string[]
+}
+
+export interface HostReport {
+  host: WatchedHostOut
+  presence: { updated: string; entries: Record<string, any>[]; ports: string[] } | null
+  hours: number
+  events: HostEventOut[]
+  outages: { start: string; end: string | null; duration_sec: number }[]
+  findings: HostFindingOut[]
+  indicators: { code: string; count: number; last_ts: string }[]
+  summary: { code: string; outages_with_cause: number; outages: number; periodic_sec?: number } | null
+  external: {
+    prtg: { sensor: string; status: string; message: string | null; problem: boolean }[]
+    checkmk: { kind: string; name: string; state: string; output: string | null; problem: boolean }[]
+  }
+}
+
+export interface HostMonInput {
+  name: string
+  ip?: string | null
+  mac?: string | null
+  note?: string | null
+  probe_port?: number | null
+  enabled?: boolean
+}
+
+export const hostMonApi = {
+  search: (q: string, refresh = false) =>
+    api.get<{ results: HostMonSearchResult[]; total?: number }>('/hostmon/search', { params: { q, refresh } }).then(r => r.data),
+  hosts: () => api.get<{ hosts: WatchedHostOut[] }>('/hostmon/hosts').then(r => r.data.hosts),
+  create: (data: HostMonInput) => api.post<{ id: number }>('/hostmon/hosts', data).then(r => r.data),
+  update: (id: number, data: HostMonInput) => api.put(`/hostmon/hosts/${id}`, data).then(r => r.data),
+  remove: (id: number) => api.delete(`/hostmon/hosts/${id}`).then(r => r.data),
+  refresh: (id: number) => api.post(`/hostmon/hosts/${id}/refresh`).then(r => r.data),
+  report: (id: number, hours: number) =>
+    api.get<HostReport>(`/hostmon/hosts/${id}/report`, { params: { hours } }).then(r => r.data),
+}
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 
 export type DellHealth = 'OK' | 'Warning' | 'Critical' | null

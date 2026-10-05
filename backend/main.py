@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -32,6 +32,7 @@ from services import updater as updater_svc
 from services import audit as audit_svc
 from services import resource_monitor
 from services import dell_monitor
+from services import host_monitor
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
     updater_svc.start_auto_update()
     resource_monitor.start()
     dell_monitor.start()
+    host_monitor.start()
     try:
         yield
     finally:
@@ -62,6 +64,7 @@ async def lifespan(app: FastAPI):
         updater_svc.stop_auto_update()
         resource_monitor.stop()
         dell_monitor.stop()
+        host_monitor.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
@@ -98,6 +101,7 @@ app.include_router(compliance_api.router, dependencies=_protected)
 app.include_router(audit_api.router, dependencies=_protected)
 app.include_router(anydesk_api.router, dependencies=_protected)
 app.include_router(dell_api.router, dependencies=_protected)
+app.include_router(hostmon_api.router, dependencies=_protected)
 
 
 @app.middleware("http")

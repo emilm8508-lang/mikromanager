@@ -597,6 +597,57 @@ class HypervVM(Base):
     __table_args__ = (UniqueConstraint("hyperv_host_id", "name", name="uq_hyperv_vm"),)
 
 
+class WatchedHost(Base):
+    """A host the operator asked to monitor more closely (services/
+    host_monitor.py) — typically a device that intermittently loses
+    connectivity. Identified by IP and/or MAC; whichever one is missing is
+    resolved from the network devices' DHCP/ARP tables (resolved_*), so a
+    host whose DHCP address changes is still followed by its MAC."""
+    __tablename__ = "watched_hosts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    ip = Column(String, nullable=True, index=True)
+    mac = Column(String, nullable=True, index=True)       # normalized AA:BB:CC:DD:EE:FF
+    note = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    probe_port = Column(Integer, nullable=True)            # None = ICMP ping, set = TCP connect
+    created_at = Column(DateTime, default=datetime.now)
+    resolved_ip = Column(String, nullable=True)
+    resolved_mac = Column(String, nullable=True)
+    presence = Column(Text, nullable=True)                 # JSON: where the host currently shows up (lease/ARP/switch port)
+    probe_state = Column(String, nullable=True)            # "up" | "down"
+    probe_state_since = Column(DateTime, nullable=True)
+    last_probe_at = Column(DateTime, nullable=True)
+    last_collect_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+
+
+class HostEvent(Base):
+    """One timeline entry for a WatchedHost, from any source (device log
+    line, reachability probe, presence change, Wazuh alert). Persisted
+    because RouterOS keeps its log only in a small in-memory ring buffer —
+    the line explaining a short outage is usually gone before anyone looks.
+    Event times are the agent's local naive time (device log lines carry
+    the device's own local clock)."""
+    __tablename__ = "host_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("watched_hosts.id"), nullable=False, index=True)
+    ts = Column(DateTime, nullable=False, index=True)
+    source = Column(String, nullable=False)                # "device-log" | "probe" | "presence" | "wazuh"
+    kind = Column(String, nullable=True)                   # structured events: probe_down/probe_up/ip_changed/mac_changed/port_changed
+    device_name = Column(String, nullable=True)
+    topics = Column(String, nullable=True)
+    message = Column(Text, nullable=True)
+    matched_on = Column(String, nullable=True)             # "ip" | "mac" | "port" | "device"
+    severity = Column(String, nullable=False, default="info")
+    data = Column(Text, nullable=True)                     # JSON params for structured events
+    dedup_key = Column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint("host_id", "dedup_key", name="uq_host_event"),)
+
+
 class ComplianceCheckResult(Base):
     """Result of one configuration-hardening check (services/compliance.py)
     against one managed target — read-only pass/fail, not a vulnerability

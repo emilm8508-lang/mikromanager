@@ -21,6 +21,7 @@ import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
 import { HyperV } from './pages/HyperV'
+import { HostMonitor } from './pages/HostMonitor'
 import { DellServers } from './pages/DellServers'
 import { Inventory } from './pages/Inventory'
 import { Software } from './pages/Software'
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/linux" element={<LinuxHosts />} />
             <Route path="/windows" element={<WindowsHosts />} />
             <Route path="/hyperv" element={<HyperV />} />
+            <Route path="/hostmon" element={<HostMonitor />} />
             <Route path="/dell-servers" element={<DellServers />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/software" element={<Software />} />
