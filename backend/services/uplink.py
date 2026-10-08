@@ -261,6 +261,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] host monitor alert events error: {e}")
 
     try:
+        from services import host_services
+        alert_events += await host_services.collect_alert_events()
+    except Exception as e:
+        print(f"[uplink] host services alert events error: {e}")
+
+    try:
         from services import resource_monitor
         alert_events += await resource_monitor.collect_resource_events()
     except Exception as e:

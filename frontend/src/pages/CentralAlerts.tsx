@@ -359,6 +359,8 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="hyperv_vm_up">{t('alerts.eventHypervVmUp')}</option>
                 <option value="hostmon_host_down">{t('alerts.eventHostmonDown')}</option>
                 <option value="hostmon_host_up">{t('alerts.eventHostmonUp')}</option>
+                <option value="host_service_down">{t('alerts.eventHostServiceDown')}</option>
+                <option value="host_service_up">{t('alerts.eventHostServiceUp')}</option>
                 <option value="disk_space_low">{t('alerts.eventDiskSpaceLow')}</option>
                 <option value="memory_high">{t('alerts.eventMemoryHigh')}</option>
                 <option value="temperature_high">{t('alerts.eventTemperatureHigh')}</option>

@@ -952,64 +952,6 @@ async def run_script_bulk(host_ids: list, script: str, reason: str) -> dict:
 
 # ── Watched services (per-host list, UI-only status — no Telegram alert) ──
 
-def _check_services_sync(ip: str, port: int, username: str, password: str, domain: Optional[str],
-                         service_names: list) -> dict:
-    """Blocking — run via loop.run_in_executor. One batched Get-Service
-    call for every watched service name on this host. Names not found on
-    the target are simply absent from the output (-ErrorAction
-    SilentlyContinue) — the caller treats "asked for but missing from the
-    result" as "not_found", distinct from an actual Stopped service."""
-    import winrm
-    user = vs._ntlm_user(username, domain)
-    scheme = "https" if port == 5986 else "http"
-    session = winrm.Session(
-        f"{scheme}://{ip}:{port}/wsman",
-        auth=(user, password),
-        transport="ntlm",
-        server_cert_validation="ignore",
-        read_timeout_sec=CHECK_TIMEOUT_SEC + 5, operation_timeout_sec=CHECK_TIMEOUT_SEC,
-    )
-    names_ps = ",".join("'" + n.replace("'", "''") + "'" for n in service_names)
-    script = (
-        f"Get-Service -Name {names_ps} -ErrorAction SilentlyContinue | "
-        "Select-Object Name,DisplayName,Status | ConvertTo-Json -Compress"
-    )
-    try:
-        result = vs._run_ps_safe(session, script)
-        if result.status_code != 0:
-            return {"ok": False, "error": result.std_err.decode("utf-8", errors="ignore")[-2000:]}
-        raw = result.std_out.decode("utf-8", errors="ignore").strip()
-        if not raw:
-            return {"ok": True, "services": []}
-        try:
-            parsed = json.loads(raw)
-        except Exception as e:
-            return {"ok": False, "error": f"couldn't parse service list: {e}"}
-        if isinstance(parsed, dict):
-            parsed = [parsed]
-        return {"ok": True, "services": [
-            {"name": s.get("Name"), "display_name": s.get("DisplayName"), "status": s.get("Status")}
-            for s in parsed if s.get("Name")
-        ]}
-    finally:
-        vs._close_winrm(session)
-
-
-async def _run_services_check(ip: str, port: int, username: str, password: str, domain: Optional[str],
-                               service_names: list) -> dict:
-    loop = asyncio.get_event_loop()
-    try:
-        return await asyncio.wait_for(
-            loop.run_in_executor(vs._EXECUTOR, _check_services_sync, ip, port, username, password,
-                                 domain, service_names),
-            timeout=CHECK_TIMEOUT_SEC + 15,
-        )
-    except (asyncio.TimeoutError, TimeoutError):
-        return {"ok": False, "error": "timeout"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
 def _service_to_dict(s: WindowsHostService) -> dict:
     return {
         "id": s.id, "host_id": s.host_id, "service_name": s.service_name,
@@ -1060,54 +1002,12 @@ def remove_host_service(service_id: int) -> dict:
 
 
 async def check_host_services(host_id: int) -> dict:
-    """Manual or discovery-loop trigger — refreshes every watched service's
-    status for one host in a single batched WinRM call. No-op (not an
-    error) when the host has no watched services configured yet."""
-    with SessionLocal() as db:
-        host = db.get(WindowsHost, host_id)
-        if not host:
-            return {"error": "host not found"}
-        ip, port = host.ip, host.winrm_port
-        service_names = [s.service_name for s in db.execute(
-            select(WindowsHostService).where(WindowsHostService.host_id == host_id)
-        ).scalars().all()]
-
-    if not service_names:
-        return {"ok": True, "checked": 0}
-
-    cred = _credential_for_host(host)
-    if not cred:
-        return {"error": "no credential configured (assign one to this host, or set a shared credential)"}
-    username, password, domain = cred
-
-    result = await _run_services_check(ip, port, username, password, domain, service_names)
-    now = datetime.utcnow()
-    if not result["ok"]:
-        with SessionLocal() as db:
-            host = db.get(WindowsHost, host_id)
-            if host:
-                host.last_services_check_at = now
-                db.commit()
-        return {"error": result["error"]}
-
-    found = {s["name"].lower(): s for s in result["services"] if s.get("name")}
-    with SessionLocal() as db:
-        rows = db.execute(select(WindowsHostService).where(WindowsHostService.host_id == host_id)).scalars().all()
-        for row in rows:
-            match = found.get(row.service_name.lower())
-            if match:
-                row.status = match.get("status")
-                if match.get("display_name"):
-                    row.display_name = match["display_name"]
-            else:
-                row.status = "not_found"
-            row.last_checked_at = now
-        host = db.get(WindowsHost, host_id)
-        if host:
-            host.last_services_check_at = now
-        db.commit()
-    return {"ok": True, "checked": len(service_names)}
-
+    """Entry point kept for its existing callers (the discovery pass and the
+    /services/check route). The real work — per-service parameters, state
+    machine, alert events — lives in services/host_services.py; this forces a
+    check of every enabled service of the host right now."""
+    from services import host_services
+    return await host_services.check_host("windows", host_id, force=True)
 
 # ── Workstation port policy ("unusual open ports") ────────────────────────
 

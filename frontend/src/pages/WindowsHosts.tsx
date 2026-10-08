@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
+import { HostServices } from '../components/HostServices'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal,
@@ -221,84 +222,6 @@ function WorkstationPortsPanel() {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function ServicesSection({ host }: { host: WindowsHostOut }) {
-  const { t } = useTranslation()
-  const qc = useQueryClient()
-  const { data: services = [] } = useQuery({
-    queryKey: ['windows-services', host.id],
-    queryFn: () => windowsApi.listServices(host.id),
-  })
-  const [newName, setNewName] = useState('')
-
-  const add = useMutation({
-    mutationFn: (name: string) => windowsApi.addService(host.id, name),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['windows-services', host.id] }); setNewName('') },
-  })
-  const remove = useMutation({
-    mutationFn: (serviceId: number) => windowsApi.removeService(host.id, serviceId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['windows-services', host.id] }),
-  })
-  const check = useMutation({
-    mutationFn: () => windowsApi.checkServices(host.id),
-    onSuccess: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['windows-services', host.id] }), 4000),
-  })
-
-  const statusBadge = (status: string | null) => {
-    if (!status) return <span className="text-slate-400">—</span>
-    if (status === 'not_found') return <Badge variant="gray" className="text-[10px]">{t('windows.serviceNotFound')}</Badge>
-    if (status === 'Running') return <Badge variant="green" className="text-[10px]">{status}</Badge>
-    return <Badge variant="red" className="text-[10px]">{status}</Badge>
-  }
-
-  return (
-    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between flex-wrap gap-1">
-        <p className="text-xs font-semibold text-slate-700">{t('windows.servicesTitle')}</p>
-        <div className="flex items-center gap-2">
-          {host.last_services_check_at && (
-            <span className="text-[10px] text-slate-400">
-              {t('windows.lastServicesCheck')}: {new Date(host.last_services_check_at).toLocaleString()}
-            </span>
-          )}
-          <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending || services.length === 0}>
-            <RefreshCw size={11} className={check.isPending ? 'animate-spin' : ''} /> {t('windows.checkServicesNow')}
-          </Button>
-        </div>
-      </div>
-      {services.length === 0 ? (
-        <p className="text-xs text-slate-400">{t('windows.noServices')}</p>
-      ) : (
-        <div className="space-y-1">
-          {services.map(s => (
-            <div key={s.id} className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded px-2 py-1">
-              <span className="font-mono text-slate-700">{s.display_name || s.service_name}</span>
-              <div className="flex items-center gap-2">
-                {statusBadge(s.status)}
-                <button onClick={() => remove.mutate(s.id)} className="text-slate-400 hover:text-red-600">
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder={t('windows.addServicePlaceholder') as string}
-          className="border border-slate-300 rounded-lg px-2 py-1 text-xs flex-1"
-          onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) add.mutate(newName.trim()) }}
-        />
-        <Button size="sm" variant="secondary" onClick={() => newName.trim() && add.mutate(newName.trim())} disabled={add.isPending}>
-          <Plus size={11} /> {t('windows.addService')}
-        </Button>
-      </div>
-    </div>
   )
 }
 
@@ -535,7 +458,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
         </div>
       </div>
 
-      {host.managed && showServices && <ServicesSection host={host} />}
+      {host.managed && showServices && <HostServices platform="windows" hostId={host.id} />}
       {host.managed && showDisks && <DisksSection host={host} />}
 
       {job && job.status !== 'no_job' && (

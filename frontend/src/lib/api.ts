@@ -1392,6 +1392,73 @@ export const hostMonApi = {
   exportReport: (data: { format: 'docx' | 'csv' | 'json'; hours: number; host_ids: number[] | null; labels: Record<string, string> }) =>
     api.post('/hostmon/export', data, { responseType: 'blob' }).then(r => r.data as Blob),
 }
+// ── Service monitoring on hosts (Windows services / Linux systemd units) ─────
+
+export type ServicePlatform = 'windows' | 'linux'
+export type ServiceState = 'running' | 'stopped' | 'failed' | 'other' | 'not_found'
+
+export interface HostServiceParams {
+  expected_state?: 'running' | 'stopped'
+  interval_min?: number
+  alert_after_fails?: number
+  alert_enabled?: boolean
+  enabled?: boolean
+}
+
+export interface HostServiceOut extends Required<HostServiceParams> {
+  id: number
+  platform: ServicePlatform
+  host_id: number
+  service_name: string
+  display_name: string | null
+  status: string | null
+  state: ServiceState | null
+  startup: string | null
+  fail_streak: number
+  incident_open: boolean
+  ok: boolean | null
+  status_since: string | null
+  last_checked_at: string | null
+}
+
+export interface DiscoveredService {
+  name: string
+  display_name: string | null
+  raw: string | null
+  state: ServiceState | null
+  startup: string | null
+  monitored: boolean
+}
+
+export interface HostServiceEventOut {
+  id: number
+  ts: string
+  kind: 'down' | 'up'
+  service_name: string
+  display_name: string | null
+  state: string | null
+  expected: string | null
+  duration_sec: number | null
+}
+
+export const hostServicesApi = {
+  list: (platform: ServicePlatform, hostId: number) =>
+    api.get<{ services: HostServiceOut[]; check_error: string | null; check_error_at: string | null }>(
+      `/services/${platform}/hosts/${hostId}`).then(r => r.data),
+  add: (platform: ServicePlatform, hostId: number,
+        services: Array<{ name: string; display_name?: string | null; startup?: string | null } & HostServiceParams>) =>
+    api.post<{ added: HostServiceOut[]; skipped: string[] }>(`/services/${platform}/hosts/${hostId}`, { services }).then(r => r.data),
+  update: (platform: ServicePlatform, serviceId: number, params: HostServiceParams) =>
+    api.put<HostServiceOut>(`/services/${platform}/services/${serviceId}`, params).then(r => r.data),
+  remove: (platform: ServicePlatform, serviceId: number) =>
+    api.delete(`/services/${platform}/services/${serviceId}`).then(r => r.data),
+  checkNow: (platform: ServicePlatform, hostId: number) =>
+    api.post<{ ok: boolean; checked: number }>(`/services/${platform}/hosts/${hostId}/check`).then(r => r.data),
+  discover: (platform: ServicePlatform, hostId: number) =>
+    api.get<{ services: DiscoveredService[] }>(`/services/${platform}/hosts/${hostId}/discover`).then(r => r.data.services),
+  events: (platform: ServicePlatform, hostId: number, limit = 30) =>
+    api.get<{ events: HostServiceEventOut[] }>(`/services/${platform}/hosts/${hostId}/events`, { params: { limit } }).then(r => r.data.events),
+}
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 
 export type DellHealth = 'OK' | 'Warning' | 'Critical' | null

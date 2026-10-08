@@ -510,11 +510,29 @@ class WindowsHostDisk(Base):
     __table_args__ = (UniqueConstraint("host_id", "drive_letter", name="uq_windows_host_disk"),)
 
 
-class WindowsHostService(Base):
+class _ServiceMonitorMixin:
+    """Monitoring parameters + state shared by WindowsHostService and
+    LinuxHostService (services/host_services.py drives both the same way).
+    Plain Columns only (no ForeignKey), so declarative copies them per table."""
+    expected_state = Column(String, nullable=False, default="running", server_default="running")  # "running" | "stopped"
+    interval_min = Column(Integer, nullable=False, default=5, server_default="5")
+    alert_after_fails = Column(Integer, nullable=False, default=2, server_default="2")   # consecutive failed checks before it counts
+    alert_enabled = Column(Boolean, nullable=False, default=True, server_default="1")
+    enabled = Column(Boolean, nullable=False, default=True, server_default="1")          # False = paused, not checked
+    state = Column(String, nullable=True)      # normalized: running | stopped | failed | other | not_found
+    startup = Column(String, nullable=True)    # autostart mode as the platform reports it (enabled/disabled, Auto/Manual/...)
+    fail_streak = Column(Integer, nullable=False, default=0, server_default="0")
+    alerted = Column(Boolean, nullable=False, default=False, server_default="0")         # an incident is open (down recorded, not recovered)
+    alert_sent = Column(Boolean, nullable=False, default=False, server_default="0")      # that down event was flagged for alerting
+    alerted_at = Column(DateTime, nullable=True)
+    status_since = Column(DateTime, nullable=True)  # when `state` last changed
+
+
+class WindowsHostService(_ServiceMonitorMixin, Base):
     """One Windows service the operator wants watched on a specific host —
-    per-host list (not global), per the user's explicit choice. Status is
-    refreshed alongside the rest of discover_windows_hosts()'s per-host
-    pass; shown in the UI only — no Telegram alert, per the user's choice."""
+    per-host list (not global), per the user's explicit choice. Checked by
+    services/host_services.py on its own per-service interval, with the
+    monitoring parameters from _ServiceMonitorMixin."""
     __tablename__ = "windows_host_services"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -525,6 +543,43 @@ class WindowsHostService(Base):
     last_checked_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("host_id", "service_name", name="uq_windows_host_service"),)
+
+
+class LinuxHostService(_ServiceMonitorMixin, Base):
+    """systemd unit watched on a specific managed Linux host — the Linux
+    twin of WindowsHostService, same parameters and state machine."""
+    __tablename__ = "linux_host_services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_id = Column(Integer, ForeignKey("linux_hosts.id"), nullable=False)
+    service_name = Column(String, nullable=False)    # unit name, e.g. "nginx.service"
+    display_name = Column(String, nullable=True)     # the unit's Description
+    status = Column(String, nullable=True)           # raw "active (running)" / "inactive (dead)" / ...
+    last_checked_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("host_id", "service_name", name="uq_linux_host_service"),)
+
+
+class HostServiceEvent(Base):
+    """State-change history of watched services (both platforms) — also the
+    queue the alert pipeline reads (watermark on id, services/host_services.py).
+    Names are denormalized on purpose so history survives removing a service
+    or host from the watch list."""
+    __tablename__ = "host_service_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    platform = Column(String, nullable=False)        # "windows" | "linux"
+    host_id = Column(Integer, nullable=False, index=True)
+    service_id = Column(Integer, nullable=True)
+    host_name = Column(String, nullable=True)
+    service_name = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)
+    ts = Column(DateTime, nullable=False, index=True)
+    kind = Column(String, nullable=False)            # "down" | "up"
+    state = Column(String, nullable=True)
+    expected = Column(String, nullable=True)
+    duration_sec = Column(Integer, nullable=True)    # "up" only: how long the incident lasted
+    alert = Column(Boolean, nullable=False, default=False)   # whether it should raise a Central/Telegram alert event
 
 
 class WindowsManageSettings(Base):
@@ -937,6 +992,26 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN system_model TEXT"))
             if "credential_id" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN credential_id INTEGER"))
+
+    if "windows_host_services" in inspector.get_table_names():
+        whs_cols = {c["name"] for c in inspector.get_columns("windows_host_services")}
+        with engine.begin() as conn:
+            for name, ddl in (
+                ("expected_state", "VARCHAR NOT NULL DEFAULT 'running'"),
+                ("interval_min", "INTEGER NOT NULL DEFAULT 5"),
+                ("alert_after_fails", "INTEGER NOT NULL DEFAULT 2"),
+                ("alert_enabled", "BOOLEAN NOT NULL DEFAULT 1"),
+                ("enabled", "BOOLEAN NOT NULL DEFAULT 1"),
+                ("state", "VARCHAR"),
+                ("startup", "VARCHAR"),
+                ("fail_streak", "INTEGER NOT NULL DEFAULT 0"),
+                ("alerted", "BOOLEAN NOT NULL DEFAULT 0"),
+                ("alert_sent", "BOOLEAN NOT NULL DEFAULT 0"),
+                ("alerted_at", "DATETIME"),
+                ("status_since", "DATETIME"),
+            ):
+                if name not in whs_cols:
+                    conn.execute(text(f"ALTER TABLE windows_host_services ADD COLUMN {name} {ddl}"))
 
     if "windows_manage_settings" in inspector.get_table_names():
         wms_cols = {c["name"] for c in inspector.get_columns("windows_manage_settings")}

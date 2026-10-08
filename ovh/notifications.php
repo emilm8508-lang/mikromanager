@@ -270,6 +270,26 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                  . "Host: {$device}";
             if ($dur > 0) $msg .= "\nPrzerwa trwała: " . ($dur >= 60 ? floor($dur / 60) . ' min ' . ($dur % 60) . ' s' : $dur . ' s');
             return $msg;
+        case 'host_service_down':
+            $svc = $event['service'] ?? '?';
+            $st_names = ['running' => 'działa', 'stopped' => 'zatrzymana', 'failed' => 'błąd', 'other' => 'w trakcie zmiany', 'not_found' => 'nie znaleziono'];
+            $state = $st_names[$event['state'] ?? ''] ?? ($event['state'] ?? '?');
+            $expected = (($event['expected'] ?? 'running') === 'stopped') ? 'zatrzymana' : 'działa';
+            return "🔴 {$prefix}Usługa niezgodna z oczekiwanym stanem\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}\n"
+                 . "Usługa: {$svc}\n"
+                 . "Oczekiwano: {$expected}\n"
+                 . "Stan: {$state}";
+        case 'host_service_up':
+            $svc = $event['service'] ?? '?';
+            $dur = (int)($event['duration_sec'] ?? 0);
+            $msg = "✅ {$prefix}Usługa wróciła do oczekiwanego stanu\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}\n"
+                 . "Usługa: {$svc}";
+            if ($dur > 0) $msg .= "\nCzas niezgodności: " . ($dur >= 60 ? floor($dur / 60) . ' min ' . ($dur % 60) . ' s' : $dur . ' s');
+            return $msg;
         case 'wazuh_alert':
             $level = $event['rule_level'] ?? '?';
             $desc = $event['rule_description'] ?? '?';

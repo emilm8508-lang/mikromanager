@@ -5,10 +5,11 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
+import { HostServices } from '../components/HostServices'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   TerminalSquare, RefreshCw, Download, AlertTriangle, CheckCircle2, Terminal,
-  ChevronDown, ChevronUp, HardDrive, MemoryStick, Power,
+  ChevronDown, ChevronUp, HardDrive, MemoryStick, Power, ListChecks,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../lib/utils'
@@ -230,6 +231,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
   const [showDisks, setShowDisks] = useState(false)
+  const [showServices, setShowServices] = useState(false)
 
   const { data: job } = useQuery({
     queryKey: ['linux-job', host.id],
@@ -343,6 +345,9 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <Button size="sm" variant="secondary" onClick={onRunScript} disabled={!!inProgress}>
                 <Terminal size={12} /> {t('runScript.button')}
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowServices(s => !s)}>
+                {showServices ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <ListChecks size={12} /> {t('hostServices.toggle')}
+              </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowDisks(s => !s)}>
                 {showDisks ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <HardDrive size={12} /> {t('linux.disksToggle')}
               </Button>
@@ -351,6 +356,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
         </div>
       </div>
 
+      {host.managed && showServices && <HostServices platform="linux" hostId={host.id} />}
       {host.managed && showDisks && <DisksSection host={host} />}
 
       {job && job.status !== 'no_job' && (
