@@ -718,6 +718,22 @@ class MikrotikClient:
             result["ipsec"] = {"peers": [], "error": f"{type(e).__name__}: {e}"}
         return result
 
+    async def set_update_channel(self, channel: str) -> None:
+        """Write op (same REST-then-binary-API pattern as set_identity):
+        /system/package/update channel — stable | long-term | testing | development."""
+        try:
+            await self.rest_patch("system/package/update", {"channel": channel})
+        except Exception:
+            loop = asyncio.get_event_loop()
+
+            def _run():
+                api = _connect_and_login(self.ip, self.username, self.password, port=self.api_port, timeout=8)
+                try:
+                    api("/system/package/update/set", **{"channel": channel})
+                finally:
+                    api.close()
+            await loop.run_in_executor(_API_EXECUTOR, _run)
+
     async def set_identity(self, name: str) -> None:
         """Write op — only REST or API. SNMP would need RW community + sysName.0 SET."""
         try:

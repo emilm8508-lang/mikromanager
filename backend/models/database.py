@@ -611,6 +611,33 @@ class FleetActionRun(Base):
     results = Column(Text, nullable=True)             # JSON {device_id: {name, ip, status, output, error, ...}}
 
 
+class FleetUpgradeGroup(Base):
+    """A named group of Mikrotik devices upgraded together (services/
+    fleet_schedule.py): which devices and in what ORDER, which update channel
+    to pin them to, when (manual / weekly / once), what to do when one fails,
+    and whether to back each up first. Runs are ordinary FleetActionRun rows
+    (action "upgrade") tagged with this group's id."""
+    __tablename__ = "fleet_upgrade_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    device_ids = Column(Text, nullable=False, default="[]")      # JSON list; the order IS the upgrade order
+    channel = Column(String, nullable=True)                      # None = leave each device on its own channel
+    schedule_kind = Column(String, nullable=False, default="manual")   # "manual" | "weekly" | "once"
+    weekday = Column(Integer, nullable=True)                     # 0=Monday .. 6=Sunday (weekly)
+    hour = Column(Integer, nullable=True)
+    minute = Column(Integer, nullable=True, default=0)
+    once_at = Column(DateTime, nullable=True)                    # local time (once)
+    enabled = Column(Boolean, nullable=False, default=True)
+    stop_on_failure = Column(Boolean, nullable=False, default=True)
+    backup = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+    next_run_at = Column(DateTime, nullable=True)
+    last_run_at = Column(DateTime, nullable=True)
+    last_run_id = Column(Integer, nullable=True)
+    last_note = Column(String, nullable=True)                    # e.g. "missed" when the agent was down at the scheduled time
+
+
 class WindowsManageSettings(Base):
     """Single-row (id always 1) global config: the ONE shared Credential used
     for every managed Windows host — same "one credential for all" model as

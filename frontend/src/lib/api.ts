@@ -1515,6 +1515,7 @@ export interface FleetOverview {
   updates: Array<{ id: number; name: string; current: string | null; latest: string | null; channel: string | null }>
   wifi: FleetWifi
   never_collected: number
+  groups?: FleetGroupSummary[]                          // Central's redacted copy only
 }
 
 export const fleetApi = {
@@ -1554,6 +1555,57 @@ export interface FleetRunDetail extends FleetRunSummary {
   results: Record<string, FleetRunDeviceResult>
 }
 
+// Upgrade groups (services/fleet_schedule.py)
+export type FleetChannel = 'stable' | 'long-term' | 'testing' | 'development'
+export type FleetScheduleKind = 'manual' | 'weekly' | 'once'
+
+export interface FleetGroupInput {
+  name: string
+  device_ids: number[]                    // the order is the upgrade order
+  channel: FleetChannel | null
+  schedule_kind: FleetScheduleKind
+  weekday: number | null                  // 0 = Monday .. 6 = Sunday
+  hour: number | null
+  minute: number
+  once_at: string | null                  // ISO local datetime
+  enabled: boolean
+  stop_on_failure: boolean
+  backup: boolean
+}
+
+export interface FleetGroup extends FleetGroupInput {
+  id: number
+  next_run_at: string | null
+  last_run_at: string | null
+  last_note: string | null
+  last_run: { id: number; status: 'running' | 'done' | 'interrupted'; counts: Partial<Record<FleetResultStatus, number>>; devices: number } | null
+}
+
+// Redacted copy of a group in Central's summary (no device ids)
+export interface FleetGroupSummary {
+  name: string
+  devices: number
+  channel: FleetChannel | null
+  enabled: boolean
+  schedule_kind: FleetScheduleKind
+  weekday: number | null
+  hour: number | null
+  minute: number
+  once_at: string | null
+  next_run_at: string | null
+  last_run_at: string | null
+  last_status: 'running' | 'done' | 'interrupted' | null
+  last_counts: Partial<Record<FleetResultStatus, number>> | null
+  last_note: string | null
+}
+
+export const fleetGroupsApi = {
+  list: () => api.get<{ groups: FleetGroup[] }>('/fleet/groups').then(r => r.data.groups),
+  create: (g: FleetGroupInput) => api.post<FleetGroup>('/fleet/groups', g).then(r => r.data),
+  update: (id: number, g: FleetGroupInput) => api.put<FleetGroup>(`/fleet/groups/${id}`, g).then(r => r.data),
+  remove: (id: number) => api.delete(`/fleet/groups/${id}`).then(r => r.data),
+  run: (id: number, reason?: string) => api.post<{ run_id: number }>(`/fleet/groups/${id}/run`, { reason }).then(r => r.data),
+}
 export const fleetActionsApi = {
   start: (body: { action: FleetActionKind; device_ids: number[]; reason: string; script?: string; backup?: boolean }) =>
     api.post<{ run_id: number }>('/fleet/actions/run', body).then(r => r.data),

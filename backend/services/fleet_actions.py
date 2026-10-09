@@ -165,7 +165,22 @@ async def _reboot(device, client) -> dict:
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}"}
 
-async def _upgrade(device_id: int, backup: bool) -> dict:
+UPDATE_CHANNELS = ("stable", "long-term", "testing", "development")
+
+
+async def _upgrade(device, client, backup: bool, channel: Optional[str]) -> dict:
+    device_id = device.id
+    if channel:
+        try:
+            await client.set_update_channel(channel)
+        except Exception as e:
+            return {"status": "error", "error": f"could not set update channel to {channel}: {type(e).__name__}: {e}"}
+    # Ask the device (it knows its own architecture and channel): nothing to do
+    # means no download and, above all, no pointless reboot. If the check
+    # itself fails we fall through to the upgrade, as before.
+    st = await client.get_package_update_status()
+    if st and (st.get("status") or "").lower().startswith("system is already up to date"):
+        return {"status": "ok", "output": f"already up to date ({st.get('installed')}, channel {st.get('channel')}) - nothing to do"}
     res = await firmware.upgrade_device(device_id, do_backup=backup)
     log = "\n".join(firmware.get_job_status(device_id).get("log", []))
     if res.get("ok"):
@@ -186,7 +201,8 @@ async def _set_result(run_id: int, device_id: int, **fields) -> None:
             db.commit()
 
 
-async def _execute(run_id: int, action: str, device_ids: List[int], lines: List[str], backup: bool) -> None:
+async def _execute(run_id: int, action: str, device_ids: List[int], lines: List[str], backup: bool,
+                   channel: Optional[str] = None, stop_on_failure: bool = False) -> None:
     sem = asyncio.Semaphore(CONCURRENCY)
 
     async def _one(did: int):
@@ -201,15 +217,20 @@ async def _execute(run_id: int, action: str, device_ids: List[int], lines: List[
                 elif action == "reboot":
                     res = await _reboot(device, client)
                 else:
-                    res = await _upgrade(did, backup)
+                    res = await _upgrade(device, client, backup, channel)
             except Exception as e:
                 res = {"status": "error", "error": f"{type(e).__name__}: {e}"}
             await _set_result(run_id, did, finished_at=datetime.now().isoformat(), **res)
+            return res
 
     try:
         if action == "upgrade":
-            for did in device_ids:                 # strictly one at a time
-                await _one(did)
+            for i, did in enumerate(device_ids):   # strictly one at a time, in the given order
+                res = await _one(did)
+                if stop_on_failure and res.get("status") == "error":
+                    for later in device_ids[i + 1:]:
+                        await _set_result(run_id, later, status="skipped", error="stopped after an earlier device failed")
+                    break
         else:
             await asyncio.gather(*[_one(d) for d in device_ids])
     finally:
@@ -226,8 +247,12 @@ class _NullCtx:
     async def __aexit__(self, *a): return False
 
 
-def start_run(action: str, device_ids: List[int], reason: str, script: Optional[str], backup: bool, created_by: str) -> int:
+def start_run(action: str, device_ids: List[int], reason: str, script: Optional[str], backup: bool, created_by: str,
+              channel: Optional[str] = None, stop_on_failure: bool = False, group_id: Optional[int] = None,
+              trigger: str = "manual") -> int:
     validate(action, device_ids, reason, script)
+    if channel is not None and channel not in UPDATE_CHANNELS:
+        raise ValueError("unknown update channel")
     ids = list(dict.fromkeys(int(i) for i in device_ids))
     names: Dict[int, dict] = {}
     with SessionLocal() as db:
@@ -238,7 +263,8 @@ def start_run(action: str, device_ids: List[int], reason: str, script: Optional[
             raise ValueError(f"unknown device ids: {missing}")
         run = FleetActionRun(
             action=action, reason=reason.strip(), script=script if action == "script" else None,
-            options=json.dumps({"backup": bool(backup)}) if action == "upgrade" else None,
+            options=json.dumps({"backup": bool(backup), "channel": channel, "stop_on_failure": bool(stop_on_failure),
+                                "group_id": group_id, "trigger": trigger}) if action == "upgrade" else None,
             created_by=created_by, status="running",
             results=json.dumps({str(i): {**names[i], "status": "queued"} for i in ids}))
         db.add(run)
@@ -250,7 +276,8 @@ def start_run(action: str, device_ids: List[int], reason: str, script: Optional[
     except Exception as e:
         print(f"[fleet_actions] activity record error: {e}")
     _active.add(run_id)
-    asyncio.get_event_loop().create_task(_execute(run_id, action, ids, script_lines(script) if action == "script" else [], backup))
+    asyncio.get_event_loop().create_task(_execute(
+        run_id, action, ids, script_lines(script) if action == "script" else [], backup, channel, stop_on_failure))
     return run_id
 
 

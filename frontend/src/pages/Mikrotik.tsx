@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Donut, ResourcesCard, AlertsCard, UpdatesCard, WifiCard } from '../components/FleetWidgets'
 import { FleetActions } from '../components/FleetActions'
+import { FleetGroups } from '../components/FleetGroups'
 import { Router, RefreshCw, Download, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
 
@@ -170,7 +171,7 @@ function Inventory({ data }: { data: FleetOverview }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'dashboard' | 'inventory' | 'actions'
+type Tab = 'dashboard' | 'inventory' | 'actions' | 'updates'
 
 export function Mikrotik() {
   const { t } = useTranslation()
@@ -182,7 +183,7 @@ export function Mikrotik() {
     onSuccess: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['fleet-overview'] }), 8000),
   })
 
-  const tabs: Array<[Tab, string]> = [['dashboard', 'fleet.tabDashboard'], ['inventory', 'fleet.tabInventory'], ['actions', 'fleet.tabActions']]
+  const tabs: Array<[Tab, string]> = [['dashboard', 'fleet.tabDashboard'], ['inventory', 'fleet.tabInventory'], ['actions', 'fleet.tabActions'], ['updates', 'fleet.tabUpdates']]
   return (
     <div className="p-6 space-y-4 max-w-7xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -210,7 +211,7 @@ export function Mikrotik() {
 
       {isLoading || !data ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
         : data.devices.length === 0 ? <p className="text-sm text-slate-500">{t('fleet.noDevices')}</p>
-        : tab === 'dashboard' ? <Dashboard data={data} /> : tab === 'inventory' ? <Inventory data={data} /> : <FleetActions devices={data.devices} />}
+        : tab === 'dashboard' ? <Dashboard data={data} /> : tab === 'inventory' ? <Inventory data={data} /> : tab === 'actions' ? <FleetActions devices={data.devices} /> : <FleetGroups devices={data.devices} />}
     </div>
   )
 }

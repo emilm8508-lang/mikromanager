@@ -351,4 +351,10 @@ def public_summary() -> dict:
     o = build_overview(include_ip=False, include_packages=False)
     for a in o["alerts"]:
         a["devices"] = [d["name"] for d in a["devices"]]
+    try:
+        from services import fleet_schedule
+        o["groups"] = fleet_schedule.public_list()
+    except Exception as e:
+        print(f"[fleet] group summary error: {e}")
+        o["groups"] = []
     return o

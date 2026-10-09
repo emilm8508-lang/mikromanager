@@ -17,7 +17,7 @@ const RESULT_VARIANT: Record<FleetResultStatus, 'gray' | 'blue' | 'green' | 'red
   queued: 'gray', running: 'blue', ok: 'green', error: 'red', skipped: 'yellow',
 }
 
-function RunDetail({ runId }: { runId: number }) {
+export function RunDetail({ runId }: { runId: number }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState<string | null>(null)
   const { data } = useQuery<FleetRunDetail>({

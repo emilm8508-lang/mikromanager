@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { centralApi, centralConfig, type FleetOverview } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { GroupScheduleRow } from '../components/FleetGroups'
 import { Donut, ResourcesCard, AlertsCard, UpdatesCard, WifiCard, mergeWifi, type AlertRowView } from '../components/FleetWidgets'
 import { Router, Download } from 'lucide-react'
 
@@ -72,6 +73,7 @@ export function CentralFleet() {
     key: `${r.tenant}:${u.id}`, tenant: r.tenant, label: u.name, current: u.current, latest: u.latest, channel: u.channel,
   })))
   const wifi = mergeWifi(vis.map(r => r.fleet.wifi))
+  const groups = vis.flatMap(r => (r.fleet.groups ?? []).map(g => ({ tenant: r.tenant, g })))
 
   const exportCsv = () => {
     const header = ['tenant', 'name', 'model', 'architecture', 'routeros', 'channel', 'latest_routeros', 'online', 'cpu_pct', 'memory_pct', 'disk_pct', 'uptime_sec', 'packages']
@@ -146,6 +148,19 @@ export function CentralFleet() {
             <WifiCard wifi={wifi} kind="aps" />
             <WifiCard wifi={wifi} kind="stations" />
           </div>
+          <Card>
+            <CardHeader><h2 className="text-sm font-semibold text-slate-700">{t('fleetCentral.groupsCard')}</h2></CardHeader>
+            <CardContent>
+              {groups.length === 0 ? <p className="text-sm text-slate-500">{t('fleetCentral.groupsEmpty')}</p> : (
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-500 border-b">
+                    <th className="py-1.5">{t('fleetCentral.colGroup')}</th><th>{t('fleetCentral.colSchedule')}</th><th>{t('fleetCentral.colNext')}</th><th>{t('fleetCentral.colLast')}</th>
+                  </tr></thead>
+                  <tbody>{groups.map(x => <GroupScheduleRow key={`${x.tenant}:${x.g.name}`} g={x.g} tenant={x.tenant} />)}</tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
