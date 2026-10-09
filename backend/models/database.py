@@ -591,6 +591,26 @@ class HostServiceEvent(Base):
     alert = Column(Boolean, nullable=False, default=False)   # whether it should raise a Central/Telegram alert event
 
 
+class FleetActionRun(Base):
+    """One bulk action over several Mikrotik devices (services/fleet_actions.py):
+    a script, a reboot or a RouterOS upgrade. The full script and the
+    per-device results stay here, local to the agent - only action, device
+    count and reason are ever reported to Central, since a script can contain
+    secrets (e.g. one that sets a password)."""
+    __tablename__ = "fleet_action_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False)           # "script" | "reboot" | "upgrade"
+    reason = Column(Text, nullable=False)
+    script = Column(Text, nullable=True)
+    options = Column(Text, nullable=True)             # JSON, e.g. {"backup": true}
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String, nullable=False, default="running")   # running | done | interrupted
+    results = Column(Text, nullable=True)             # JSON {device_id: {name, ip, status, output, error, ...}}
+
+
 class WindowsManageSettings(Base):
     """Single-row (id always 1) global config: the ONE shared Credential used
     for every managed Windows host — same "one credential for all" model as

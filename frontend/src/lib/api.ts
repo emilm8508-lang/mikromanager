@@ -1521,6 +1521,45 @@ export const fleetApi = {
   overview: () => api.get<FleetOverview>('/fleet/overview').then(r => r.data),
   refresh: () => api.post<{ started: boolean }>('/fleet/refresh').then(r => r.data),
 }
+
+// Bulk actions (services/fleet_actions.py)
+export type FleetActionKind = 'script' | 'reboot' | 'upgrade'
+export type FleetResultStatus = 'queued' | 'running' | 'ok' | 'error' | 'skipped'
+
+export interface FleetRunSummary {
+  id: number
+  action: FleetActionKind
+  reason: string
+  created_by: string | null
+  status: 'running' | 'done' | 'interrupted'
+  created_at: string | null
+  finished_at: string | null
+  devices: number
+  counts: Partial<Record<FleetResultStatus, number>>
+}
+
+export interface FleetRunDeviceResult {
+  name: string
+  ip: string
+  status: FleetResultStatus
+  output?: string
+  error?: string | null
+  started_at?: string
+  finished_at?: string
+}
+
+export interface FleetRunDetail extends FleetRunSummary {
+  script: string | null
+  options: { backup?: boolean } | null
+  results: Record<string, FleetRunDeviceResult>
+}
+
+export const fleetActionsApi = {
+  start: (body: { action: FleetActionKind; device_ids: number[]; reason: string; script?: string; backup?: boolean }) =>
+    api.post<{ run_id: number }>('/fleet/actions/run', body).then(r => r.data),
+  runs: () => api.get<{ runs: FleetRunSummary[]; enabled: boolean }>('/fleet/actions/runs').then(r => r.data),
+  run: (id: number) => api.get<FleetRunDetail>(`/fleet/actions/runs/${id}`).then(r => r.data),
+}
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 
 export type DellHealth = 'OK' | 'Warning' | 'Critical' | null

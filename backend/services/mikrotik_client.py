@@ -211,6 +211,10 @@ class MikrotikClient:
     async def rest_delete(self, path: str) -> Any:
         return await self._rest_request("DELETE", path)
 
+    async def rest_post(self, path: str, data: Optional[dict] = None) -> Any:
+        """RouterOS REST commands (e.g. system/reboot) are POSTs."""
+        return await self._rest_request("POST", path, data if data is not None else {})
+
     # ── Binary API protocol (RouterOS v3+, port 8728) ─────────────────────────
 
     async def api_command(self, command: str) -> list:
@@ -421,6 +425,35 @@ class MikrotikClient:
             "status": info.get("status"),
             "channel": info.get("channel", "stable"),
         }
+
+    async def run_cli(self, commands: list, ssh_port: int = 22, timeout_sec: int = 30) -> str:
+        """Runs RouterOS CLI lines over SSH - one exec per line on one
+        connection - and returns a transcript ("> command" + its output per
+        line). RouterOS prints failures into the output text (the exit code
+        is always 0), so callers judge success from the text. Raises on SSH
+        connect/auth failure."""
+        def _sync() -> str:
+            import paramiko
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            try:
+                client.connect(self.ip, port=ssh_port, username=self.username, password=self.password,
+                                timeout=timeout_sec, banner_timeout=timeout_sec, auth_timeout=timeout_sec,
+                                look_for_keys=False, allow_agent=False)
+                parts = []
+                for cmd in commands:
+                    _, stdout, stderr = client.exec_command(cmd, timeout=timeout_sec)
+                    text = stdout.read().decode("utf-8", errors="ignore") + stderr.read().decode("utf-8", errors="ignore")
+                    parts.append(f"> {cmd}\n{text.rstrip()}".rstrip())
+                return "\n".join(parts)
+            finally:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_API_EXECUTOR, _sync)
 
     async def get_packages(self) -> list:
         """Installed packages (/system/package) — name, version, disabled flag."""
