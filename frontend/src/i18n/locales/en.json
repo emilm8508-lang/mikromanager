@@ -833,6 +833,7 @@
             "runConfirm": "Run the upgrade of group \"{{name}}\" now? Devices: {{count}} — each one will be rebooted.",
             "deleteConfirm": "Delete group \"{{name}}\"?",
             "missed": "The scheduled time was skipped (the agent was down for more than an hour past it).",
+            "fromCentral": "From Central (read-only)",
             "weekday": {
                 "0": "Monday",
                 "1": "Tuesday",

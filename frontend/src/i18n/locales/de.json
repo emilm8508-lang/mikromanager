@@ -833,6 +833,7 @@
             "runConfirm": "Update der Gruppe „{{name}}“ jetzt ausführen? Geräte: {{count}} — jedes wird neu gestartet.",
             "deleteConfirm": "Gruppe „{{name}}“ löschen?",
             "missed": "Der geplante Termin wurde übersprungen (der Agent war länger als eine Stunde danach nicht aktiv).",
+            "fromCentral": "Aus der Zentrale (schreibgeschützt)",
             "weekday": {
                 "0": "Montag",
                 "1": "Dienstag",

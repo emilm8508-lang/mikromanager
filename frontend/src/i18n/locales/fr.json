@@ -833,6 +833,7 @@
             "runConfirm": "Lancer maintenant la mise à jour du groupe « {{name}} » ? Équipements : {{count}} — chacun sera redémarré.",
             "deleteConfirm": "Supprimer le groupe « {{name}} » ?",
             "missed": "L'heure prévue a été ignorée (l'agent était arrêté plus d'une heure après).",
+            "fromCentral": "Depuis la Centrale (lecture seule)",
             "weekday": {
                 "0": "Lundi",
                 "1": "Mardi",

@@ -28,6 +28,21 @@ function fail(int $code, string $msg): void {
     exit;
 }
 
+// One Central-defined upgrade group in the signed command string. Must match
+// services/uplink.py's _fleet_group_token() exactly. Only structured values
+// (ids, numbers, enums) - the free-text name is deliberately left out, same
+// rule as every other free-text field in the commands below.
+function fleet_group_token(array $g): string {
+    $num = function ($v) { return $v === null ? '-' : (string)(int)$v; };
+    $ids = implode('.', array_map('intval', $g['device_ids'] ?? []));
+    $once = preg_replace('/\D/', '', (string)($g['once_at'] ?? ''));
+    return implode(':', [
+        (int)($g['id'] ?? 0), (int)($g['rev'] ?? 0), $ids === '' ? '-' : $ids, ($g['channel'] ?? null) ?: '-',
+        ($g['schedule_kind'] ?? '') ?: 'manual', $num($g['weekday'] ?? null), $num($g['hour'] ?? null), (int)($g['minute'] ?? 0),
+        $once === '' ? '-' : $once, !empty($g['enabled']) ? '1' : '0', !empty($g['stop_on_failure']) ? '1' : '0', !empty($g['backup']) ? '1' : '0',
+    ]);
+}
+
 // Deterministic string form of the commands list, used to HMAC-sign the
 // response so the agent can verify commands weren't injected/tampered with
 // downstream of this script. Must match services/uplink.py's
@@ -83,6 +98,10 @@ function canonical_commands(array $commands): string {
                 $c['targets'] ?? []
             );
             $parts[] = 'edge_verify_targets:' . implode(',', $enc);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'fleet_groups_sync') {
+            $parts[] = 'fleet_groups_sync:' . implode(',', array_map('fleet_group_token', $c['groups'] ?? []));
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'fleet_group_run') {
+            $parts[] = 'fleet_group_run:' . (int)($c['group_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'device_router_override') {
             $is_router = $c['is_router'] ?? null;
             $value_str = $is_router === null ? 'null' : ($is_router ? '1' : '0');
@@ -661,6 +680,43 @@ try {
                         json_encode(['device_id'=>(int)$m[1],'is_router'=>$is_router,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
+    }
+
+    // 7. Mikrotik upgrade groups defined in Central (table fleet_groups). Like 5.
+    // above this is the tenant's CURRENT list, resent every heartbeat, not a
+    // drained one-off - but only when there is something to say: a tenant with
+    // no groups gets no command at all (an agent that predates this command
+    // rejects a command list it cannot verify, so it must not be sent to
+    // tenants that never used the feature). After the LAST group is deleted a
+    // tombstone file makes one empty sync go out so the agent drops its copy.
+    // Wrapped in its own try/catch: if the table has not been created yet this
+    // simply sends nothing, never breaking the heartbeat.
+    try {
+        $stmt = $pdo->prepare('SELECT id, name, definition, rev FROM fleet_groups WHERE tenant = ? ORDER BY id');
+        $stmt->execute([$tenant_header]);
+        $fleet_groups = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $def = json_decode((string)$row['definition'], true);
+            if (!is_array($def)) continue;
+            $fleet_groups[] = ['id' => (int)$row['id'], 'rev' => (int)$row['rev'], 'name' => $row['name']] + $def;
+        }
+        $fleet_tomb = $state_dir . "/fleet_groups_empty_{$safe}.pending";
+        if ($fleet_groups || is_file($fleet_tomb)) {
+            $commands[] = ['type' => 'fleet_groups_sync', 'groups' => $fleet_groups];
+            if (!$fleet_groups) @unlink($fleet_tomb);
+        }
+        foreach (glob($state_dir . "/fleet_group_run_{$safe}_*.pending") as $f) {
+            if (preg_match('/^fleet_group_run_.+_(\d+)$/', basename($f, '.pending'), $m)) {
+                $commands[] = ['type' => 'fleet_group_run', 'group_id' => (int)$m[1]];
+                @unlink($f);
+                try {
+                    $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "fleet_group_run_delivered", ?, ?)')
+                        ->execute([$tenant_header, "Uruchomienie grupy aktualizacji dostarczone do agenta {$tenant_header}", json_encode(['group_id'=>(int)$m[1],'delivered_at'=>date('c')])]);
+                } catch (Throwable $e) {}
+            }
+        }
+    } catch (Throwable $e) {
+        // fleet_groups not created yet - nothing to send
     }
 
     // Sign the commands so the agent can verify they really came from someone

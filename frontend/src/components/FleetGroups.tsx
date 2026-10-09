@@ -30,12 +30,12 @@ export function scheduleText(g: Pick<FleetGroupSummary, 'schedule_kind' | 'weekd
   return t('fleet.groups.schedManual')
 }
 
-function emptyGroup(): FleetGroupInput {
+export function emptyGroup(): FleetGroupInput {
   return { name: '', device_ids: [], channel: null, schedule_kind: 'manual', weekday: 1, hour: 2, minute: 0, once_at: null,
            enabled: true, stop_on_failure: true, backup: true }
 }
 
-function Editor({ initial, devices, onClose, onSave, saving, error }: {
+export function Editor({ initial, devices, onClose, onSave, saving, error }: {
   initial: FleetGroupInput; devices: FleetDeviceRow[]; onClose: () => void; onSave: (g: FleetGroupInput) => void; saving: boolean; error: string | null
 }) {
   const { t } = useTranslation()
@@ -185,6 +185,7 @@ export function FleetGroups({ devices }: { devices: FleetDeviceRow[] }) {
                   <Badge variant="gray">{t('fleet.groups.devicesCount', { n: g.device_ids.length })}</Badge>
                   <Badge variant="blue">{g.channel ?? t('fleet.groups.channelKeep')}</Badge>
                   {!g.enabled && g.schedule_kind !== 'manual' && <Badge variant="yellow">{t('fleet.groups.paused')}</Badge>}
+                  {g.source === 'central' && <Badge variant="purple">{t('fleet.groups.fromCentral')}</Badge>}
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5 truncate" title={g.device_ids.map(i => names.get(i) ?? i).join(' → ')}>
                   {g.device_ids.map(i => names.get(i) ?? `#${i}`).join(' → ')}
@@ -212,8 +213,12 @@ export function FleetGroups({ devices }: { devices: FleetDeviceRow[] }) {
                   onClick={() => { if (window.confirm(t('fleet.groups.runConfirm', { name: g.name, count: g.device_ids.length }) as string)) run.mutate(g.id) }}>
                   <Play size={12} /> {t('fleet.groups.runNow')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditing({ id: g.id, value: toInput(g) })}><Pencil size={12} /></Button>
-                <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(t('fleet.groups.deleteConfirm', { name: g.name }) as string)) remove.mutate(g.id) }}><Trash2 size={12} /></Button>
+                {g.source !== 'central' && (
+                  <>
+                    <Button size="sm" variant="ghost" onClick={() => setEditing({ id: g.id, value: toInput(g) })}><Pencil size={12} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(t('fleet.groups.deleteConfirm', { name: g.name }) as string)) remove.mutate(g.id) }}><Trash2 size={12} /></Button>
+                  </>
+                )}
               </div>
             </div>
             {details != null && g.last_run?.id === details && <RunDetail runId={details} />}

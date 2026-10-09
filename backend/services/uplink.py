@@ -643,6 +643,24 @@ async def _send_one(snapshot: dict) -> bool:
         return False
 
 
+def _fleet_group_token(g: dict) -> str:
+    """One Central-defined upgrade group in the signed command string. Must
+    match ovh/ingest.php's fleet_group_token() exactly. Only structured values
+    (ids, numbers, enums) - the free-text name is deliberately left out, same
+    rule as every other free-text field in these commands."""
+    import re as _re
+
+    def num(v):
+        return "-" if v is None else str(int(v))
+    ids = ".".join(str(int(i)) for i in (g.get("device_ids") or []))
+    once = _re.sub(r"\D", "", str(g.get("once_at") or ""))
+    return ":".join([
+        str(int(g.get("id") or 0)), str(int(g.get("rev") or 0)), ids or "-", g.get("channel") or "-",
+        g.get("schedule_kind") or "manual", num(g.get("weekday")), num(g.get("hour")), str(int(g.get("minute") or 0)),
+        once or "-", "1" if g.get("enabled") else "0", "1" if g.get("stop_on_failure") else "0", "1" if g.get("backup") else "0",
+    ])
+
+
 def _canonical_commands(commands: list) -> str:
     """Must match ovh/ingest.php's canonical_commands() exactly, token for token."""
     parts = []
@@ -689,6 +707,10 @@ def _canonical_commands(commands: list) -> str:
                 for t in (c.get("targets") or [])
             )
             parts.append(f"edge_verify_targets:{enc}")
+        elif isinstance(c, dict) and c.get("type") == "fleet_groups_sync":
+            parts.append("fleet_groups_sync:" + ",".join(_fleet_group_token(g) for g in (c.get("groups") or [])))
+        elif isinstance(c, dict) and c.get("type") == "fleet_group_run":
+            parts.append(f"fleet_group_run:{int(c.get('group_id') or 0)}")
         elif isinstance(c, dict) and c.get("type") == "device_router_override":
             device_id = int(c.get("device_id") or 0)
             # "null"/"true"/"false" as literal strings - is_router is a
@@ -994,6 +1016,23 @@ async def _handle_commands(commands: list) -> None:
                 from services import edge_selfcheck
                 targets = cmd.get("targets") or []
                 edge_selfcheck.set_verify_targets(targets)
+            elif cmd_type == "fleet_groups_sync":
+                # Upgrade groups defined in Central, resent wholesale every
+                # heartbeat (like edge_check_targets) - mirrored locally, read-only here.
+                if _central_groups_enabled():
+                    from services import fleet_schedule
+                    stats = fleet_schedule.apply_central_groups(cmd.get("groups") or [])
+                    if stats["created"] or stats["updated"] or stats["deleted"]:
+                        print(f"[uplink] Central upgrade groups synced: {stats}")
+            elif cmd_type == "fleet_group_run":
+                group_id = cmd.get("group_id")
+                if group_id and _central_groups_enabled():
+                    from services import fleet_schedule
+                    print(f"[uplink] received FLEET_GROUP_RUN for Central group {group_id}")
+                    try:
+                        fleet_schedule.run_central_group(int(group_id))
+                    except Exception as e:
+                        print(f"[uplink] fleet_group_run failed: {e}")
             elif cmd_type == "device_router_override":
                 device_id = cmd.get("device_id")
                 is_router = cmd.get("is_router")
@@ -1010,6 +1049,13 @@ async def _handle_commands(commands: list) -> None:
                 print(f"[uplink] unknown command type: {cmd_type}")
         else:
             print(f"[uplink] unknown command: {cmd!r}")
+
+
+def _central_groups_enabled() -> bool:
+    """MIKROTIK_CENTRAL_GROUPS_ENABLED=0 makes this agent ignore upgrade
+    groups pushed from Central (default: on - same trust as the existing
+    firmware_upgrade command, which Central can already send)."""
+    return os.environ.get("MIKROTIK_CENTRAL_GROUPS_ENABLED", "1").strip().lower() not in ("0", "false", "no")
 
 
 async def send_now() -> dict:

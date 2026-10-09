@@ -240,6 +240,39 @@ function require_write(array $identity): void {
     }
 }
 
+/** Validates + normalises a Mikrotik upgrade-group definition coming from the
+ * UI. Returns the cleaned array, or a string with the error. Mirrors the agent's
+ * own validation (services/fleet_schedule.py _validated) - the agent re-checks
+ * everything itself, this is only for fast, readable errors in the UI. */
+function fleet_group_clean($d) {
+    if (!is_array($d)) return 'definition required';
+    $ids = [];
+    foreach (($d['device_ids'] ?? []) as $i) { $ids[] = (int)$i; }
+    if (!$ids) return 'pick at least one device';
+    foreach ($ids as $i) { if ($i <= 0) return 'invalid device id'; }
+    if (count($ids) !== count(array_unique($ids))) return 'a device can appear only once';
+    if (count($ids) > 50) return 'at most 50 devices per group';
+    $channel = $d['channel'] ?? null;
+    if ($channel === '') $channel = null;
+    if ($channel !== null && !in_array($channel, ['stable', 'long-term', 'testing', 'development'], true)) return 'unknown update channel';
+    $kind = (string)($d['schedule_kind'] ?? 'manual');
+    if (!in_array($kind, ['manual', 'weekly', 'once'], true)) return 'unknown schedule kind';
+    $out = ['device_ids' => $ids, 'channel' => $channel, 'schedule_kind' => $kind, 'weekday' => null, 'hour' => null,
+            'minute' => 0, 'once_at' => null, 'enabled' => !empty($d['enabled']),
+            'stop_on_failure' => !empty($d['stop_on_failure']), 'backup' => !empty($d['backup'])];
+    if ($kind === 'weekly') {
+        $wd = $d['weekday'] ?? null; $h = $d['hour'] ?? null; $m = $d['minute'] ?? 0;
+        if (!is_numeric($wd) || (int)$wd < 0 || (int)$wd > 6 || !is_numeric($h) || (int)$h < 0 || (int)$h > 23
+            || !is_numeric($m) || (int)$m < 0 || (int)$m > 59) return 'weekly schedule needs weekday 0-6, hour 0-23, minute 0-59';
+        $out['weekday'] = (int)$wd; $out['hour'] = (int)$h; $out['minute'] = (int)$m;
+    } elseif ($kind === 'once') {
+        $ts = strtotime((string)($d['once_at'] ?? ''));
+        if ($ts === false) return 'one-off schedule needs a valid date and time';
+        $out['once_at'] = date('Y-m-d\TH:i', $ts);
+    }
+    return $out;
+}
+
 $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
 // ── Routing ──────────────────────────────────────────────────────────────────
@@ -1843,6 +1876,94 @@ try {
             }
             $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['tenants' => $result]);
+            break;
+
+        case 'fleet_groups_list':
+            // Mikrotik upgrade groups defined in Central; pushed to each tenant's
+            // agent by ingest.php as "fleet_groups_sync". Optional ?tenant= filter.
+            $want = trim((string)($_GET['tenant'] ?? ''));
+            try {
+                $rows = $pdo->query('SELECT id, tenant, name, definition, rev, updated_at FROM fleet_groups ORDER BY tenant, name')
+                            ->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Throwable $e) {
+                $rows = [];   // table not created yet
+            }
+            $out = [];
+            foreach ($rows as $r) {
+                if (!tenant_allowed($identity, $r['tenant'])) continue;
+                if ($want !== '' && $r['tenant'] !== $want) continue;
+                $out[] = ['id' => (int)$r['id'], 'tenant' => $r['tenant'], 'name' => $r['name'],
+                          'definition' => json_decode((string)$r['definition'], true) ?: [],
+                          'rev' => (int)$r['rev'], 'updated_at' => $r['updated_at']];
+            }
+            echo json_encode(['groups' => $out]);
+            break;
+
+        case 'fleet_group_save':
+            require_write($identity);
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) { http_response_code(400); echo json_encode(['error' => 'invalid body']); break; }
+            $g_tenant = trim((string)($data['tenant'] ?? ''));
+            if ($g_tenant === '' || !isset($config['tenants'][$g_tenant])) { http_response_code(400); echo json_encode(['error' => 'unknown tenant']); break; }
+            require_tenant($identity, $g_tenant);
+            $g_name = trim((string)($data['name'] ?? ''));
+            if ($g_name === '' || (function_exists('mb_strlen') ? mb_strlen($g_name) : strlen($g_name)) > 128) { http_response_code(400); echo json_encode(['error' => 'name required (max 128 characters)']); break; }
+            $g_def = fleet_group_clean($data['definition'] ?? null);
+            if (is_string($g_def)) { http_response_code(400); echo json_encode(['error' => $g_def]); break; }
+            $g_id = (int)($data['id'] ?? 0);
+            try {
+                if ($g_id > 0) {
+                    $chk = $pdo->prepare('SELECT tenant FROM fleet_groups WHERE id=?'); $chk->execute([$g_id]);
+                    $g_cur = $chk->fetchColumn();
+                    if ($g_cur === false) { http_response_code(404); echo json_encode(['error' => 'not found']); break; }
+                    if ($g_cur !== $g_tenant) { http_response_code(400); echo json_encode(['error' => 'tenant cannot be changed']); break; }
+                    $pdo->prepare('UPDATE fleet_groups SET name=?, definition=?, rev=rev+1 WHERE id=?')
+                        ->execute([$g_name, json_encode($g_def), $g_id]);
+                } else {
+                    $pdo->prepare('INSERT INTO fleet_groups (tenant, name, definition, rev) VALUES (?,?,?,1)')
+                        ->execute([$g_tenant, $g_name, json_encode($g_def)]);
+                    $g_id = (int)$pdo->lastInsertId();
+                }
+            } catch (PDOException $e) {
+                if ($e->getCode() === '23000') { http_response_code(409); echo json_encode(['error' => 'a group with this name already exists for this tenant']); break; }
+                throw $e;
+            }
+            echo json_encode(['ok' => true, 'id' => $g_id]);
+            break;
+
+        case 'fleet_group_delete':
+            require_write($identity);
+            $g_id = (int)($_GET['id'] ?? 0);
+            if ($g_id <= 0) { http_response_code(400); echo json_encode(['error' => 'id required']); break; }
+            $chk = $pdo->prepare('SELECT tenant FROM fleet_groups WHERE id=?'); $chk->execute([$g_id]);
+            $g_tenant = $chk->fetchColumn();
+            if ($g_tenant === false) { http_response_code(404); echo json_encode(['error' => 'not found']); break; }
+            require_tenant($identity, $g_tenant);
+            $pdo->prepare('DELETE FROM fleet_groups WHERE id=?')->execute([$g_id]);
+            // When the last group of a tenant goes, its agent must still be told once
+            // (ingest.php sends an empty fleet_groups_sync for a tombstone file).
+            $left = $pdo->prepare('SELECT COUNT(*) FROM fleet_groups WHERE tenant=?'); $left->execute([$g_tenant]);
+            if ((int)$left->fetchColumn() === 0) {
+                $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+                if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+                file_put_contents($state_dir . '/fleet_groups_empty_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $g_tenant) . '.pending', date('c'));
+            }
+            echo json_encode(['ok' => true]);
+            break;
+
+        case 'fleet_group_run':
+            // Queue "run this group now" for the tenant's agent (delivered on its next heartbeat).
+            require_write($identity);
+            $g_id = (int)($_GET['id'] ?? 0);
+            if ($g_id <= 0) { http_response_code(400); echo json_encode(['error' => 'id required']); break; }
+            $chk = $pdo->prepare('SELECT tenant FROM fleet_groups WHERE id=?'); $chk->execute([$g_id]);
+            $g_tenant = $chk->fetchColumn();
+            if ($g_tenant === false) { http_response_code(404); echo json_encode(['error' => 'not found']); break; }
+            require_tenant($identity, $g_tenant);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            file_put_contents($state_dir . '/fleet_group_run_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $g_tenant) . '_' . $g_id . '.pending', date('c'));
+            echo json_encode(['ok' => true, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
             break;
 
         case 'fleet_status_all':

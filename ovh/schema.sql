@@ -308,3 +308,21 @@ CREATE TABLE IF NOT EXISTS anydesk_sessions (
     INDEX idx_start (start_time),
     INDEX idx_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- Mikrotik upgrade groups defined in Central (agent: services/fleet_schedule.py).
+-- The agent of the owning tenant receives all of its tenant's groups with every
+-- heartbeat ("fleet_groups_sync" in ingest.php), runs the schedule itself, and
+-- reports status back in its normal snapshot. `rev` is bumped on every save so
+-- the agent re-applies a group only when it really changed.
+CREATE TABLE IF NOT EXISTS fleet_groups (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    definition TEXT NOT NULL,            -- JSON: device_ids (ordered), channel, schedule_kind, weekday, hour, minute, once_at, enabled, stop_on_failure, backup
+    rev INT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_tenant_name (tenant, name),
+    INDEX idx_tenant (tenant)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

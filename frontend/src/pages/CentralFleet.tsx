@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type FleetOverview } from '../lib/api'
+import { centralApi, centralConfig, type CentralFleetGroup, type FleetOverview } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { GroupScheduleRow } from '../components/FleetGroups'
+import { CentralFleetGroups } from '../components/CentralFleetGroups'
 import { Donut, ResourcesCard, AlertsCard, UpdatesCard, WifiCard, mergeWifi, type AlertRowView } from '../components/FleetWidgets'
 import { Router, Download } from 'lucide-react'
 
@@ -21,6 +22,7 @@ export function CentralFleet() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [tenantFilter, setTenantFilter] = useState('all')
+  const [centralGroups, setCentralGroups] = useState<CentralFleetGroup[]>([])
 
   const reload = async () => {
     try {
@@ -32,6 +34,8 @@ export function CentralFleet() {
     } finally {
       setLoading(false)
     }
+    // Separate from the status call: an older api.php without the groups actions must not break the page.
+    try { setCentralGroups(await centralApi.fleetGroupsList()) } catch { /* keep the last list */ }
   }
 
   useEffect(() => {
@@ -73,7 +77,8 @@ export function CentralFleet() {
     key: `${r.tenant}:${u.id}`, tenant: r.tenant, label: u.name, current: u.current, latest: u.latest, channel: u.channel,
   })))
   const wifi = mergeWifi(vis.map(r => r.fleet.wifi))
-  const groups = vis.flatMap(r => (r.fleet.groups ?? []).map(g => ({ tenant: r.tenant, g })))
+  // Groups managed from Central are shown (with their status) in the editable card; this table keeps the agents' own local ones.
+  const groups = vis.flatMap(r => (r.fleet.groups ?? []).filter(g => g.central_id == null).map(g => ({ tenant: r.tenant, g })))
 
   const exportCsv = () => {
     const header = ['tenant', 'name', 'model', 'architecture', 'routeros', 'channel', 'latest_routeros', 'online', 'cpu_pct', 'memory_pct', 'disk_pct', 'uptime_sec', 'packages']
@@ -148,19 +153,21 @@ export function CentralFleet() {
             <WifiCard wifi={wifi} kind="aps" />
             <WifiCard wifi={wifi} kind="stations" />
           </div>
-          <Card>
-            <CardHeader><h2 className="text-sm font-semibold text-slate-700">{t('fleetCentral.groupsCard')}</h2></CardHeader>
-            <CardContent>
-              {groups.length === 0 ? <p className="text-sm text-slate-500">{t('fleetCentral.groupsEmpty')}</p> : (
+          <CentralFleetGroups rows={rows} tenantFilter={tenantFilter} groups={centralGroups} onChanged={reload} />
+          {groups.length > 0 && (
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-slate-700">{t('fleetCentral.localGroupsCard')}</h2></CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-slate-500">{t('fleetCentral.localGroupsHint')}</p>
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-xs text-slate-500 border-b">
                     <th className="py-1.5">{t('fleetCentral.colGroup')}</th><th>{t('fleetCentral.colSchedule')}</th><th>{t('fleetCentral.colNext')}</th><th>{t('fleetCentral.colLast')}</th>
                   </tr></thead>
                   <tbody>{groups.map(x => <GroupScheduleRow key={`${x.tenant}:${x.g.name}`} g={x.g} tenant={x.tenant} />)}</tbody>
                 </table>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

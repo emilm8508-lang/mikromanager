@@ -48,7 +48,7 @@ def next_occurrence(kind: str, weekday: Optional[int], hour: Optional[int], minu
     return None
 
 
-def _validated(p: dict) -> dict:
+def _validated(p: dict, allow_past_once: bool = False) -> dict:
     out = {}
     name = (p.get("name") or "").strip()
     if not name:
@@ -83,10 +83,14 @@ def _validated(p: dict) -> dict:
         except ValueError:
             raise ValueError("one-off schedule needs a valid date and time")
         if at <= datetime.now():
-            raise ValueError("the scheduled time is in the past")
+            if not allow_past_once:
+                raise ValueError("the scheduled time is in the past")
+            out["enabled_forced_off"] = True      # a Central one-off whose time has passed: keep it, but it must not run
         out["once_at"] = at
     for key in ("enabled", "stop_on_failure", "backup"):
         out[key] = bool(p.get(key, True))
+    if out.pop("enabled_forced_off", False):
+        out["enabled"] = False
     return out
 
 
@@ -110,7 +114,7 @@ def _run_info(db, run_id: Optional[int]) -> Optional[dict]:
 def _to_dict(db, g: FleetUpgradeGroup) -> dict:
     iso = lambda d: d.isoformat() if d else None
     return {
-        "id": g.id, "name": g.name, "device_ids": json.loads(g.device_ids or "[]"), "channel": g.channel,
+        "id": g.id, "source": g.source or "local", "central_id": g.central_id, "name": g.name, "device_ids": json.loads(g.device_ids or "[]"), "channel": g.channel,
         "schedule_kind": g.schedule_kind, "weekday": g.weekday, "hour": g.hour, "minute": g.minute or 0,
         "once_at": iso(g.once_at), "enabled": g.enabled, "stop_on_failure": g.stop_on_failure, "backup": g.backup,
         "next_run_at": iso(g.next_run_at), "last_run_at": iso(g.last_run_at), "last_note": g.last_note,
@@ -149,6 +153,8 @@ def update_group(group_id: int, p: dict) -> dict:
         g = db.get(FleetUpgradeGroup, group_id)
         if not g:
             raise LookupError("group not found")
+        if g.source == "central":
+            raise ValueError("this group is managed from Central - change it there")
         _check_devices(db, v["device_ids"])
         clash = db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.name == v["name"])).scalar_one_or_none()
         if clash and clash.id != group_id:
@@ -166,6 +172,8 @@ def delete_group(group_id: int) -> dict:
         g = db.get(FleetUpgradeGroup, group_id)
         if not g:
             raise LookupError("group not found")
+        if g.source == "central":
+            raise ValueError("this group is managed from Central - delete it there")
         db.delete(g)
         db.commit()
     return {"ok": True}
@@ -190,7 +198,7 @@ def run_group(group_id: int, created_by: str, reason: Optional[str] = None, trig
     if _group_running(group_id):
         raise ValueError("this group already has a run in progress")
     run_id = fleet_actions.start_run(
-        "upgrade", ids, (reason or "").strip() or f"Grupa „{name}”" + (" (harmonogram)" if trigger == "schedule" else " (ręcznie)"),
+        "upgrade", ids, (reason or "").strip() or f"Grupa „{name}”" + {"schedule": " (harmonogram)", "central": " (Centrala)"}.get(trigger, " (ręcznie)"),
         None, backup, created_by, channel=channel, stop_on_failure=stop, group_id=group_id, trigger=trigger)
     with SessionLocal() as db:
         g = db.get(FleetUpgradeGroup, group_id)
@@ -198,6 +206,86 @@ def run_group(group_id: int, created_by: str, reason: Optional[str] = None, trig
             g.last_run_at, g.last_run_id, g.last_note = datetime.now(), run_id, None
             db.commit()
     return run_id
+
+
+# ── Groups defined in Central ────────────────────────────────────────────────
+
+_reported_invalid: set = set()
+
+
+def _central_input(g: dict) -> dict:
+    return {"name": g.get("name"), "device_ids": g.get("device_ids") or [], "channel": g.get("channel"),
+            "schedule_kind": g.get("schedule_kind") or "manual", "weekday": g.get("weekday"), "hour": g.get("hour"),
+            "minute": g.get("minute") or 0, "once_at": g.get("once_at"), "enabled": g.get("enabled", True),
+            "stop_on_failure": g.get("stop_on_failure", True), "backup": g.get("backup", True)}
+
+
+def apply_central_groups(groups: list) -> dict:
+    """Mirror Central's group list (the "fleet_groups_sync" command, resent
+    every heartbeat). A group is only touched when its revision changed, so
+    local state - run history, a one-off that already ran and switched itself
+    off - survives the repeated syncs. Groups Central no longer lists are
+    removed; groups created on this agent are never touched. A group that
+    cannot be applied (e.g. it names a device this agent does not have) is
+    skipped and reported once, not retried noisily."""
+    stats = {"created": 0, "updated": 0, "deleted": 0, "unchanged": 0, "errors": 0}
+    seen = set()
+    for raw in groups or []:
+        try:
+            cid, rev = int(raw["id"]), int(raw.get("rev") or 0)
+        except (KeyError, TypeError, ValueError):
+            continue
+        seen.add(cid)
+        with SessionLocal() as db:
+            g = db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.central_id == cid)).scalar_one_or_none()
+            if g is not None and g.central_rev == rev:
+                stats["unchanged"] += 1
+                continue
+        try:
+            v = _validated(_central_input(raw), allow_past_once=True)
+            with SessionLocal() as db:
+                _check_devices(db, v["device_ids"])
+                g = db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.central_id == cid)).scalar_one_or_none()
+                name = v["name"]
+                clash = db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.name == name)).scalar_one_or_none()
+                if clash is not None and (g is None or clash.id != g.id):
+                    name = f"{name} (Centrala)"
+                    while db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.name == name)).scalar_one_or_none():
+                        name += f" #{cid}"
+                fields = {**v, "name": name, "device_ids": json.dumps(v["device_ids"])}
+                if g is None:
+                    g = FleetUpgradeGroup(**fields, source="central", central_id=cid, central_rev=rev)
+                    db.add(g)
+                    stats["created"] += 1
+                else:
+                    for k, val in fields.items():
+                        setattr(g, k, val)
+                    g.central_rev, g.last_note = rev, None
+                    stats["updated"] += 1
+                _recompute_next(g, datetime.now())
+                db.commit()
+        except (ValueError, KeyError) as e:
+            stats["errors"] += 1
+            if (cid, rev) not in _reported_invalid:
+                _reported_invalid.add((cid, rev))
+                print(f"[fleet_schedule] Central group {cid} rev {rev} not applied: {e}")
+    with SessionLocal() as db:
+        for g in db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.source == "central")).scalars().all():
+            if g.central_id not in seen:
+                db.delete(g)
+                stats["deleted"] += 1
+        db.commit()
+    return stats
+
+
+def run_central_group(central_id: int, created_by: str = "Centrala") -> int:
+    """Central's "run now" for one of its groups."""
+    with SessionLocal() as db:
+        g = db.execute(select(FleetUpgradeGroup).where(FleetUpgradeGroup.central_id == central_id)).scalar_one_or_none()
+        gid = g.id if g else None
+    if gid is None:
+        raise LookupError("group not found on this agent (not synced yet?)")
+    return run_group(gid, created_by, trigger="central")
 
 
 # ── Scheduler ────────────────────────────────────────────────────────────────
@@ -272,7 +360,7 @@ def public_list() -> List[dict]:
     out = []
     for g in list_groups():
         lr = g["last_run"]
-        out.append({"name": g["name"], "devices": len(g["device_ids"]), "channel": g["channel"], "enabled": g["enabled"],
+        out.append({"central_id": g["central_id"], "name": g["name"], "devices": len(g["device_ids"]), "channel": g["channel"], "enabled": g["enabled"],
                     "schedule_kind": g["schedule_kind"], "weekday": g["weekday"], "hour": g["hour"], "minute": g["minute"],
                     "once_at": g["once_at"], "next_run_at": g["next_run_at"], "last_run_at": g["last_run_at"],
                     "last_status": lr["status"] if lr else None, "last_counts": lr["counts"] if lr else None,

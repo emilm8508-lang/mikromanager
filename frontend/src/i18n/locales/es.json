@@ -833,6 +833,7 @@
             "runConfirm": "¿Ejecutar ahora la actualización del grupo «{{name}}»? Dispositivos: {{count}} — cada uno se reiniciará.",
             "deleteConfirm": "¿Eliminar el grupo «{{name}}»?",
             "missed": "Se omitió la hora programada (el agente estuvo apagado más de una hora después).",
+            "fromCentral": "Desde la Central (solo lectura)",
             "weekday": {
                 "0": "Lunes",
                 "1": "Martes",

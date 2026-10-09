@@ -1575,6 +1575,8 @@ export interface FleetGroupInput {
 
 export interface FleetGroup extends FleetGroupInput {
   id: number
+  source: 'local' | 'central'             // 'central' = defined in Central, read-only on the agent
+  central_id: number | null
   next_run_at: string | null
   last_run_at: string | null
   last_note: string | null
@@ -1583,6 +1585,7 @@ export interface FleetGroup extends FleetGroupInput {
 
 // Redacted copy of a group in Central's summary (no device ids)
 export interface FleetGroupSummary {
+  central_id: number | null               // set when the group is managed from Central
   name: string
   devices: number
   channel: FleetChannel | null
@@ -1606,6 +1609,16 @@ export const fleetGroupsApi = {
   remove: (id: number) => api.delete(`/fleet/groups/${id}`).then(r => r.data),
   run: (id: number, reason?: string) => api.post<{ run_id: number }>(`/fleet/groups/${id}/run`, { reason }).then(r => r.data),
 }
+// A group definition kept on Central (ovh/api.php fleet_groups); the tenant's agent mirrors it read-only.
+export interface CentralFleetGroup {
+  id: number
+  tenant: string
+  name: string
+  definition: Omit<FleetGroupInput, 'name'>
+  rev: number
+  updated_at: string | null
+}
+
 export const fleetActionsApi = {
   start: (body: { action: FleetActionKind; device_ids: number[]; reason: string; script?: string; backup?: boolean }) =>
     api.post<{ run_id: number }>('/fleet/actions/run', body).then(r => r.data),
@@ -2332,6 +2345,16 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
   fleetStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; fleet: FleetOverview | null }> }>('fleet_status_all'),
+  fleetGroupsList: () =>
+    centralRequest<{ groups: CentralFleetGroup[] }>('fleet_groups_list').then(r => r.groups),
+  fleetGroupSave: (tenant: string, g: FleetGroupInput, id?: number) => {
+    const { name, ...definition } = g
+    return centralRequest<{ ok: boolean; id: number }>('fleet_group_save', {}, { method: 'POST', body: { id, tenant, name, definition } })
+  },
+  fleetGroupDelete: (id: number) =>
+    centralRequest<{ ok: boolean }>('fleet_group_delete', { id: String(id) }, { method: 'DELETE' }),
+  fleetGroupRun: (id: number) =>
+    centralRequest<{ ok: boolean; queued_at: string; note: string }>('fleet_group_run', { id: String(id) }, { method: 'POST' }),
   hostmonStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHostmonHostStatus[] }> }>('hostmon_status_all'),
   wanLinksStatusAll: () =>

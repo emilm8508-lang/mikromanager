@@ -636,6 +636,13 @@ class FleetUpgradeGroup(Base):
     last_run_at = Column(DateTime, nullable=True)
     last_run_id = Column(Integer, nullable=True)
     last_note = Column(String, nullable=True)                    # e.g. "missed" when the agent was down at the scheduled time
+    # Groups defined in Central (ovh fleet_groups) are pushed here by the
+    # "fleet_groups_sync" command: source="central", central_id = the OVH row id,
+    # central_rev = its revision. They are read-only locally; local state (the
+    # run history, a one-off that already ran) survives a re-sync of the same rev.
+    source = Column(String, nullable=False, default="local", server_default="local")   # "local" | "central"
+    central_id = Column(Integer, nullable=True, index=True)
+    central_rev = Column(Integer, nullable=True)
 
 
 class WindowsManageSettings(Base):
@@ -1052,6 +1059,13 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN system_model TEXT"))
             if "credential_id" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN credential_id INTEGER"))
+
+    if "fleet_upgrade_groups" in inspector.get_table_names():
+        fug_cols = {c["name"] for c in inspector.get_columns("fleet_upgrade_groups")}
+        with engine.begin() as conn:
+            for name, ddl in (("source", "VARCHAR NOT NULL DEFAULT 'local'"), ("central_id", "INTEGER"), ("central_rev", "INTEGER")):
+                if name not in fug_cols:
+                    conn.execute(text(f"ALTER TABLE fleet_upgrade_groups ADD COLUMN {name} {ddl}"))
 
     if "windows_host_services" in inspector.get_table_names():
         whs_cols = {c["name"] for c in inspector.get_columns("windows_host_services")}
