@@ -422,6 +422,45 @@ class MikrotikClient:
             "channel": info.get("channel", "stable"),
         }
 
+    async def get_packages(self) -> list:
+        """Installed packages (/system/package) — name, version, disabled flag."""
+        try:
+            return await self._rest_or_api("system/package", "/system/package")
+        except Exception:
+            return []
+
+    async def get_update_channel(self) -> Optional[str]:
+        """The configured update channel from /system/package/update — read
+        only; unlike get_package_update_status() this does NOT trigger a
+        check-for-updates against Mikrotik's servers. None when unreadable."""
+        try:
+            info = await self._rest_or_api("system/package/update", "/system/package/update", single_object=True)
+        except Exception:
+            return None
+        return (info or {}).get("channel") or None
+
+    async def get_wifi_overview(self) -> dict:
+        """Raw wireless interfaces + registration (client) table, from
+        whichever Wi-Fi stack the device runs: the RouterOS 7 "wifi" package
+        first, then the legacy "wireless" one. {"flavor": None, ...} when the
+        device has no Wi-Fi interfaces (or neither could be read) — parsed by
+        services/fleet.py's parse_wifi(), kept raw here since the two stacks
+        name their fields differently."""
+        for flavor in ("wifi", "wireless"):
+            try:
+                ifaces = await self._rest_or_api(f"interface/{flavor}", f"/interface/{flavor}")
+            except Exception:
+                continue
+            if not isinstance(ifaces, list) or not ifaces:
+                continue
+            try:
+                regs = await self._rest_or_api(f"interface/{flavor}/registration-table",
+                                                f"/interface/{flavor}/registration-table")
+            except Exception:
+                regs = []
+            return {"flavor": flavor, "interfaces": ifaces, "registrations": regs if isinstance(regs, list) else []}
+        return {"flavor": None, "interfaces": [], "registrations": []}
+
     async def get_interfaces(self) -> list:
         snmp_fn = self._snmp.get_interfaces if self._snmp else None
         return await self._try_methods("interface", "/interface", snmp_fn=snmp_fn)

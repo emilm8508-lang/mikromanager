@@ -109,6 +109,15 @@ class Device(Base):
     # a judgment call only the operator can make.
     drp_exclude = Column(Boolean, nullable=True, default=False)
 
+    # Fleet inventory (services/fleet.py) — the per-device facts a MikroTik
+    # fleet-management view lists. Refreshed hourly, never wiped on a failed read.
+    architecture = Column(String, nullable=True)        # /system/resource architecture-name (arm, mipsbe, ...)
+    ros_channel = Column(String, nullable=True)         # /system/package/update channel (stable, long-term, ...)
+    uptime_sec = Column(Integer, nullable=True)
+    packages_json = Column(Text, nullable=True)         # JSON [{"name","version","disabled"}]
+    wifi_json = Column(Text, nullable=True)             # JSON {"aps": [...], "stations": [...]} - see fleet.parse_wifi
+    fleet_checked_at = Column(DateTime, nullable=True)
+
     credential = relationship("Credential", back_populates="devices")
 
 
@@ -926,6 +935,10 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN is_router_override BOOLEAN"))
             if "drp_exclude" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN drp_exclude BOOLEAN DEFAULT 0"))
+            for name, ddl in (("architecture", "VARCHAR"), ("ros_channel", "VARCHAR"), ("uptime_sec", "INTEGER"),
+                              ("packages_json", "TEXT"), ("wifi_json", "TEXT"), ("fleet_checked_at", "DATETIME")):
+                if name not in dev_cols:
+                    conn.execute(text(f"ALTER TABLE devices ADD COLUMN {name} {ddl}"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

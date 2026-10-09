@@ -1845,6 +1845,39 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'fleet_status_all':
+            // Aggregate Mikrotik fleet view across every tenant this identity
+            // can see - same subquery pattern as hostmon_status_all: latest
+            // snapshot payload per tenant, no E2E key needed since
+            // mikrotik_fleet travels as plaintext envelope metadata (device
+            // names, models, versions and resource figures - no IP addresses
+            // or package lists, see services/fleet.py's public_summary()).
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($rows as $r) {
+                $fleet = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) { $fleet = $meta['mikrotik_fleet'] ?? null; }
+                }
+                $result[] = [
+                    'tenant' => $r['tenant'],
+                    'last_seen' => $r['last_seen'],
+                    'fleet' => $fleet,
+                ];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'wan_links_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as tunnel_status_all: latest snapshot

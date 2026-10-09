@@ -18,6 +18,8 @@ import { CentralVulnerabilities } from './pages/CentralVulnerabilities'
 import { CentralFirewallUsage } from './pages/CentralFirewallUsage'
 import { CentralFirewallLogs } from './pages/CentralFirewallLogs'
 import { CentralHostMonitor } from './pages/CentralHostMonitor'
+import { CentralFleet } from './pages/CentralFleet'
+import { Mikrotik } from './pages/Mikrotik'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
 import { WindowsHosts } from './pages/WindowsHosts'
@@ -41,6 +43,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/devices" element={<Devices />} />
+            <Route path="/mikrotik" element={<Mikrotik />} />
             <Route path="/devices/:id" element={<DeviceDetail />} />
             <Route path="/map" element={<NetworkMap />} />
             <Route path="/scanner" element={<Scanner />} />
@@ -69,6 +72,7 @@ export default function App() {
             <Route path="/central/firewall-usage" element={<CentralFirewallUsage />} />
             <Route path="/central/firewall-logs" element={<CentralFirewallLogs />} />
             <Route path="/central/hostmon" element={<CentralHostMonitor />} />
+            <Route path="/central/fleet" element={<CentralFleet />} />
           </Routes>
         </main>
       </div>

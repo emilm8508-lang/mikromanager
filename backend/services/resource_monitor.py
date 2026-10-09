@@ -801,6 +801,13 @@ async def _mikrotik_refresh_loop():
                 await firewall_analysis.refresh_all_devices()
             except Exception as e:
                 print(f"[resource_monitor] firewall analysis refresh error: {e}")
+            # Fleet inventory (architecture, packages, channel, Wi-Fi) for the
+            # Mikrotik tab and Central - same isolation as the step above.
+            try:
+                from services import fleet
+                await fleet.refresh_all_devices()
+            except Exception as e:
+                print(f"[resource_monitor] fleet refresh error: {e}")
         except asyncio.CancelledError:
             break
         except Exception as e:

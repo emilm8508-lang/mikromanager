@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -106,6 +106,7 @@ app.include_router(anydesk_api.router, dependencies=_protected)
 app.include_router(dell_api.router, dependencies=_protected)
 app.include_router(hostmon_api.router, dependencies=_protected)
 app.include_router(hostsvc_api.router, dependencies=_protected)
+app.include_router(fleet_api.router, dependencies=_protected)
 
 
 @app.middleware("http")

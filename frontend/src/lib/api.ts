@@ -1459,6 +1459,68 @@ export const hostServicesApi = {
   events: (platform: ServicePlatform, hostId: number, limit = 30) =>
     api.get<{ events: HostServiceEventOut[] }>(`/services/${platform}/hosts/${hostId}/events`, { params: { limit } }).then(r => r.data.events),
 }
+// ── Mikrotik fleet view (services/fleet.py) ──────────────────────────────────
+
+export interface FleetAlertRow {
+  key: string
+  severity: 'high' | 'medium' | 'low'
+  count: number
+  total: number
+  devices: Array<{ id: number; name: string }> | string[]   // names only in Central's redacted copy
+}
+
+export interface FleetDeviceRow {
+  id: number
+  ip?: string                                              // absent in Central's redacted copy
+  name: string
+  model: string | null
+  board_name: string | null
+  architecture: string | null
+  ros_version: string | null
+  ros_channel: string | null
+  latest_ros_version: string | null
+  update_available: boolean
+  firmware_current: string | null
+  firmware_target: string | null
+  online: boolean
+  paired: boolean
+  cpu: number | null
+  mem: number | null
+  mem_total_bytes: number | null
+  disk: number | null
+  disk_total_bytes: number | null
+  temperature: number | null
+  uptime_sec: number | null
+  packages_count: number
+  packages?: Array<{ name: string; version: string | null; disabled: boolean }>
+  last_seen: string | null
+  resources_checked_at: string | null
+  fleet_checked_at: string | null
+  alerts: string[]
+  wifi: { aps: unknown[] | number; stations: unknown[] | number }
+}
+
+export interface FleetWifi {
+  aps_total: number
+  stations_total: number
+  by_band: Record<string, { aps: number; stations: number }>
+  by_channel: Record<string, Array<{ freq: number; aps: number; stations: number }>>
+}
+
+export interface FleetOverview {
+  generated_at: string
+  totals: { devices: number; online: number; paired: number }
+  devices: FleetDeviceRow[]
+  alerts: FleetAlertRow[]
+  updates: Array<{ id: number; name: string; current: string | null; latest: string | null; channel: string | null }>
+  wifi: FleetWifi
+  never_collected: number
+}
+
+export const fleetApi = {
+  overview: () => api.get<FleetOverview>('/fleet/overview').then(r => r.data),
+  refresh: () => api.post<{ started: boolean }>('/fleet/refresh').then(r => r.data),
+}
 // ── Dell servers (iDRAC health monitoring) ────────────────────────────────────
 
 export type DellHealth = 'OK' | 'Warning' | 'Critical' | null
@@ -2177,6 +2239,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  fleetStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; fleet: FleetOverview | null }> }>('fleet_status_all'),
   hostmonStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHostmonHostStatus[] }> }>('hostmon_status_all'),
   wanLinksStatusAll: () =>

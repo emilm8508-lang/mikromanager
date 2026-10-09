@@ -405,6 +405,13 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] firewall analysis summary error: {e}")
         firewall_status = []
 
+    try:
+        from services import fleet
+        mikrotik_fleet = fleet.public_summary()
+    except Exception as e:
+        print(f"[uplink] fleet summary error: {e}")
+        mikrotik_fleet = None
+
     # Host monitoring: the name/state/outage summary goes in the plaintext
     # envelope (see _build_request_body), but the per-host details (IP, MAC,
     # switch port, recent log lines - which carry other devices' addresses)
@@ -510,6 +517,7 @@ async def _build_snapshot() -> dict:
         "firewall_status": firewall_status,
         "hostmon_status": hostmon_status,
         "hostmon_details": hostmon_details,
+        "mikrotik_fleet": mikrotik_fleet,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -560,6 +568,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "hyperv_status": snapshot.get("hyperv_status", []),
             "firewall_status": snapshot.get("firewall_status", []),
             "hostmon_status": snapshot.get("hostmon_status", []),
+            "mikrotik_fleet": snapshot.get("mikrotik_fleet"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
