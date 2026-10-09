@@ -674,6 +674,21 @@ export interface CentralTunnelStatus {
 // managed=True Windows hosts confirmed to actually run Hyper-V, and only
 // the VM NAMES currently not running (never the full healthy VM list,
 // nothing an operator needs a remote glance at).
+export interface CentralHypervVm {
+  name: string
+  state: string | null
+  cpu: number | null
+  vcpu: number | null
+  mem_assigned: number | null
+  mem_demand: number | null
+  uptime_sec: number | null
+  heartbeat: string | null
+  snapshots: number | null
+  replication: string | null
+  flags: string[]
+  tile: HypervTile
+}
+
 export interface CentralHypervHostStatus {
   id: number
   ip: string
@@ -684,6 +699,18 @@ export interface CentralHypervHostStatus {
   vm_count_running: number | null
   vms_not_running: string[]
   last_check_at: string | null
+  // Added with the Hyper-V dashboard — absent when the agent is older.
+  status?: 'ok' | 'error'
+  cluster_name?: string | null
+  os_name?: string | null
+  cpu_used_pct?: number | null
+  mem_used_pct?: number | null
+  storage_free_bytes?: number | null
+  storage_total_bytes?: number | null
+  vcpu_assigned?: number
+  memory_assigned_bytes?: number
+  vms?: CentralHypervVm[]
+  problems?: Array<{ kind: string; severity: HypervSeverity; vm: string | null }>
 }
 
 // Redacted per-device firewall rule-usage + firewall-log activity summary
@@ -1264,22 +1291,36 @@ export const windowsApi = {
 
 // ── Hyper-V host/VM inventory (local agent) ───────────────────────────────────
 
+export type HypervTile = 'ok' | 'warn' | 'crit' | 'off'
+export type HypervSeverity = 'high' | 'medium' | 'low'
+
 export interface HypervHostOut {
   id: number
   windows_host_id: number
   ip: string
   hostname: string | null
+  os_name: string | null
   logical_processor_count: number | null
   memory_capacity_bytes: number | null
   vm_count_total: number | null
   vm_count_running: number | null
+  cpu_used_pct: number | null
+  mem_used_pct: number | null
+  storage_path: string | null
+  storage_free_bytes: number | null
+  storage_total_bytes: number | null
+  switch_count: number | null
+  cluster_name: string | null
   last_check_at: string | null
+  last_ok_at: string | null
   last_status: 'ok' | 'error' | 'not_hyperv' | null
   last_error: string | null
+  fail_streak: number
 }
 
 export interface HypervVmOut {
   id: number
+  hyperv_host_id: number
   name: string
   state: string | null
   status: string | null
@@ -1287,17 +1328,99 @@ export interface HypervVmOut {
   memory_assigned_bytes: number | null
   memory_demand_bytes: number | null
   memory_startup_bytes: number | null
+  memory_min_bytes: number | null
+  memory_max_bytes: number | null
+  dynamic_memory: boolean | null
   uptime_sec: number | null
   heartbeat: string | null
+  vcpu_count: number | null
+  generation: number | null
+  checkpoint_type: string | null
+  replication_state: string | null
+  replication_health: string | null
+  snapshot_count: number | null
+  oldest_snapshot_at: string | null
+  disk_count: number | null
+  disk_file_bytes: number | null
+  disk_max_bytes: number | null
+  ips: string[]
+  switches: string[]
+  state_since: string | null
   last_seen_at: string | null
 }
 
+export interface HypervVmDetail extends HypervVmOut {
+  vm_guid: string | null
+  disks: Array<{ file: string | null; type: string | null; file_bytes: number | null; max_bytes: number | null }>
+  snapshots: Array<{ name: string | null; created: string | null }>
+}
+
+export interface HypervInsight {
+  key: string
+  kind: string
+  severity: HypervSeverity
+  hyperv_host_id: number
+  windows_host_id: number
+  host: string
+  vm: string | null
+  text: string
+  params: Record<string, string | number | null>
+}
+
+export interface HypervTrendPoint { t: string; cpu: number | null; mem: number | null }
+
+export interface HypervOverviewHost extends HypervHostOut {
+  vcpu_assigned: number
+  memory_assigned_bytes: number
+  down: boolean
+  vms: Array<HypervVmOut & { tile: HypervTile; flags: string[] }>
+  trend: HypervTrendPoint[]
+}
+
+export interface HypervOverview {
+  generated_at: string
+  poll_sec: number
+  actions_enabled: boolean
+  totals: {
+    hosts: number; hosts_ok: number; hosts_down: number; vms: number; running: number; off: number; other: number
+    tiles: Record<HypervTile, number>; vcpu: number; lp: number; mem_assigned: number; mem_capacity: number
+    problems: Record<HypervSeverity, number>
+  }
+  hosts: HypervOverviewHost[]
+  insights: HypervInsight[]
+}
+
+export type HypervActionKind = 'start' | 'shutdown' | 'poweroff' | 'restart' | 'checkpoint'
+
+export interface HypervActionLogEntry {
+  id: number
+  windows_host_id: number
+  host_name: string | null
+  vm_name: string
+  action: HypervActionKind
+  reason: string
+  created_by: string | null
+  status: 'running' | 'ok' | 'error'
+  output: string | null
+  created_at: string | null
+  finished_at: string | null
+}
+
 export const hypervApi = {
+  overview: () => api.get<HypervOverview>('/hyperv/overview').then(r => r.data),
   hosts: () => api.get<{ hosts: HypervHostOut[] }>('/hyperv/hosts').then(r => r.data.hosts),
   vms: (hypervHostId: number) =>
     api.get<{ vms: HypervVmOut[] }>(`/hyperv/hosts/${hypervHostId}/vms`).then(r => r.data.vms),
+  vm: (vmId: number) => api.get<HypervVmDetail>(`/hyperv/vms/${vmId}`).then(r => r.data),
+  history: (kind: 'host' | 'vm', id: number, hours = 24) =>
+    api.get<{ points: HypervTrendPoint[] }>('/hyperv/history', { params: { kind, id, hours } }).then(r => r.data.points),
   refresh: (windowsHostId: number) =>
     api.post<{ ok?: boolean; error?: string; not_hyperv?: boolean }>(`/hyperv/hosts/${windowsHostId}/refresh`).then(r => r.data),
+  refreshAll: () => api.post<{ started: boolean }>('/hyperv/refresh').then(r => r.data),
+  action: (vmId: number, body: { action: HypervActionKind; reason: string; snapshot_name?: string }) =>
+    api.post<{ action_id: number }>(`/hyperv/vms/${vmId}/actions`, body).then(r => r.data),
+  actions: (limit = 50) =>
+    api.get<{ actions: HypervActionLogEntry[]; enabled: boolean }>('/hyperv/actions', { params: { limit } }).then(r => r.data),
 }
 
 // ── Host monitoring ("Monitoring hostów") ─────────────────────────────────────

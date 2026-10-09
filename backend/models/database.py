@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float,
-    UniqueConstraint, create_engine, inspect, text,
+    UniqueConstraint, Index, create_engine, inspect, text,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
@@ -689,6 +689,17 @@ class HypervHost(Base):
     last_check_at = Column(DateTime, nullable=True)
     last_status = Column(String, nullable=True)    # "ok" | "error" | "not_hyperv"
     last_error = Column(Text, nullable=True)
+    # Added with the Hyper-V dashboard: host figures read in the same poll as the VMs
+    # (the generic Windows resource check only runs every ~30 min, too slow for a status board).
+    last_ok_at = Column(DateTime, nullable=True)        # last poll that succeeded
+    fail_streak = Column(Integer, nullable=False, default=0, server_default="0")
+    cpu_used_pct = Column(Float, nullable=True)
+    mem_used_pct = Column(Float, nullable=True)
+    storage_path = Column(String, nullable=True)        # where new VM disks go (Get-VMHost VirtualHardDiskPath)
+    storage_free_bytes = Column(Integer, nullable=True)
+    storage_total_bytes = Column(Integer, nullable=True)
+    switch_count = Column(Integer, nullable=True)
+    cluster_name = Column(String, nullable=True)        # failover cluster this node belongs to, if any
 
 
 class HypervVM(Base):
@@ -711,8 +722,66 @@ class HypervVM(Base):
     uptime_sec = Column(Integer, nullable=True)
     heartbeat = Column(String, nullable=True)        # Integration Services heartbeat state, if enabled in the guest
     last_seen_at = Column(DateTime, nullable=True)
+    # Added with the Hyper-V dashboard.
+    vm_guid = Column(String, nullable=True)          # stable id; actions address the VM by it, never by name
+    vcpu_count = Column(Integer, nullable=True)
+    generation = Column(Integer, nullable=True)
+    dynamic_memory = Column(Boolean, nullable=True)
+    memory_min_bytes = Column(Integer, nullable=True)
+    memory_max_bytes = Column(Integer, nullable=True)
+    checkpoint_type = Column(String, nullable=True)
+    replication_state = Column(String, nullable=True)    # "Disabled" when not replicated
+    replication_health = Column(String, nullable=True)   # "NotApplicable" | "Normal" | "Warning" | "Critical"
+    snapshot_count = Column(Integer, nullable=True)
+    oldest_snapshot_at = Column(DateTime, nullable=True)
+    disk_count = Column(Integer, nullable=True)
+    disk_file_bytes = Column(Integer, nullable=True)     # space the VHDs really use on the host
+    disk_max_bytes = Column(Integer, nullable=True)      # size the guest sees
+    disks = Column(Text, nullable=True)                  # JSON [{file, type, file_bytes, max_bytes}]
+    snapshots = Column(Text, nullable=True)              # JSON [{name, created}] (capped)
+    ips = Column(Text, nullable=True)                    # JSON [ip, ...]
+    switches = Column(Text, nullable=True)               # JSON [switch name, ...]
+    state_since = Column(DateTime, nullable=True)        # when the state last changed (an "off for 40 days" VM = sprawl)
+    first_seen_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("hyperv_host_id", "name", name="uq_hyperv_vm"),)
+
+
+class HypervSample(Base):
+    """One point of history for a Hyper-V host or VM (trend charts, idle-VM
+    detection). kind = "host" (ref_id = hyperv_hosts.id) or "vm" (hyperv_vms.id).
+    Pruned to MIKROTIK_HYPERV_HISTORY_DAYS (services/hyperv_manage.py)."""
+    __tablename__ = "hyperv_samples"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String, nullable=False)
+    ref_id = Column(Integer, nullable=False)
+    ts = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    cpu_pct = Column(Float, nullable=True)
+    mem_pct = Column(Float, nullable=True)      # host: memory used %; VM: memory demand as % of assigned
+    mem_bytes = Column(Integer, nullable=True)  # VM: demand bytes
+
+    __table_args__ = (Index("ix_hyperv_samples_ref", "kind", "ref_id", "ts"),)
+
+
+class HypervActionLog(Base):
+    """Audit + history of the write actions run on VMs (start / shutdown /
+    power off / restart / checkpoint). Local only; Central's activity log
+    gets just the action, the VM name and the reason."""
+    __tablename__ = "hyperv_action_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    windows_host_id = Column(Integer, nullable=False, index=True)
+    host_name = Column(String, nullable=True)
+    vm_name = Column(String, nullable=False)
+    vm_guid = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    reason = Column(Text, nullable=False)
+    created_by = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="running")   # running | ok | error
+    output = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
 
 
 class WatchedHost(Base):
@@ -1060,8 +1129,33 @@ def _migrate_add_columns():
             if "credential_id" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN credential_id INTEGER"))
 
+    if "hyperv_hosts" in inspector.get_table_names():
+        hh_cols = {c["name"] for c in inspector.get_columns("hyperv_hosts")}
+        with engine.begin() as conn:
+            for name, ddl in (
+                ("last_ok_at", "DATETIME"), ("fail_streak", "INTEGER NOT NULL DEFAULT 0"), ("cpu_used_pct", "FLOAT"),
+                ("mem_used_pct", "FLOAT"), ("storage_path", "VARCHAR"), ("storage_free_bytes", "INTEGER"),
+                ("storage_total_bytes", "INTEGER"), ("switch_count", "INTEGER"), ("cluster_name", "VARCHAR"),
+            ):
+                if name not in hh_cols:
+                    conn.execute(text(f"ALTER TABLE hyperv_hosts ADD COLUMN {name} {ddl}"))
+
+    if "hyperv_vms" in inspector.get_table_names():
+        hv_cols = {c["name"] for c in inspector.get_columns("hyperv_vms")}
+        with engine.begin() as conn:
+            for name, ddl in (
+                ("vm_guid", "VARCHAR"), ("vcpu_count", "INTEGER"), ("generation", "INTEGER"), ("dynamic_memory", "BOOLEAN"),
+                ("memory_min_bytes", "INTEGER"), ("memory_max_bytes", "INTEGER"), ("checkpoint_type", "VARCHAR"),
+                ("replication_state", "VARCHAR"), ("replication_health", "VARCHAR"), ("snapshot_count", "INTEGER"),
+                ("oldest_snapshot_at", "DATETIME"), ("disk_count", "INTEGER"), ("disk_file_bytes", "INTEGER"),
+                ("disk_max_bytes", "INTEGER"), ("disks", "TEXT"), ("snapshots", "TEXT"), ("ips", "TEXT"),
+                ("switches", "TEXT"), ("state_since", "DATETIME"), ("first_seen_at", "DATETIME"),
+            ):
+                if name not in hv_cols:
+                    conn.execute(text(f"ALTER TABLE hyperv_vms ADD COLUMN {name} {ddl}"))
+
     if "fleet_upgrade_groups" in inspector.get_table_names():
-        fug_cols = {c["name"] for c in inspector.get_columns("fleet_upgrade_groups")}
+        fug_cols ={c["name"] for c in inspector.get_columns("fleet_upgrade_groups")}
         with engine.begin() as conn:
             for name, ddl in (("source", "VARCHAR NOT NULL DEFAULT 'local'"), ("central_id", "INTEGER"), ("central_rev", "INTEGER")):
                 if name not in fug_cols:

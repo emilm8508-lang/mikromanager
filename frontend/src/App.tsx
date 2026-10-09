@@ -19,6 +19,7 @@ import { CentralFirewallUsage } from './pages/CentralFirewallUsage'
 import { CentralFirewallLogs } from './pages/CentralFirewallLogs'
 import { CentralHostMonitor } from './pages/CentralHostMonitor'
 import { CentralFleet } from './pages/CentralFleet'
+import { CentralHyperV } from './pages/CentralHyperV'
 import { Mikrotik } from './pages/Mikrotik'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/central/firewall-logs" element={<CentralFirewallLogs />} />
             <Route path="/central/hostmon" element={<CentralHostMonitor />} />
             <Route path="/central/fleet" element={<CentralFleet />} />
+            <Route path="/central/hyperv" element={<CentralHyperV />} />
           </Routes>
         </main>
       </div>

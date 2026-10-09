@@ -35,6 +35,8 @@ from services import dell_monitor
 from services import host_monitor
 from services import host_services
 from services import fleet_schedule
+from services import hyperv_manage
+from services import hyperv_actions
 
 
 @asynccontextmanager
@@ -57,6 +59,8 @@ async def lifespan(app: FastAPI):
     host_monitor.start()
     host_services.start()
     fleet_schedule.start()
+    hyperv_actions.mark_interrupted()
+    hyperv_manage.start()
     try:
         yield
     finally:
@@ -71,6 +75,7 @@ async def lifespan(app: FastAPI):
         host_monitor.stop()
         host_services.stop()
         fleet_schedule.stop()
+        hyperv_manage.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

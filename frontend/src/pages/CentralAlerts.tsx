@@ -357,6 +357,12 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="tunnel_up">{t('alerts.eventTunnelUp')}</option>
                 <option value="hyperv_vm_down">{t('alerts.eventHypervVmDown')}</option>
                 <option value="hyperv_vm_up">{t('alerts.eventHypervVmUp')}</option>
+                <option value="hyperv_host_down">{t('alerts.eventHypervHostDown')}</option>
+                <option value="hyperv_host_up">{t('alerts.eventHypervHostUp')}</option>
+                <option value="hyperv_vm_no_heartbeat">{t('alerts.eventHypervVmNoHeartbeat')}</option>
+                <option value="hyperv_snapshot_old">{t('alerts.eventHypervSnapshotOld')}</option>
+                <option value="hyperv_replication_problem">{t('alerts.eventHypervReplicationProblem')}</option>
+                <option value="hyperv_host_pressure">{t('alerts.eventHypervHostPressure')}</option>
                 <option value="hostmon_host_down">{t('alerts.eventHostmonDown')}</option>
                 <option value="hostmon_host_up">{t('alerts.eventHostmonUp')}</option>
                 <option value="host_service_down">{t('alerts.eventHostServiceDown')}</option>

@@ -311,6 +311,44 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
             if ($topics !== '') $msg .= "\nTopics: {$topics}";
             if ($log_msg !== '') $msg .= "\nWpis: {$log_msg}";
             return $msg;
+        case 'hyperv_vm_down':
+            return "🔴 {$prefix}Hyper-V: maszyna wirtualna przestała działać\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Maszyna: {$device}\n"
+                 . "Stan: " . ($event['from_state'] ?? '?') . " → " . ($event['to_state'] ?? '?');
+        case 'hyperv_vm_up':
+            return "✅ {$prefix}Hyper-V: maszyna wirtualna znowu działa\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Maszyna: {$device}";
+        case 'hyperv_host_down':
+            $msg = "🔴 {$prefix}Hyper-V: host nie odpowiada\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}";
+            if (($event['detail'] ?? '') !== '') $msg .= "\nBłąd: " . $event['detail'];
+            return $msg;
+        case 'hyperv_host_up':
+            return "✅ {$prefix}Hyper-V: host odpowiada ponownie\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}";
+        case 'hyperv_vm_no_heartbeat':
+            return "🔴 {$prefix}Hyper-V: działająca maszyna nie odpowiada (brak heartbeat)\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Maszyna: {$device}";
+        case 'hyperv_snapshot_old':
+            return "🟠 {$prefix}Hyper-V: stary checkpoint maszyny wirtualnej\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Maszyna: {$device}\n"
+                 . "Szczegóły: " . ($event['detail'] ?? '');
+        case 'hyperv_replication_problem':
+            return "🟠 {$prefix}Hyper-V: problem z replikacją maszyny\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Maszyna: {$device}\n"
+                 . "Szczegóły: " . ($event['detail'] ?? '');
+        case 'hyperv_host_pressure':
+            return "🟠 {$prefix}Hyper-V: host jest przeciążony lub kończy mu się miejsce\n"
+                 . "Tenant: {$tenant}\n"
+                 . "Host: {$device}\n"
+                 . "Szczegóły: " . ($event['detail'] ?? '');
         default:
             return "⚠️ {$prefix}[{$tenant}] Alert {$type} na {$device}";
     }
