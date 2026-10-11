@@ -1039,6 +1039,26 @@ export const inventoryApi = {
 
 // ── Linux host management (apt update/upgrade) ────────────────────────────────
 
+// What the server boards show of a host's current / last job (status, reason, error — never the log)
+export interface HostJobView {
+  status: string | null
+  reason: string | null
+  error: string | null
+}
+
+// An operator-defined group of servers of one platform (services/host_groups.py)
+export interface HostGroupOut {
+  id: number
+  name: string
+  hosts: number
+}
+
+export interface RestartBulkBody {
+  ids: number[]
+  reason: string
+  stagger_sec: number
+}
+
 export interface LinuxHostOut {
   id: number
   ip: string
@@ -1062,6 +1082,10 @@ export interface LinuxHostOut {
   last_resources_check_at: string | null
   last_restart_at: string | null
   last_restart_reason: string | null
+  group_id: number | null
+  cpu_used_pct: number | null
+  disk_max_pct: number | null
+  job: HostJobView | null
 }
 
 export interface HostDisk {
@@ -1094,6 +1118,14 @@ export interface LinuxSettings {
 }
 
 export const linuxApi = {
+  restartBulk: (body: RestartBulkBody) =>
+    api.post<{ queued: number }>('/linux/hosts/restart-bulk', body).then(r => r.data),
+  groups: () => api.get<{ groups: HostGroupOut[] }>('/linux/groups').then(r => r.data.groups),
+  createGroup: (name: string) => api.post<HostGroupOut>('/linux/groups', { name }).then(r => r.data),
+  renameGroup: (id: number, name: string) => api.put<HostGroupOut>(`/linux/groups/${id}`, { name }).then(r => r.data),
+  deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/linux/groups/${id}`).then(r => r.data),
+  setHostGroup: (hostId: number, groupId: number | null) =>
+    api.put<{ ok: boolean }>(`/linux/hosts/${hostId}/group`, { group_id: groupId }).then(r => r.data),
   hosts: () => api.get<{ hosts: LinuxHostOut[]; enabled: boolean }>('/linux/hosts').then(r => r.data),
   setManaged: (hostId: number, managed: boolean) =>
     api.post<LinuxHostOut>(`/linux/hosts/${hostId}/managed`, { managed }).then(r => r.data),
@@ -1216,6 +1248,10 @@ export interface WindowsHostOut {
   mem_used_pct: number | null
   mem_total_bytes: number | null
   last_resources_check_at: string | null
+  group_id: number | null
+  cpu_used_pct: number | null
+  disk_max_pct: number | null
+  job: HostJobView | null
 }
 
 export interface WindowsHostService {
@@ -1247,6 +1283,14 @@ export interface WindowsSettings {
 }
 
 export const windowsApi = {
+  restartBulk: (body: RestartBulkBody) =>
+    api.post<{ queued: number }>('/windows/hosts/restart-bulk', body).then(r => r.data),
+  groups: () => api.get<{ groups: HostGroupOut[] }>('/windows/groups').then(r => r.data.groups),
+  createGroup: (name: string) => api.post<HostGroupOut>('/windows/groups', { name }).then(r => r.data),
+  renameGroup: (id: number, name: string) => api.put<HostGroupOut>(`/windows/groups/${id}`, { name }).then(r => r.data),
+  deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/windows/groups/${id}`).then(r => r.data),
+  setHostGroup: (hostId: number, groupId: number | null) =>
+    api.put<{ ok: boolean }>(`/windows/hosts/${hostId}/group`, { group_id: groupId }).then(r => r.data),
   hosts: () => api.get<{ hosts: WindowsHostOut[]; enabled: boolean }>('/windows/hosts').then(r => r.data),
   setManaged: (hostId: number, managed: boolean) =>
     api.post<WindowsHostOut>(`/windows/hosts/${hostId}/managed`, { managed }).then(r => r.data),

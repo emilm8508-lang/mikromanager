@@ -47,7 +47,7 @@ import time
 import uuid
 from datetime import datetime
 from typing import Callable, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsHostDisk, WindowsManageSettings
 from services.crypto import decrypt
@@ -73,6 +73,7 @@ CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_CHECK_TIMEOUT_SEC", "12
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_WINDOWS_UPGRADE_TIMEOUT_SEC", "3600"))
 MAX_TITLES = 200
 MAX_SCRIPT_BYTES = 64_000
+MAX_STAGGER_SEC = 1800     # longest wait between two hosts of a group restart
 
 _jobs: dict = {}   # host_id -> job status dict
 _upgrade_semaphore = asyncio.Semaphore(int(os.environ.get("MIKROTIK_WINDOWS_UPGRADE_CONCURRENCY", "2")))
@@ -835,6 +836,22 @@ async def restart_host(host_id: int, reason: str) -> dict:
     return {"ok": True}
 
 
+async def restart_bulk(host_ids: list, reason: str, stagger_sec: int = 0) -> dict:
+    """Restarts the given hosts ONE AFTER ANOTHER, optionally waiting `stagger_sec` between them so a
+    group never goes down all at once. Every host still gets restart_host()'s own checks (switch on,
+    reason, managed, not a workstation, no job running) and its own result; one failing host does not
+    stop the rest."""
+    if not reason or not reason.strip():
+        return {"error": "reason required"}
+    stagger_sec = max(0, min(int(stagger_sec or 0), MAX_STAGGER_SEC))
+    results = {}
+    for n, host_id in enumerate(host_ids):
+        if n and stagger_sec:
+            await asyncio.sleep(stagger_sec)
+        results[host_id] = await restart_host(host_id, reason)
+    return {"results": results}
+
+
 async def upgrade_bulk(host_ids: list, reason: str) -> dict:
     """Sequential, never parallel — mirrors linux_manage.upgrade_bulk. The
     per-upgrade _upgrade_semaphore still applies on top for any
@@ -1245,6 +1262,7 @@ def _host_to_dict(h: WindowsHost) -> dict:
         "last_services_check_at": h.last_services_check_at.isoformat() if h.last_services_check_at else None,
         "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
         "last_resources_check_at": h.last_resources_check_at.isoformat() if h.last_resources_check_at else None,
+        "group_id": h.group_id, "cpu_used_pct": h.cpu_used_pct,
     }
 
 
@@ -1267,9 +1285,13 @@ def list_hosts() -> list:
             ).all()
             for ip, port in rows:
                 ports_by_ip.setdefault(ip, set()).add(port)
+        disk_max = dict(db.execute(select(WindowsHostDisk.host_id, func.max(WindowsHostDisk.pct)).group_by(WindowsHostDisk.host_id)).all())
         result = []
         for h in hosts:
             d = _host_to_dict(h)
+            d["disk_max_pct"] = disk_max.get(h.id)       # the fullest drive, for the board's disk bar
+            j = _jobs.get(h.id)
+            d["job"] = {"status": j.get("status"), "reason": j.get("reason"), "error": j.get("error")} if j else None
             if h.host_type == "workstation":
                 d["unexpected_ports"] = sorted(p for p in ports_by_ip.get(h.ip, set()) if p not in allowed)
             else:

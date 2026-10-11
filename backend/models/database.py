@@ -374,6 +374,20 @@ class VulnRemediation(Base):
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_remediation"),)
 
 
+class HostGroup(Base):
+    """An operator-defined group of Linux or Windows servers (services/host_groups.py) — what the
+    "update / restart the whole group" buttons act on. Per platform: a group holds only hosts of
+    its own platform. Deleting a group just un-assigns its hosts."""
+    __tablename__ = "host_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    platform = Column(String, nullable=False)        # "linux" | "windows"
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("platform", "name", name="uq_host_group_name"),)
+
+
 class LinuxHost(Base):
     """A Linux server the operator has opted into centralized apt-based patch
     management (services/linux_manage.py). Discovered from services/
@@ -415,6 +429,7 @@ class LinuxHost(Base):
     last_resources_check_at = Column(DateTime, nullable=True)
     last_restart_at = Column(DateTime, nullable=True)
     last_restart_reason = Column(Text, nullable=True)
+    group_id = Column(Integer, ForeignKey("host_groups.id"), nullable=True)   # operator-defined group (services/host_groups.py)
 
 
 class LinuxHostDisk(Base):
@@ -500,6 +515,7 @@ class WindowsHost(Base):
     # credential can never cover for both at once. Mirrors DellServer's
     # own credential_id exactly (services/dell_monitor.py).
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
+    group_id = Column(Integer, ForeignKey("host_groups.id"), nullable=True)   # operator-defined group (services/host_groups.py)
 
 
 class WindowsHostDisk(Base):
@@ -1128,6 +1144,12 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN system_model TEXT"))
             if "credential_id" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN credential_id INTEGER"))
+
+    for _tbl in ("linux_hosts", "windows_hosts"):
+        if _tbl in inspector.get_table_names():
+            if "group_id" not in {c["name"] for c in inspector.get_columns(_tbl)}:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {_tbl} ADD COLUMN group_id INTEGER"))
 
     if "hyperv_hosts" in inspector.get_table_names():
         hh_cols = {c["name"] for c in inspector.get_columns("hyperv_hosts")}

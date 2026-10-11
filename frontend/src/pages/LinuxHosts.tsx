@@ -1,7 +1,11 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { linuxApi, credentialsApi, LinuxHostOut } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import {
+  fromLinux, SrvSummary, SrvSectionView, NewGroupButton, GroupActionModal, HostDrawer, useSections,
+  type SrvHost, type SrvSection, type GroupActionRequest,
+} from '../components/ServerBoard'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
@@ -384,8 +388,16 @@ export function LinuxHosts() {
   const { data, isLoading } = useQuery({
     queryKey: ['linux-hosts'],
     queryFn: linuxApi.hosts,
-    refetchInterval: 15_000,
+    refetchInterval: q => (q.state.data?.hosts.some(h => h.job && ['starting', 'checking', 'updating', 'upgrading', 'restarting', 'running_script'].includes(h.job.status ?? '')) ? 4_000 : 15_000),
   })
+  const { data: groups = [] } = useQuery({ queryKey: ['linux-groups'], queryFn: linuxApi.groups })
+  const refreshAll = () => { qc.invalidateQueries({ queryKey: ['linux-hosts'] }); qc.invalidateQueries({ queryKey: ['linux-groups'] }) }
+  const createGroup = useMutation({ mutationFn: (name: string) => linuxApi.createGroup(name), onSuccess: refreshAll })
+  const renameGroup = useMutation({ mutationFn: ({ id, name }: { id: number; name: string }) => linuxApi.renameGroup(id, name), onSuccess: refreshAll })
+  const deleteGroup = useMutation({ mutationFn: (id: number) => linuxApi.deleteGroup(id), onSuccess: refreshAll })
+  const setGroup = useMutation({ mutationFn: ({ hostId, groupId }: { hostId: number; groupId: number | null }) => linuxApi.setHostGroup(hostId, groupId), onSuccess: refreshAll })
+  const [openHost, setOpenHost] = useState<number | null>(null)
+  const [groupAction, setGroupAction] = useState<{ kind: 'upgrade' | 'restart'; section: SrvSection } | null>(null)
 
   const upgradeAll = useMutation({
     mutationFn: (ids: number[]) => linuxApi.upgradeBulk(ids),
@@ -414,10 +426,12 @@ export function LinuxHosts() {
   }
 
   const hosts = data?.hosts ?? []
+  const srv: SrvHost[] = useMemo(() => hosts.map(fromLinux), [hosts])
+  const sections = useSections(srv, groups, 'linux')
   const managedApt = hosts.filter(h => h.managed && (h.package_manager === 'apt' || h.package_manager === 'dnf'))
 
   return (
-    <div className="p-6 space-y-4 max-w-4xl">
+    <div className="p-6 space-y-4 max-w-6xl">
       <div className="flex items-center gap-2">
         <TerminalSquare size={20} className="text-indigo-600" />
         <h1 className="text-lg font-semibold text-slate-900">{t('nav.linuxHosts')}</h1>
@@ -432,11 +446,17 @@ export function LinuxHosts() {
 
       <SettingsPanel />
 
-      <Card>
-        <CardHeader>
+      {isLoading ? (
+        <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      ) : hosts.length === 0 ? (
+        <p className="text-sm text-slate-500">{t('linux.noHosts')}</p>
+      ) : (
+        <>
+          <SrvSummary hosts={srv} />
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-slate-700">{t('linux.hostsTitle')}</h2>
             <div className="flex items-center gap-2">
+              <NewGroupButton onCreate={name => createGroup.mutateAsync(name)} />
               {selectedIds.size > 0 && (
                 <Button size="sm" variant="secondary"
                   onClick={() => setScriptTarget({ hostIds: [...selectedIds], label: t('runScript.selectedCount', { count: selectedIds.size }) as string })}>
@@ -458,23 +478,33 @@ export function LinuxHosts() {
               )}
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {isLoading ? (
-            <p className="text-sm text-slate-500">{t('common.loading')}</p>
-          ) : hosts.length === 0 ? (
-            <p className="text-sm text-slate-500">{t('linux.noHosts')}</p>
-          ) : (
-            hosts.map(h => (
-              <HostCard key={h.id} host={h}
-                selected={selectedIds.has(h.id)}
-                onToggleSelect={() => toggleSelect(h.id)}
-                onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })}
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
+          {sections.map(sec => (
+            <SrvSectionView key={sec.key} section={sec} selected={selectedIds} enabled={data?.enabled ?? true}
+              onToggleSelect={toggleSelect} onOpen={h => setOpenHost(h.id)} onAction={(kind, section) => setGroupAction({ kind, section })}
+              onRename={sec.groupId != null ? name => renameGroup.mutate({ id: sec.groupId!, name }) : undefined}
+              onDelete={sec.groupId != null ? () => deleteGroup.mutate(sec.groupId!) : undefined} />
+          ))}
+        </>
+      )}
+
+      {openHost != null && hosts.find(h => h.id === openHost) && (
+        <HostDrawer host={srv.find(h => h.id === openHost)!} groups={groups} onClose={() => setOpenHost(null)}
+          onGroup={groupId => setGroup.mutate({ hostId: openHost, groupId })}>
+          {(() => { const h = hosts.find(x => x.id === openHost)!; return (
+            <HostCard host={h} selected={selectedIds.has(h.id)} onToggleSelect={() => toggleSelect(h.id)}
+              onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })} />
+          ) })()}
+        </HostDrawer>
+      )}
+
+      {groupAction && (
+        <GroupActionModal kind={groupAction.kind} section={groupAction.section} platform="linux" onClose={() => setGroupAction(null)}
+          onRun={async (req: GroupActionRequest) => {
+            if (groupAction.kind === 'upgrade') await linuxApi.upgradeBulk(req.ids)
+            else await linuxApi.restartBulk({ ids: req.ids, reason: req.reason, stagger_sec: req.staggerSec })
+            qc.invalidateQueries({ queryKey: ['linux-hosts'] })
+          }} />
+      )}
 
       <RunScriptModal
         open={scriptTarget !== null}

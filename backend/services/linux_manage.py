@@ -48,7 +48,7 @@ import time
 import uuid
 from datetime import datetime
 from typing import Callable, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxHostDisk, LinuxManageSettings
 from services.crypto import decrypt
@@ -60,6 +60,7 @@ MANAGE_ENABLED = os.environ.get("MIKROTIK_LINUX_MANAGE_ENABLED", "1").strip().lo
 CHECK_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_CHECK_TIMEOUT_SEC", "120"))
 UPGRADE_TIMEOUT_SEC = int(os.environ.get("MIKROTIK_LINUX_UPGRADE_TIMEOUT_SEC", "1800"))
 MAX_OUTPUT_BYTES = 200_000
+MAX_STAGGER_SEC = 1800     # longest wait between two hosts of a group restart
 MAX_SCRIPT_BYTES = 64_000
 
 _jobs: dict = {}   # host_id -> job status dict
@@ -807,6 +808,22 @@ async def restart_host(host_id: int, reason: str) -> dict:
     return {"ok": True}
 
 
+async def restart_bulk(host_ids: list, reason: str, stagger_sec: int = 0) -> dict:
+    """Restarts the given hosts ONE AFTER ANOTHER (each restart command is sent only after the previous
+    one was accepted), optionally waiting `stagger_sec` between them so a group never goes down all at
+    once. Every host still gets restart_host()'s own checks (switch on, reason, managed, no job running)
+    and its own result; one failing host does not stop the rest."""
+    if not reason or not reason.strip():
+        return {"error": "reason required"}
+    stagger_sec = max(0, min(int(stagger_sec or 0), MAX_STAGGER_SEC))
+    results = {}
+    for n, host_id in enumerate(host_ids):
+        if n and stagger_sec:
+            await asyncio.sleep(stagger_sec)
+        results[host_id] = await restart_host(host_id, reason)
+    return {"results": results}
+
+
 async def upgrade_bulk(host_ids: list) -> dict:
     """Sequential, never parallel — one host's upgrade completes before the
     next starts, same as services/firmware.py's upgrade_bulk. The
@@ -1145,6 +1162,7 @@ def _host_to_dict(h: LinuxHost) -> dict:
         "last_resources_check_at": h.last_resources_check_at.isoformat() if h.last_resources_check_at else None,
         "last_restart_at": h.last_restart_at.isoformat() if h.last_restart_at else None,
         "last_restart_reason": h.last_restart_reason,
+        "group_id": h.group_id, "cpu_used_pct": h.cpu_used_pct,
     }
 
 
@@ -1160,10 +1178,25 @@ def list_host_disks(host_id: int) -> list:
         } for d in rows]
 
 
+def _job_view(host_id: int):
+    """What the board shows of a host's current/last job — status, reason and error only, never the log."""
+    j = _jobs.get(host_id)
+    return {"status": j.get("status"), "reason": j.get("reason"), "error": j.get("error")} if j else None
+
+
 def list_hosts() -> list:
+    """Besides the plain columns: disk_max_pct (the fullest filesystem, for the board's disk bar) and
+    job (the live/last job's status)."""
     with SessionLocal() as db:
         hosts = db.execute(select(LinuxHost).order_by(LinuxHost.ip)).scalars().all()
-        return [_host_to_dict(h) for h in hosts]
+        disk_max = dict(db.execute(select(LinuxHostDisk.host_id, func.max(LinuxHostDisk.pct)).group_by(LinuxHostDisk.host_id)).all())
+        out = []
+        for h in hosts:
+            d = _host_to_dict(h)
+            d["disk_max_pct"] = disk_max.get(h.id)
+            d["job"] = _job_view(h.id)
+            out.append(d)
+        return out
 
 
 def set_managed(host_id: int, managed: bool) -> dict:

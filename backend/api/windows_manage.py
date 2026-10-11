@@ -1,10 +1,10 @@
 import asyncio
 import json
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from services import windows_manage
+from services import windows_manage, host_groups
 
 router = APIRouter(prefix="/api/windows", tags=["windows"])
 
@@ -208,3 +208,61 @@ async def list_host_disks(host_id: int):
 async def check_resources(host_id: int, background_tasks: BackgroundTasks):
     background_tasks.add_task(windows_manage.check_host_resources, host_id)
     return {"queued": True, "host_id": host_id}
+
+
+# ── Groups + group-wide restart ──────────────────────────────────────────────
+
+class RestartBulkIn(BaseModel):
+    ids: list[int]
+    reason: str
+    stagger_sec: int = 0          # wait between two hosts, so a group does not go down all at once
+
+
+class GroupIn(BaseModel):
+    name: str
+
+
+class HostGroupIn(BaseModel):
+    group_id: int | None = None
+
+
+@router.post("/hosts/restart-bulk")
+async def restart_bulk(payload: RestartBulkIn, background_tasks: BackgroundTasks):
+    if not payload.reason.strip():
+        raise HTTPException(400, "a reason is required")
+    background_tasks.add_task(windows_manage.restart_bulk, payload.ids, payload.reason, payload.stagger_sec)
+    return {"queued": len(payload.ids), "ids": payload.ids}
+
+
+@router.get("/groups")
+async def list_groups():
+    return {"groups": host_groups.list_groups("windows")}
+
+
+def _group_call(fn, *args):
+    try:
+        return fn("windows", *args)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/groups")
+async def create_group(payload: GroupIn):
+    return _group_call(host_groups.create_group, payload.name)
+
+
+@router.put("/groups/{group_id}")
+async def rename_group(group_id: int, payload: GroupIn):
+    return _group_call(host_groups.rename_group, group_id, payload.name)
+
+
+@router.delete("/groups/{group_id}")
+async def delete_group(group_id: int):
+    return _group_call(host_groups.delete_group, group_id)
+
+
+@router.put("/hosts/{host_id}/group")
+async def set_host_group(host_id: int, payload: HostGroupIn):
+    return _group_call(host_groups.set_host_group, host_id, payload.group_id)

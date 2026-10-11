@@ -1,7 +1,11 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { windowsApi, credentialsApi, WindowsHostOut } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import {
+  fromWindows, SrvSummary, SrvSectionView, NewGroupButton, GroupActionModal, HostDrawer, useSections,
+  type SrvHost, type SrvSection, type GroupActionRequest,
+} from '../components/ServerBoard'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
@@ -486,8 +490,16 @@ export function WindowsHosts() {
   const { data, isLoading } = useQuery({
     queryKey: ['windows-hosts'],
     queryFn: windowsApi.hosts,
-    refetchInterval: 15_000,
+    refetchInterval: q => (q.state.data?.hosts.some(h => h.job && ['starting', 'checking', 'updating', 'upgrading', 'restarting', 'running_script'].includes(h.job.status ?? '')) ? 4_000 : 15_000),
   })
+  const { data: groups = [] } = useQuery({ queryKey: ['windows-groups'], queryFn: windowsApi.groups })
+  const refreshAll = () => { qc.invalidateQueries({ queryKey: ['windows-hosts'] }); qc.invalidateQueries({ queryKey: ['windows-groups'] }) }
+  const createGroup = useMutation({ mutationFn: (name: string) => windowsApi.createGroup(name), onSuccess: refreshAll })
+  const renameGroup = useMutation({ mutationFn: ({ id, name }: { id: number; name: string }) => windowsApi.renameGroup(id, name), onSuccess: refreshAll })
+  const deleteGroup = useMutation({ mutationFn: (id: number) => windowsApi.deleteGroup(id), onSuccess: refreshAll })
+  const setGroup = useMutation({ mutationFn: ({ hostId, groupId }: { hostId: number; groupId: number | null }) => windowsApi.setHostGroup(hostId, groupId), onSuccess: refreshAll })
+  const [openHost, setOpenHost] = useState<number | null>(null)
+  const [groupAction, setGroupAction] = useState<{ kind: 'upgrade' | 'restart'; section: SrvSection } | null>(null)
 
   const upgradeAll = useMutation({
     mutationFn: ({ ids, reason }: { ids: number[]; reason: string }) => windowsApi.upgradeBulk(ids, reason),
@@ -516,6 +528,8 @@ export function WindowsHosts() {
   }
 
   const hosts = data?.hosts ?? []
+  const srv: SrvHost[] = useMemo(() => hosts.map(fromWindows), [hosts])
+  const sections = useSections(srv, groups, 'windows')
   const managed = hosts.filter(h => h.managed)
 
   const upgradeAllClick = () => {
@@ -528,7 +542,7 @@ export function WindowsHosts() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-4xl">
+    <div className="p-6 space-y-4 max-w-6xl">
       <div className="flex items-center gap-2">
         <MonitorSmartphone size={20} className="text-indigo-600" />
         <h1 className="text-lg font-semibold text-slate-900">{t('nav.windowsHosts')}</h1>
@@ -543,11 +557,17 @@ export function WindowsHosts() {
       <SettingsPanel />
       <WorkstationPortsPanel />
 
-      <Card>
-        <CardHeader>
+      {isLoading ? (
+        <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      ) : hosts.length === 0 ? (
+        <p className="text-sm text-slate-500">{t('windows.noHosts')}</p>
+      ) : (
+        <>
+          <SrvSummary hosts={srv} />
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-slate-700">{t('windows.hostsTitle')}</h2>
             <div className="flex items-center gap-2">
+              <NewGroupButton onCreate={name => createGroup.mutateAsync(name)} />
               {selectedIds.size > 0 && (
                 <Button size="sm" variant="secondary"
                   onClick={() => setScriptTarget({ hostIds: [...selectedIds], label: t('runScript.selectedCount', { count: selectedIds.size }) as string })}>
@@ -561,23 +581,33 @@ export function WindowsHosts() {
               )}
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {isLoading ? (
-            <p className="text-sm text-slate-500">{t('common.loading')}</p>
-          ) : hosts.length === 0 ? (
-            <p className="text-sm text-slate-500">{t('windows.noHosts')}</p>
-          ) : (
-            hosts.map(h => (
-              <HostCard key={h.id} host={h}
-                selected={selectedIds.has(h.id)}
-                onToggleSelect={() => toggleSelect(h.id)}
-                onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })}
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
+          {sections.map(sec => (
+            <SrvSectionView key={sec.key} section={sec} selected={selectedIds} enabled={data?.enabled ?? true}
+              onToggleSelect={toggleSelect} onOpen={h => setOpenHost(h.id)} onAction={(kind, section) => setGroupAction({ kind, section })}
+              onRename={sec.groupId != null ? name => renameGroup.mutate({ id: sec.groupId!, name }) : undefined}
+              onDelete={sec.groupId != null ? () => deleteGroup.mutate(sec.groupId!) : undefined} />
+          ))}
+        </>
+      )}
+
+      {openHost != null && hosts.find(h => h.id === openHost) && (
+        <HostDrawer host={srv.find(h => h.id === openHost)!} groups={groups} onClose={() => setOpenHost(null)}
+          onGroup={groupId => setGroup.mutate({ hostId: openHost, groupId })}>
+          {(() => { const h = hosts.find(x => x.id === openHost)!; return (
+            <HostCard host={h} selected={selectedIds.has(h.id)} onToggleSelect={() => toggleSelect(h.id)}
+              onRunScript={() => setScriptTarget({ hostIds: [h.id], label: h.hostname || h.ip })} />
+          ) })()}
+        </HostDrawer>
+      )}
+
+      {groupAction && (
+        <GroupActionModal kind={groupAction.kind} section={groupAction.section} platform="windows" onClose={() => setGroupAction(null)}
+          onRun={async (req: GroupActionRequest) => {
+            if (groupAction.kind === 'upgrade') await windowsApi.upgradeBulk(req.ids, req.reason)
+            else await windowsApi.restartBulk({ ids: req.ids, reason: req.reason, stagger_sec: req.staggerSec })
+            qc.invalidateQueries({ queryKey: ['windows-hosts'] })
+          }} />
+      )}
 
       <RunScriptModal
         open={scriptTarget !== null}
