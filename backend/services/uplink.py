@@ -486,6 +486,16 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] inventory summary error: {e}")
         inventory_summary = None
 
+    # Keep a local record of every alert event (type, device, count) for the Security Summary dashboard, and
+    # summarise it - together with the all-severity vulnerability counts and the compliance totals - for Central.
+    try:
+        from services import security_summary
+        security_summary.record_events(alert_events)
+        security_stats = await security_summary.compute()
+    except Exception as e:
+        print(f"[uplink] security summary error: {e}")
+        security_stats = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -518,6 +528,7 @@ async def _build_snapshot() -> dict:
         "hostmon_status": hostmon_status,
         "hostmon_details": hostmon_details,
         "mikrotik_fleet": mikrotik_fleet,
+        "security_stats": security_stats,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -569,6 +580,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "firewall_status": snapshot.get("firewall_status", []),
             "hostmon_status": snapshot.get("hostmon_status", []),
             "mikrotik_fleet": snapshot.get("mikrotik_fleet"),
+            "security_stats": snapshot.get("security_stats"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),

@@ -20,6 +20,8 @@ import { CentralFirewallLogs } from './pages/CentralFirewallLogs'
 import { CentralHostMonitor } from './pages/CentralHostMonitor'
 import { CentralFleet } from './pages/CentralFleet'
 import { CentralHyperV } from './pages/CentralHyperV'
+import { CentralSecuritySummary } from './pages/CentralSecuritySummary'
+import { SecuritySummary } from './pages/SecuritySummary'
 import { Mikrotik } from './pages/Mikrotik'
 import { Vulnerabilities } from './pages/Vulnerabilities'
 import { LinuxHosts } from './pages/LinuxHosts'
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="/linux" element={<LinuxHosts />} />
             <Route path="/windows" element={<WindowsHosts />} />
             <Route path="/hyperv" element={<HyperV />} />
+            <Route path="/security-summary" element={<SecuritySummary />} />
+            <Route path="/central/security" element={<CentralSecuritySummary />} />
             <Route path="/hostmon" element={<HostMonitor />} />
             <Route path="/dell-servers" element={<DellServers />} />
             <Route path="/inventory" element={<Inventory />} />

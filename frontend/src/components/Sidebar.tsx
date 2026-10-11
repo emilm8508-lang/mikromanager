@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -241,6 +241,7 @@ export function Sidebar() {
 
   const agentNav = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { to: '/security-summary', label: t('nav.securitySummary'), icon: PieChart },
     { to: '/devices', label: t('nav.devices'), icon: Server },
     { to: '/mikrotik', label: t('nav.mikrotik'), icon: Router },
     { to: '/map', label: t('nav.map'), icon: Network },
@@ -282,13 +283,14 @@ export function Sidebar() {
   const centralFirewallLogsNavItem = { to: '/central/firewall-logs', label: t('firewallLogsCentral.navLabel'), icon: ScrollText }
   const centralHostmonNavItem = { to: '/central/hostmon', label: t('hostmonCentral.navLabel'), icon: Radar }
   const centralFleetNavItem = { to: '/central/fleet', label: t('fleetCentral.navLabel'), icon: Router }
+  const centralSecurityNavItem = { to: '/central/security', label: t('nav.securitySummary'), icon: PieChart }
   const centralHypervNavItem = { to: '/central/hyperv', label: t('hypervCentral.navLabel'), icon: Layers }
   // 'central' mode is a purely local display preference — hides agent-only
   // tabs for a computer that's only ever used to view Central. Every local
   // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
   // this doesn't touch anything server-side.
   const nav = mode === 'central'
-    ? [centralNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem, centralHostmonNavItem, centralFleetNavItem, centralHypervNavItem]
+    ? [centralNavItem, centralSecurityNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem, centralHostmonNavItem, centralFleetNavItem, centralHypervNavItem]
     : [...agentNav, centralNavItem]
 
   return (

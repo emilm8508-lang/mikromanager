@@ -374,6 +374,20 @@ class VulnRemediation(Base):
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_remediation"),)
 
 
+class SecurityEvent(Base):
+    """One alert event as the agent produced it (failed logins, a host going down, a Wazuh alert, a VM
+    without heartbeat ...) — kept locally for 30 days so the Security Summary dashboard can chart events
+    over time and by type. Only a type, a device name and a count: no log text. See
+    services/security_summary.py."""
+    __tablename__ = "security_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ts = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    type = Column(String, nullable=False, index=True)
+    device_name = Column(String, nullable=True)
+    count = Column(Integer, nullable=False, default=1)
+
+
 class HostGroup(Base):
     """An operator-defined group of Linux or Windows servers (services/host_groups.py) — what the
     "update / restart the whole group" buttons act on. Per platform: a group holds only hosts of

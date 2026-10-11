@@ -1450,6 +1450,11 @@ export interface HypervActionLogEntry {
   finished_at: string | null
 }
 
+// Security Summary dashboard (services/security_summary.py): the sections of a snapshot plus the aggregated stats
+export const securityApi = {
+  summary: () => api.get<Record<string, any>>('/security-summary').then(r => r.data),
+}
+
 export const hypervApi = {
   overview: () => api.get<HypervOverview>('/hyperv/overview').then(r => r.data),
   hosts: () => api.get<{ hosts: HypervHostOut[] }>('/hyperv/hosts').then(r => r.data.hosts),
@@ -2510,6 +2515,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  securityStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; data: Record<string, any> }> }>('security_status_all'),
   fleetStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; fleet: FleetOverview | null }> }>('fleet_status_all'),
   fleetGroupsList: () =>

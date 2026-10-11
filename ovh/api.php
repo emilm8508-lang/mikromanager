@@ -1813,6 +1813,43 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'security_status_all':
+            // Everything the Security Summary dashboard needs, for every tenant this identity can see, in ONE
+            // call (instead of a dozen *_status_all calls): the latest snapshot's plaintext sections, plus
+            // security_stats (all-severity vulnerability counts, compliance totals, event series). Nothing
+            // here needs an E2E key. The Mikrotik fleet is cut down to totals/alerts/updates - the device
+            // list is not needed on this page.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $sec_keys = ['security_stats', 'vuln_findings_status', 'compliance_status', 'firewall_status', 'wazuh_status',
+                         'linux_hosts_status', 'windows_hosts_status', 'hyperv_status', 'tunnel_status', 'wan_link_status',
+                         'prtg_status', 'checkmk_status', 'dell_servers_status', 'hostmon_status', 'supply_chain_status',
+                         'firmware_status', 'routers_status', 'devices_count', 'devices_online'];
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $data = [];
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta)) {
+                        foreach ($sec_keys as $k) { if (array_key_exists($k, $meta)) $data[$k] = $meta[$k]; }
+                        $fl = $meta['mikrotik_fleet'] ?? null;
+                        if (is_array($fl)) {
+                            $data['mikrotik_fleet'] = ['totals' => $fl['totals'] ?? null, 'alerts' => $fl['alerts'] ?? [], 'updates' => $fl['updates'] ?? []];
+                        }
+                    }
+                }
+                $result[] = ['tenant' => $r['tenant'], 'last_seen' => $r['last_seen'], 'data' => $data];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'firewall_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as hyperv_hosts_status_all: latest
