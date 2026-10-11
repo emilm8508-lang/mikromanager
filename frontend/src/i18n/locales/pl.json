@@ -1470,7 +1470,13 @@
         "oneByOne": "Serwery są zawsze obsługiwane po jednym, nigdy równocześnie.",
         "run": "Wykonaj dla {{count}}",
         "group": "Grupa",
-        "noGroup": "Bez grupy"
+        "noGroup": "Bez grupy",
+        "central": {
+            "queued": "w kolejce",
+            "manageOff": "Zarządzanie Windows jest wyłączone u tego klienta — włącz je w sekcji klasycznej poniżej, aby aktualizować i restartować z Centrali.",
+            "delay": "Polecenie dociera do agenta przy najbliższym połączeniu (do 2 min).",
+            "groupNote": "Aktualizacje są zlecane agentowi osobno dla każdego serwera (agent instaluje najwyżej 2 naraz). Restart całej grupy jest dostępny tylko lokalnie w agencie, gdzie można go rozłożyć w czasie."
+        }
     },
     "hyperv": {
         "intro": "Serwery Windows z rolą Hyper-V (spośród zarządzanych hostów Windows) — stan hostów i maszyn wirtualnych na jednym ekranie, rzeczy do sprawdzenia oraz akcje zasilania VM.",
@@ -1726,7 +1732,8 @@
     "centralHosts": {
         "navLabel": "Serwery Linux/Windows",
         "title": "Serwery Linux/Windows — wszyscy klienci",
-        "intro": "Status aktualizacji systemu operacyjnego (nie kondycja sprzetu) na zarzadzanych serwerach Linux i Windows u kazdego klienta - osobno od 'Serwery fizyczne' (Dell/iDRAC), poniewaz to inna sprawa i te hosty nie musza byc fizycznymi maszynami."
+        "intro": "Status aktualizacji systemu operacyjnego (nie kondycja sprzetu) na zarzadzanych serwerach Linux i Windows u kazdego klienta - osobno od 'Serwery fizyczne' (Dell/iDRAC), poniewaz to inna sprawa i te hosty nie musza byc fizycznymi maszynami.",
+        "classic": "Skanowanie, ustawienia zarządzania Windows i widok tabelaryczny (klasyczny)"
     },
     "linuxCentral": {
         "title": "Hosty Linux — wszyscy klienci",

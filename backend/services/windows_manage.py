@@ -49,7 +49,7 @@ from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select, func
 
-from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsHostDisk, WindowsManageSettings
+from models.database import SessionLocal, Credential, VulnHost, VulnService, WindowsHost, WindowsHostService, WindowsHostDisk, WindowsManageSettings, HostGroup
 from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
@@ -1331,11 +1331,13 @@ def public_summary() -> list:
     same mem/cpu/disk utilization fields for Central's graphical tiles."""
     with SessionLocal() as db:
         hosts = db.execute(select(WindowsHost).where(WindowsHost.managed == True)).scalars().all()  # noqa: E712
+        groups = {g.id: g.name for g in db.execute(select(HostGroup).where(HostGroup.platform == "windows")).scalars().all()}
         result = []
         for h in hosts:
             disks = db.execute(select(WindowsHostDisk).where(WindowsHostDisk.host_id == h.id)).scalars().all()
             result.append({
                 "id": h.id, "ip": h.ip, "hostname": h.hostname, "os_name": h.os_name,
+                "domain": h.domain, "host_type": h.host_type, "group": groups.get(h.group_id),
                 "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
                 "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
                 "last_check_at": h.last_check_at.isoformat() if h.last_check_at else None,

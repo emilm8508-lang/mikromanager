@@ -588,6 +588,9 @@ export interface CentralLinuxHostStatus {
   ip: string
   hostname: string | null
   distro_pretty: string | null
+  distro_id?: string | null        // 2.54+: lets Central arrange hosts like the agent does
+  package_manager?: string | null
+  group?: string | null            // name of the agent's own group, if any
   upgradable_count: number | null
   reboot_required: boolean
   last_upgrade_at: string | null
@@ -605,6 +608,9 @@ export interface CentralWindowsHostStatus {
   ip: string
   hostname: string | null
   os_name: string | null
+  domain?: string | null
+  host_type?: 'server' | 'workstation'
+  group?: string | null
   upgradable_count: number | null
   reboot_required: boolean
   last_upgrade_at: string | null

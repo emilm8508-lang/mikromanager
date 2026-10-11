@@ -14,6 +14,7 @@ export type SrvPlatform = 'linux' | 'windows'
 
 export type SrvHost = {
   id: number
+  tenant?: string                  // Central: which client the server belongs to (ids repeat across clients)
   name: string
   ip: string
   os: string | null
@@ -82,13 +83,15 @@ export function buildSections(hosts: SrvHost[], groups: HostGroupOut[], platform
     if (h.pending) { pending.push(h); continue }
     if (h.workstation) { stations.push(h); continue }
     const label = platform === 'windows' ? (h.domain || t('serverBoard.workgroup')) : (h.distroId || t('serverBoard.otherDistro'))
-    const key = `a:${label.toLowerCase()}`
-    if (!auto.has(key)) auto.set(key, { key, kind: 'auto', title: platform === 'windows' ? (h.domain ? t('serverBoard.domain', { name: label }) : label) : label.charAt(0).toUpperCase() + label.slice(1), hosts: [] })
+    const key = `a:${h.tenant ?? ''}:${label.toLowerCase()}`
+    const title = platform === 'windows' ? (h.domain ? t('serverBoard.domain', { name: label }) : label) : label.charAt(0).toUpperCase() + label.slice(1)
+    if (!auto.has(key)) auto.set(key, { key, kind: 'auto', title: h.tenant ? `${h.tenant} · ${title}` : title, hosts: [] })
     auto.get(key)!.hosts.push(h)
   }
   out.push(...[...auto.values()].sort((a, b) => a.title.localeCompare(b.title)))
-  if (stations.length) out.push({ key: 'stations', kind: 'workstations', title: t('serverBoard.workstations'), hosts: stations })
-  if (pending.length) out.push({ key: 'pending', kind: 'pending', title: t('serverBoard.pending'), hosts: pending })
+  const perTenant = (hs: SrvHost[]) => [...new Set(hs.map(h => h.tenant ?? ''))].sort()
+  for (const tn of perTenant(stations)) out.push({ key: `stations:${tn}`, kind: 'workstations', title: tn ? `${tn} · ${t('serverBoard.workstations')}` : t('serverBoard.workstations'), hosts: stations.filter(h => (h.tenant ?? '') === tn) })
+  for (const tn of perTenant(pending)) out.push({ key: `pending:${tn}`, kind: 'pending', title: tn ? `${tn} · ${t('serverBoard.pending')}` : t('serverBoard.pending'), hosts: pending.filter(h => (h.tenant ?? '') === tn) })
   return out
 }
 
@@ -221,9 +224,9 @@ export function SrvSummary({ hosts }: { hosts: SrvHost[] }) {
 
 // ── Group section ────────────────────────────────────────────────────────────
 
-export function SrvSectionView({ section, selected, enabled, onToggleSelect, onOpen, onAction, onRename, onDelete }: {
-  section: SrvSection; selected: Set<number>; enabled: boolean
-  onToggleSelect: (id: number) => void; onOpen: (h: SrvHost) => void
+export function SrvSectionView({ section, selected, enabled, showRestart = true, onToggleSelect, onOpen, onAction, onRename, onDelete }: {
+  section: SrvSection; selected: Set<number>; enabled: boolean; showRestart?: boolean
+  onToggleSelect?: (id: number) => void; onOpen: (h: SrvHost) => void
   onAction: (kind: 'upgrade' | 'restart', section: SrvSection) => void
   onRename?: (name: string) => void; onDelete?: () => void
 }) {
@@ -259,10 +262,10 @@ export function SrvSectionView({ section, selected, enabled, onToggleSelect, onO
                   title={!enabled ? (t('serverBoard.actionsOff') as string) : undefined}>
                   <Download size={12} /> {t('serverBoard.groupUpdate', { count: targets.length })}
                 </Button>
-                <Button size="sm" variant="danger" disabled={!enabled || targets.length === 0} onClick={() => onAction('restart', section)}
+                {showRestart && <Button size="sm" variant="danger" disabled={!enabled || targets.length === 0} onClick={() => onAction('restart', section)}
                   title={!enabled ? (t('serverBoard.actionsOff') as string) : undefined}>
                   <Power size={12} /> {t('serverBoard.groupRestart', { count: targets.length })}
-                </Button>
+                </Button>}
               </>
             )}
             {section.kind === 'group' && editing === null && (
@@ -278,7 +281,7 @@ export function SrvSectionView({ section, selected, enabled, onToggleSelect, onO
       <CardContent>
         {section.hosts.length === 0 ? <p className="text-xs text-slate-400">{t('serverBoard.groupEmpty')}</p> : (
           <div className="flex flex-wrap gap-3">
-            {section.hosts.map(h => <SrvTile key={h.id} host={h} selected={selected.has(h.id)} onToggleSelect={() => onToggleSelect(h.id)} onOpen={() => onOpen(h)} />)}
+            {section.hosts.map(h => <SrvTile key={`${h.tenant ?? ''}:${h.id}`} host={h} selected={selected.has(h.id)} onToggleSelect={onToggleSelect ? () => onToggleSelect(h.id) : undefined} onOpen={() => onOpen(h)} />)}
           </div>
         )}
       </CardContent>
@@ -313,8 +316,8 @@ export function NewGroupButton({ onCreate }: { onCreate: (name: string) => Promi
 
 export type GroupActionRequest = { ids: number[]; reason: string; staggerSec: number }
 
-export function GroupActionModal({ kind, section, platform, onClose, onRun }: {
-  kind: 'upgrade' | 'restart'; section: SrvSection; platform: SrvPlatform
+export function GroupActionModal({ kind, section, platform, footnote, onClose, onRun }: {
+  kind: 'upgrade' | 'restart'; section: SrvSection; platform: SrvPlatform; footnote?: string
   onClose: () => void; onRun: (req: GroupActionRequest) => Promise<unknown>
 }) {
   const { t } = useTranslation()
@@ -391,7 +394,7 @@ export function GroupActionModal({ kind, section, platform, onClose, onRun }: {
               <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} maxLength={500} placeholder={t('serverBoard.reasonPlaceholder') as string}
                 className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
             )}
-            <p className="text-[11px] text-slate-400">{t('serverBoard.oneByOne')}</p>
+            <p className="text-[11px] text-slate-400">{footnote ?? t('serverBoard.oneByOne')}</p>
             {err && <p className="text-xs text-red-700">{err}</p>}
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
@@ -409,7 +412,7 @@ export function GroupActionModal({ kind, section, platform, onClose, onRun }: {
 // ── Drawer around the existing host card ─────────────────────────────────────
 
 export function HostDrawer({ host, groups, onGroup, onClose, children }: {
-  host: SrvHost; groups: HostGroupOut[]; onGroup: (groupId: number | null) => void; onClose: () => void; children: React.ReactNode
+  host: SrvHost; groups?: HostGroupOut[]; onGroup?: (groupId: number | null) => void; onClose: () => void; children: React.ReactNode
 }) {
   const { t } = useTranslation()
   return (
@@ -419,13 +422,15 @@ export function HostDrawer({ host, groups, onGroup, onClose, children }: {
           <h3 className="text-lg font-semibold text-slate-900 truncate">{host.name}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800"><X size={18} /></button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-600">{t('serverBoard.group')}
-          <select value={host.groupId ?? ''} onChange={e => onGroup(e.target.value ? Number(e.target.value) : null)}
-            className="border border-slate-300 rounded px-2 py-1 text-sm bg-white">
-            <option value="">{t('serverBoard.noGroup')}</option>
-            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </label>
+        {onGroup && groups && (
+          <label className="flex items-center gap-2 text-xs text-slate-600">{t('serverBoard.group')}
+            <select value={host.groupId ?? ''} onChange={e => onGroup(e.target.value ? Number(e.target.value) : null)}
+              className="border border-slate-300 rounded px-2 py-1 text-sm bg-white">
+              <option value="">{t('serverBoard.noGroup')}</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}
         {children}
       </div>
     </div>

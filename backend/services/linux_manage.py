@@ -50,7 +50,7 @@ from datetime import datetime
 from typing import Callable, Optional
 from sqlalchemy import select, func
 
-from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxHostDisk, LinuxManageSettings
+from models.database import SessionLocal, Credential, VulnHost, VulnService, LinuxHost, LinuxHostDisk, LinuxManageSettings, HostGroup
 from services.crypto import decrypt
 from services import vuln_scan as vs
 from services import activity
@@ -1222,11 +1222,13 @@ def public_summary() -> list:
     frontend PhysicalServersPanel / LinuxCentralPanel."""
     with SessionLocal() as db:
         hosts = db.execute(select(LinuxHost).where(LinuxHost.managed == True)).scalars().all()  # noqa: E712
+        groups = {g.id: g.name for g in db.execute(select(HostGroup).where(HostGroup.platform == "linux")).scalars().all()}
         result = []
         for h in hosts:
             disks = db.execute(select(LinuxHostDisk).where(LinuxHostDisk.host_id == h.id)).scalars().all()
             result.append({
                 "id": h.id, "ip": h.ip, "hostname": h.hostname, "distro_pretty": h.distro_pretty,
+                "distro_id": h.distro_id, "package_manager": h.package_manager, "group": groups.get(h.group_id),
                 "upgradable_count": h.upgradable_count, "reboot_required": h.reboot_required,
                 "last_upgrade_at": h.last_upgrade_at.isoformat() if h.last_upgrade_at else None,
                 "last_check_at": h.last_check_at.isoformat() if h.last_check_at else None,
