@@ -976,7 +976,7 @@ function TenantRow({ tenant, viewerCommit, viewerCommitTime, pendingUpdate, pend
 
   return (
     <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200">
-      <span className={`inline-block w-1 h-10 rounded ${c.bg.replace('-100', '-500')}`} />
+      <span className={`inline-block w-1 h-10 rounded ${c.bar}`} />
       <Icon size={16} className={tenant.online ? 'text-green-600' : 'text-red-600'} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">

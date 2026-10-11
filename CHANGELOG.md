@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.53 — 2026-10-11
+- Fix the coloured bar next to each client in Central's client list (and the dot variant of the client badge) showing for only one client. The colour was derived from the badge's class name by string replacement, and Tailwind only generates classes it finds written out in full, so only colours that happened to be used elsewhere (green) appeared; the palette now carries the bar and dot classes explicitly. Front-end only.
+
 ## 2.52 — 2026-10-11
 - Fix Hyper-V polling failing on every host with "The command line is too long" (2.51 regression): the new poll script is ~3.2 KB, and pywinrm sends a PowerShell script as `powershell -encodedcommand <base64 of UTF-16>`, which at that size is ~8.7 KB against Windows' 8191-character command-line limit - so every poll failed, all hosts showed as not responding and Central received nothing (a host with no successful poll is left out of the summary). Scripts longer than ~2000 characters are now sent gzip-compressed behind a small loader (the poll goes out as ~5.4 KB). Checked this time against a real Windows PowerShell 5.1: the script parses cleanly, the packed command line is accepted and decodes to the identical script (non-ASCII intact), and with stand-ins for the Hyper-V cmdlets the output - enums, TimeSpan/DateTime values, one VM, several VMs and none - parses into the expected fields. Still not run against a real Hyper-V host's own cmdlets. Deploy: update and restart the agents; the hosts recover on the next poll (within 5 minutes) and then appear in Central.
 
