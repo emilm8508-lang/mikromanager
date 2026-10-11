@@ -117,9 +117,35 @@ def _is_not_hyperv(error_text: str) -> bool:
     return any(m in error_text for m in _NOT_HYPERV_MARKERS)
 
 
+# pywinrm sends a PowerShell script as `powershell -encodedcommand <base64 of the UTF-16 text>` and Windows caps
+# a command line at 8191 characters, i.e. a script of roughly 3000 characters. Anything longer is sent gzip-compressed
+# behind a tiny loader instead (the poll script is ~3.2 KB and failed with "The command line is too long").
+_MAX_PLAIN_SCRIPT_CHARS = 2000
+_MAX_ENCODED_COMMAND_CHARS = 8000
+
+
+def pack_script(script: str) -> str:
+    """Returns a script that fits in one command line and does the same as `script`."""
+    import base64
+    import gzip
+    if len(script) <= _MAX_PLAIN_SCRIPT_CHARS:
+        return script
+    b64 = base64.b64encode(gzip.compress(script.encode("utf-8"))).decode("ascii")
+    packed = (f"$b=[Convert]::FromBase64String('{b64}');"
+              "$m=New-Object IO.MemoryStream(,$b);"
+              "$z=New-Object IO.Compression.GzipStream($m,[IO.Compression.CompressionMode]::Decompress);"
+              "$r=New-Object IO.StreamReader($z,[Text.Encoding]::UTF8);"
+              "Invoke-Expression $r.ReadToEnd()")
+    encoded = len(base64.b64encode((vs._SUPPRESS_PROGRESS + packed).encode("utf-16-le")))
+    if encoded > _MAX_ENCODED_COMMAND_CHARS:
+        raise ValueError(f"PowerShell script too large even compressed ({encoded} characters encoded)")
+    return packed
+
+
 def _run_ps_sync(ip: str, port: int, username: str, password: str, domain: Optional[str], script: str, timeout_sec: int):
     """Blocking — run via loop.run_in_executor. Returns the pywinrm response; the session is always released."""
     import winrm
+    script = pack_script(script)
     user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
