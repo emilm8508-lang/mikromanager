@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart } from 'lucide-react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -229,6 +229,11 @@ function AccountPanel() {
   )
 }
 
+type NavItem = { to: string; label: string; icon: typeof Server }
+type NavGroup = { key: string; label: string; icon: typeof Server; items: NavItem[] }
+type NavEntry = NavItem | NavGroup
+const NAV_OPEN_KEY = 'mikromanager_nav_open'
+
 export function Sidebar() {
   const { t } = useTranslation()
   const { role } = useAuth()
@@ -239,59 +244,92 @@ export function Sidebar() {
     setMode(m)
   }
 
-  const agentNav = [
-    { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
-    { to: '/security-summary', label: t('nav.securitySummary'), icon: PieChart },
-    { to: '/devices', label: t('nav.devices'), icon: Server },
-    { to: '/mikrotik', label: t('nav.mikrotik'), icon: Router },
-    { to: '/map', label: t('nav.map'), icon: Network },
-    { to: '/scanner', label: t('nav.scanner'), icon: Search },
-    { to: '/credentials', label: t('nav.credentials'), icon: Key },
-    { to: '/logs', label: t('nav.logs'), icon: ScrollText },
-    { to: '/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert },
-    { to: '/linux', label: t('nav.linuxHosts'), icon: TerminalSquare },
-    { to: '/windows', label: t('nav.windowsHosts'), icon: MonitorSmartphone },
-    { to: '/hyperv', label: t('nav.hyperv'), icon: Layers },
-    { to: '/hostmon', label: t('nav.hostMonitor'), icon: Radar },
-    { to: '/inventory', label: t('nav.inventory'), icon: Boxes },
-    { to: '/software', label: t('nav.software'), icon: Package },
-    { to: '/compliance', label: t('nav.compliance'), icon: ListChecks },
-    { to: '/dell-servers', label: t('nav.dellServers'), icon: ServerCog },
-    // Read-only accounts can't act on any admin-action trail meaningfully
-    // (the endpoint itself is admin-only too — this just avoids a dead
-    // link + surprise 403 in the nav).
-    ...(role === 'admin' ? [{ to: '/audit', label: t('nav.audit'), icon: ClipboardList }] : []),
-    ...(role === 'admin' ? [{ to: '/security', label: t('nav.security'), icon: ShieldCheck }] : []),
-    // Personal tool for the one control machine used to connect to clients
-    // via AnyDesk — gated the same as audit/security (admin-only), not
-    // something every tenant deployment's operator needs to see.
-    ...(role === 'admin' ? [{ to: '/anydesk', label: t('nav.anydeskSessions'), icon: History }] : []),
+  // The menu is grouped: a few always-visible entries on top, then collapsible groups. A group opens by itself when
+  // the page you are on belongs to it, and what you open or close is remembered.
+  const admin = role === 'admin'
+  const item = (to: string, label: string, icon: NavItem['icon']): NavItem => ({ to, label, icon })
+
+  const agentNav: NavEntry[] = [
+    item('/', t('nav.dashboard') as string, LayoutDashboard),
+    item('/security-summary', t('nav.securitySummary') as string, PieChart),
+    { key: 'systems', label: t('nav.groupSystems') as string, icon: Server, items: [
+      item('/mikrotik', t('nav.mikrotik') as string, Router),
+      item('/linux', t('nav.linuxHosts') as string, TerminalSquare),
+      item('/windows', t('nav.windowsHosts') as string, MonitorSmartphone),
+      item('/hyperv', t('nav.hyperv') as string, Layers),
+      item('/dell-servers', t('nav.dellServers') as string, ServerCog),
+      item('/hostmon', t('nav.hostMonitor') as string, Radar),
+    ] },
+    { key: 'network', label: t('nav.groupNetwork') as string, icon: Network, items: [
+      item('/devices', t('nav.devices') as string, Server),
+      item('/map', t('nav.map') as string, Network),
+      item('/scanner', t('nav.scanner') as string, Search),
+      item('/logs', t('nav.logs') as string, ScrollText),
+    ] },
+    { key: 'compliance', label: t('nav.groupCompliance') as string, icon: ShieldCheck, items: [
+      item('/vulnerabilities', t('nav.vulnerabilities') as string, ShieldAlert),
+      item('/compliance', t('nav.compliance') as string, ListChecks),
+      // Read-only accounts can't act on any admin-action trail meaningfully (the endpoints are admin-only too — this
+      // just avoids a dead link + surprise 403 in the nav).
+      ...(admin ? [item('/security', t('nav.security') as string, ShieldCheck), item('/audit', t('nav.audit') as string, ClipboardList)] : []),
+    ] },
+    { key: 'assets', label: t('nav.groupAssets') as string, icon: Boxes, items: [
+      item('/inventory', t('nav.inventory') as string, Boxes),
+      item('/software', t('nav.software') as string, Package),
+    ] },
+    { key: 'admin', label: t('nav.groupAdmin') as string, icon: Settings, items: [
+      item('/credentials', t('nav.credentials') as string, Key),
+      // Personal tool for the one control machine used to connect to clients via AnyDesk — admin-only like audit/security.
+      ...(admin ? [item('/anydesk', t('nav.anydeskSessions') as string, History)] : []),
+    ] },
+    item('/central', t('nav.central') as string, Cloud),
   ]
-  const centralNavItem = { to: '/central', label: t('nav.central'), icon: Cloud }
-  const centralInventoryNavItem = { to: '/central/inventory', label: t('nav.inventory'), icon: Boxes }
-  const centralComplianceNavItem = { to: '/central/compliance', label: t('nav.compliance'), icon: ListChecks }
-  // Dell/iDRAC hardware health and Linux/Windows OS patch status are
-  // deliberately separate nav items, not one combined "servers" page —
-  // different concern (physical hardware vs. OS-level updates), and
-  // Linux/Windows hosts aren't necessarily physical machines at all.
-  const centralServersNavItem = { to: '/central/servers', label: t('central.tabServers'), icon: ServerCog }
-  const centralRoutersNavItem = { to: '/central/routers', label: t('routersCentral.navLabel'), icon: Router }
-  const centralHostsNavItem = { to: '/central/hosts', label: t('centralHosts.navLabel'), icon: TerminalSquare }
-  const centralVulnNavItem = { to: '/central/vulnerabilities', label: t('nav.vulnerabilities'), icon: ShieldAlert }
-  const centralExternalMonitoringNavItem = { to: '/central/external-monitoring', label: t('externalMonitoringCentral.navLabel'), icon: Activity }
-  const centralFirewallUsageNavItem = { to: '/central/firewall-usage', label: t('firewallUsageCentral.navLabel'), icon: ShieldQuestion }
-  const centralFirewallLogsNavItem = { to: '/central/firewall-logs', label: t('firewallLogsCentral.navLabel'), icon: ScrollText }
-  const centralHostmonNavItem = { to: '/central/hostmon', label: t('hostmonCentral.navLabel'), icon: Radar }
-  const centralFleetNavItem = { to: '/central/fleet', label: t('fleetCentral.navLabel'), icon: Router }
-  const centralSecurityNavItem = { to: '/central/security', label: t('nav.securitySummary'), icon: PieChart }
-  const centralHypervNavItem = { to: '/central/hyperv', label: t('hypervCentral.navLabel'), icon: Layers }
-  // 'central' mode is a purely local display preference — hides agent-only
-  // tabs for a computer that's only ever used to view Central. Every local
-  // backend service (uplink, scanner, vuln_scan...) keeps running regardless;
-  // this doesn't touch anything server-side.
-  const nav = mode === 'central'
-    ? [centralNavItem, centralSecurityNavItem, centralServersNavItem, centralRoutersNavItem, centralHostsNavItem, centralInventoryNavItem, centralComplianceNavItem, centralVulnNavItem, centralExternalMonitoringNavItem, centralFirewallUsageNavItem, centralFirewallLogsNavItem, centralHostmonNavItem, centralFleetNavItem, centralHypervNavItem]
-    : [...agentNav, centralNavItem]
+
+  // Central mode: a purely local display preference — hides agent-only tabs for a computer that's only ever used to
+  // view Central. Every local backend service (uplink, scanner, vuln_scan...) keeps running regardless.
+  // Dell/iDRAC hardware health and Linux/Windows OS patch status are deliberately separate entries (different concern).
+  const centralNav: NavEntry[] = [
+    item('/central', t('nav.central') as string, Cloud),
+    item('/central/security', t('nav.securitySummary') as string, PieChart),
+    { key: 'c-systems', label: t('nav.groupSystems') as string, icon: Server, items: [
+      item('/central/fleet', t('fleetCentral.navLabel') as string, Router),
+      item('/central/hosts', t('centralHosts.navLabel') as string, TerminalSquare),
+      item('/central/hyperv', t('hypervCentral.navLabel') as string, Layers),
+      item('/central/servers', t('central.tabServers') as string, ServerCog),
+      item('/central/routers', t('routersCentral.navLabel') as string, Router),
+    ] },
+    { key: 'c-monitoring', label: t('nav.groupMonitoring') as string, icon: Activity, items: [
+      item('/central/external-monitoring', t('externalMonitoringCentral.navLabel') as string, Activity),
+      item('/central/hostmon', t('hostmonCentral.navLabel') as string, Radar),
+    ] },
+    { key: 'c-compliance', label: t('nav.groupCompliance') as string, icon: ShieldCheck, items: [
+      item('/central/vulnerabilities', t('nav.vulnerabilities') as string, ShieldAlert),
+      item('/central/compliance', t('nav.compliance') as string, ListChecks),
+      item('/central/firewall-usage', t('firewallUsageCentral.navLabel') as string, ShieldQuestion),
+      item('/central/firewall-logs', t('firewallLogsCentral.navLabel') as string, ScrollText),
+    ] },
+    { key: 'c-assets', label: t('nav.groupAssets') as string, icon: Boxes, items: [
+      item('/central/inventory', t('nav.inventory') as string, Boxes),
+    ] },
+  ]
+  const nav = mode === 'central' ? centralNav : agentNav
+
+  // which groups are open: remembered, and the group of the current page is always open
+  const { pathname } = useLocation()
+  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(NAV_OPEN_KEY) || '{}') } catch { return {} }
+  })
+  const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`))
+  const activeGroup = nav.find((e): e is NavGroup => 'items' in e && e.items.some(i => isActive(i.to)))?.key
+  const save = (next: Record<string, boolean>) => {
+    setOpen(next)
+    try { localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(next)) } catch { /* storage unavailable */ }
+  }
+  useEffect(() => {
+    if (activeGroup && !open[activeGroup]) save({ ...open, [activeGroup]: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroup])
+  const toggle = (key: string) => save({ ...open, [key]: !open[key] })
 
   return (
     <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col">
@@ -333,23 +371,60 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ to, label, icon: Icon }) => (
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-0.5">
+        {nav.map(entry => 'items' in entry ? (
+          <div key={entry.key} className="pt-1">
+            <button
+              onClick={() => toggle(entry.key)}
+              aria-expanded={!!open[entry.key]}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                activeGroup === entry.key ? 'text-indigo-700 font-medium' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+              )}
+            >
+              <entry.icon size={16} />
+              <span className="flex-1 text-left">{entry.label}</span>
+              {activeGroup === entry.key && !open[entry.key] && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+              <ChevronDown size={14} className={cn('text-slate-400 transition-transform', open[entry.key] ? 'rotate-0' : '-rotate-90')} />
+            </button>
+            {open[entry.key] && (
+              <div className="ml-4 pl-2 border-l border-slate-200 space-y-0.5 mt-0.5">
+                {entry.items.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive: a }) =>
+                      cn(
+                        'flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-colors',
+                        a
+                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      )
+                    }
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
           <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
+            key={entry.to}
+            to={entry.to}
+            end={entry.to === '/'}
+            className={({ isActive: a }) =>
               cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                isActive
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                a
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               )
             }
           >
-            <Icon size={16} />
-            {label}
+            <entry.icon size={16} />
+            {entry.label}
           </NavLink>
         ))}
       </nav>
