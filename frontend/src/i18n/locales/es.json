@@ -1138,7 +1138,7 @@
         "scanning": "Analizando…",
         "scanAll": "Analizar equipos",
         "scanAllStarted": "Analizando {{count}} equipos…",
-        "scanAllHint": "Análisis de hardware con credenciales de todos los equipos Windows ahora (el agente también lo repite cada 12 horas)",
+        "scanAllHint": "Analizar ahora cada dispositivo activo: con credenciales donde alguna funcione (Windows por WinRM, Linux por SSH), si no, lo básico que ofrece por SNMP. El agente también lo repite cada 12 horas.",
         "details": "Detalles",
         "title": "Resumen de activos",
         "subtitle": "Cada dispositivo de la red: qué es, dónde está, qué antigüedad tiene su sistema y cuán expuesto está.",
@@ -1258,6 +1258,7 @@
         },
         "noHardware": "Aún no hay datos de hardware. Un análisis con credenciales de este dispositivo los recoge.",
         "hwSection": {
+            "snmp": "SNMP (información básica)",
             "system": "Sistema",
             "bios": "BIOS y placa base",
             "cpu": "Procesador",
@@ -1274,6 +1275,16 @@
             "printer": "Impresora"
         },
         "hw": {
+            "pages_total": "Páginas impresas",
+            "contact": "Contacto",
+            "firmware_version": "Versión de firmware",
+            "software_version": "Versión de software",
+            "hardware_revision": "Revisión de hardware",
+            "hostname": "Nombre de host",
+            "description": "Descripción",
+            "object_id": "ID de objeto SNMP",
+            "kernel": "Núcleo",
+            "status": "Estado",
             "chassis": "Formato",
             "logged_user": "Usuario conectado",
             "install_date": "Sistema instalado",

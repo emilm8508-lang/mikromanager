@@ -495,7 +495,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
             "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,
-                     "running": a.id in asset_scan.running_ids(), "available": asset_scan.is_windows(a)},
+                     "running": a.id in asset_scan.running_ids(), "available": bool(a.ip)},
         })
         return row
 

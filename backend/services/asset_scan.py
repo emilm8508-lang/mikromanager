@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import select
 
-from models.database import SessionLocal, Asset, AssetPeripheral, Credential, VulnHost, WindowsHost
+from models.database import SessionLocal, Asset, AssetPeripheral, Credential, Device, VulnHost, WindowsHost
 from services import vuln_scan as vs
 from services.crypto import decrypt
 
@@ -81,6 +81,7 @@ _CHASSIS = {8: "laptop", 9: "laptop", 10: "laptop", 14: "laptop", 30: "laptop", 
 _running: set = set()
 _attempts: Dict[int, datetime] = {}     # last try per asset, so an unreachable laptop is retried hourly, not every cycle
 RETRY_HOURS = 1.0
+NO_ANSWER_HOURS = 24.0
 _task: Optional[asyncio.Task] = None
 
 
@@ -114,6 +115,16 @@ def _serial(x) -> Optional[str]:
 def _maker(code: Optional[str]) -> Optional[str]:
     c = (_s(code) or "").upper()
     return _MONITOR_MAKERS.get(c) or (c or None)
+
+
+def monitor_entry(m: dict) -> dict:
+    """A monitor from its EDID fields {m: maker code, n: name, s: serial, p: product code, y: year, w/h: size in cm}."""
+    w, h = _int(m.get("w")), _int(m.get("h"))
+    inches = round(math.hypot(w, h) / 2.54, 1) if w and h else None
+    maker = _maker(m.get("m"))
+    name = _s(m.get("n")) or (f"{maker} {_s(m.get('p')) or ''}".strip() if maker else "Monitor")
+    return {"kind": "monitor", "name": name, "manufacturer": maker, "model": _s(m.get("p")) or _s(m.get("n")), "serial": _serial(m.get("s")),
+            "details": {k: v for k, v in {"size_in": inches, "year": _int(m.get("y")) or None}.items() if v}}
 
 
 def parse(parsed: dict) -> dict:
@@ -189,17 +200,9 @@ def parse(parsed: dict) -> dict:
         "resolution": f'{_int(g.get("rx"))}×{_int(g.get("ry"))}' if _int(g.get("rx")) and _int(g.get("ry")) else None,
     }.items() if v is not None} for g in _as_list(parsed.get("gpu")) if isinstance(g, dict) and _s(g.get("n"))]
 
-    # monitors (EDID)
     for m in _as_list(parsed.get("mon")):
-        if not isinstance(m, dict):
-            continue
-        w, h = _int(m.get("w")), _int(m.get("h"))
-        inches = round(math.hypot(w, h) / 2.54, 1) if w and h else None
-        maker = _maker(m.get("m"))
-        name = _s(m.get("n")) or (f"{maker} {_s(m.get('p')) or ''}".strip() if maker else "Monitor")
-        out["peripherals"].append({"kind": "monitor", "name": name, "manufacturer": maker, "model": _s(m.get("p")) or _s(m.get("n")),
-                                   "serial": _serial(m.get("s")),
-                                   "details": {k: v for k, v in {"size_in": inches, "year": _int(m.get("y")) or None}.items() if v}})
+        if isinstance(m, dict):
+            out["peripherals"].append(monitor_entry(m))
 
     # printers: installed drivers that point at a real device
     for p in _as_list(parsed.get("prn")):
@@ -230,12 +233,6 @@ def parse(parsed: dict) -> dict:
 
 def is_windows(a: Asset) -> bool:
     return bool(a.ip) and (a.asset_type == "windows" or (a.asset_type in ("virtual", "other", "server") and "windows" in (a.os_name or "").lower()))
-
-
-def can_scan(asset_id: int) -> bool:
-    with SessionLocal() as db:
-        a = db.get(Asset, asset_id)
-        return bool(a) and is_windows(a)
 
 
 def _credential(a: Asset) -> Optional[tuple]:
@@ -275,33 +272,46 @@ def _scan_sync(ip: str, port: int, username: str, password: str, domain: Optiona
         return {"ok": False, "error": f"unreadable answer ({e}): {(err or raw)[-300:]}"}
 
 
-def _store(asset_id: int, parsed: dict) -> None:
-    res = parse(parsed)
+def _store(asset_id: int, res: dict, level: str = "credentialed") -> None:
+    """Writes a scan's result. A credentialed scan is authoritative (overwrites the basic fields, replaces the peripherals); an
+    SNMP scan only fills what the sources left empty and never touches the peripherals."""
     now = datetime.utcnow()
     with SessionLocal() as db:
         a = db.get(Asset, asset_id)
         if not a:
             return
         for f, v in res["asset"].items():
-            if v and (f != "role" or not a.role):
+            if not v:
+                continue
+            if f == "asset_type":
+                if a.asset_type in (None, "other"):
+                    a.asset_type = v
+            elif level == "credentialed":
+                if f != "role" or not a.role:
+                    setattr(a, f, v)
+            elif not getattr(a, f, None):
                 setattr(a, f, v)
         d = json.loads(a.details or "{}")
         d.update(res["details"])
         a.details = json.dumps(d)
-        a.scan_level, a.last_scan_at, a.last_scan_status, a.last_scan_error = "credentialed", now, "ok", None
-        for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.asset_id == a.id)).scalars().all():
-            db.delete(p)
-        for p in res["peripherals"]:
-            db.add(AssetPeripheral(asset_id=a.id, kind=p["kind"], name=p["name"], manufacturer=p["manufacturer"], model=p["model"],
-                                   serial=p["serial"], details=json.dumps(p["details"]), last_seen_at=now))
+        if level == "credentialed" or a.scan_level != "credentialed":
+            a.scan_level = level
+        a.last_scan_at, a.last_scan_status, a.last_scan_error = now, "ok", None
+        if level == "credentialed":
+            for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.asset_id == a.id)).scalars().all():
+                db.delete(p)
+            for p in res["peripherals"]:
+                db.add(AssetPeripheral(asset_id=a.id, kind=p["kind"], name=p["name"], manufacturer=p["manufacturer"], model=p["model"],
+                                       serial=p["serial"], details=json.dumps(p["details"]), last_seen_at=now))
         db.commit()
 
 
-def _fail(asset_id: int, error: str) -> None:
+def _fail(asset_id: int, error: str, status: str = "error") -> None:
+    """status "error": a credentialed scan failed. "no_answer": nothing to learn without credentials (no SNMP)."""
     with SessionLocal() as db:
         a = db.get(Asset, asset_id)
         if a:
-            a.last_scan_status, a.last_scan_error = "error", error[:500]
+            a.last_scan_status, a.last_scan_error = status, error[:500]
             db.commit()
 
 
@@ -309,52 +319,153 @@ def running_ids() -> List[int]:
     return sorted(_running)
 
 
+def is_linux(a: Asset) -> bool:
+    low = (a.os_name or "").lower()
+    return bool(a.ip) and (a.asset_type == "linux" or (a.asset_type in ("virtual", "other", "server") and any(
+        x in low for x in ("linux", "ubuntu", "debian", "centos", "red hat", "rhel", "rocky", "alma", "suse", "fedora"))))
+
+
+def _linux_credentials(a: Asset) -> List[tuple]:
+    """[(username, password)] to try over SSH: the shared Linux credential, then the one attached to the host's scan entry."""
+    from services import linux_manage as lm
+    out: List[tuple] = []
+    shared = lm._shared_credential()
+    if shared:
+        out.append(shared)
+    refs = json.loads(a.refs or "{}")
+    with SessionLocal() as db:
+        vh = db.get(VulnHost, refs["vuln_host_id"]) if refs.get("vuln_host_id") else None
+        c = db.get(Credential, vh.credential_id) if vh and vh.credential_id else None
+        if c:
+            try:
+                cred = (c.username, decrypt(c.password_enc))
+                if cred not in out:
+                    out.append(cred)
+            except Exception:
+                pass
+    return out
+
+
+def _communities(a: Asset) -> List[str]:
+    """SNMP v2c communities to try: the one of the device's own credential, any other saved one, then "public"."""
+    refs = json.loads(a.refs or "{}")
+    out: List[str] = []
+    with SessionLocal() as db:
+        creds = []
+        dev = db.get(Device, refs["device_id"]) if refs.get("device_id") else None
+        if dev and dev.credential_id:
+            c = db.get(Credential, dev.credential_id)
+            if c:
+                creds.append(c)
+        creds += [c for c in db.execute(select(Credential)).scalars().all() if c.snmp_community_enc]
+        for c in creds:
+            try:
+                if c.snmp_community_enc:
+                    v = decrypt(c.snmp_community_enc)
+                    if v and v not in out:
+                        out.append(v)
+            except Exception:
+                pass
+    if "public" not in out:
+        out.append("public")
+    return out
+
+
+async def _scan_credentialed(kind: str, ip: str, cred_info) -> dict:
+    """{"ok": parsed result} or {"error": text}."""
+    loop = asyncio.get_event_loop()
+    try:
+        if kind == "windows":
+            username, password, domain, port = cred_info
+            res = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, _scan_sync, ip, port, username, password, domain), timeout=SCAN_TIMEOUT_SEC + 20)
+            return {"ok": parse(res["parsed"])} if res["ok"] else {"error": res["error"]}
+        from services import asset_scan_linux as L
+        err = "no usable SSH credential"
+        for username, password in cred_info:
+            res = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, L.scan_sync, ip, username, password), timeout=L.SSH_TIMEOUT_SEC * 3)
+            if res["ok"]:
+                return {"ok": L.parse(res)}
+            err = res["error"]
+            if not res.get("auth"):
+                break                                        # unreachable / not SSH: another password will not help
+        return {"error": err}
+    except (asyncio.TimeoutError, TimeoutError):
+        return {"error": "timeout"}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 async def scan_asset(asset_id: int) -> dict:
-    """Scan one computer now. Returns {"ok": True} or {"error": ...}."""
+    """Scan one device now: credentialed (WinRM for Windows, SSH for Linux) when a credential works, otherwise the basic
+    information it gives over SNMP. Returns {"ok": True, "level": ...} or {"error": ...}."""
     if asset_id in _running:
         return {"error": "scan already running"}
     with SessionLocal() as db:
         a = db.get(Asset, asset_id)
         if not a:
             return {"error": "asset not found"}
-        if not is_windows(a):
-            return {"error": "no credentialed scan is available for this kind of device yet"}
+        if not a.ip:
+            return {"error": "the device has no address to scan"}
         ip = a.ip
-        cred = _credential(a)
-    _attempts[asset_id] = datetime.utcnow()
-    if not cred:
-        _fail(asset_id, "no credential (assign one to this computer, or set the shared Windows credential)")
-        return {"error": "no credential configured"}
-    username, password, domain, port = cred
+        kind = "windows" if is_windows(a) else "linux" if is_linux(a) else "other"
+        cred_info = _credential(a) if kind == "windows" else _linux_credentials(a) if kind == "linux" else None
+        communities = _communities(a)
+        # a device already read with its full credentials (router API, iDRAC) has nothing more to learn from SNMP
+        snmp_pointless = a.scan_level == "credentialed" and a.asset_type in ("network", "server") and kind == "other"
     _running.add(asset_id)
+    _attempts[asset_id] = datetime.utcnow()
     try:
-        loop = asyncio.get_event_loop()
+        cred_error = None
+        if cred_info:
+            r = await _scan_credentialed(kind, ip, cred_info)
+            if "ok" in r:
+                _store(asset_id, r["ok"], "credentialed")
+                return {"ok": True, "level": "credentialed"}
+            cred_error = r["error"]
+        elif kind in ("windows", "linux"):
+            cred_error = "no credential (assign one to this computer, or set the shared " + ("Windows" if kind == "windows" else "Linux") + " credential)"
+        if snmp_pointless:
+            return {"ok": True, "level": "credentialed", "skipped": True}
+        # without a working credential: the basics over SNMP
+        from services import asset_scan_snmp as N
         try:
-            res = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, _scan_sync, ip, port, username, password, domain), timeout=SCAN_TIMEOUT_SEC + 20)
+            raw = await asyncio.wait_for(N.collect(ip, communities), timeout=45)
         except (asyncio.TimeoutError, TimeoutError):
-            _fail(asset_id, "timeout")
-            return {"error": "timeout"}
+            raw = None
         except Exception as e:
-            _fail(asset_id, str(e))
-            return {"error": str(e)}
-        if not res["ok"]:
-            _fail(asset_id, res["error"])
-            return {"error": res["error"]}
-        _store(asset_id, res["parsed"])
-        return {"ok": True}
+            raw = None
+            cred_error = cred_error or f"SNMP: {type(e).__name__}: {e}"
+        if raw:
+            _store(asset_id, N.parse(raw), "snmp")
+            return {"ok": True, "level": "snmp"}
+        if cred_error:
+            _fail(asset_id, cred_error, "error")
+            return {"error": cred_error}
+        _fail(asset_id, "no SNMP answer (tried the saved communities and public); add a credential or enable SNMP on the device for more detail", "no_answer")
+        return {"error": "no SNMP answer"}
     finally:
         _running.discard(asset_id)
 
 
+def can_scan(asset_id: int) -> bool:
+    with SessionLocal() as db:
+        a = db.get(Asset, asset_id)
+        return bool(a and a.ip)
+
+
 def due_ids(hours: float = SCAN_INTERVAL_HOURS) -> List[int]:
-    """Computers whose last successful scan is missing or older than `hours`; any one is tried at most hourly."""
+    """Devices whose last successful scan is missing or older than `hours`. A failed attempt is repeated after an hour, a device
+    that never answered SNMP after a day; a device not seen on the network for a week is left alone."""
     now = datetime.utcnow()
     out = []
     with SessionLocal() as db:
         for a in db.execute(select(Asset)).scalars().all():
-            if not is_windows(a) or a.id in _running:
+            if not a.ip or a.id in _running:
                 continue
-            if now - _attempts.get(a.id, datetime.min) < timedelta(hours=RETRY_HOURS):
+            if a.last_seen_at and now - a.last_seen_at > timedelta(days=7):
+                continue
+            wait = NO_ANSWER_HOURS if a.last_scan_status == "no_answer" else RETRY_HOURS
+            if now - _attempts.get(a.id, datetime.min) < timedelta(hours=wait):
                 continue
             if a.last_scan_at is None or now - a.last_scan_at > timedelta(hours=hours):
                 out.append(a.id)

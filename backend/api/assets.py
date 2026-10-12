@@ -28,18 +28,17 @@ async def refresh():
 
 @router.post("/scan-all")
 async def scan_all():
-    """Credentialed scan of every computer now (the scheduler does the stale ones by itself)."""
-    ids = [a["id"] for a in await assets.list_assets() if a["type"] in ("windows", "virtual", "other", "server")]
-    ids = [i for i in ids if asset_scan.can_scan(i)]
+    """Scan every active device now - credentialed where a credential works, SNMP basics otherwise (the scheduler does the stale ones by itself)."""
+    ids = [a["id"] for a in await assets.list_assets() if a["ip"] and a["active"]]
     asyncio.create_task(asset_scan.scan_all(ids))
     return {"started": len(ids)}
 
 
 @router.post("/{asset_id}/scan")
 async def scan_one(asset_id: int):
-    """Credentialed hardware scan of this device; runs in the background, the card shows `scan.running` meanwhile."""
+    """Hardware scan of this device (credentialed if possible, else SNMP); runs in the background, the card shows `scan.running` meanwhile."""
     if not asset_scan.can_scan(asset_id):
-        raise HTTPException(400, "no credentialed scan is available for this device")
+        raise HTTPException(400, "this device has no address to scan")
     if asset_id in asset_scan.running_ids():
         return {"started": False, "running": True}
     asyncio.create_task(asset_scan.scan_asset(asset_id))

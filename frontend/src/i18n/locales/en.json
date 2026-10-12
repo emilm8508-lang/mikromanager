@@ -1138,7 +1138,7 @@
         "scanning": "Scanning…",
         "scanAll": "Scan computers",
         "scanAllStarted": "Scanning {{count}} computers…",
-        "scanAllHint": "Credentialed hardware scan of every Windows computer now (the agent also repeats it by itself every 12 hours)",
+        "scanAllHint": "Scan every active device now: with credentials where one works (Windows via WinRM, Linux via SSH), otherwise the basics it tells over SNMP. The agent also repeats this by itself every 12 hours.",
         "details": "Details",
         "title": "Assets overview",
         "subtitle": "Every device on the network: what it is, where it is, how old its system is and how exposed it is.",
@@ -1258,6 +1258,7 @@
         },
         "noHardware": "No hardware data yet. A credentialed scan of this device collects it.",
         "hwSection": {
+            "snmp": "SNMP (basic information)",
             "system": "System",
             "bios": "BIOS and board",
             "cpu": "Processor",
@@ -1274,6 +1275,16 @@
             "printer": "Printer"
         },
         "hw": {
+            "pages_total": "Pages printed",
+            "contact": "Contact",
+            "firmware_version": "Firmware version",
+            "software_version": "Software version",
+            "hardware_revision": "Hardware revision",
+            "hostname": "Host name",
+            "description": "Description",
+            "object_id": "SNMP object ID",
+            "kernel": "Kernel",
+            "status": "Status",
             "chassis": "Form factor",
             "logged_user": "Logged-on user",
             "install_date": "System installed",

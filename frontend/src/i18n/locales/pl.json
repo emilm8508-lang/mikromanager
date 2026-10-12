@@ -1296,7 +1296,7 @@
         "scanning": "Skanowanie…",
         "scanAll": "Skanuj komputery",
         "scanAllStarted": "Skanuję komputerów: {{count}}…",
-        "scanAllHint": "Skan poświadczony sprzętu wszystkich komputerów Windows teraz (agent powtarza go też sam co 12 godzin)",
+        "scanAllHint": "Skanuj teraz każde aktywne urządzenie: z poświadczeniami tam, gdzie któreś działa (Windows przez WinRM, Linux przez SSH), w przeciwnym razie podstawy, które podaje przez SNMP. Agent powtarza to też sam co 12 godzin.",
         "details": "Szczegóły",
         "title": "Przegląd zasobów",
         "subtitle": "Każde urządzenie w sieci: czym jest, gdzie stoi, jak stary jest jego system i jak jest narażone.",
@@ -1416,6 +1416,7 @@
         },
         "noHardware": "Brak danych o sprzęcie. Zbiera je skan poświadczony tego urządzenia.",
         "hwSection": {
+            "snmp": "SNMP (informacje podstawowe)",
             "system": "System",
             "bios": "BIOS i płyta główna",
             "cpu": "Procesor",
@@ -1432,6 +1433,16 @@
             "printer": "Drukarka"
         },
         "hw": {
+            "pages_total": "Wydrukowane strony",
+            "contact": "Kontakt",
+            "firmware_version": "Wersja firmware",
+            "software_version": "Wersja oprogramowania",
+            "hardware_revision": "Rewizja sprzętu",
+            "hostname": "Nazwa hosta",
+            "description": "Opis",
+            "object_id": "SNMP object ID",
+            "kernel": "Jądro",
+            "status": "Status",
             "chassis": "Typ obudowy",
             "logged_user": "Zalogowany użytkownik",
             "install_date": "Data instalacji systemu",

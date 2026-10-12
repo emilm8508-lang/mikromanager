@@ -1138,7 +1138,7 @@
         "scanning": "Scan läuft…",
         "scanAll": "Computer scannen",
         "scanAllStarted": "{{count}} Computer werden gescannt…",
-        "scanAllHint": "Hardware-Scan mit Zugangsdaten für alle Windows-Computer jetzt (der Agent wiederholt ihn auch selbst alle 12 Stunden)",
+        "scanAllHint": "Jedes aktive Gerät jetzt scannen: mit Zugangsdaten, wo eines funktioniert (Windows über WinRM, Linux über SSH), sonst die Grundlagen, die es per SNMP nennt. Der Agent wiederholt das auch selbst alle 12 Stunden.",
         "details": "Details",
         "title": "Bestandsübersicht",
         "subtitle": "Jedes Gerät im Netz: was es ist, wo es steht, wie alt sein System ist und wie exponiert es ist.",
@@ -1258,6 +1258,7 @@
         },
         "noHardware": "Noch keine Hardwaredaten. Ein Scan dieses Geräts mit Zugangsdaten sammelt sie.",
         "hwSection": {
+            "snmp": "SNMP (Grundinformationen)",
             "system": "System",
             "bios": "BIOS und Mainboard",
             "cpu": "Prozessor",
@@ -1274,6 +1275,16 @@
             "printer": "Drucker"
         },
         "hw": {
+            "pages_total": "Gedruckte Seiten",
+            "contact": "Kontakt",
+            "firmware_version": "Firmware-Version",
+            "software_version": "Softwareversion",
+            "hardware_revision": "Hardware-Revision",
+            "hostname": "Hostname",
+            "description": "Beschreibung",
+            "object_id": "SNMP-Objekt-ID",
+            "kernel": "Kernel",
+            "status": "Status",
             "chassis": "Bauform",
             "logged_user": "Angemeldeter Benutzer",
             "install_date": "System installiert",
