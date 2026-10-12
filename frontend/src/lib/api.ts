@@ -1143,6 +1143,7 @@ export const assetsApi = {
   vulnerabilities: (id: number) => api.get<{ findings: AssetFinding[] }>(`/assets/${id}/vulnerabilities`).then(r => r.data.findings),
   software: (id: number) => api.get<{ software: Array<{ name: string; version: string | null; last_seen: string | null }> }>(`/assets/${id}/software`).then(r => r.data.software),
   refresh: () => api.post('/assets/refresh').then(r => r.data),
+  vulnHistory: (days = 90) => api.get<{ points: Array<{ day: string; assets: number; critical: number; high: number; medium: number; low: number }> }>('/assets/vuln-history', { params: { days } }).then(r => r.data),
   scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
   scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
   update: (id: number, body: { name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>

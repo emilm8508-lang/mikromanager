@@ -1,17 +1,17 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { vulnApi, credentialsApi, VulnFindingOut, VulnHostOut, VulnRemediationStatus } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
+import { VulnOverview, VulnCveList, RemediationPanel, STATUSES } from '../components/VulnViews'
+import { cn } from '../lib/utils'
 import {
-  RefreshCw, ExternalLink, Server, ChevronDown, ChevronUp, CheckCircle2, Download, Clock,
+  RefreshCw, Server, ChevronDown, ChevronUp, CheckCircle2, Download, Clock,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from './Login'
-
-const STATUSES: VulnRemediationStatus[] = ['open', 'in_progress', 'accepted_risk', 'resolved']
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const
 
@@ -37,19 +37,7 @@ function statusBadgeVariant(status: VulnRemediationStatus): 'red' | 'yellow' | '
 
 function FindingRow({ finding }: { finding: VulnFindingOut }) {
   const { t } = useTranslation()
-  const { role } = useAuth()
-  const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
-  const [note, setNote] = useState(finding.note ?? '')
-
-  const setRemediation = useMutation({
-    mutationFn: (data: { status: VulnRemediationStatus; note?: string }) =>
-      vulnApi.setRemediation({
-        product: finding.product, version: finding.version, cve_id: finding.cve_id,
-        status: data.status, note: data.note,
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vuln-findings'] }),
-  })
 
   return (
     <div className="border-b border-slate-100 last:border-0">
@@ -75,51 +63,7 @@ function FindingRow({ finding }: { finding: VulnFindingOut }) {
         )}
         {expanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
       </button>
-      {expanded && (
-        <div className="px-4 pb-3 space-y-2 text-sm">
-          {finding.summary && <p className="text-slate-700 text-xs">{finding.summary}</p>}
-          {finding.recommendation && (
-            <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded p-2">
-              {finding.recommendation}
-            </p>
-          )}
-          {finding.ref_url && (
-            <a href={finding.ref_url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-500 text-xs">
-              <ExternalLink size={12} /> {t('vuln.viewCve')}
-            </a>
-          )}
-          {finding.due_date && (
-            <p className="text-xs text-slate-500">
-              {t('vuln.dueDate')}: {new Date(finding.due_date).toLocaleDateString()}
-            </p>
-          )}
-          {finding.updated_by && (
-            <p className="text-xs text-slate-400">
-              {t('vuln.lastUpdatedBy', { username: finding.updated_by })}
-              {finding.updated_at ? ` · ${new Date(finding.updated_at).toLocaleString()}` : ''}
-            </p>
-          )}
-          {role === 'admin' && (
-            <div className="flex items-center gap-2 pt-1">
-              <select
-                value={finding.status}
-                onChange={e => setRemediation.mutate({ status: e.target.value as VulnRemediationStatus, note })}
-                className="text-xs border border-slate-300 rounded px-1.5 py-1"
-              >
-                {STATUSES.map(s => <option key={s} value={s}>{t(`vuln.status.${s}`)}</option>)}
-              </select>
-              <input
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                onBlur={() => { if (note !== (finding.note ?? '')) setRemediation.mutate({ status: finding.status, note }) }}
-                placeholder={t('vuln.notePlaceholder') as string}
-                className="flex-1 text-xs border border-slate-300 rounded px-2 py-1"
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {expanded && <div className="px-4 pb-3"><RemediationPanel finding={finding} /></div>}
     </div>
   )
 }
@@ -205,6 +149,9 @@ function HostCard({ host, findings, credentials }: {
 export function Vulnerabilities() {
   const { t } = useTranslation()
   const [severity, setSeverity] = useState<string | undefined>(undefined)
+  const [params, setParams] = useSearchParams()
+  const tab = (['overview', 'cves', 'hosts'] as const).find(x => x === params.get('tab')) ?? 'overview'
+  const setTab = (k: string) => setParams(k === 'overview' ? {} : { tab: k }, { replace: true })
 
   const { data: hosts = [] } = useQuery({
     queryKey: ['vuln-hosts'],
@@ -255,6 +202,18 @@ export function Vulnerabilities() {
 
       <VulnScanStatusPanel />
 
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        {(['overview', 'cves', 'hosts'] as const).map(k => (
+          <button key={k} onClick={() => setTab(k)} className={cn('px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap', tab === k ? 'border-blue-600 text-blue-700 font-medium' : 'border-transparent text-slate-600 hover:text-slate-900')}>
+            {t(`vulnDash.tab_${k}`)}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' && <VulnOverview onOpenList={() => setTab('cves')} />}
+      {tab === 'cves' && <VulnCveList />}
+
+      {tab === 'hosts' && <>
       <div className="flex items-center gap-1.5">
         <button
           onClick={() => setSeverity(undefined)}
@@ -282,6 +241,7 @@ export function Vulnerabilities() {
           ))}
         </div>
       )}
+      </>}
     </div>
   )
 }

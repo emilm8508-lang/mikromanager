@@ -16,6 +16,12 @@ async def summary():
     return await assets.summary()
 
 
+@router.get("/vuln-history")
+async def vuln_history(days: int = 90):
+    """Open vulnerabilities per severity and vulnerable assets, one point per day."""
+    return {"points": assets.vuln_history(days)}
+
+
 @router.get("")
 async def list_assets():
     return {"assets": await assets.list_assets()}

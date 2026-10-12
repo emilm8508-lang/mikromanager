@@ -29,7 +29,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import select
 
 from models.database import (
-    SessionLocal, Asset, AssetPeripheral, Device, VulnHost, VulnService, VulnPackage, LinuxHost, WindowsHost, LinuxHostDisk,
+    VulnDaily, SessionLocal, Asset, AssetPeripheral, Device, VulnHost, VulnService, VulnPackage, LinuxHost, WindowsHost, LinuxHostDisk,
     WindowsHostDisk, DellServer, HypervHost, HypervVM, ScanRange,
 )
 from services import asset_lifecycle, asset_scan
@@ -293,6 +293,10 @@ async def refresh(directory: bool = True) -> dict:
                 print(f"[assets] DHCP/ARP directory unavailable: {e}")
         result = _save(_collect(entries))
         _state["last_refresh"] = datetime.utcnow()
+        try:
+            await record_vuln_day()
+        except Exception as e:
+            print(f"[assets] vulnerability history error: {e}")
         return result
     finally:
         _state["running"] = False
@@ -314,6 +318,31 @@ async def _vulns_by_ip() -> Dict[str, List[dict]]:
             print(f"[assets] vulnerability lookup failed: {e}")
         _vuln_cache["at"] = time.time()
     return _vuln_cache["by_ip"]
+
+
+async def record_vuln_day() -> None:
+    """Keeps today's row of the vulnerability history up to date (called with every inventory rebuild; the last write of the day wins)."""
+    by_ip = await _vulns_by_ip()
+    tot = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    assets = 0
+    for findings in by_ip.values():
+        c = _vuln_counts(findings)
+        assets += 1 if c["total"] else 0
+        for k in tot:
+            tot[k] += c[k]
+    day = datetime.utcnow().strftime("%Y-%m-%d")
+    with SessionLocal() as db:
+        row = db.get(VulnDaily, day) or VulnDaily(day=day)
+        row.assets, row.critical, row.high, row.medium, row.low = assets, tot["critical"], tot["high"], tot["medium"], tot["low"]
+        db.merge(row)
+        db.commit()
+
+
+def vuln_history(days: int = 90) -> List[dict]:
+    since = (datetime.utcnow() - timedelta(days=max(1, min(days, 730)))).strftime("%Y-%m-%d")
+    with SessionLocal() as db:
+        rows = db.execute(select(VulnDaily).where(VulnDaily.day >= since).order_by(VulnDaily.day)).scalars().all()
+        return [{"day": r.day, "assets": r.assets, "critical": r.critical, "high": r.high, "medium": r.medium, "low": r.low} for r in rows]
 
 
 def _vuln_counts(findings: List[dict]) -> dict:

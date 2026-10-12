@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.63 — 2026-10-12
+- The "Podatności" page is reworked in the style of a Risk Insights / "Vulnerable assets" dashboard and split into three tabs. **Podatne zasoby** (default): three headline numbers (open vulnerabilities counted per asset, new ones first seen in the last 7 days, vulnerable assets), a table of the most serious open CVEs (risk score and severity pills, affected product, number of assets), vulnerabilities by severity, remediation status and remediation deadlines (SLA) donuts, and "Podatne zasoby w czasie" - a chart of vulnerable assets or of any severity over time, for which the agent now records one point per day (new table `vuln_daily`, filled by the inventory rebuild; the history starts with this release, nothing is back-filled). **Podatności (CVE)**: a sortable, searchable table of all findings with severity and status filters (active / ignored / any status), CSV export, and a row that expands into the description, recommendation, the affected assets as links to their cards and - for administrators - the remediation status and note. **Wg hostów**: the previous per-host cards with rescan and credential assignment, unchanged. The tab is kept in the address (`?tab=`). Update and restart the agents; the new table is created automatically.
+
 ## 2.62 — 2026-10-12
 - "Oprogramowanie" page: a new asset filter next to the search box lists every device that has a software list (name and address) and narrows the table to it; the choice is kept in the address (`/software?host=...`), and the "Software" tab of an asset card has an "open in Software" link that lands there pre-filtered. The name search is now applied in the browser to the one loaded list, so it no longer re-queries the agent on every pause in typing. Front-end only.
 

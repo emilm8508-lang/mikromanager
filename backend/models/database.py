@@ -420,6 +420,19 @@ class Asset(Base):
     last_scan_error = Column(Text, nullable=True)
 
 
+class VulnDaily(Base):
+    """One row per day: how many open vulnerabilities (per severity) and vulnerable assets there were - the history behind the
+    "vulnerable assets over time" chart (services/assets.py record_vuln_day). The vulnerability data itself keeps no history."""
+    __tablename__ = "vuln_daily"
+
+    day = Column(String, primary_key=True)          # YYYY-MM-DD (UTC)
+    assets = Column(Integer, nullable=False, default=0)
+    critical = Column(Integer, nullable=False, default=0)
+    high = Column(Integer, nullable=False, default=0)
+    medium = Column(Integer, nullable=False, default=0)
+    low = Column(Integer, nullable=False, default=0)
+
+
 class AssetPeripheral(Base):
     """A monitor, printer or other device attached to a computer asset, found by a credentialed scan of that
     computer (stage 2)."""
