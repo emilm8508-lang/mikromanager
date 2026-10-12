@@ -20,6 +20,9 @@ import { CentralFirewallLogs } from './pages/CentralFirewallLogs'
 import { CentralHostMonitor } from './pages/CentralHostMonitor'
 import { CentralFleet } from './pages/CentralFleet'
 import { CentralHyperV } from './pages/CentralHyperV'
+import { AssetsOverview } from './pages/AssetsOverview'
+import { AssetList } from './pages/AssetList'
+import { AssetDetail } from './pages/AssetDetail'
 import { CentralSecuritySummary } from './pages/CentralSecuritySummary'
 import { SecuritySummary } from './pages/SecuritySummary'
 import { Mikrotik } from './pages/Mikrotik'
@@ -29,7 +32,6 @@ import { WindowsHosts } from './pages/WindowsHosts'
 import { HyperV } from './pages/HyperV'
 import { HostMonitor } from './pages/HostMonitor'
 import { DellServers } from './pages/DellServers'
-import { Inventory } from './pages/Inventory'
 import { Software } from './pages/Software'
 import { Compliance } from './pages/Compliance'
 import { AnydeskSessions } from './pages/AnydeskSessions'
@@ -60,7 +62,9 @@ export default function App() {
             <Route path="/central/security" element={<CentralSecuritySummary />} />
             <Route path="/hostmon" element={<HostMonitor />} />
             <Route path="/dell-servers" element={<DellServers />} />
-            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/inventory" element={<AssetsOverview />} />
+            <Route path="/inventory/list" element={<AssetList />} />
+            <Route path="/inventory/:id" element={<AssetDetail />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />

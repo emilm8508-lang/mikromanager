@@ -673,6 +673,15 @@ def _update_directory(datas: List[dict]) -> None:
     _directory["at"] = time.time()
 
 
+async def directory(refresh: bool = False) -> List[dict]:
+    """Every host the routers' DHCP leases / ARP tables (and the agent's own scans) know: [{name, ip, mac, sources,
+    devices, comment}]. The asset inventory's way to see devices no port scan reaches (printers, phones, ...)."""
+    if refresh or time.time() - _directory["at"] > _DIRECTORY_TTL_SEC:
+        devices = _load_devices()
+        _update_directory(await _fetch_all(devices, with_logs=False) if devices else [])
+    return list(_directory["entries"])
+
+
 async def search_hosts(query: str, refresh: bool = False) -> dict:
     q = (query or "").strip().lower()
     if len(q) < 2:

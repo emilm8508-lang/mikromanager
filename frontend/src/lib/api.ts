@@ -1039,6 +1039,104 @@ export interface InventoryOut {
   other: InventoryHostEntry[]
 }
 
+// ── Asset inventory (services/assets.py) ──────────────────────────────────────
+
+export type AssetType = 'windows' | 'linux' | 'network' | 'printer' | 'virtual' | 'server' | 'other'
+export type AssetLifecycle = 'supported' | 'ending' | 'eol' | 'unknown'
+export type AssetScanLevel = 'credentialed' | 'snmp' | 'passive'
+
+export interface AssetVulnCounts { critical: number; high: number; medium: number; low: number; total: number }
+
+export interface AssetRow {
+  id: number
+  name: string
+  ip: string | null
+  mac: string | null
+  type: AssetType
+  role: 'server' | 'workstation' | null
+  manufacturer: string | null
+  model: string | null
+  serial: string | null
+  os_name: string | null
+  os_version: string | null
+  location: string | null
+  groups: string[]
+  scan_level: AssetScanLevel
+  lifecycle: AssetLifecycle
+  lifecycle_product: string | null
+  eol: string | null
+  vulns: AssetVulnCounts
+  risk: number
+  first_seen_at: string | null
+  last_seen_at: string | null
+  last_scan_at: string | null
+  active: boolean
+}
+
+export interface AssetSummary {
+  total: number
+  total_7d_ago: number
+  new_7d: number
+  new_by_day: Array<{ day: string; n: number }>
+  by_type: Array<{ key: AssetType; n: number }>
+  by_location: Array<{ name: string; n: number }>
+  by_lifecycle: Record<AssetLifecycle, number>
+  by_scan_level: Record<AssetScanLevel, number>
+  inactive: number
+  vulnerable: { assets: number; critical: number; high: number; medium: number; low: number }
+  top_risk: AssetRow[]
+  last_refresh: string | null
+}
+
+export interface AssetPeripheralOut {
+  id: number
+  kind: 'monitor' | 'printer' | 'usb' | 'other'
+  name: string | null
+  manufacturer: string | null
+  model: string | null
+  serial: string | null
+  details: Record<string, any>
+  last_seen_at: string | null
+}
+
+export interface AssetDetail extends AssetRow {
+  notes: string | null
+  manual_groups: string[]
+  location_override: string | null
+  lifecycle_detail: { product: string | null; status: AssetLifecycle; eol: string | null; days_left: number | null }
+  refs: Record<string, number>
+  parent: string | null
+  hardware: Record<string, any>
+  peripherals: AssetPeripheralOut[]
+  services: Array<{ port: number; proto: string | null; service: string | null; product: string | null; version: string | null }>
+  software_count: number
+  scan: { level: AssetScanLevel; last_scan_at: string | null; status: string | null; error: string | null }
+}
+
+export interface AssetFinding {
+  cve_id: string
+  severity: string
+  cvss_score: number | null
+  summary: string | null
+  ref_url: string | null
+  product: string
+  version: string
+  status: string
+  note: string | null
+}
+
+export const assetsApi = {
+  summary: () => api.get<AssetSummary>('/assets/summary').then(r => r.data),
+  list: () => api.get<{ assets: AssetRow[] }>('/assets').then(r => r.data.assets),
+  get: (id: number) => api.get<AssetDetail>(`/assets/${id}`).then(r => r.data),
+  vulnerabilities: (id: number) => api.get<{ findings: AssetFinding[] }>(`/assets/${id}/vulnerabilities`).then(r => r.data.findings),
+  software: (id: number) => api.get<{ software: Array<{ name: string; version: string | null; last_seen: string | null }> }>(`/assets/${id}/software`).then(r => r.data.software),
+  refresh: () => api.post('/assets/refresh').then(r => r.data),
+  update: (id: number, body: { name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
+    api.put(`/assets/${id}`, body).then(r => r.data),
+  remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
+}
+
 export const inventoryApi = {
   get: () => api.get<InventoryOut>('/inventory').then(r => r.data),
 }

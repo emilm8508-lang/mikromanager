@@ -274,7 +274,8 @@ export function Sidebar() {
       ...(admin ? [item('/security', t('nav.security') as string, ShieldCheck), item('/audit', t('nav.audit') as string, ClipboardList)] : []),
     ] },
     { key: 'assets', label: t('nav.groupAssets') as string, icon: Boxes, items: [
-      item('/inventory', t('nav.inventory') as string, Boxes),
+      item('/inventory', t('nav.assetsOverview') as string, PieChart),
+      item('/inventory/list', t('nav.assetsList') as string, Boxes),
       item('/software', t('nav.software') as string, Package),
     ] },
     { key: 'admin', label: t('nav.groupAdmin') as string, icon: Settings, items: [
@@ -393,6 +394,7 @@ export function Sidebar() {
                   <NavLink
                     key={to}
                     to={to}
+                    end={to === '/inventory'}
                     className={({ isActive: a }) =>
                       cn(
                         'flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-colors',

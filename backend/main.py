@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -37,6 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
+from services import assets as assets_svc
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
     fleet_schedule.start()
     hyperv_actions.mark_interrupted()
     hyperv_manage.start()
+    assets_svc.start()
     try:
         yield
     finally:
@@ -76,6 +78,7 @@ async def lifespan(app: FastAPI):
         host_services.stop()
         fleet_schedule.stop()
         hyperv_manage.stop()
+        assets_svc.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
@@ -108,6 +111,7 @@ app.include_router(linux_api.router, dependencies=_protected)
 app.include_router(windows_api.router, dependencies=_protected)
 app.include_router(hyperv_api.router, dependencies=_protected)
 app.include_router(secsum_api.router, dependencies=_protected)
+app.include_router(assets_api.router, dependencies=_protected)
 app.include_router(inventory_api.router, dependencies=_protected)
 app.include_router(compliance_api.router, dependencies=_protected)
 app.include_router(audit_api.router, dependencies=_protected)

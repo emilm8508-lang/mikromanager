@@ -388,6 +388,54 @@ class SecurityEvent(Base):
     count = Column(Integer, nullable=False, default=1)
 
 
+class Asset(Base):
+    """One piece of equipment on the network — the unified inventory (services/assets.py). Built from everything the
+    agent already knows (Mikrotik/Cisco/SNMP devices, Linux/Windows hosts, Dell servers, Hyper-V VMs, the port scan, the
+    DHCP/ARP tables of the routers) and, where credentials allow, from a hardware scan. `key` is the stable identity
+    ("ip:10.0.0.5", or "vm:<guid>" for a VM without an address); an address change is followed by MAC."""
+    __tablename__ = "assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, nullable=False, unique=True, index=True)
+    ip = Column(String, nullable=True, index=True)
+    mac = Column(String, nullable=True, index=True)
+    name = Column(String, nullable=True)
+    asset_type = Column(String, nullable=False, default="other")   # windows | linux | network | printer | virtual | server | other
+    role = Column(String, nullable=True)                           # server | workstation (computers only)
+    manufacturer = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    serial = Column(String, nullable=True)
+    os_name = Column(String, nullable=True)
+    os_version = Column(String, nullable=True)
+    location_override = Column(String, nullable=True)
+    manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
+    notes = Column(Text, nullable=True)
+    scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
+    refs = Column(Text, nullable=True)                             # JSON {device_id, linux_host_id, windows_host_id, vuln_host_id, dell_server_id, hyperv_vm_id}
+    details = Column(Text, nullable=True)                          # JSON hardware details from a scan (stage 2+)
+    first_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    last_scan_at = Column(DateTime, nullable=True)
+    last_scan_status = Column(String, nullable=True)               # ok | error
+    last_scan_error = Column(Text, nullable=True)
+
+
+class AssetPeripheral(Base):
+    """A monitor, printer or other device attached to a computer asset, found by a credentialed scan of that
+    computer (stage 2)."""
+    __tablename__ = "asset_peripherals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False, index=True)
+    kind = Column(String, nullable=False)                          # monitor | printer | usb | other
+    name = Column(String, nullable=True)
+    manufacturer = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    serial = Column(String, nullable=True)
+    details = Column(Text, nullable=True)                          # JSON
+    last_seen_at = Column(DateTime, nullable=True)
+
+
 class HostGroup(Base):
     """An operator-defined group of Linux or Windows servers (services/host_groups.py) — what the
     "update / restart the whole group" buttons act on. Per platform: a group holds only hosts of
