@@ -496,6 +496,14 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] security summary error: {e}")
         security_stats = None
 
+    # The asset inventory, cut down for Central: numbers plus compact rows, no serial numbers / MAC addresses.
+    try:
+        from services import assets as assets_svc
+        assets_status = await assets_svc.public_summary()
+    except Exception as e:
+        print(f"[uplink] asset summary error: {e}")
+        assets_status = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -529,6 +537,7 @@ async def _build_snapshot() -> dict:
         "hostmon_details": hostmon_details,
         "mikrotik_fleet": mikrotik_fleet,
         "security_stats": security_stats,
+        "assets_status": assets_status,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -581,6 +590,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "hostmon_status": snapshot.get("hostmon_status", []),
             "mikrotik_fleet": snapshot.get("mikrotik_fleet"),
             "security_stats": snapshot.get("security_stats"),
+            "assets_status": snapshot.get("assets_status"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),

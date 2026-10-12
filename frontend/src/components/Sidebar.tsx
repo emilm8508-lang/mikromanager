@@ -310,6 +310,7 @@ export function Sidebar() {
       item('/central/firewall-logs', t('firewallLogsCentral.navLabel') as string, ScrollText),
     ] },
     { key: 'c-assets', label: t('nav.groupAssets') as string, icon: Boxes, items: [
+      item('/central/assets', t('nav.assetsOverview') as string, PieChart),
       item('/central/inventory', t('nav.inventory') as string, Boxes),
     ] },
   ]

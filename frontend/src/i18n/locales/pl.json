@@ -1569,6 +1569,16 @@
         "riskInsights": "Ryzyko",
         "lastSuccessfulScan": "Ostatni udany skan"
     },
+    "assetsCentral": {
+        "title": "Zasoby — wszyscy klienci",
+        "intro": "Urządzenia wszystkich klientów w jednym miejscu. Centrala dostaje tylko liczby i zwięzłe wiersze - nigdy numerów seryjnych, adresów MAC ani szczegółów sprzętu; pełną kartę urządzenia otworzysz w agencie klienta.",
+        "noData": "Żaden klient nie wysłał jeszcze inwentarza zasobów (przychodzi z kolejną migawką agenta w wersji 2.61 lub nowszej).",
+        "newN": "+{{count}} nowych w ostatnich 7 dniach",
+        "byClient": "Wg klientów",
+        "client": "Klient",
+        "search": "Szukaj nazwy, IP, modelu, systemu, klienta…",
+        "truncated": "Do Centrali trafiają tylko najbardziej narażone urządzenia dla: {{clients}} (sumy powyżej są pełne)."
+    },
     "secDash": {
         "title": "Podsumowanie bezpieczeństwa",
         "subtitle": "Zdarzenia bezpieczeństwa, podatności, zgodność i stan poprawek tej sieci na jednym ekranie.",

@@ -1411,6 +1411,16 @@
         "riskInsights": "Risk insights",
         "lastSuccessfulScan": "Last successful scan"
     },
+    "assetsCentral": {
+        "title": "Assets — all clients",
+        "intro": "Every client's devices at a glance. Central only receives numbers and compact rows - never serial numbers, MAC addresses or hardware details; open the client's agent for the full device card.",
+        "noData": "No client has sent its asset inventory yet (it arrives with the next snapshot of an agent running version 2.61 or newer).",
+        "newN": "+{{count}} new in the last 7 days",
+        "byClient": "By client",
+        "client": "Client",
+        "search": "Search name, IP, model, system, client…",
+        "truncated": "Only the most exposed devices are sent to Central for: {{clients}} (the totals above are complete)."
+    },
     "secDash": {
         "title": "Security summary",
         "subtitle": "Security events, vulnerabilities, compliance and patch status of this network on one screen.",

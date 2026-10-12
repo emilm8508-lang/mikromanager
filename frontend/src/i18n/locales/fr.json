@@ -1411,6 +1411,16 @@
         "riskInsights": "Risque",
         "lastSuccessfulScan": "Dernière analyse réussie"
     },
+    "assetsCentral": {
+        "title": "Parc — tous les clients",
+        "intro": "Les appareils de tous les clients d'un coup d'œil. La centrale ne reçoit que des chiffres et des lignes compactes - jamais de numéros de série, d'adresses MAC ni de détails matériels ; la fiche complète est dans l'agent du client.",
+        "noData": "Aucun client n'a encore envoyé son inventaire (il arrive avec le prochain instantané d'un agent en version 2.61 ou plus récente).",
+        "newN": "+{{count}} nouveaux ces 7 derniers jours",
+        "byClient": "Par client",
+        "client": "Client",
+        "search": "Rechercher nom, IP, modèle, système, client…",
+        "truncated": "Seuls les appareils les plus exposés sont envoyés à la centrale pour : {{clients}} (les totaux ci-dessus sont complets)."
+    },
     "secDash": {
         "title": "Synthèse de sécurité",
         "subtitle": "Événements de sécurité, vulnérabilités, conformité et état des correctifs de ce réseau sur un seul écran.",

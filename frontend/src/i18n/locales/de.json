@@ -1411,6 +1411,16 @@
         "riskInsights": "Risiko",
         "lastSuccessfulScan": "Letzter erfolgreicher Scan"
     },
+    "assetsCentral": {
+        "title": "Bestand — alle Kunden",
+        "intro": "Die Geräte aller Kunden auf einen Blick. Die Zentrale erhält nur Zahlen und kompakte Zeilen - nie Seriennummern, MAC-Adressen oder Hardwaredetails; die volle Gerätekarte gibt es im Agenten des Kunden.",
+        "noData": "Noch kein Kunde hat seinen Bestand gesendet (er kommt mit dem nächsten Snapshot eines Agenten ab Version 2.61).",
+        "newN": "+{{count}} neu in den letzten 7 Tagen",
+        "byClient": "Nach Kunde",
+        "client": "Kunde",
+        "search": "Name, IP, Modell, System, Kunde suchen…",
+        "truncated": "Zur Zentrale gelangen nur die am stärksten gefährdeten Geräte für: {{clients}} (die Summen oben sind vollständig)."
+    },
     "secDash": {
         "title": "Sicherheitsübersicht",
         "subtitle": "Sicherheitsereignisse, Schwachstellen, Compliance und Patch-Stand dieses Netzes auf einem Bildschirm.",

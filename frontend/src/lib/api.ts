@@ -1088,6 +1088,17 @@ export interface AssetSummary {
   last_refresh: string | null
 }
 
+// What an agent sends to Central about its assets: numbers and compact rows, never serial numbers or MAC addresses
+export interface AssetsPublicRow {
+  n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
+  lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
+}
+export interface AssetsPublic {
+  summary: Pick<AssetSummary, 'total' | 'total_7d_ago' | 'new_7d' | 'new_by_day' | 'by_type' | 'by_location' | 'by_lifecycle' | 'by_scan_level' | 'inactive' | 'vulnerable'>
+  rows: AssetsPublicRow[]
+  truncated: boolean
+}
+
 export interface AssetPeripheralOut {
   id: number
   kind: 'monitor' | 'printer' | 'usb' | 'other'
@@ -2621,6 +2632,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  assetsStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; assets: AssetsPublic | null }> }>('assets_status_all'),
   securityStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; data: Record<string, any> }> }>('security_status_all'),
   fleetStatusAll: () =>

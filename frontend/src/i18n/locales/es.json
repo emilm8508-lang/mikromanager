@@ -1411,6 +1411,16 @@
         "riskInsights": "Riesgo",
         "lastSuccessfulScan": "Último análisis correcto"
     },
+    "assetsCentral": {
+        "title": "Activos — todos los clientes",
+        "intro": "Los dispositivos de todos los clientes de un vistazo. La central solo recibe cifras y filas compactas - nunca números de serie, direcciones MAC ni detalles de hardware; la ficha completa está en el agente del cliente.",
+        "noData": "Ningún cliente ha enviado aún su inventario (llega con la siguiente instantánea de un agente de la versión 2.61 o posterior).",
+        "newN": "+{{count}} nuevos en los últimos 7 días",
+        "byClient": "Por cliente",
+        "client": "Cliente",
+        "search": "Buscar nombre, IP, modelo, sistema, cliente…",
+        "truncated": "A la central solo llegan los dispositivos más expuestos de: {{clients}} (los totales de arriba son completos)."
+    },
     "secDash": {
         "title": "Resumen de seguridad",
         "subtitle": "Eventos de seguridad, vulnerabilidades, cumplimiento y estado de parches de esta red en una sola pantalla.",

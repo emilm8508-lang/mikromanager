@@ -410,6 +410,27 @@ async def summary() -> dict:
     }
 
 
+MAX_PUBLIC_ROWS = 400
+
+
+async def public_summary() -> dict:
+    """What Central gets (as plaintext envelope metadata, no E2E key needed): the dashboard numbers and one compact row per active
+    device, the most exposed first. Deliberately without serial numbers, MAC addresses, notes, tags and hardware details."""
+    s = await summary()
+    rows = [r for r in await list_assets() if r["active"]]
+    out = []
+    for r in rows[:MAX_PUBLIC_ROWS]:
+        seen = datetime.fromisoformat(r["last_seen_at"].rstrip("Z")) if r["last_seen_at"] else None
+        v = r["vulns"]
+        out.append({"n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
+                    "lc": r["lifecycle"], "v": [v["critical"], v["high"], v["medium"], v["low"]], "loc": r["location"], "sl": r["scan_level"],
+                    "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None})
+    return {
+        "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable")},
+        "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
+    }
+
+
 def _tally(rows, key_fn) -> dict:
     out: dict = {}
     for r in rows:

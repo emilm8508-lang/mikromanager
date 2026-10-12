@@ -1850,6 +1850,31 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'assets_status_all':
+            // The asset inventory of every tenant this identity can see: the dashboard numbers and the compact device rows
+            // the agent put into its snapshot (no serial numbers / MAC addresses ever leave the agent). Plaintext envelope
+            // metadata, so no E2E key is needed - same pattern as hyperv_hosts_status_all.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $assets = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta) && isset($meta['assets_status']) && is_array($meta['assets_status'])) { $assets = $meta['assets_status']; }
+                }
+                $result[] = ['tenant' => $r['tenant'], 'last_seen' => $r['last_seen'], 'assets' => $assets];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'firewall_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as hyperv_hosts_status_all: latest
