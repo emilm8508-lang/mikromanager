@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { assetsApi, type AssetDetail as Detail, type AssetFinding, type AssetType } from '../lib/api'
+import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut } from '../lib/api'
 import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
-import { ArrowLeft, Trash2, ExternalLink, Save, X, ScanSearch, Loader2 } from 'lucide-react'
+import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
+import { ArrowLeft, Trash2, Save, X, ScanSearch, Loader2, Search, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
@@ -13,8 +14,8 @@ const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
 type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies'
 
 function tabsFor(a: Detail): TabKey[] {
-  if (COMPUTER.includes(a.type)) return ['overview', 'hardware', 'software', 'vulns', 'services', 'lifecycle', ...(a.type === 'windows' || a.type === 'linux' ? ['peripherals' as TabKey] : [])]
-  if (a.type === 'network') return ['overview', 'config', 'services', 'vulns', 'lifecycle']
+  if (COMPUTER.includes(a.type)) return ['overview', 'hardware', 'software', 'vulns', 'services', ...(a.type === 'windows' || a.type === 'linux' ? ['peripherals' as TabKey] : [])]
+  if (a.type === 'network') return ['overview', 'config', 'services', 'vulns']
   if (a.type === 'printer') return ['overview', 'supplies', 'services', 'vulns']
   return ['overview', 'services', 'vulns']
 }
@@ -196,44 +197,82 @@ function Software({ id, hostId }: { id: number; hostId?: number }) {
   )
 }
 
-const SEV_TONE: Record<string, 'red' | 'orange' | 'amber' | 'blue'> = { CRITICAL: 'red', HIGH: 'orange', MEDIUM: 'amber', LOW: 'blue' }
-const SEV_BG: Record<string, string> = { CRITICAL: 'bg-red-700 text-white', HIGH: 'bg-orange-600 text-white', MEDIUM: 'bg-amber-300 text-slate-900', LOW: 'bg-slate-100 text-slate-700' }
+const SEV_RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
 
-function Vulns({ id }: { id: number }) {
+/** Risk insights of a device: a sub-menu (vulnerabilities / lifecycle) and the CVE table in the layout of the vulnerabilities page. */
+function RiskInsights({ a }: { a: Detail }) {
   const { t } = useTranslation()
-  const { data = [], isLoading } = useQuery({ queryKey: ['asset-vulns', id], queryFn: () => assetsApi.vulnerabilities(id) })
+  const [sub, setSub] = useState<'vulns' | 'lifecycle'>('vulns')
+  const hasLifecycle = COMPUTER.includes(a.type) || a.type === 'network'
+  const item = (k: 'vulns' | 'lifecycle', label: string) => (
+    <button key={k} onClick={() => setSub(k)} className={cn('w-full text-left text-sm font-semibold rounded-lg px-3 py-2', sub === k ? 'bg-slate-200/70 text-slate-900' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/50')}>{label}</button>
+  )
+  if (!hasLifecycle) return <AssetVulns a={a} />
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[11rem_1fr] gap-4 items-start">
+      <div className="space-y-2">{item('vulns', t('vulnDash.tabCves') as string)}{item('lifecycle', t('assets.tab.lifecycle') as string)}</div>
+      <div className="min-w-0">{sub === 'vulns' ? <AssetVulns a={a} /> : <Lifecycle a={a} />}</div>
+    </div>
+  )
+}
+
+type VSort = 'cve' | 'score'
+
+function AssetVulns({ a }: { a: Detail }) {
+  const { t } = useTranslation()
+  const { data: all = [], isLoading } = useQuery({ queryKey: ['vuln-findings', undefined], queryFn: () => vulnApi.findings(), refetchInterval: 60_000 })
   const [q, setQ] = useState('')
   const [sev, setSev] = useState('all')
-  const rows = useMemo(() => data.filter((f: AssetFinding) => (sev === 'all' || f.severity === sev) && (!q.trim() || [f.cve_id, f.product, f.summary].some(v => (v ?? '').toLowerCase().includes(q.trim().toLowerCase())))), [data, q, sev])
+  const [sort, setSort] = useState<{ key: VSort; dir: 1 | -1 }>({ key: 'score', dir: -1 })
+  const [open, setOpen] = useState<number | null>(null)
+  const mine = useMemo(() => all.filter(f => a.ip && f.affected.some(x => x.ip === a.ip)), [all, a.ip])
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    const f = mine.filter(x => (sev === 'all' || x.severity === sev) && (!needle || [x.cve_id, x.product, x.summary].some(v => (v ?? '').toLowerCase().includes(needle))))
+    const val = (x: VulnFindingOut) => sort.key === 'cve' ? x.cve_id : (x.cvss_score ?? -1)
+    return f.sort((x, y) => { const A = val(x), B = val(y); return (A < B ? -1 : A > B ? 1 : 0) * sort.dir || (SEV_RANK[x.severity ?? ''] ?? 9) - (SEV_RANK[y.severity ?? ''] ?? 9) })
+  }, [mine, q, sev, sort])
+  const th = (key: VSort, label: string) => (
+    <th className={cn('font-normal cursor-pointer select-none whitespace-nowrap py-2', sort.key === key && 'text-indigo-600')} onClick={() => setSort(s => ({ key, dir: s.key === key ? (-s.dir as 1 | -1) : -1 }))}>
+      <span className="inline-flex items-center gap-0.5">{label}{sort.key === key && (sort.dir === 1 ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}</span>
+    </th>
+  )
   return (
-    <Section title={`${t('assets.tab.vulns')} (${data.length})`}>
-      <div className="flex gap-2 mb-3 flex-wrap">
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assets.filterKeyword') as string} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[12rem] max-w-sm" />
-        <select value={sev} onChange={e => setSev(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-          <option value="all">{t('assets.allSeverities')}</option>
-          {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => <option key={s} value={s}>{t(`assets.sev.${s.toLowerCase()}`)}</option>)}
+    <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div className="px-4 pt-3 pb-3 flex flex-wrap gap-2 items-center">
+        <h3 className="text-sm font-semibold text-slate-800 mr-2">{t('vulnDash.tabCves')} ({rows.length})</h3>
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assets.filterKeyword') as string} className="text-sm border border-slate-300 rounded-lg pl-7 pr-3 py-1.5 w-52" />
+        </div>
+        <select value={sev} onChange={e => setSev(e.target.value)} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
+          <option value="all">{t('assets.allSeverities')}</option>{['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => <option key={s} value={s}>{t(`assets.sev.${s.toLowerCase()}`)}</option>)}
         </select>
       </div>
-      {isLoading ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : rows.length === 0 ? <p className="text-sm text-emerald-700">{t('assets.noVulnsHere')}</p> : (
+      {isLoading ? <p className="px-4 pb-4 text-sm text-slate-500">{t('common.loading')}</p> : rows.length === 0 ? <p className="px-4 pb-4 text-sm text-emerald-700">{t('assets.noVulnsHere')}</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-slate-400 border-b"><th className="py-1.5 font-normal">CVE</th><th className="font-normal">{t('assets.riskScore')}</th><th className="font-normal">{t('assets.colSeverity')}</th><th className="font-normal">{t('assets.affected')}</th><th className="font-normal">{t('assets.status')}</th></tr></thead>
+            <thead><tr className="text-left text-xs text-slate-400 border-y border-slate-200 bg-slate-50">
+              <th className="w-6" />{th('cve', 'CVE')}{th('score', t('assets.riskScore') as string)}<th className="font-normal">{t('assets.colSeverity')}</th>
+              <th className="font-normal">{t('assets.status')}</th><th className="font-normal pr-4">{t('assets.affected')}</th></tr></thead>
             <tbody>
               {rows.map(f => (
-                <tr key={`${f.cve_id}:${f.product}:${f.version}`} className="border-b border-slate-100 align-top">
-                  <td className="py-2"><a href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-mono inline-flex items-center gap-1">{f.cve_id}<ExternalLink size={10} /></a>
-                    {f.summary && <div className="text-[11px] text-slate-400 max-w-md line-clamp-2">{f.summary}</div>}</td>
-                  <td><span className={cn('inline-block min-w-[2.5rem] text-center rounded-full px-2 py-0.5 text-xs font-semibold', SEV_BG[f.severity] ?? SEV_BG.LOW)}>{f.cvss_score ?? '—'}</span></td>
-                  <td><Pill tone={SEV_TONE[f.severity] ?? 'blue'}>{t(`assets.sev.${(f.severity ?? 'low').toLowerCase()}`)}</Pill></td>
-                  <td className="text-slate-700">{f.product} <span className="font-mono text-xs text-slate-500">{f.version}</span></td>
-                  <td className="text-xs text-slate-600">{t(`vuln.status.${f.status}`, { defaultValue: f.status })}</td>
-                </tr>
+                <Fragment key={f.id}>
+                  <tr onClick={() => setOpen(open === f.id ? null : f.id)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer align-top">
+                    <td className="pl-3 py-2"><ChevronRight size={14} className={cn('text-slate-400 transition-transform', open === f.id && 'rotate-90')} /></td>
+                    <td className="py-2 font-mono text-xs text-blue-600">{f.cve_id}{f.overdue && <span className="ml-1.5 text-[10px] text-red-600 font-sans">{t('vuln.overdue')}</span>}</td>
+                    <td className="py-2"><ScorePill f={f} /></td><td className="py-2"><SeverityPill severity={f.severity} /></td>
+                    <td className="py-2 text-xs text-slate-600">{t(`vuln.status.${f.status}`)}</td>
+                    <td className="py-2 pr-4 text-xs text-slate-700">{f.product} <span className="font-mono text-slate-400">{f.version}</span></td>
+                  </tr>
+                  {open === f.id && <tr className="border-b border-slate-100 bg-slate-50/60"><td /><td colSpan={5} className="py-3 pr-4"><RemediationPanel finding={f} /></td></tr>}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </Section>
+    </section>
   )
 }
 
@@ -387,9 +426,8 @@ export function AssetDetail() {
           {active === 'overview' && <Overview key={a.id} a={a} />}
           {(active === 'hardware' || active === 'config') && <Hardware a={a} />}
           {active === 'software' && <Software id={a.id} hostId={a.refs.vuln_host_id} />}
-          {active === 'vulns' && <Vulns id={a.id} />}
+          {active === 'vulns' && <RiskInsights a={a} />}
           {active === 'services' && <Services a={a} />}
-          {active === 'lifecycle' && <Lifecycle a={a} />}
           {active === 'peripherals' && <Peripherals a={a} />}
           {active === 'supplies' && <Supplies a={a} />}
         </div>
