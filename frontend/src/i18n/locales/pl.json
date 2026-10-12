@@ -1292,6 +1292,7 @@
         }
     },
     "assets": {
+        "openInSoftware": "Otwórz w Oprogramowaniu →",
         "scanNow": "Skanuj",
         "scanning": "Skanowanie…",
         "scanAll": "Skanuj komputery",
@@ -1906,6 +1907,8 @@
         "findingsCount": "{{count}} podatności"
     },
     "software": {
+        "assetFilter": "Filtr zasobu",
+        "allAssets": "Wszystkie zasoby",
         "subtitle": "Pełny inwentarz zainstalowanego oprogramowania ze wszystkich hostów z działającymi poświadczeniami — pakiety dpkg/rpm dla Linuksa, zainstalowane programy dla Windows.",
         "searchPlaceholder": "Szukaj po nazwie...",
         "hostsTitle": "Znalezione wpisy",

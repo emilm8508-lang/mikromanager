@@ -1134,6 +1134,7 @@
         }
     },
     "assets": {
+        "openInSoftware": "Abrir en Software →",
         "scanNow": "Analizar",
         "scanning": "Analizando…",
         "scanAll": "Analizar equipos",
@@ -1739,6 +1740,8 @@
         "findingsCount": "{{count}} vulnerabilidades"
     },
     "software": {
+        "assetFilter": "Filtrar por activo",
+        "allAssets": "Todos los activos",
         "subtitle": "Inventario completo del software instalado en todos los hosts con credenciales funcionales — paquetes dpkg/rpm para Linux, programas instalados para Windows.",
         "searchPlaceholder": "Buscar por nombre...",
         "hostsTitle": "Entradas encontradas",

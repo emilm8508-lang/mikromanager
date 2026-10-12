@@ -175,14 +175,17 @@ function Hardware({ a }: { a: Detail }) {
   )
 }
 
-function Software({ id }: { id: number }) {
+function Software({ id, hostId }: { id: number; hostId?: number }) {
   const { t } = useTranslation()
   const { data = [], isLoading } = useQuery({ queryKey: ['asset-software', id], queryFn: () => assetsApi.software(id) })
   const [q, setQ] = useState('')
   const rows = data.filter(s => !q.trim() || s.name.toLowerCase().includes(q.trim().toLowerCase()))
   return (
     <Section title={`${t('assets.tab.software')} (${data.length})`}>
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assets.filterKeyword') as string} className="mb-3 border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-full max-w-sm" />
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assets.filterKeyword') as string} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-full max-w-sm" />
+        {hostId && <Link to={`/software?host=${hostId}`} className="text-xs text-indigo-600 hover:underline">{t('assets.openInSoftware')}</Link>}
+      </div>
       {isLoading ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : rows.length === 0 ? <p className="text-sm text-slate-500">{t('assets.noSoftware')}</p> : (
         <div className="max-h-[28rem] overflow-y-auto">
           <table className="w-full text-sm"><thead><tr className="text-left text-xs text-slate-400 border-b"><th className="py-1 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assets.version')}</th></tr></thead>
@@ -383,7 +386,7 @@ export function AssetDetail() {
           </div>
           {active === 'overview' && <Overview key={a.id} a={a} />}
           {(active === 'hardware' || active === 'config') && <Hardware a={a} />}
-          {active === 'software' && <Software id={a.id} />}
+          {active === 'software' && <Software id={a.id} hostId={a.refs.vuln_host_id} />}
           {active === 'vulns' && <Vulns id={a.id} />}
           {active === 'services' && <Services a={a} />}
           {active === 'lifecycle' && <Lifecycle a={a} />}

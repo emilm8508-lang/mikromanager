@@ -1134,6 +1134,7 @@
         }
     },
     "assets": {
+        "openInSoftware": "Ouvrir dans Logiciels →",
         "scanNow": "Analyser",
         "scanning": "Analyse…",
         "scanAll": "Analyser les ordinateurs",
@@ -1739,6 +1740,8 @@
         "findingsCount": "{{count}} vulnérabilités"
     },
     "software": {
+        "assetFilter": "Filtrer par équipement",
+        "allAssets": "Tous les équipements",
         "subtitle": "Inventaire complet des logiciels installés sur tous les hôtes avec des identifiants fonctionnels — paquets dpkg/rpm pour Linux, programmes installés pour Windows.",
         "searchPlaceholder": "Rechercher par nom...",
         "hostsTitle": "Entrées trouvées",

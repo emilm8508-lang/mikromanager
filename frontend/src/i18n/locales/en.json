@@ -1134,6 +1134,7 @@
         }
     },
     "assets": {
+        "openInSoftware": "Open in Software →",
         "scanNow": "Scan now",
         "scanning": "Scanning…",
         "scanAll": "Scan computers",
@@ -1739,6 +1740,8 @@
         "findingsCount": "{{count}} findings"
     },
     "software": {
+        "assetFilter": "Filter by asset",
+        "allAssets": "All assets",
         "subtitle": "Full inventory of installed software across every host with working credentials — dpkg/rpm packages for Linux, installed programs for Windows.",
         "searchPlaceholder": "Search by name...",
         "hostsTitle": "Entries found",

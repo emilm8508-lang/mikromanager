@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.62 — 2026-10-12
+- "Oprogramowanie" page: a new asset filter next to the search box lists every device that has a software list (name and address) and narrows the table to it; the choice is kept in the address (`/software?host=...`), and the "Software" tab of an asset card has an "open in Software" link that lands there pre-filtered. The name search is now applied in the browser to the one loaded list, so it no longer re-queries the agent on every pause in typing. Front-end only.
+
 ## 2.61 — 2026-10-12
 - Asset inventory in Central (stage 4). The agent now sends Central the numbers of its inventory (total and change over 7 days, by type / location / OS lifecycle / scan level, vulnerable assets) and one compact row per active device - name, address, type, role, maker, model, OS, lifecycle, vulnerability counts per severity, location, scan level, last seen - the most exposed first, at most 400 rows (the totals are always complete). Serial numbers, MAC addresses, notes, tags and every hardware detail stay on the agent. In Central a new "Przegląd zasobów" page in the "Zasoby" menu group shows all clients together: total, new devices, exposure, types, OS lifecycle and how well devices are known, a per-client table (click a client to filter), and a searchable, filterable device table with the client name. New PHP action `assets_status_all` in `ovh/api.php` - upload it to the OVH host; the data travels as plaintext envelope metadata like the other status sections, so no E2E key is needed. Update the agents and upload `ovh/api.php`; the page fills in with each agent's next snapshot.
 

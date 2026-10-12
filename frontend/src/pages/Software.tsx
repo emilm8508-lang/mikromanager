@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { vulnApi } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -8,19 +9,26 @@ import { useTranslation } from 'react-i18next'
 export function Software() {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300)
-    return () => clearTimeout(timer)
-  }, [query])
+  const [params, setParams] = useSearchParams()
+  const host = params.get('host') ?? 'all'
 
   const { data, isLoading } = useQuery({
-    queryKey: ['software-packages', debouncedQuery],
-    queryFn: () => vulnApi.packages(debouncedQuery ? { q: debouncedQuery } : undefined),
+    queryKey: ['software-packages'],
+    queryFn: () => vulnApi.packages(),
   })
 
-  const rows = data ?? []
+  // the asset filter lists every device that has a software list
+  const hosts = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const r of data ?? []) if (!m.has(r.host_id)) m.set(r.host_id, r.hostname ? `${r.hostname} (${r.ip})` : r.ip)
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [data])
+  const needle = query.trim().toLowerCase()
+  const rows = useMemo(
+    () => (data ?? []).filter(r => (host === 'all' || String(r.host_id) === host) && (!needle || r.name.toLowerCase().includes(needle))),
+    [data, host, needle],
+  )
+  const setHost = (v: string) => setParams(v === 'all' ? {} : { host: v }, { replace: true })
 
   return (
     <div className="p-6 space-y-4 max-w-5xl">
@@ -30,15 +38,21 @@ export function Software() {
       </div>
       <p className="text-sm text-slate-500">{t('software.subtitle')}</p>
 
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={t('software.searchPlaceholder') as string}
-          className="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-sm"
-        />
+      <div className="flex flex-wrap gap-2">
+        <div className="relative w-full max-w-sm">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t('software.searchPlaceholder') as string}
+            className="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-sm"
+          />
+        </div>
+        <select value={host} onChange={e => setHost(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white max-w-xs" aria-label={t('software.assetFilter') as string}>
+          <option value="all">{t('software.allAssets')}</option>
+          {hosts.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
       </div>
 
       <Card>

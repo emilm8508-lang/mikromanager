@@ -1134,6 +1134,7 @@
         }
     },
     "assets": {
+        "openInSoftware": "In Software öffnen →",
         "scanNow": "Jetzt scannen",
         "scanning": "Scan läuft…",
         "scanAll": "Computer scannen",
@@ -1739,6 +1740,8 @@
         "findingsCount": "{{count}} Schwachstellen"
     },
     "software": {
+        "assetFilter": "Nach Gerät filtern",
+        "allAssets": "Alle Geräte",
         "subtitle": "Vollständige Übersicht der installierten Software über alle Hosts mit funktionierenden Zugangsdaten — dpkg/rpm-Pakete für Linux, installierte Programme für Windows.",
         "searchPlaceholder": "Nach Name suchen...",
         "hostsTitle": "Gefundene Einträge",
