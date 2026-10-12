@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc
+from services import assets as assets_svc, asset_scan as asset_scan_svc
 
 
 @asynccontextmanager

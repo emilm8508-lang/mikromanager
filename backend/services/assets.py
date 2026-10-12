@@ -32,7 +32,7 @@ from models.database import (
     SessionLocal, Asset, AssetPeripheral, Device, VulnHost, VulnService, VulnPackage, LinuxHost, WindowsHost, LinuxHostDisk,
     WindowsHostDisk, DellServer, HypervHost, HypervVM, ScanRange,
 )
-from services import asset_lifecycle
+from services import asset_lifecycle, asset_scan
 
 TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "other")
 REFRESH_SEC = max(120, int(os.environ.get("MIKROTIK_ASSET_REFRESH_SEC", "900")))
@@ -464,8 +464,9 @@ def _hardware(db, a: Asset) -> dict:
             }.items() if x not in (None, [], "")}
     stored = _jload(a.details, {})
     for k, v in stored.items():
-        if k != "host":
-            hw[k] = v                                # a hardware scan's own sections win
+        if k == "host" or (k == "disks" and hw.get("disks")):
+            continue                                 # the live volume figures of the source tables stay fresher than the scan's
+        hw[k] = v                                    # a hardware scan's own sections win
     return hw
 
 
@@ -493,7 +494,8 @@ async def get_asset(asset_id: int) -> Optional[dict]:
             "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
-            "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error},
+            "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,
+                     "running": a.id in asset_scan.running_ids(), "available": asset_scan.is_windows(a)},
         })
         return row
 

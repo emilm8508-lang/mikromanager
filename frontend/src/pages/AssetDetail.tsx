@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetDetail as Detail, type AssetFinding, type AssetType } from '../lib/api'
 import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
-import { ArrowLeft, Trash2, ExternalLink, Save, X } from 'lucide-react'
+import { ArrowLeft, Trash2, ExternalLink, Save, X, ScanSearch, Loader2 } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
@@ -65,6 +65,24 @@ function KeyValues({ data }: { data: Record<string, unknown> }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+// list-of-object sections of a hardware scan, shown as small tables in this order
+const TABLE_SECTIONS = ['memory_modules', 'physical_disks', 'network_adapters', 'gpu'] as const
+
+function ObjectTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const { t } = useTranslation()
+  const cols = Array.from(new Set(rows.flatMap(r => Object.keys(r))))
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-xs text-slate-400 border-b">{cols.map(c => <th key={c} className="py-1.5 pr-3 font-normal whitespace-nowrap">{t(`assets.hw.${c}`, { defaultValue: humanize(c) })}</th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => (
+          <tr key={i} className="border-b border-slate-100 align-top">{cols.map(c => <td key={c} className={cn('py-1.5 pr-3 text-slate-800', /mac|serial|id$/.test(c) && 'font-mono text-xs')}><Val k={c} v={r[c]} /></td>)}</tr>
+        ))}</tbody>
+      </table>
+    </div>
   )
 }
 
@@ -141,13 +159,15 @@ function Hardware({ a }: { a: Detail }) {
   const hw = a.hardware
   const scalarSections = Object.entries(hw).filter(([k, v]) => k !== 'disks' && k !== 'components' && v && typeof v === 'object' && !Array.isArray(v))
   const diskRows = [...(hw.disks ?? []), ...((hw.vm?.disks as any[]) ?? [])]
-  if (scalarSections.length === 0 && diskRows.length === 0) {
+  const tables = TABLE_SECTIONS.filter(k => Array.isArray(hw[k]) && hw[k].length > 0)
+  if (scalarSections.length === 0 && diskRows.length === 0 && tables.length === 0) {
     return <Section title={t('assets.tab.hardware') as string}><p className="text-sm text-slate-500">{t('assets.noHardware')}</p></Section>
   }
   return (
     <div className="space-y-4">
       {scalarSections.map(([k, v]) => <Section key={k} title={t(`assets.hwSection.${k}`, { defaultValue: humanize(k) }) as string}><KeyValues data={v as Record<string, unknown>} /></Section>)}
       {diskRows.length > 0 && <Section title={t('assets.hw.disks') as string}><DiskTable disks={diskRows} /></Section>}
+      {tables.map(k => <Section key={k} title={`${t(`assets.hwSection.${k}`, { defaultValue: humanize(k) })} (${hw[k].length})`}><ObjectTable rows={hw[k]} /></Section>)}
       {hw.components && Object.keys(hw.components).length > 0 && (
         <Section title={t('assets.hwSection.components') as string}><KeyValues data={Object.fromEntries(Object.entries(hw.components as Record<string, any>).map(([k, v]) => [k, typeof v === 'object' ? (v?.status ?? v?.health ?? JSON.stringify(v)) : v]))} /></Section>
       )}
@@ -260,8 +280,9 @@ function Peripherals({ a }: { a: Detail }) {
     <div className="space-y-4">
       {groups.map(g => (
         <Section key={g.k} title={`${t(`assets.peripheral.${g.k}`)} (${g.items.length})`}>
-          <table className="w-full text-sm"><thead><tr className="text-left text-xs text-slate-400 border-b"><th className="py-1.5 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assets.manufacturer')}</th><th className="font-normal">{t('assets.model')}</th><th className="font-normal">{t('assets.serial')}</th></tr></thead>
-            <tbody>{g.items.map(p => <tr key={p.id} className="border-b border-slate-100"><td className="py-1.5 text-slate-800">{p.name ?? '—'}</td><td>{p.manufacturer ?? '—'}</td><td>{p.model ?? '—'}</td><td className="font-mono text-xs">{p.serial ?? '—'}</td></tr>)}</tbody></table>
+          <table className="w-full text-sm"><thead><tr className="text-left text-xs text-slate-400 border-b"><th className="py-1.5 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assets.manufacturer')}</th><th className="font-normal">{t('assets.model')}</th><th className="font-normal">{t('assets.serial')}</th><th className="font-normal">{t('assets.details')}</th></tr></thead>
+            <tbody>{g.items.map(p => <tr key={p.id} className="border-b border-slate-100 align-top"><td className="py-1.5 text-slate-800">{p.name ?? '—'}</td><td>{p.manufacturer ?? '—'}</td><td>{p.model ?? '—'}</td><td className="font-mono text-xs">{p.serial ?? '—'}</td>
+              <td className="text-xs text-slate-600">{Object.entries(p.details ?? {}).map(([k, v]) => <span key={k} className="mr-3 whitespace-nowrap">{t(`assets.hw.${k}`, { defaultValue: humanize(k) })}: <Val k={k} v={v} /></span>)}</td></tr>)}</tbody></table>
         </Section>
       ))}
     </div>
@@ -297,8 +318,9 @@ export function AssetDetail() {
   const qc = useQueryClient()
   const { id } = useParams()
   const assetId = Number(id)
-  const { data: a, isLoading, isError } = useQuery({ queryKey: ['asset', assetId], queryFn: () => assetsApi.get(assetId), refetchInterval: 60_000 })
+  const { data: a, isLoading, isError } = useQuery({ queryKey: ['asset', assetId], queryFn: () => assetsApi.get(assetId), refetchInterval: q => q.state.data?.scan.running ? 3000 : 60_000 })
   const [tab, setTab] = useState<TabKey>('overview')
+  const scan = useMutation({ mutationFn: () => assetsApi.scan(assetId), onSuccess: () => qc.invalidateQueries({ queryKey: ['asset', assetId] }) })
   const remove = useMutation({ mutationFn: () => assetsApi.remove(assetId), onSuccess: () => { qc.invalidateQueries({ queryKey: ['assets'] }); nav('/inventory/list') } })
 
   if (isLoading) return <div className="p-6"><p className="text-sm text-slate-500">{t('common.loading')}</p></div>
@@ -317,7 +339,14 @@ export function AssetDetail() {
     <div className="p-6 space-y-4 max-w-[1400px]">
       <div className="flex items-center justify-between">
         <Link to="/inventory/list" className="text-sm text-slate-500 hover:text-indigo-600 inline-flex items-center gap-1"><ArrowLeft size={14} /> {t('assets.listTitle')}</Link>
+        <div className="flex items-center gap-1">
+          {a.scan.available && (
+            <Button size="sm" variant="secondary" disabled={a.scan.running || scan.isPending} onClick={() => scan.mutate()}>
+              {a.scan.running ? <Loader2 size={13} className="animate-spin" /> : <ScanSearch size={13} />} {a.scan.running ? t('assets.scanning') : t('assets.scanNow')}
+            </Button>
+          )}
         <Button size="sm" variant="ghost" onClick={() => { if (confirm(t('assets.removeConfirm') as string)) remove.mutate() }}><Trash2 size={13} /> {t('assets.remove')}</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-5 items-start">

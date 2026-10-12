@@ -7,7 +7,7 @@ import { Widget, Empty, Donut, HBars, NumberTiles, fmt, OTHER, type Seg } from '
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, VulnPill, LifecyclePill, TypePill, ago } from '../components/AssetBits'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import { Button } from '../components/ui/Button'
-import { Boxes, RefreshCw, ArrowUp, ArrowDown, MapPin } from 'lucide-react'
+import { Boxes, RefreshCw, ArrowUp, ArrowDown, MapPin, ScanSearch } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // Asset overview: how many things are on the network, what they are, where, how old their systems are, how exposed.
@@ -20,6 +20,8 @@ export function AssetsOverview() {
     mutationFn: assetsApi.refresh,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) },
   })
+
+  const scanAll = useMutation({ mutationFn: assetsApi.scanAll, onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) } })
 
   const typeSegs: Seg[] = useMemo(() => {
     const n = new Map((data?.by_type ?? []).map(x => [x.key, x.n]))
@@ -55,6 +57,9 @@ export function AssetsOverview() {
         </div>
         <div className="flex items-center gap-2">
           <Link to="/inventory/list" className="text-sm text-indigo-600 hover:underline">{t('assets.openList')}</Link>
+          <Button size="sm" variant="secondary" onClick={() => scanAll.mutate()} disabled={scanAll.isPending} title={t('assets.scanAllHint') as string}>
+            <ScanSearch size={13} /> {scanAll.data ? t('assets.scanAllStarted', { count: scanAll.data.started }) : t('assets.scanAll')}
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
             <RefreshCw size={13} className={refresh.isPending ? 'animate-spin' : ''} /> {t('assets.rebuild')}
           </Button>

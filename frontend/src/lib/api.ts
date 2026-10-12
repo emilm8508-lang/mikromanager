@@ -1110,7 +1110,7 @@ export interface AssetDetail extends AssetRow {
   peripherals: AssetPeripheralOut[]
   services: Array<{ port: number; proto: string | null; service: string | null; product: string | null; version: string | null }>
   software_count: number
-  scan: { level: AssetScanLevel; last_scan_at: string | null; status: string | null; error: string | null }
+  scan: { level: AssetScanLevel; last_scan_at: string | null; status: string | null; error: string | null; running: boolean; available: boolean }
 }
 
 export interface AssetFinding {
@@ -1132,6 +1132,8 @@ export const assetsApi = {
   vulnerabilities: (id: number) => api.get<{ findings: AssetFinding[] }>(`/assets/${id}/vulnerabilities`).then(r => r.data.findings),
   software: (id: number) => api.get<{ software: Array<{ name: string; version: string | null; last_seen: string | null }> }>(`/assets/${id}/software`).then(r => r.data.software),
   refresh: () => api.post('/assets/refresh').then(r => r.data),
+  scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
+  scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
   update: (id: number, body: { name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
