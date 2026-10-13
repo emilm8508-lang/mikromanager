@@ -131,7 +131,7 @@ function Overview({ a }: { a: Detail }) {
         <div className="flex items-center gap-2 flex-wrap mb-2"><ScanLevelPill level={a.scan_level} />
           <span className="text-xs text-slate-500">{a.last_scan_at ? `${t('assets.lastScan')}: ${ago(a.last_scan_at)}` : t('assets.neverScanned')}</span></div>
         <p className="text-sm text-slate-600">{t(`assets.scanLevelHint.${a.scan_level}`)}</p>
-        {a.scan.error && <p className={cn('text-xs mt-2 break-words', a.scan.status === 'error' ? 'text-red-600' : 'text-slate-500')}>{a.scan.error}</p>}
+        {a.scan.error && <p className={cn('text-xs mt-2 break-words', a.scan.status === 'error' || a.scan.status === 'auth_error' ? 'text-red-600' : 'text-slate-500')}>{a.scan.error}</p>}
         {a.scan_level !== 'credentialed' && <p className="text-xs mt-2"><Link to="/credentials" className="text-indigo-600 hover:underline">{t('assets.goCredentials')}</Link></p>}
       </Section>
       <Section title={t('assets.yourData') as string}>

@@ -82,6 +82,13 @@ _running: set = set()
 _attempts: Dict[int, datetime] = {}     # last try per asset, so an unreachable laptop is retried hourly, not every cycle
 RETRY_HOURS = 1.0
 NO_ANSWER_HOURS = 24.0
+AUTH_RETRY_HOURS = 168.0      # a rejected password is not retried by the scheduler for a week (account lockout policies)
+_AUTH_MARKERS = ("401", "unauthorized", "invalidcredentials", "credentials were rejected", "login refused", "authentication failed", "logon failure")
+
+
+def _is_auth_error(text: str) -> bool:
+    low = (text or "").lower()
+    return any(m in low for m in _AUTH_MARKERS)
 _task: Optional[asyncio.Task] = None
 
 
@@ -378,7 +385,7 @@ async def _scan_credentialed(kind: str, ip: str, cred_info) -> dict:
         if kind == "windows":
             username, password, domain, port = cred_info
             res = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, _scan_sync, ip, port, username, password, domain), timeout=SCAN_TIMEOUT_SEC + 20)
-            return {"ok": parse(res["parsed"])} if res["ok"] else {"error": res["error"]}
+            return {"ok": parse(res["parsed"])} if res["ok"] else {"error": res["error"], "auth": _is_auth_error(res["error"])}
         from services import asset_scan_linux as L
         err = "no usable SSH credential"
         for username, password in cred_info:
@@ -387,12 +394,12 @@ async def _scan_credentialed(kind: str, ip: str, cred_info) -> dict:
                 return {"ok": L.parse(res)}
             err = res["error"]
             if not res.get("auth"):
-                break                                        # unreachable / not SSH: another password will not help
-        return {"error": err}
+                return {"error": err}                        # unreachable / not SSH: another password will not help
+        return {"error": err, "auth": True}
     except (asyncio.TimeoutError, TimeoutError):
         return {"error": "timeout"}
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}"}
+        return {"error": f"{type(e).__name__}: {e}", "auth": _is_auth_error(f"{type(e).__name__}: {e}")}
 
 
 async def scan_asset(asset_id: int) -> dict:
@@ -415,13 +422,13 @@ async def scan_asset(asset_id: int) -> dict:
     _running.add(asset_id)
     _attempts[asset_id] = datetime.utcnow()
     try:
-        cred_error = None
+        cred_error, cred_auth = None, False
         if cred_info:
             r = await _scan_credentialed(kind, ip, cred_info)
             if "ok" in r:
                 _store(asset_id, r["ok"], "credentialed")
                 return {"ok": True, "level": "credentialed"}
-            cred_error = r["error"]
+            cred_error, cred_auth = r["error"], bool(r.get("auth"))
         elif kind in ("windows", "linux"):
             cred_error = "no credential (assign one to this computer, or set the shared " + ("Windows" if kind == "windows" else "Linux") + " credential)"
         if snmp_pointless:
@@ -439,7 +446,7 @@ async def scan_asset(asset_id: int) -> dict:
             _store(asset_id, N.parse(raw), "snmp")
             return {"ok": True, "level": "snmp"}
         if cred_error:
-            _fail(asset_id, cred_error, "error")
+            _fail(asset_id, cred_error, "auth_error" if cred_auth else "error")
             return {"error": cred_error}
         _fail(asset_id, "no SNMP answer (tried the saved communities and public); add a credential or enable SNMP on the device for more detail", "no_answer")
         return {"error": "no SNMP answer"}
@@ -455,7 +462,7 @@ def can_scan(asset_id: int) -> bool:
 
 def due_ids(hours: float = SCAN_INTERVAL_HOURS) -> List[int]:
     """Devices whose last successful scan is missing or older than `hours`. A failed attempt is repeated after an hour, a device
-    that never answered SNMP after a day; a device not seen on the network for a week is left alone."""
+    that never answered SNMP after a day, a rejected password after a week (the manual "Skanuj" button always tries); a device not seen on the network for a week is left alone."""
     now = datetime.utcnow()
     out = []
     with SessionLocal() as db:
@@ -464,7 +471,13 @@ def due_ids(hours: float = SCAN_INTERVAL_HOURS) -> List[int]:
                 continue
             if a.last_seen_at and now - a.last_seen_at > timedelta(days=7):
                 continue
-            wait = NO_ANSWER_HOURS if a.last_scan_status == "no_answer" else RETRY_HOURS
+            if a.last_scan_status == "auth_error":
+                if a.id not in _attempts:
+                    _attempts[a.id] = now               # after a restart the week starts over, it is not retried at once
+                    continue
+                wait = AUTH_RETRY_HOURS
+            else:
+                wait = NO_ANSWER_HOURS if a.last_scan_status == "no_answer" else RETRY_HOURS
             if now - _attempts.get(a.id, datetime.min) < timedelta(hours=wait):
                 continue
             if a.last_scan_at is None or now - a.last_scan_at > timedelta(hours=hours):
