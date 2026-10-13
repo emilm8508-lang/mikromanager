@@ -23,6 +23,7 @@ function CredentialForm({ initial, onSave, onCancel }: {
     domain: initial?.domain ?? '',
     snmp_community: '',
     description: initial?.description ?? '',
+    asset_scan: initial?.asset_scan ?? ([] as string[]),
   })
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -46,6 +47,7 @@ function CredentialForm({ initial, onSave, onCancel }: {
       domain: form.domain || undefined,
       description: form.description || undefined,
       snmp_community: form.snmp_community || undefined,
+      asset_scan: form.asset_scan,
     }
     onSave(payload)
   }
@@ -86,6 +88,18 @@ function CredentialForm({ initial, onSave, onCancel }: {
           placeholder={(initial?.has_snmp ? t('credentials.snmpPlaceholderKeep') : t('credentials.snmpPlaceholder')) as string}
         />
         <p className="text-[11px] text-slate-500 mt-1">{t('credentials.snmpHint')}</p>
+      </div>
+
+      <div className="border-t border-slate-200 pt-4">
+        <p className="text-sm font-medium text-slate-700">{t('credentials.assetScanTitle')}</p>
+        <p className="text-[11px] text-slate-500 mb-2">{t('credentials.assetScanHint')}</p>
+        {(['windows', 'linux', 'snmp'] as const).map(k => (
+          <label key={k} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none py-0.5">
+            <input type="checkbox" className="rounded border-slate-300 text-indigo-600" checked={form.asset_scan.includes(k)}
+              onChange={e => setForm(f => ({ ...f, asset_scan: e.target.checked ? [...f.asset_scan, k] : f.asset_scan.filter(x => x !== k) }))} />
+            {t(`credentials.assetScan_${k}`)}
+          </label>
+        ))}
       </div>
 
       <Input label={t('credentials.descriptionOptional')} value={form.description} onChange={set('description')} />
@@ -149,6 +163,7 @@ export function Credentials() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-slate-800">{c.name}</p>
+                {(c.asset_scan ?? []).map(k => <Badge key={k} variant="blue" className="text-[10px]">{t(`credentials.assetScanBadge_${k}`)}</Badge>)}
                 {c.has_snmp && (
                   <Badge variant="purple" className="inline-flex items-center gap-1">
                     <Radio size={10} /> SNMP

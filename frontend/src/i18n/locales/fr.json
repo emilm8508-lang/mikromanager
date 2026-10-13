@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Utiliser pour les analyses du parc",
+        "assetScanHint": "Où les analyses du parc peuvent utiliser cet identifiant. Si vous en marquez pour un type, seuls les marqués sont utilisés (l'un après l'autre, celui qui a marché passe en premier ensuite) ; sans marquage, les analyses utilisent l'identifiant partagé / de l'hôte comme avant.",
+        "assetScan_windows": "Ordinateurs Windows (WinRM)",
+        "assetScan_linux": "Ordinateurs Linux (SSH)",
+        "assetScan_snmp": "Autres appareils (communauté SNMP)",
+        "assetScanBadge_windows": "analyse : Windows",
+        "assetScanBadge_linux": "analyse : Linux",
+        "assetScanBadge_snmp": "analyse : SNMP",
                         "title":  "Identifiants",
                         "subtitle":  "Logins + communauté SNMP facultative pour les anciens appareils",
                         "newTitle":  "Nouveaux identifiants",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Planning des analyses",
+        "schedule_computers_hours": "Ordinateurs :",
+        "schedule_devices_hours": "Autres appareils (SNMP) :",
+        "everyHours": "toutes les {{count}} h",
+        "everyDays": "tous les {{count}} jours",
         "onlyNew": "Seulement les équipements découverts ces 7 derniers jours",
         "clearFilter": "Effacer le filtre",
         "discover": "Trouver les ordinateurs",

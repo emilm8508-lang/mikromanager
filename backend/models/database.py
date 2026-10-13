@@ -134,6 +134,9 @@ class Credential(Base):
     # the vuln scanner's WinRM identity check. Leave blank for a local
     # Windows account or for Linux/Mikrotik credentials — unused there.
     domain = Column(String, nullable=True)
+    # Where the asset-inventory scans may use this credential: comma list of windows | linux | snmp. When any credential is
+    # marked for a kind, only the marked ones are used for it; when none is, the scans fall back to the shared / per-host choice.
+    asset_scan = Column(String, nullable=True)
 
     devices = relationship("Device", back_populates="credential")
 
@@ -418,6 +421,15 @@ class Asset(Base):
     last_scan_at = Column(DateTime, nullable=True)
     last_scan_status = Column(String, nullable=True)               # ok | error
     last_scan_error = Column(Text, nullable=True)
+
+
+class AssetScanSettings(Base):
+    """How often the inventory scans repeat (services/asset_scan.py): computers (WinRM / SSH) and the other devices (SNMP)."""
+    __tablename__ = "asset_scan_settings"
+
+    id = Column(Integer, primary_key=True)
+    computers_hours = Column(Float, nullable=True)
+    devices_hours = Column(Float, nullable=True)
 
 
 class VulnDaily(Base):
@@ -1107,6 +1119,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE credentials ADD COLUMN snmp_community_enc TEXT"))
             if "domain" not in cred_cols:
                 conn.execute(text("ALTER TABLE credentials ADD COLUMN domain TEXT"))
+            if "asset_scan" not in cred_cols:
+                conn.execute(text("ALTER TABLE credentials ADD COLUMN asset_scan TEXT"))
 
     if "devices" in inspector.get_table_names():
         dev_cols = {c["name"] for c in inspector.get_columns("devices")}

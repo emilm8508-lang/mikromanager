@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Использовать для сканирования активов",
+        "assetScanHint": "Где сканирование инвентаря может использовать эти учётные данные. Если для вида отмечены какие-либо данные, используются только отмеченные (по очереди, сработавшие в следующий раз первыми); без отметок сканирование использует общие / привязанные к хосту данные, как раньше.",
+        "assetScan_windows": "Компьютеры Windows (WinRM)",
+        "assetScan_linux": "Компьютеры Linux (SSH)",
+        "assetScan_snmp": "Прочие устройства (SNMP community)",
+        "assetScanBadge_windows": "скан: Windows",
+        "assetScanBadge_linux": "скан: Linux",
+        "assetScanBadge_snmp": "скан: SNMP",
                         "title":  "Учётные данные",
                         "subtitle":  "Логины + опционально SNMP-сообщество для старых устройств",
                         "newTitle":  "Новые учётные данные",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Расписание сканирования",
+        "schedule_computers_hours": "Компьютеры:",
+        "schedule_devices_hours": "Прочие устройства (SNMP):",
+        "everyHours": "каждые {{count}} ч",
+        "everyDays": "каждые {{count}} дн.",
         "onlyNew": "Только активы, обнаруженные за последние 7 дней",
         "clearFilter": "Сбросить фильтр",
         "discover": "Найти компьютеры",

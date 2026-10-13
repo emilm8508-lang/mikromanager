@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Für Bestandsscans verwenden",
+        "assetScanHint": "Wo die Bestandsscans diese Zugangsdaten verwenden dürfen. Sind für eine Art Zugangsdaten markiert, werden nur diese verwendet (der Reihe nach, die funktionierende beim nächsten Mal zuerst); ohne Markierung gelten wie bisher die gemeinsamen / hostbezogenen Zugangsdaten.",
+        "assetScan_windows": "Windows-Computer (WinRM)",
+        "assetScan_linux": "Linux-Computer (SSH)",
+        "assetScan_snmp": "Übrige Geräte (SNMP-Community)",
+        "assetScanBadge_windows": "Scan: Windows",
+        "assetScanBadge_linux": "Scan: Linux",
+        "assetScanBadge_snmp": "Scan: SNMP",
                         "title":  "Zugangsdaten",
                         "subtitle":  "Logins + optional SNMP-Community für ältere Geräte",
                         "newTitle":  "Neue Zugangsdaten",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Scan-Zeitplan",
+        "schedule_computers_hours": "Computer:",
+        "schedule_devices_hours": "Übrige Geräte (SNMP):",
+        "everyHours": "alle {{count}} Std.",
+        "everyDays": "alle {{count}} Tage",
         "onlyNew": "Nur Geräte, die in den letzten 7 Tagen entdeckt wurden",
         "clearFilter": "Filter löschen",
         "discover": "Computer finden",

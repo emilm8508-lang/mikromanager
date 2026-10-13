@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.67 — 2026-10-13
+- Asset scans: which credential is used where, and how often. On the Credentials page every credential now has "Użyj do skanowania zasobów": Windows computers (WinRM), Linux computers (SSH) and other devices (SNMP community). When any credential is marked for a kind, only the marked ones are used for it - each is tried in turn (the next only after a rejected password) and the one that worked is remembered and tried first next time, so with two computer credentials a wrong one is not repeated on every scan; for SNMP only the marked communities are tried (no "public" fallback). With nothing marked the scans work as before (the host's own / shared credential, every saved community and "public"). Schedule (assets overview, "Harmonogram skanów"): computers are scanned once a day by default (was every 12 hours), the other devices (SNMP) every 2 hours; both can be changed (computers 6 h - a week, devices 1 - 24 h) and are saved on the agent. A device that never answered SNMP is still retried only daily and a rejected password weekly. Polling of the Mikrotik routers themselves is a separate mechanism and unchanged. The new column and table are created automatically; update and restart the agents.
+
 ## 2.66 — 2026-10-13
 - Asset scans and account lockout: when a hardware scan is rejected because of the password (WinRM 401 / SSH login refused), the scheduler no longer repeats it every hour - it waits a week (and starts that week afresh after an agent restart), like the vulnerability scanner, so a wrong or expired password cannot lock an Active Directory account. Other failures (host off, port closed) still retry hourly. The "Skanuj" button on the card always tries, and the card shows the rejection in red.
 

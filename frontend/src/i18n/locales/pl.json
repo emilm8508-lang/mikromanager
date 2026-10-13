@@ -181,6 +181,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Użyj do skanowania zasobów",
+        "assetScanHint": "Gdzie skany inwentarza mogą użyć tego poświadczenia. Jeśli oznaczysz jakiekolwiek poświadczenie dla danego rodzaju, używane są tylko oznaczone (każde po kolei, to które zadziałało - następnym razem pierwsze); bez oznaczeń skany używają wspólnego / przypisanego do hosta poświadczenia jak dotąd.",
+        "assetScan_windows": "Komputery Windows (WinRM)",
+        "assetScan_linux": "Komputery Linux (SSH)",
+        "assetScan_snmp": "Pozostałe urządzenia (community SNMP)",
+        "assetScanBadge_windows": "skan: Windows",
+        "assetScanBadge_linux": "skan: Linux",
+        "assetScanBadge_snmp": "skan: SNMP",
                         "title":  "Poświadczenia",
                         "subtitle":  "Loginy + opcjonalnie community SNMP dla starszych urządzeń",
                         "newTitle":  "Nowe poświadczenia",
@@ -1292,6 +1300,11 @@
         }
     },
     "assets": {
+        "schedule": "Harmonogram skanów",
+        "schedule_computers_hours": "Komputery:",
+        "schedule_devices_hours": "Pozostałe urządzenia (SNMP):",
+        "everyHours": "co {{count}} godz.",
+        "everyDays": "co {{count}} dni",
         "onlyNew": "Tylko zasoby wykryte w ostatnich 7 dniach",
         "clearFilter": "Wyczyść filtr",
         "discover": "Znajdź komputery",

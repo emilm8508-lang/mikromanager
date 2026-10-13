@@ -27,6 +27,22 @@ async def list_assets():
     return {"assets": await assets.list_assets()}
 
 
+class ScanSettingsIn(BaseModel):
+    computers_hours: Optional[float] = None
+    devices_hours: Optional[float] = None
+
+
+@router.get("/scan-settings")
+async def scan_settings():
+    """How often the scheduler repeats the scans: computers (WinRM / SSH) and the other devices (SNMP), in hours."""
+    return asset_scan.get_settings()
+
+
+@router.put("/scan-settings")
+async def set_scan_settings(body: ScanSettingsIn):
+    return asset_scan.set_settings(body.computers_hours, body.devices_hours)
+
+
 @router.get("/discover")
 async def discover_status():
     return lan_sweep.status()

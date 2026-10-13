@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Use for asset scans",
+        "assetScanHint": "Where the inventory scans may use this credential. If you mark any credential for a kind, only the marked ones are used for it (each is tried in turn, the one that worked first next time); with none marked the scans use the shared / per-host credential as before.",
+        "assetScan_windows": "Windows computers (WinRM)",
+        "assetScan_linux": "Linux computers (SSH)",
+        "assetScan_snmp": "Other devices (SNMP community)",
+        "assetScanBadge_windows": "scans: Windows",
+        "assetScanBadge_linux": "scans: Linux",
+        "assetScanBadge_snmp": "scans: SNMP",
                         "title":  "Credentials",
                         "subtitle":  "Logins + optional SNMP community for older devices",
                         "newTitle":  "New credentials",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Scan schedule",
+        "schedule_computers_hours": "Computers:",
+        "schedule_devices_hours": "Other devices (SNMP):",
+        "everyHours": "every {{count}} h",
+        "everyDays": "every {{count}} days",
         "onlyNew": "Showing only assets first seen in the last 7 days",
         "clearFilter": "Clear filter",
         "discover": "Find computers",

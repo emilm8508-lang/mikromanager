@@ -19,6 +19,15 @@ class CredentialCreate(BaseModel):
     # scanner's WinRM identity check on Windows hosts. Leave blank for a
     # local Windows account, Linux (SSH), or Mikrotik/Cisco credentials.
     domain: Optional[str] = None
+    # asset-inventory scans that may use it: any of windows | linux | snmp (None on an edit = leave as it is)
+    asset_scan: Optional[List[str]] = None
+
+
+ASSET_SCAN_KINDS = ("windows", "linux", "snmp")
+
+
+def _kinds(values: Optional[List[str]]) -> Optional[str]:
+    return ",".join(k for k in ASSET_SCAN_KINDS if k in (values or [])) or None
 
 
 class CredentialOut(BaseModel):
@@ -28,6 +37,7 @@ class CredentialOut(BaseModel):
     domain: Optional[str] = None
     description: Optional[str]
     has_snmp: bool  # whether community is set (we don't expose actual value)
+    asset_scan: List[str] = []
 
     class Config:
         from_attributes = True
@@ -41,6 +51,7 @@ def _to_out(cred: Credential) -> dict:
         "domain": cred.domain,
         "description": cred.description,
         "has_snmp": bool(cred.snmp_community_enc),
+        "asset_scan": [k for k in (cred.asset_scan or "").split(",") if k],
     }
 
 
@@ -62,6 +73,7 @@ async def create_credential(data: CredentialCreate, db: Session = Depends(get_db
         snmp_community_enc=encrypt(data.snmp_community) if data.snmp_community else None,
         description=data.description,
         domain=data.domain or None,
+        asset_scan=_kinds(data.asset_scan),
     )
     db.add(cred)
     db.commit()
@@ -90,6 +102,8 @@ async def update_credential(cred_id: int, data: CredentialCreate, db: Session = 
     else:
         cred.snmp_community_enc = encrypt(data.snmp_community)
     cred.description = data.description
+    if data.asset_scan is not None:
+        cred.asset_scan = _kinds(data.asset_scan)
     db.commit()
     db.refresh(cred)
     return _to_out(cred)

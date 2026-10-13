@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Використовувати для сканування активів",
+        "assetScanHint": "Де сканування інвентаря може використовувати ці облікові дані. Якщо для виду позначено якісь дані, використовуються лише позначені (по черзі, ті що спрацювали - наступного разу першими); без позначок сканування використовує спільні / прив'язані до хоста дані, як раніше.",
+        "assetScan_windows": "Комп'ютери Windows (WinRM)",
+        "assetScan_linux": "Комп'ютери Linux (SSH)",
+        "assetScan_snmp": "Інші пристрої (SNMP community)",
+        "assetScanBadge_windows": "скан: Windows",
+        "assetScanBadge_linux": "скан: Linux",
+        "assetScanBadge_snmp": "скан: SNMP",
                         "title":  "Облікові дані",
                         "subtitle":  "Логіни + опційно SNMP community для старих пристроїв",
                         "newTitle":  "Нові облікові дані",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Розклад сканування",
+        "schedule_computers_hours": "Комп'ютери:",
+        "schedule_devices_hours": "Інші пристрої (SNMP):",
+        "everyHours": "кожні {{count}} год",
+        "everyDays": "кожні {{count}} дн.",
         "onlyNew": "Лише активи, виявлені за останні 7 днів",
         "clearFilter": "Скинути фільтр",
         "discover": "Знайти комп'ютери",

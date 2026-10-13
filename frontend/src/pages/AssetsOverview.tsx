@@ -21,6 +21,8 @@ export function AssetsOverview() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) },
   })
 
+  const { data: sched } = useQuery({ queryKey: ['asset-scan-settings'], queryFn: assetsApi.scanSettings })
+  const setSched = useMutation({ mutationFn: assetsApi.setScanSettings, onSuccess: () => qc.invalidateQueries({ queryKey: ['asset-scan-settings'] }) })
   const discover = useMutation({ mutationFn: assetsApi.discover, onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) } })
   const scanAll = useMutation({ mutationFn: assetsApi.scanAll, onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) } })
 
@@ -77,6 +79,20 @@ export function AssetsOverview() {
           <p>{discover.data.sweep.ranges.length === 0 ? t('assets.discoverNoRanges') : t('assets.discoverResult', { alive: discover.data.sweep.alive, ranges: discover.data.sweep.ranges.length })}</p>
           {discover.data.sweep.ranges.filter(r => r.skipped).map(r => <p key={r.cidr} className="text-xs text-indigo-700">{r.cidr}: {r.skipped}</p>)}
           {discover.data.sweep.alive === 0 && discover.data.sweep.ranges.length > 0 && <p className="text-xs text-indigo-700">{t('assets.discoverNone')}</p>}
+        </div>
+      )}
+
+      {sched && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2.5">
+          <span className="font-semibold text-slate-700">{t('assets.schedule')}</span>
+          {([['computers_hours', [6, 12, 24, 48, 168]], ['devices_hours', [1, 2, 4, 12, 24]]] as const).map(([key, opts]) => (
+            <label key={key} className="inline-flex items-center gap-2">
+              {t(`assets.schedule_${key}`)}
+              <select value={sched[key]} onChange={e => setSched.mutate({ [key]: Number(e.target.value) })} className="border border-slate-300 rounded-lg px-2 py-1 bg-white">
+                {[...new Set([...opts, sched[key]])].sort((a, b) => a - b).map(h => <option key={h} value={h}>{h >= 48 && h % 24 === 0 ? t('assets.everyDays', { count: h / 24 }) : t('assets.everyHours', { count: h })}</option>)}
+              </select>
+            </label>
+          ))}
         </div>
       )}
 

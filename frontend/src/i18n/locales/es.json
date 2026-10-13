@@ -178,6 +178,14 @@
                          }
                      },
     "credentials":  {
+        "assetScanTitle": "Usar en el análisis de activos",
+        "assetScanHint": "Dónde pueden usar este acceso los análisis del inventario. Si marca alguno para un tipo, solo se usan los marcados (uno tras otro, el que funcionó va primero la próxima vez); sin marcar, los análisis usan el acceso compartido / del host como antes.",
+        "assetScan_windows": "Equipos Windows (WinRM)",
+        "assetScan_linux": "Equipos Linux (SSH)",
+        "assetScan_snmp": "Otros dispositivos (comunidad SNMP)",
+        "assetScanBadge_windows": "análisis: Windows",
+        "assetScanBadge_linux": "análisis: Linux",
+        "assetScanBadge_snmp": "análisis: SNMP",
                         "title":  "Credenciales",
                         "subtitle":  "Inicios de sesión + comunidad SNMP opcional para dispositivos antiguos",
                         "newTitle":  "Nuevas credenciales",
@@ -1134,6 +1142,11 @@
         }
     },
     "assets": {
+        "schedule": "Programación de análisis",
+        "schedule_computers_hours": "Equipos:",
+        "schedule_devices_hours": "Otros dispositivos (SNMP):",
+        "everyHours": "cada {{count}} h",
+        "everyDays": "cada {{count}} días",
         "onlyNew": "Solo activos descubiertos en los últimos 7 días",
         "clearFilter": "Quitar filtro",
         "discover": "Buscar equipos",
