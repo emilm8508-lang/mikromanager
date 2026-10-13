@@ -1,10 +1,42 @@
 # MikroManager
 
 Aplikacja do zarządzania i monitorowania sieci — urządzenia Mikrotik
-(RouterOS v7+, z fallbackiem na starsze wersje i Cisco SB przez SNMP), oraz
-serwery Linux i Windows w tej samej sieci. Jeden lokalny agent (Python +
-React) na komputerze administratora, z opcjonalnym centralnym widokiem
-wielu klientów przez OVH.
+(RouterOS v7+, z fallbackiem na starsze wersje i Cisco SB przez SNMP), serwery
+Linux i Windows (w tym Hyper-V), komputery, drukarki i reszta sprzętu w tej
+samej sieci — z pełną inwentaryzacją, skanem podatności i podsumowaniem
+bezpieczeństwa. Jeden lokalny agent (Python + React) na komputerze
+administratora, z opcjonalnym centralnym widokiem wielu klientów przez OVH.
+
+## Zrzuty ekranu
+
+Dane na zrzutach są przykładowe (nie pochodzą z prawdziwej sieci).
+
+**Zasoby — przegląd.** Ile jest urządzeń, jakich typów, gdzie stoją, czy ich systemy są jeszcze wspierane i jak dobrze je znamy (skan z poświadczeniami / SNMP / tylko widoczne w sieci). Każdą wartość na wykresach można kliknąć, żeby zobaczyć listę urządzeń za nią.
+
+![Zasoby — przegląd](docs/screenshots/zasoby-przeglad.png)
+
+**Lista zasobów** — wyszukiwanie, filtry (typ, lokalizacja, cykl życia, podatności, poziom skanu), sortowanie, eksport CSV.
+
+![Lista zasobów](docs/screenshots/zasoby-lista.png)
+
+**Karta zasobu** — zakładki zależne od typu urządzenia: przegląd, sprzęt (BIOS, procesor, pamięć, dyski, karty sieciowe), oprogramowanie, ryzyko (podatności + cykl życia), usługi sieciowe, monitory i drukarki podłączone do komputera.
+
+![Karta zasobu — przegląd](docs/screenshots/zasoby-karta-przeglad.png)
+![Karta zasobu — sprzęt](docs/screenshots/zasoby-karta-sprzet.png)
+![Karta zasobu — ryzyko](docs/screenshots/zasoby-karta-ryzyko.png)
+
+**Podatności** — pulpit „Podatne zasoby” (najpoważniejsze CVE, status naprawy, terminy SLA, historia), lista CVE z rozwijaną remediacją oraz widok per host.
+
+![Podatności — pulpit](docs/screenshots/podatnosci-pulpit.png)
+![Podatności — lista CVE](docs/screenshots/podatnosci-cve.png)
+
+**Centrala (OVH)** — zasoby wszystkich klientów w jednym miejscu (bez numerów seryjnych i adresów MAC).
+
+![Centrala — zasoby](docs/screenshots/centrala-zasoby.png)
+
+**Poświadczenia** — każde poświadczenie można przypisać do rodzaju skanu (Windows / Linux / SNMP).
+
+![Poświadczenia](docs/screenshots/poswiadczenia.png)
 
 ## Wymagania
 
@@ -53,6 +85,26 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
   i SNMP dla starszych/ograniczonych urządzeń), interfejsy, adresy, trasy,
   firewall, wireless, DHCP, tunele L2/VPN (WireGuard/IPsec/EoIP/GRE/VXLAN),
   zasoby (CPU/pamięć/dysk), zdalna aktualizacja firmware, backup konfiguracji.
+- **Zasoby (pełna inwentaryzacja)** — jedna lista wszystkiego, co jest w sieci:
+  komputery (Windows/Linux), serwery, maszyny wirtualne, urządzenia sieciowe,
+  drukarki i reszta. Źródła: tablice DHCP/ARP routerów, skaner podatności,
+  hosty Linux/Windows, serwery Dell, Hyper-V oraz własne wykrywanie komputerów
+  w zakresach skanowania (ARP + nazwy NetBIOS/DNS — także tam, gdzie zapora
+  ukrywa wszystkie porty). Skan z poświadczeniami (read-only): Windows przez
+  WinRM/WMI (numer seryjny, BIOS, procesor, moduły RAM, dyski, karty sieciowe z MAC,
+  zalogowany użytkownik, **podłączone monitory, zainstalowane drukarki, USB**),
+  Linux przez SSH (DMI, lscpu, lsblk, EDID monitorów, CUPS). Bez poświadczeń —
+  podstawowe informacje przez SNMP (nazwa, model, numer seryjny, a dla drukarek
+  licznik stron i poziomy tonerów). Cykl życia systemu (wspierany / kończy się /
+  koniec wsparcia), podatności per urządzenie, lokalizacja z etykiety zakresu,
+  ręczne ustawienie typu i roli. Poświadczenia do skanów wybiera się na stronie
+  **Poświadczenia**; harmonogram: komputery raz na dobę, pozostałe urządzenia (SNMP)
+  co 2 godziny (do zmiany w „Harmonogramie skanów” na przeglądzie zasobów).
+- **Podsumowanie bezpieczeństwa** — jeden pulpit (agent i Centrala): podatności,
+  zgodność, zdarzenia i alerty ze wszystkich źródeł.
+- **Hyper-V** — graficzna tablica hostów i maszyn wirtualnych, alerty,
+  akcje na VM (start/zatrzymanie/restart/checkpoint), widok w Centrali.
+- **Serwery Linux/Windows** — tablica z grupami, wspólna aktualizacja i restart grupy.
 - **Skanowanie sieci** — jeden, wspólny mechanizm: wykrywanie urządzeń
   Mikrotik/Cisco po CIDR, cotygodniowy skan podatności (CVE), odświeżanie
   wersji RouterOS na znanych urządzeniach oraz wykrywanie hostów Linux/
@@ -60,7 +112,8 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
   każde na swoim harmonogramie.
 - **Podatności (CVE)** — pasywne wykrywanie wersji usług sieciowych +
   sprawdzenie w NVD/vulners.com/OSV.dev, pełny audyt pakietów dla hostów z
-  działającymi poświadczeniami, śledzenie remediacji (status/notatka/SLA).
+  działającymi poświadczeniami, śledzenie remediacji (status/notatka/SLA);
+  pulpit z historią dzienną podatnych zasobów, lista CVE i widok per host.
 - **Zarządzanie Linux** (apt/dnf) — wykrywanie hostów, sprawdzanie/instalacja
   aktualizacji, uruchamianie skryptów, monitoring dysku/pamięci.
 - **Zarządzanie Windows** (Windows Update) — jak wyżej, plus wykrywanie
@@ -71,16 +124,19 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
   alertami Telegram przy przekroczeniu progu.
 - **Zgodność (compliance)** — podstawowe sprawdzenia hardeningu konfiguracji
   (SSH/RDP/firewall/domyślne hasła) dla Linux/Windows/RouterOS.
-- **Inwentarz sprzętu i oprogramowania** — zbiorczy widok urządzeń + hostów,
-  lista zainstalowanego oprogramowania per host.
+- **Oprogramowanie** — lista zainstalowanego oprogramowania per host, z filtrem
+  zasobu (z karty zasobu prowadzi tu link „Otwórz w Oprogramowaniu”).
 - **AnyDesk** — lokalna historia połączeń (z plików trace, bez potrzeby
   płatnego API) do rozliczania czasu pracy u klientów.
 - **Centrala (OVH)** — opcjonalny, szyfrowany E2E widok wielu klientów z
   jednego miejsca: alerty, status urządzeń, zdalne komendy (aktualizacja
   firmware/agenta, restart, skan), zarządzanie użytkownikami.
-- **Bezpieczeństwo agenta** — logowanie z MFA (TOTP), dziennik audytu akcji,
-  automatyczna aktualizacja agenta z git (opcjonalna), szyfrowane
-  poświadczenia (Fernet).
+- **Bezpieczeństwo agenta** — logowanie z MFA (TOTP, kody jednorazowe), dziennik
+  audytu akcji, automatyczna aktualizacja agenta z git (opcjonalna), szyfrowane
+  poświadczenia (Fernet), ciasteczko sesji `HttpOnly` + `SameSite=Strict`,
+  limit prób logowania per źródło, nagłówki bezpieczeństwa (CSP). Wynik
+  audytu: [`docs/SECURITY-AUDIT-2026-10-13.md`](docs/SECURITY-AUDIT-2026-10-13.md);
+  HTTPS przed agentem: [`docs/https-za-reverse-proxy.md`](docs/https-za-reverse-proxy.md).
 
 ## Skaner podatności (CVE)
 
@@ -110,10 +166,11 @@ domyślnie raz na 7 dni per host, zmienialne przez
 
 Dysk/pamięć (Linux przez SSH, Windows przez WinRM, Mikrotik przez
 `/system/resource`) oraz błędy/przeciążenia interfejsów (Mikrotik) —
-`services/resource_monitor.py`. Mikrotik sprawdzany co 2 minuty (razem ze
-snapshotem do Centrali), Linux/Windows na osobnym, wolniejszym cyklu
-(domyślnie 30 min, `MIKROTIK_RESOURCE_CHECK_MIN`) — SSH/WinRM jest za
-"ciężkie" na cykl 2-minutowy. Progi alarmowe (Telegram, z histerezą):
+`services/resource_monitor.py`. Mikrotik sprawdzany raz na godzinę
+(`MIKROTIK_DEVICE_RESOURCE_CHECK_MIN`, żeby nie zasypywać logów routerów
+logowaniami), Linux/Windows co 30 min (`MIKROTIK_RESOURCE_CHECK_MIN`) — SSH/WinRM
+jest za "ciężkie" na cykl 2-minutowy. Kto i jak często loguje się do routerów,
+pokazuje `/api/system/device-access`. Progi alarmowe (Telegram, z histerezą):
 
 - `MIKROTIK_DISK_ALERT_PCT` (domyślnie 90%)
 - `MIKROTIK_MEM_ALERT_PCT` (domyślnie 90%)
@@ -121,6 +178,19 @@ snapshotem do Centrali), Linux/Windows na osobnym, wolniejszym cyklu
   najwyżej może odezwać się alert błędów/drops na tym samym interfejsie
 - próg Mbps dla przeciążenia łącza ustawiany ręcznie per urządzenie
   (zakładka Urządzenia → wybrane urządzenie → "Sieć"), domyślnie wyłączony
+
+## Zmienne środowiskowe (wybrane)
+
+| Zmienna | Domyślnie | Znaczenie |
+|---|---|---|
+| `MIKROMANAGER_HOST` / `MIKROMANAGER_PORT` | `0.0.0.0` / `8888` | adres i port agenta (za reverse proxy ustaw `127.0.0.1`) |
+| `MIKROMANAGER_COOKIE_SECURE` | `0` | `1` = ciasteczko sesji tylko po HTTPS |
+| `MIKROMANAGER_SESSION_HOURS` | `168` | ważność logowania (godziny, maks. 720) |
+| `MIKROMANAGER_API_DOCS` | `0` | `1` = udostępnij `/docs` i `/openapi.json` |
+| `MIKROTIK_ASSET_SCAN_HOURS` / `MIKROTIK_ASSET_DEVICE_SCAN_HOURS` | `24` / `2` | częstotliwość skanów komputerów / pozostałych urządzeń (zmienialna też w interfejsie) |
+| `MIKROTIK_LAN_SWEEP_HOURS` | `6` | jak często wykrywane są komputery w zakresach skanowania |
+| `MIKROTIK_ASSET_DIRECTORY_SEC` | `7200` | jak stara może być kopia tablic DHCP/ARP przy przebudowie inwentarza |
+| `MIKROTIK_DEVICE_RESOURCE_CHECK_MIN` | `60` | odpytywanie zasobów routerów (minuty) |
 
 ## Struktura projektu
 
@@ -139,6 +209,7 @@ mikrotik/
 │   │   ├── windows_manage.py      # Patch management Windows (Windows Update) przez WinRM
 │   │   ├── resource_monitor.py    # Dysk/pamięć/interfejsy — progi + alerty
 │   │   ├── tunnel_monitor.py      # Status tuneli VPN (WireGuard/IPsec/EoIP/GRE/VXLAN)
+│   │   ├── assets.py              # Inwentarz zasobów (+ asset_lifecycle, asset_scan*, lan_sweep)
 │   │   ├── compliance.py          # Sprawdzenia hardeningu (Linux/Windows/RouterOS)
 │   │   ├── refresher.py           # Cykliczne odświeżanie tożsamości/wersji urządzeń
 │   │   ├── firmware.py            # Aktualizacja firmware RouterOS + backup konfiguracji

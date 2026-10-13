@@ -49,6 +49,8 @@ async def lifespan(app: FastAPI):
     if restore_result:
         print(f"[startup] backup restore: {restore_result}")
     init_db()
+    from services import fs_perms
+    fs_perms.harden_data_dir(os.path.join(os.path.dirname(__file__), "data"))     # keys readable by the agent's account only
     refresher.start()
     uplink.start()
     vuln_scan.start()

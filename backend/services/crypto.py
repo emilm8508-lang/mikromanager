@@ -16,6 +16,8 @@ def _get_or_create_key() -> bytes:
     key = Fernet.generate_key()
     with open(KEY_FILE, "wb") as f:
         f.write(key)
+    from services import fs_perms
+    fs_perms.restrict(KEY_FILE)
     return key
 
 

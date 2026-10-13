@@ -21,7 +21,11 @@ import qrcode
 import qrcode.image.svg
 
 SESSION_COOKIE = "mm_session"
-SESSION_TTL_SEC = 7 * 24 * 3600  # 7 days
+# How long a login stays valid: 7 days by default; MIKROMANAGER_SESSION_HOURS shortens (or lengthens, up to 30 days) it.
+try:
+    SESSION_TTL_SEC = max(1, min(int(os.environ.get("MIKROMANAGER_SESSION_HOURS", "168")), 720)) * 3600
+except ValueError:
+    SESSION_TTL_SEC = 7 * 24 * 3600
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 _SESSION_SECRET_PATH = os.path.join(_DATA_DIR, ".session_secret")
@@ -58,6 +62,8 @@ def _get_session_secret() -> bytes:
     key = secrets.token_bytes(32)
     with open(_SESSION_SECRET_PATH, "wb") as f:
         f.write(key)
+    from services import fs_perms
+    fs_perms.restrict(_SESSION_SECRET_PATH)
     _session_secret_cache = key
     return key
 
