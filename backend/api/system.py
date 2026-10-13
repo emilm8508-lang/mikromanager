@@ -29,6 +29,13 @@ from api.auth import require_login
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 
+@router.get("/device-access")
+async def device_access(minutes: int = 180):
+    """Who has been logging in to the routers, by part of the agent (the router log shows each as "logged in via rest-api / api")."""
+    from services import mikrotik_client
+    return mikrotik_client.access_summary(max(1, min(minutes, 1440)))
+
+
 @router.get("/refresh/status")
 async def get_refresh_status():
     return refresher.status()

@@ -13,12 +13,63 @@ import aiohttp
 import os
 import re
 import ssl
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 import librouteros
 from librouteros import login as librouteros_login
 from services.snmp_client import SnmpClient
+from collections import deque
+from datetime import datetime
+
+# Every login this agent makes to a router (each REST request is a new connection, so a new "logged in via rest-api" line in the
+# router's log; each binary-API call a login + logout pair) is noted here with the part of the agent that asked for it, so an
+# unexpected stream of logins can be traced: GET /api/system/device-access.
+_ACCESS_LOG: "deque" = deque(maxlen=3000)
+_CLIENT_MODULES = ("services.mikrotik_client", "services.device_client", "services.cisco_client")
+
+
+def _note_access(kind: str, ip: str, what: str) -> None:
+    try:
+        chain = []                                    # innermost first: the agent's own modules that led to this call
+        f = sys._getframe(1)
+        while f is not None:
+            mod = f.f_globals.get("__name__") or ""
+            if mod.startswith(("services.", "api.")) and mod not in _CLIENT_MODULES:
+                name = f"{mod.split('.', 1)[1]}.{f.f_code.co_name}"
+                if not chain or chain[-1] != name:
+                    chain.append(name)
+            f = f.f_back
+        origin = chain[-1] if chain else "other"
+        via = chain[0] if len(chain) > 1 else None
+        _ACCESS_LOG.append({"at": datetime.utcnow(), "kind": kind, "ip": ip, "what": what, "origin": origin, "via": via})
+    except Exception:
+        pass
+
+
+def access_summary(minutes: int = 180) -> dict:
+    """Router logins of the last `minutes`, grouped by the part of the agent that made them."""
+    since = datetime.utcnow().timestamp() - minutes * 60
+    groups: dict = {}
+    for e in _ACCESS_LOG:
+        if e["at"].timestamp() < since:
+            continue
+        g = groups.setdefault(e["origin"], {"origin": e["origin"], "count": 0, "devices": set(), "via": set(), "times": [], "kinds": set()})
+        g["count"] += 1
+        g["devices"].add(e["ip"])
+        g["kinds"].add(e["kind"])
+        if e["via"]:
+            g["via"].add(e["via"])
+        g["times"].append(e["at"])
+    out = []
+    for g in groups.values():
+        ts = sorted(g["times"])
+        gaps = [(b - a).total_seconds() for a, b in zip(ts, ts[1:])]
+        out.append({"origin": g["origin"], "logins": g["count"], "devices": len(g["devices"]), "kinds": sorted(g["kinds"]), "called_from": sorted(g["via"])[:6],
+                    "typical_gap_sec": round(sorted(gaps)[len(gaps) // 2]) if gaps else None, "first": ts[0].isoformat() + "Z", "last": ts[-1].isoformat() + "Z"})
+    out.sort(key=lambda x: -x["logins"])
+    return {"minutes": minutes, "total": sum(g["logins"] for g in out), "by_origin": out}
 
 # Dedicated pool for the binary-API's blocking librouteros calls — NOT the
 # asyncio default executor (loop.run_in_executor(None, ...)), which is
@@ -186,6 +237,7 @@ class MikrotikClient:
 
     async def _rest_request(self, method: str, path: str, data: Optional[dict] = None) -> Any:
         url = f"{self._rest_base}/{path.lstrip('/')}"
+        _note_access("rest", self.ip, f"{method} {path}")
         auth = aiohttp.BasicAuth(self.username, self.password)
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False
@@ -239,6 +291,7 @@ class MikrotikClient:
         circuit-breaker below stops retrying the same doomed handshake on
         every poll cycle."""
         loop = asyncio.get_event_loop()
+        _note_access("api", self.ip, command)
 
         def _run():
             ssl_wrapper = None

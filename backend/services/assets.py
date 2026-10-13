@@ -35,6 +35,9 @@ from models.database import (
 from services import asset_lifecycle, asset_scan
 
 TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "other")
+# How old the routers' DHCP/ARP tables may be before an inventory rebuild logs in to every router again for them (each login is a
+# line in the router's log); a button press always reads fresh ones.
+DIRECTORY_MAX_AGE_SEC = int(os.environ.get("MIKROTIK_ASSET_DIRECTORY_SEC", "7200"))
 REFRESH_SEC = max(120, int(os.environ.get("MIKROTIK_ASSET_REFRESH_SEC", "900")))
 STALE_DAYS = 7                       # not seen for this long = inactive
 NEW_DAYS = 7
@@ -285,7 +288,7 @@ def _save(recs: Dict[str, _Rec]) -> dict:
 _state = {"last_refresh": None, "running": False}
 
 
-async def refresh(directory: bool = True) -> dict:
+async def refresh(directory: bool = True, fresh: bool = False) -> dict:
     """Rebuild the inventory from the sources. Cheap (database only), apart from re-reading the routers' DHCP/ARP tables
     when they are stale."""
     if _state["running"]:
@@ -296,7 +299,7 @@ async def refresh(directory: bool = True) -> dict:
         if directory:
             try:
                 from services import host_monitor
-                entries = await host_monitor.directory()
+                entries = await host_monitor.directory(refresh=fresh, max_age=None if fresh else DIRECTORY_MAX_AGE_SEC)
             except Exception as e:
                 print(f"[assets] DHCP/ARP directory unavailable: {e}")
         sweep_entries = []

@@ -52,13 +52,13 @@ async def discover_status():
 async def discover():
     """Looks for the computers of the scan ranges (TCP pokes + ARP + NetBIOS/DNS names) and rebuilds the inventory with them."""
     sweep = await lan_sweep.sweep_all()
-    inv = await assets.refresh()
+    inv = await assets.refresh(fresh=True)
     return {"sweep": sweep, "inventory": inv}
 
 
 @router.post("/refresh")
 async def refresh():
-    return await assets.refresh()
+    return await assets.refresh(fresh=True)
 
 
 @router.post("/scan-all")

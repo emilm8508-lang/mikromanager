@@ -673,10 +673,11 @@ def _update_directory(datas: List[dict]) -> None:
     _directory["at"] = time.time()
 
 
-async def directory(refresh: bool = False) -> List[dict]:
+async def directory(refresh: bool = False, max_age: Optional[float] = None) -> List[dict]:
     """Every host the routers' DHCP leases / ARP tables (and the agent's own scans) know: [{name, ip, mac, sources,
-    devices, comment}]. The asset inventory's way to see devices no port scan reaches (printers, phones, ...)."""
-    if refresh or time.time() - _directory["at"] > _DIRECTORY_TTL_SEC:
+    devices, comment}]. The asset inventory's way to see devices no port scan reaches (printers, phones, ...). `max_age`
+    (seconds) lets a caller that does not need fresh data accept an older copy instead of logging in to every router again."""
+    if refresh or time.time() - _directory["at"] > (max_age if max_age is not None else _DIRECTORY_TTL_SEC):
         devices = _load_devices()
         _update_directory(await _fetch_all(devices, with_logs=False) if devices else [])
     return list(_directory["entries"])
