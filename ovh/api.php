@@ -2350,7 +2350,7 @@ try {
             $name = trim((string)($data['name']??'')); $type = (string)($data['type']??''); $cfg = $data['config'] ?? [];
             if ($name==='' || !in_array($type,['telegram','webhook'],true)) { http_response_code(400); echo json_encode(['error'=>'name and type required']); break; }
             if ($type==='telegram' && (empty($cfg['bot_token'])||empty($cfg['chat_id']))) { http_response_code(400); echo json_encode(['error'=>'bot_token and chat_id required']); break; }
-            if ($type==='webhook' && (empty($cfg['url'])||!filter_var($cfg['url'],FILTER_VALIDATE_URL))) { http_response_code(400); echo json_encode(['error'=>'valid url required']); break; }
+            if ($type==='webhook' && (empty($cfg['url'])||!filter_var($cfg['url'],FILTER_VALIDATE_URL)||!preg_match('#^https?://#i',(string)$cfg['url']))) { http_response_code(400); echo json_encode(['error'=>'valid url required']); break; }
             $stmt = $pdo->prepare('INSERT INTO notification_channels (name,type,config,enabled) VALUES (?,?,?,1)');
             $stmt->execute([$name,$type,json_encode($cfg)]);
             echo json_encode(['ok'=>true,'id'=>(int)$pdo->lastInsertId()]);

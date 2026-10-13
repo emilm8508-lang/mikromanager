@@ -81,6 +81,10 @@ def _ping_sync(ip: str, timeout: int = 3) -> tuple:
     split as ovh/notifications.php's edge_check_ip() ICMP branch, just
     without that environment's broken raw-socket limitation (this is a
     normal OS process with normal network permissions)."""
+    try:
+        ip = str(__import__("ipaddress").ip_address(str(ip).strip()))          # never let a value starting with "-" reach ping as an option
+    except ValueError:
+        return False, f"ping target {ip!r} is not an IP address"
     is_windows = platform.system().lower().startswith("win")
     if is_windows:
         cmd = ["ping", "-n", "1", "-w", str(timeout * 1000), ip]

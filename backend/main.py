@@ -85,7 +85,10 @@ async def lifespan(app: FastAPI):
         lan_sweep_svc.stop()
 
 
-app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)
+# The interactive API docs / schema would hand an unauthenticated visitor the full map of the API: off unless asked for.
+_DOCS = os.environ.get("MIKROMANAGER_API_DOCS", "0") == "1"
+app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan,
+              docs_url="/docs" if _DOCS else None, redoc_url="/redoc" if _DOCS else None, openapi_url="/openapi.json" if _DOCS else None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -124,6 +127,28 @@ app.include_router(dell_api.router, dependencies=_protected)
 app.include_router(hostmon_api.router, dependencies=_protected)
 app.include_router(hostsvc_api.router, dependencies=_protected)
 app.include_router(fleet_api.router, dependencies=_protected)
+
+
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+                               "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+}
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if not (_DOCS and request.url.path in ("/docs", "/redoc")):         # the docs pages load their UI from a CDN
+        for k, v in _SECURITY_HEADERS.items():
+            response.headers.setdefault(k, v)
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")        # API answers hold inventory, logs, findings
+    return response
 
 
 @app.middleware("http")

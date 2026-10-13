@@ -14,15 +14,23 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 COOKIE_SECURE = os.environ.get("MIKROMANAGER_COOKIE_SECURE", "0") == "1"
 
 
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
 def _set_session_cookie(response: Response, *, source: str, username: str,
-                         role: str, account_id: Optional[int] = None) -> None:
+                         role: str, account_id: Optional[int] = None, request: Optional[Request] = None) -> None:
+    # SameSite=Strict: the cookie is never sent on a request that starts on another site, so a page an administrator is lured to
+    # cannot trigger the GET endpoints that start scans or use stored credentials (CSRF through top-level navigation).
+    # Secure is also set whenever the request itself arrived over HTTPS (directly or through a TLS-terminating proxy).
+    https = bool(request and (request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "").lower() == "https"))
     response.set_cookie(
         auth_svc.SESSION_COOKIE,
         auth_svc.create_session_token(source=source, username=username, role=role, account_id=account_id),
         max_age=auth_svc.SESSION_TTL_SEC,
         httponly=True,
-        samesite="lax",
-        secure=COOKIE_SECURE,
+        samesite="strict",
+        secure=COOKIE_SECURE or https,
         path="/",
     )
 
@@ -208,7 +216,7 @@ class MfaConfirmIn(BaseModel):
 
 
 @router.post("/mfa/confirm")
-async def mfa_confirm(data: MfaConfirmIn, response: Response, db: Session = Depends(get_db)):
+async def mfa_confirm(data: MfaConfirmIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Second step of setup: prove the TOTP secret was scanned correctly.
     Enables MFA and logs the user in immediately."""
     account = _get_account(db)
@@ -217,14 +225,23 @@ async def mfa_confirm(data: MfaConfirmIn, response: Response, db: Session = Depe
     if account.mfa_enabled:
         raise HTTPException(400, "MFA already enabled — use /login")
 
+    # This endpoint needs no session (it finishes the first-run setup), so without a throttle anyone who can reach the agent while
+    # the setup is unfinished could try all 10^6 codes and walk away with an administrator session.
+    throttle_key = f"mfaconfirm:{account.username.lower()}"
+    locked_for = auth_svc.check_throttle(throttle_key)
+    if locked_for is not None:
+        raise HTTPException(429, f"too many failed attempts — try again in {locked_for}s")
+
     from services.crypto import decrypt
     secret = decrypt(account.totp_secret_enc)
     if not auth_svc.verify_totp(secret, data.code):
+        auth_svc.record_failure(throttle_key)
         raise HTTPException(401, "invalid code")
+    auth_svc.record_success(throttle_key)
 
     account.mfa_enabled = True
     db.commit()
-    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id)
+    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id, request=request)
     return {"ok": True}
 
 
@@ -234,7 +251,7 @@ class LoginIn(BaseModel):
     totp_code: str
 
 
-def _local_login(data: LoginIn, response: Response, db: Session) -> dict:
+def _local_login(data: LoginIn, response: Response, db: Session, request: Optional[Request] = None) -> dict:
     """The local emergency account's login check — unchanged from before this
     feature existed. Deliberately makes no network call (see services/auth.py's
     module docstring): must keep working even if OVH/its DB is unreachable."""
@@ -242,10 +259,15 @@ def _local_login(data: LoginIn, response: Response, db: Session) -> dict:
     if account is None:
         raise HTTPException(404, "no account configured — call /setup first")
 
-    throttle_key = account.username.lower()
-    locked_for = auth_svc.check_throttle(throttle_key)
-    if locked_for is not None:
-        raise HTTPException(429, f"too many failed attempts — try again in {locked_for}s")
+    # Two counters: one per (account, source address) - five wrong tries lock only that source, so a stranger cannot keep the real
+    # administrator locked out by failing on purpose - and a loose account-wide one against a spread-out guessing attack.
+    ip = _client_ip(request) if request else "?"
+    throttle_key = f"{account.username.lower()}@{ip}"
+    wide_key = f"{account.username.lower()}@*"
+    for k in (throttle_key, wide_key):
+        locked_for = auth_svc.check_throttle(k)
+        if locked_for is not None:
+            raise HTTPException(429, f"too many failed attempts — try again in {locked_for}s")
 
     valid = (
         data.username.strip().lower() == account.username.lower()
@@ -262,15 +284,16 @@ def _local_login(data: LoginIn, response: Response, db: Session) -> dict:
 
     if not valid:
         auth_svc.record_failure(throttle_key)
+        auth_svc.record_failure(wide_key, max_attempts=40, lockout_sec=300)
         raise HTTPException(401, "invalid username, password, or code")
 
     auth_svc.record_success(throttle_key)
-    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id)
+    _set_session_cookie(response, source="local", username=account.username, role="admin", account_id=account.id, request=request)
     return {"ok": True, "source": "local", "username": account.username, "role": "admin"}
 
 
 @router.post("/login")
-async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+async def login(data: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """OVH-primary login: if central is configured, try it first. Only fall
     back to the local emergency account when OVH is unreachable or has no
     accounts provisioned yet — a clean credential/scope rejection from a
@@ -279,7 +302,7 @@ async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)
     if uplink.is_configured():
         try:
             result = await ovh_auth.login(data.username, data.password, data.totp_code)
-            _set_session_cookie(response, source="ovh", username=result["username"], role=result["role"])
+            _set_session_cookie(response, source="ovh", username=result["username"], role=result["role"], request=request)
             return {"ok": True, "source": "ovh", "username": result["username"], "role": result["role"],
                     "allowed_tenants": result.get("allowed_tenants")}
         except ovh_auth.OvhLoginRejected as e:
@@ -291,19 +314,22 @@ async def login(data: LoginIn, response: Response, db: Session = Depends(get_db)
         except (ovh_auth.OvhNotProvisioned, ovh_auth.OvhUnreachable):
             pass  # fall through to the local emergency account below
 
-    return _local_login(data, response, db)
+    return _local_login(data, response, db, request)
 
 
 @router.post("/login/local")
-async def login_local(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+async def login_local(data: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Deliberate, explicit use of the local emergency account — for when an
     operator wants to bypass OVH on purpose (e.g. their central account was
     deactivated), not just when OVH happens to be unreachable."""
-    return _local_login(data, response, db)
+    return _local_login(data, response, db, request)
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    token = request.cookies.get(auth_svc.SESSION_COOKIE)
+    if token:
+        auth_svc.revoke_session_token(token)          # a copied cookie stops working too, not just the browser's copy
     response.delete_cookie(auth_svc.SESSION_COOKIE, path="/")
     return {"ok": True}
 

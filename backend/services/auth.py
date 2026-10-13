@@ -115,12 +115,26 @@ def totp_qr_svg_data_uri(uri: str) -> str:
     return f"data:image/svg+xml;base64,{b64}"
 
 
+_last_totp_step: dict = {}      # sha256(secret) -> the newest 30-second step already used for a login
+
+
 def verify_totp(secret: str, code: str) -> bool:
+    """True for a correct code that has not been used before: a code seen once (shoulder-surfed, sniffed on plain HTTP) cannot be
+    replayed inside its 90-second validity window."""
     code = (code or "").strip().replace(" ", "")
     if not code:
         return False
     try:
-        return pyotp.TOTP(secret).verify(code, valid_window=1)
+        totp = pyotp.TOTP(secret)
+        now = int(time.time())
+        key = hashlib.sha256(secret.encode()).hexdigest()
+        for step in (now // 30 - 1, now // 30, now // 30 + 1):
+            if hmac.compare_digest(totp.at(step * 30), code):
+                if step <= _last_totp_step.get(key, -1):
+                    return False                       # already used (or older than one that was)
+                _last_totp_step[key] = step
+                return True
+        return False
     except Exception:
         return False
 
@@ -145,9 +159,25 @@ def create_session_token(*, source: str, username: str, role: str, account_id: O
     return base64.urlsafe_b64encode(payload_json.encode()).decode() + "." + sig
 
 
+_revoked_sigs: dict = {}        # signature -> expiry; a logged-out token stays dead until this process restarts
+
+
+def revoke_session_token(token: str) -> None:
+    try:
+        sig = token.split(".", 1)[1]
+        now = int(time.time())
+        for k in [k for k, exp in _revoked_sigs.items() if exp < now]:
+            _revoked_sigs.pop(k, None)
+        _revoked_sigs[sig] = now + SESSION_TTL_SEC
+    except Exception:
+        pass
+
+
 def verify_session_token(token: str) -> Optional[dict]:
     try:
         payload_b64, sig = token.split(".", 1)
+        if sig in _revoked_sigs:
+            return None
         payload_json = base64.urlsafe_b64decode(payload_b64.encode()).decode()
         expected_sig = hmac.new(_get_session_secret(), payload_json.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_sig, sig):
@@ -181,10 +211,10 @@ def check_throttle(key: str) -> Optional[int]:
     return remaining if remaining > 0 else None
 
 
-def record_failure(key: str) -> None:
+def record_failure(key: str, max_attempts: int = _MAX_ATTEMPTS, lockout_sec: int = _LOCKOUT_SEC) -> None:
     count, _ = _failed_attempts.get(key, (0, 0))
     count += 1
-    locked_until = time.time() + _LOCKOUT_SEC if count >= _MAX_ATTEMPTS else 0
+    locked_until = time.time() + lockout_sec if count >= max_attempts else 0
     _failed_attempts[key] = (count, locked_until)
 
 

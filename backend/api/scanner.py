@@ -1,6 +1,6 @@
 import json
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Request, APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
@@ -94,7 +94,7 @@ async def delete_range(range_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/probe")
-async def probe_single(ip: str, credential_id: Optional[int] = None,
+async def probe_single(request: Request, ip: str, credential_id: Optional[int] = None,
                        timeout: float = 2.0, db: Session = Depends(get_db)):
     """Diagnostic single-IP probe — bypasses the mass-scan's MAX_CONCURRENT
     semaphore entirely (this is the only thing running against the
@@ -117,9 +117,23 @@ async def probe_single(ip: str, credential_id: Optional[int] = None,
     MikroManager's own scanning logic."""
     import ipaddress
     try:
-        ipaddress.ip_address(ip)
+        addr = ipaddress.ip_address(ip)
     except ValueError:
         raise HTTPException(400, f"Invalid IP address: {ip}")
+    # Only addresses this agent already manages or scans. This used to accept any address, and with credential_id the agent
+    # logged in to it with a stored password: a way to hand a router password to a host of someone else's choosing (and, as a GET,
+    # open to a read-only account).
+    from models.database import Device as _Device
+    in_scope = bool(db.execute(select(_Device.id).where(_Device.ip == ip)).first())
+    for r in db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all():  # noqa: E712
+        try:
+            in_scope = in_scope or addr in ipaddress.ip_network(r.cidr, strict=False)
+        except ValueError:
+            continue
+    if not in_scope:
+        raise HTTPException(403, "the address is neither a known device nor inside an active scan range")
+    if credential_id and (getattr(request.state, "session", None) or {}).get("role") != "admin":
+        raise HTTPException(403, "using a stored credential requires the admin role")
 
     all_ports = list(dict.fromkeys(svc.LIVENESS_PORTS + [8729]))
 

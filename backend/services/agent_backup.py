@@ -167,10 +167,9 @@ def apply_staged_restore_if_present() -> Optional[str]:
                 # this can't re-trigger on a future boot.
                 shutil.move(_DATA_DIR, aside)
             os.makedirs(_DATA_DIR, exist_ok=True)
-            try:
-                tar.extractall(_DATA_DIR, filter="data")  # PEP 706, Python 3.12+
-            except TypeError:
-                tar.extractall(_DATA_DIR)
+            if not hasattr(tarfile, "data_filter"):      # no PEP 706 extraction filter: a crafted archive could write outside data/
+                raise ValueError("this Python has no safe tar extraction filter - update Python to restore a backup")
+            tar.extractall(_DATA_DIR, filter="data")
         return f"restored {len(members)} file(s)"
     except Exception as e:
         try:

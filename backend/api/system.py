@@ -318,11 +318,14 @@ async def uplink_generate_enc_key():
 
 
 @router.get("/uplink/enc-key")
-async def uplink_get_enc_key():
+async def uplink_get_enc_key(session: dict = Depends(require_login)):
     """Recover the currently-configured enc_key — e.g. the user generated
     one, forgot to save it, and now needs it for a viewer/phone setup.
     Gated by the same require_login as the rest of this router; OVH never
-    sees this value regardless."""
+    sees this value regardless. Administrators only: with this key anyone can read every end-to-end encrypted snapshot of this
+    tenant, and a read-only (viewer) account may otherwise call any GET."""
+    if session.get("role") != "admin":
+        raise HTTPException(403, "admin role required")
     return {"enc_key": uplink_svc.get_enc_key()}
 
 
@@ -575,6 +578,10 @@ async def _central_proxy_forward(request: Request, upstream: str, method: str):
 
     allowed_host = _load_allowed_host()
     if not allowed_host:
+        # trust-on-first-use pinning, but only an administrator may pin: otherwise any logged-in account could pin an arbitrary
+        # HTTPS host and have the Central Authorization header (the Central password) forwarded to it
+        if (getattr(request.state, "session", None) or {}).get("role") != "admin":
+            raise HTTPException(403, "the central host is not pinned yet - an administrator has to open Central first")
         _save_allowed_host(hostname)
     elif hostname != allowed_host:
         raise HTTPException(
