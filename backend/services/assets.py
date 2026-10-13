@@ -162,9 +162,16 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
     for ip, ports in ports_by_ip.items():
         r = recs[f"ip:{ip}"]
         r.put(asset_type=_guess_type(ports, r.get("name")))
+    sweep_ports = {e["ip"]: set(e.get("ports") or []) for e in directory if e.get("ip") and "sweep" in (e.get("sources") or [])}
+    hints = {e["ip"]: e.get("hint") for e in directory if e.get("ip") and e.get("hint")}
     for r in recs.values():
-        if not r.get("asset_type"):
-            r["asset_type"] = _guess_type(set(), r.get("name"))
+        ip = r.get("ip")
+        allp = (ports_by_ip.get(ip) or set()) | sweep_ports.get(ip, set())
+        if not r.get("asset_type") or (r["asset_type"] == "other" and allp):
+            kind = _guess_type(allp, r.get("name"))
+            r["asset_type"] = "windows" if kind == "other" and hints.get(ip) == "windows" else kind
+        if r["asset_type"] == "windows" and not r.get("role"):
+            r["role"] = "workstation"                    # a Windows host nobody classified: most are workstations; the operator can change it
 
     for d in devices:
         r = rec(d.ip)
@@ -255,9 +262,10 @@ def _save(recs: Dict[str, _Rec]) -> dict:
             if r.get("ip"):
                 a.ip = r["ip"]
             for f in ("mac", "name", "manufacturer", "model", "serial", "os_name", "os_version", "role"):
-                if r.get(f):
+                if r.get(f) and not (f == "role" and "role" in _jload(a.details, {}).get("_over", {})):
                     setattr(a, f, r[f])
-            if r.get("asset_type") and (r["asset_type"] != "other" or not a.asset_type or a.asset_type == "other"):
+            over = _jload(a.details, {}).get("_over", {})
+            if r.get("asset_type") and "type" not in over and (r["asset_type"] != "other" or not a.asset_type or a.asset_type == "other"):
                 a.asset_type = r["asset_type"]
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
@@ -291,7 +299,14 @@ async def refresh(directory: bool = True) -> dict:
                 entries = await host_monitor.directory()
             except Exception as e:
                 print(f"[assets] DHCP/ARP directory unavailable: {e}")
-        result = _save(_collect(entries))
+        sweep_entries = []
+        try:
+            from services import lan_sweep
+            sweep_entries = lan_sweep.entries()
+        except Exception as e:
+            print(f"[assets] LAN sweep results unavailable: {e}")
+        result = _save(_collect(entries + sweep_entries))
+        result["sources"] = {"routers": len(entries), "sweep": len(sweep_entries)}
         _state["last_refresh"] = datetime.utcnow()
         try:
             await record_vuln_day()
@@ -514,7 +529,7 @@ def _hardware(db, a: Asset) -> dict:
             }.items() if x not in (None, [], "")}
     stored = _jload(a.details, {})
     for k, v in stored.items():
-        if k == "host" or (k == "disks" and hw.get("disks")):
+        if k in ("host", "_over") or (k == "disks" and hw.get("disks")):
             continue                                 # the live volume figures of the source tables stay fresher than the scan's
         hw[k] = v                                    # a hardware scan's own sections win
     return hw
@@ -541,7 +556,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
                    "details": _jload(p.details, {}), "last_seen_at": _iso(p.last_seen_at)}
                   for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.asset_id == a.id)).scalars().all()]
         row.update({
-            "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
+            "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
             "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,
@@ -584,6 +599,25 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             a.location_override = (fields["location_override"] or "").strip()[:128] or None
         if "notes" in fields:
             a.notes = (fields["notes"] or "").strip()[:2000] or None
+        if "asset_type" in fields or "role" in fields:
+            d = _jload(a.details, {})
+            over = d.get("_over", {})
+            if "asset_type" in fields:
+                v = fields["asset_type"]
+                if v in TYPES:
+                    over["type"] = a.asset_type = v
+                else:
+                    over.pop("type", None)             # back to automatic: the next rebuild decides again
+            if "role" in fields:
+                v = fields["role"]
+                if v in ("server", "workstation"):
+                    over["role"] = a.role = v
+                else:
+                    over.pop("role", None)
+            d["_over"] = over
+            if not over:
+                d.pop("_over")
+            a.details = json.dumps(d)
         if "manual_groups" in fields:
             tags = []
             for t in fields["manual_groups"] or []:

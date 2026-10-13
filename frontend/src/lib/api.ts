@@ -1116,6 +1116,7 @@ export interface AssetDetail extends AssetRow {
   location_override: string | null
   lifecycle_detail: { product: string | null; status: AssetLifecycle; eol: string | null; days_left: number | null }
   refs: Record<string, number>
+  override: { type?: string; role?: string }
   parent: string | null
   hardware: Record<string, any>
   peripherals: AssetPeripheralOut[]
@@ -1143,10 +1144,11 @@ export const assetsApi = {
   vulnerabilities: (id: number) => api.get<{ findings: AssetFinding[] }>(`/assets/${id}/vulnerabilities`).then(r => r.data.findings),
   software: (id: number) => api.get<{ software: Array<{ name: string; version: string | null; last_seen: string | null }> }>(`/assets/${id}/software`).then(r => r.data.software),
   refresh: () => api.post('/assets/refresh').then(r => r.data),
+  discover: () => api.post<{ sweep: { alive: number; ranges: Array<{ cidr: string; label?: string | null; probed?: number; alive?: number; skipped?: string }> }; inventory: { created?: number; total?: number } }>('/assets/discover').then(r => r.data),
   vulnHistory: (days = 90) => api.get<{ points: Array<{ day: string; assets: number; critical: number; high: number; medium: number; low: number }> }>('/assets/vuln-history', { params: { days } }).then(r => r.data),
   scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
   scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
-  update: (id: number, body: { name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
+  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
 }

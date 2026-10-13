@@ -1292,6 +1292,18 @@
         }
     },
     "assets": {
+        "onlyNew": "Tylko zasoby wykryte w ostatnich 7 dniach",
+        "clearFilter": "Wyczyść filtr",
+        "discover": "Znajdź komputery",
+        "discovering": "Szukam…",
+        "discoverHint": "Sprawdza każdy adres zakresów skanowania, czyta tablicę ARP i pyta o nazwy NetBIOS / DNS - znajduje komputery, których zapora ukrywa wszystkie porty przed skanerem podatności",
+        "discoverResult": "Znaleziono {{alive}} aktywnych hostów w zakresach skanowania: {{ranges}}; inwentarz przebudowano.",
+        "discoverNoRanges": "Nie ma jeszcze zakresu skanowania - dodaj go na stronie „Skaner sieci”; wyszukiwanie obejmuje zakresy z tamtej listy.",
+        "discoverNone": "Nic nie odpowiedziało. Wyszukiwanie widzi tylko segment sieci, w którym stoi agent - komputery z innych segmentów biorą się z tablic DHCP/ARP routerów.",
+        "typeAuto": "Automatycznie",
+        "roleLabel": "Rola",
+        "roleServer": "Serwer",
+        "roleWorkstation": "Stacja robocza",
         "openInSoftware": "Otwórz w Oprogramowaniu →",
         "scanNow": "Skanuj",
         "scanning": "Skanowanie…",

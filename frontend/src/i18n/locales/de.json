@@ -1134,6 +1134,18 @@
         }
     },
     "assets": {
+        "onlyNew": "Nur Geräte, die in den letzten 7 Tagen entdeckt wurden",
+        "clearFilter": "Filter löschen",
+        "discover": "Computer finden",
+        "discovering": "Suche läuft…",
+        "discoverHint": "Prüft jede Adresse der Scanbereiche, liest die ARP-Tabelle und fragt NetBIOS-/DNS-Namen ab - findet Computer, deren Firewall alle Ports vor dem Schwachstellenscanner verbirgt",
+        "discoverResult": "{{alive}} aktive Hosts in {{ranges}} Scanbereich(en) gefunden; der Bestand wurde neu aufgebaut.",
+        "discoverNoRanges": "Es gibt noch keinen Scanbereich - auf der Seite „Netzwerkscanner“ hinzufügen; die Suche umfasst die dortigen Bereiche.",
+        "discoverNone": "Nichts hat geantwortet. Die Suche sieht nur das Netzsegment des Agenten - Computer in anderen Segmenten stammen aus den DHCP/ARP-Tabellen der Router.",
+        "typeAuto": "Automatisch",
+        "roleLabel": "Rolle",
+        "roleServer": "Server",
+        "roleWorkstation": "Arbeitsplatz",
         "openInSoftware": "In Software öffnen →",
         "scanNow": "Jetzt scannen",
         "scanning": "Scan läuft…",

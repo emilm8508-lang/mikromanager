@@ -7,7 +7,7 @@ import { Widget, Empty, Donut, HBars, NumberTiles, fmt, OTHER, type Seg } from '
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, VulnPill, LifecyclePill, TypePill, ago } from '../components/AssetBits'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import { Button } from '../components/ui/Button'
-import { Boxes, RefreshCw, ArrowUp, ArrowDown, MapPin, ScanSearch } from 'lucide-react'
+import { Boxes, RefreshCw, ArrowUp, ArrowDown, MapPin, ScanSearch, Radar } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // Asset overview: how many things are on the network, what they are, where, how old their systems are, how exposed.
@@ -21,7 +21,10 @@ export function AssetsOverview() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) },
   })
 
+  const discover = useMutation({ mutationFn: assetsApi.discover, onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) } })
   const scanAll = useMutation({ mutationFn: assetsApi.scanAll, onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset-summary'] }); qc.invalidateQueries({ queryKey: ['assets'] }) } })
+
+  const go = (q: Record<string, string>) => nav(`/inventory/list?${new URLSearchParams(q).toString()}`)
 
   const typeSegs: Seg[] = useMemo(() => {
     const n = new Map((data?.by_type ?? []).map(x => [x.key, x.n]))
@@ -57,6 +60,9 @@ export function AssetsOverview() {
         </div>
         <div className="flex items-center gap-2">
           <Link to="/inventory/list" className="text-sm text-indigo-600 hover:underline">{t('assets.openList')}</Link>
+          <Button size="sm" variant="secondary" onClick={() => discover.mutate()} disabled={discover.isPending} title={t('assets.discoverHint') as string}>
+            <Radar size={13} className={discover.isPending ? 'animate-pulse' : ''} /> {discover.isPending ? t('assets.discovering') : t('assets.discover')}
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => scanAll.mutate()} disabled={scanAll.isPending} title={t('assets.scanAllHint') as string}>
             <ScanSearch size={13} /> {scanAll.data ? t('assets.scanAllStarted', { count: scanAll.data.started }) : t('assets.scanAll')}
           </Button>
@@ -66,13 +72,21 @@ export function AssetsOverview() {
         </div>
       </div>
 
+      {discover.data && (
+        <div className="text-sm bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-2.5 text-indigo-900">
+          <p>{discover.data.sweep.ranges.length === 0 ? t('assets.discoverNoRanges') : t('assets.discoverResult', { alive: discover.data.sweep.alive, ranges: discover.data.sweep.ranges.length })}</p>
+          {discover.data.sweep.ranges.filter(r => r.skipped).map(r => <p key={r.cidr} className="text-xs text-indigo-700">{r.cidr}: {r.skipped}</p>)}
+          {discover.data.sweep.alive === 0 && discover.data.sweep.ranges.length > 0 && <p className="text-xs text-indigo-700">{t('assets.discoverNone')}</p>}
+        </div>
+      )}
+
       <VulnScanStatusPanel hint={t('assets.scanHint') as string} />
 
       <div className="grid grid-cols-1 lg:grid-cols-6 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-3 lg:col-span-3 space-y-4">
           <Widget title={t('assets.totalDiscovered') as string}>
             <div className="flex items-end justify-between gap-2">
-              <div className="text-5xl font-semibold text-slate-900 leading-none">{data.total.toLocaleString()}</div>
+              <Link to="/inventory/list" className="text-5xl font-semibold text-slate-900 leading-none hover:text-indigo-600" title={t('assets.openList') as string}>{data.total.toLocaleString()}</Link>
               {change != null && (
                 <span className={cn('inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5', change >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}
                   title={t('assets.vs7d') as string}>
@@ -84,7 +98,7 @@ export function AssetsOverview() {
           </Widget>
           <Widget title={t('assets.newAssets') as string} subtitle={t('assets.last7') as string}>
             <div className="flex items-end justify-between gap-3">
-              <div className="text-4xl font-semibold text-slate-900 leading-none">+{data.new_7d.toLocaleString()}</div>
+              <Link to="/inventory/list?new=1" className="text-4xl font-semibold text-slate-900 leading-none hover:text-indigo-600" title={t('assets.onlyNew') as string}>+{data.new_7d.toLocaleString()}</Link>
               <div className="flex items-end gap-1 h-10" aria-label={t('assets.newAssets') as string}>
                 {data.new_by_day.map(d => (
                   <div key={d.day} className="w-3 rounded-t" title={`${new Date(d.day).toLocaleDateString()}: ${d.n}`}
@@ -96,14 +110,15 @@ export function AssetsOverview() {
         </div>
 
         <Widget className="xl:col-span-5 lg:col-span-3" title={t('assets.types') as string}>
-          {typeSegs.length === 0 ? <Empty text={t('assets.none') as string} /> : <Donut segs={typeSegs} size={150} centerLabel={t('assets.assets') as string} />}
+          {typeSegs.length === 0 ? <Empty text={t('assets.none') as string} /> : <Donut segs={typeSegs} size={150} centerLabel={t('assets.assets') as string} onSelect={k => go({ type: k })} />}
         </Widget>
 
         <Widget className="xl:col-span-4 lg:col-span-6" title={t('assets.byLocation') as string} subtitle={t('assets.topSites') as string}>
           {data.by_location.length === 0 ? <Empty text={t('assets.none') as string} /> : (
             <ul className="space-y-3">
               {data.by_location.slice(0, 6).map(l => (
-                <li key={l.name} className="flex items-center gap-3">
+                <li key={l.name} className="flex items-center gap-3 cursor-pointer hover:bg-orange-50/50 rounded-lg" onClick={() => go({ location: l.name || '_none' })} role="button" tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter') go({ location: l.name || '_none' }) }}>
                   <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0"><MapPin size={15} /></span>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between text-sm"><span className="truncate text-slate-800">{l.name || t('assets.noLocation')}</span><span className="tabular-nums text-slate-500">{fmt(l.n)}</span></div>
@@ -119,16 +134,16 @@ export function AssetsOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-6 xl:grid-cols-12 gap-4">
         <Widget className="xl:col-span-4 lg:col-span-3" title={t('assets.exposure') as string} subtitle={t('assets.exposureSub') as string}>
           <NumberTiles tiles={[
-            { label: t('assets.assetsWithVulns') as string, value: v.assets },
-            { label: t('assets.sev.critical') as string, value: v.critical, tone: 'critical' },
-            { label: t('assets.sev.high') as string, value: v.high, tone: 'high' },
+            { label: t('assets.assetsWithVulns') as string, value: v.assets, onClick: () => go({ vuln: 'any' }) },
+            { label: t('assets.sev.critical') as string, value: v.critical, tone: 'critical', onClick: () => go({ vuln: 'critical' }) },
+            { label: t('assets.sev.high') as string, value: v.high, tone: 'high', onClick: () => go({ vuln: 'high' }) },
           ]} />
         </Widget>
         <Widget className="xl:col-span-4 lg:col-span-3" title={t('assets.osLifecycle') as string} subtitle={t('assets.osLifecycleSub') as string}>
-          <Donut segs={lifecycleSegs} size={130} centerLabel={t('assets.assets') as string} />
+          <Donut segs={lifecycleSegs} size={130} centerLabel={t('assets.assets') as string} onSelect={k => go({ lifecycle: k })} />
         </Widget>
         <Widget className="xl:col-span-4 lg:col-span-6" title={t('assets.scanLevels') as string} subtitle={t('assets.scanLevelsSub') as string}>
-          <Donut segs={scanSegs} size={130} centerLabel={t('assets.assets') as string} />
+          <Donut segs={scanSegs} size={130} centerLabel={t('assets.assets') as string} onSelect={k => go({ level: k })} />
         </Widget>
       </div>
 

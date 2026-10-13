@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { centralApi, centralConfig, type AssetsPublicRow, type AssetType } from '../lib/api'
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
@@ -30,6 +30,12 @@ export function CentralAssets() {
   const [type, setType] = useState('all')
   const [lifecycle, setLifecycle] = useState('all')
   const [vuln, setVuln] = useState('all')
+  const [level, setLevel] = useState('all')
+  const tableRef = useRef<HTMLElement>(null)
+  const pick = (f: { type?: string; lifecycle?: string; vuln?: string; level?: string }) => {
+    setType(f.type ?? 'all'); setLifecycle(f.lifecycle ?? 'all'); setVuln(f.vuln ?? 'all'); setLevel(f.level ?? 'all'); setQ('')
+    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
   const [page, setPage] = useState(0)
 
   const reload = async () => {
@@ -67,11 +73,11 @@ export function CentralAssets() {
   const rows: Row[] = useMemo(() => vis.flatMap(p => p.assets.rows.map(r => ({ ...r, tenant: p.tenant }))), [vis])
   const needle = q.trim().toLowerCase()
   const shown = useMemo(() => rows.filter(r =>
-    (type === 'all' || r.t === type) && (lifecycle === 'all' || r.lc === lifecycle)
+    (type === 'all' || r.t === type) && (lifecycle === 'all' || r.lc === lifecycle) && (level === 'all' || r.sl === level)
     && (vuln === 'all' || (vuln === 'any' ? r.v.some(x => x > 0) : r.v.every(x => x === 0)))
     && (!needle || [r.n, r.ip, r.mf, r.md, r.os, r.loc, r.tenant].some(v => (v ?? '').toLowerCase().includes(needle))))
-    .sort((a, b) => (b.v[0] - a.v[0]) || (b.v[1] - a.v[1]) || (LC_ORDER[a.lc] - LC_ORDER[b.lc]) || a.n.localeCompare(b.n)), [rows, type, lifecycle, vuln, needle])
-  useEffect(() => setPage(0), [tenant, q, type, lifecycle, vuln])
+    .sort((a, b) => (b.v[0] - a.v[0]) || (b.v[1] - a.v[1]) || (LC_ORDER[a.lc] - LC_ORDER[b.lc]) || a.n.localeCompare(b.n)), [rows, type, lifecycle, vuln, level, needle])
+  useEffect(() => setPage(0), [tenant, q, type, lifecycle, vuln, level])
 
   if (!cfg) {
     return <div className="p-6 max-w-5xl"><div className="bg-amber-50 border border-amber-200 rounded p-4 text-sm text-amber-800">{t('alerts.needsCentral')}</div></div>
@@ -126,20 +132,20 @@ export function CentralAssets() {
               </Widget>
               <Widget title={t('assets.exposure') as string} subtitle={t('assets.exposureSub') as string}>
                 <NumberTiles tiles={[
-                  { label: t('assets.assetsWithVulns') as string, value: agg.v.assets },
-                  { label: t('assets.sev.critical') as string, value: agg.v.critical, tone: 'critical' },
-                  { label: t('assets.sev.high') as string, value: agg.v.high, tone: 'high' },
+                  { label: t('assets.assetsWithVulns') as string, value: agg.v.assets, onClick: () => pick({ vuln: 'any' }) },
+                  { label: t('assets.sev.critical') as string, value: agg.v.critical, tone: 'critical', onClick: () => pick({ vuln: 'any' }) },
+                  { label: t('assets.sev.high') as string, value: agg.v.high, tone: 'high', onClick: () => pick({ vuln: 'any' }) },
                 ]} />
               </Widget>
             </div>
             <Widget className="xl:col-span-3 lg:col-span-3" title={t('assets.types') as string}>
-              {typeSegs.length === 0 ? <Empty text={t('assets.none') as string} /> : <Donut segs={typeSegs} size={140} centerLabel={t('assets.assets') as string} />}
+              {typeSegs.length === 0 ? <Empty text={t('assets.none') as string} /> : <Donut segs={typeSegs} size={140} centerLabel={t('assets.assets') as string} onSelect={k => pick({ type: k })} />}
             </Widget>
             <Widget className="xl:col-span-3 lg:col-span-3" title={t('assets.osLifecycle') as string} subtitle={t('assets.osLifecycleSub') as string}>
-              <Donut segs={lifecycleSegs} size={130} centerLabel={t('assets.assets') as string} />
+              <Donut segs={lifecycleSegs} size={130} centerLabel={t('assets.assets') as string} onSelect={k => pick({ lifecycle: k })} />
             </Widget>
             <Widget className="xl:col-span-3 lg:col-span-3" title={t('assets.scanLevels') as string} subtitle={t('assets.scanLevelsSub') as string}>
-              <Donut segs={scanSegs} size={130} centerLabel={t('assets.assets') as string} />
+              <Donut segs={scanSegs} size={130} centerLabel={t('assets.assets') as string} onSelect={k => pick({ level: k })} />
             </Widget>
           </div>
 
@@ -162,7 +168,7 @@ export function CentralAssets() {
             </section>
           )}
 
-          <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+          <section ref={tableRef} className="bg-white border border-slate-200 rounded-xl shadow-sm scroll-mt-4">
             <div className="px-4 pt-3 pb-3 flex flex-wrap gap-2 items-center">
               <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assetsCentral.search') as string} className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 flex-1 min-w-[12rem] max-w-sm" />
               <select value={type} onChange={e => setType(e.target.value)} className={sel}>
@@ -170,6 +176,9 @@ export function CentralAssets() {
               </select>
               <select value={lifecycle} onChange={e => setLifecycle(e.target.value)} className={sel}>
                 <option value="all">{t('assets.allLifecycle')}</option>{(['eol', 'ending', 'supported', 'unknown'] as const).map(k => <option key={k} value={k}>{t(`assets.lifecycle.${k}`)}</option>)}
+              </select>
+              <select value={level} onChange={e => setLevel(e.target.value)} className={sel}>
+                <option value="all">{t('assets.allScanLevels')}</option>{(['credentialed', 'snmp', 'passive'] as const).map(k => <option key={k} value={k}>{t(`assets.scanLevel.${k}`)}</option>)}
               </select>
               <select value={vuln} onChange={e => setVuln(e.target.value)} className={sel}>
                 <option value="all">{t('assets.allVulns')}</option><option value="any">{t('assets.withVulns')}</option><option value="none">{t('assets.noVulns')}</option>

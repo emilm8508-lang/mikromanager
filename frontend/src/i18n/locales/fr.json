@@ -1134,6 +1134,18 @@
         }
     },
     "assets": {
+        "onlyNew": "Seulement les équipements découverts ces 7 derniers jours",
+        "clearFilter": "Effacer le filtre",
+        "discover": "Trouver les ordinateurs",
+        "discovering": "Recherche…",
+        "discoverHint": "Sonde chaque adresse des plages, lit la table ARP et demande les noms NetBIOS / DNS - trouve les ordinateurs dont le pare-feu cache tous les ports au scanner de vulnérabilités",
+        "discoverResult": "{{alive}} hôtes actifs trouvés dans {{ranges}} plage(s) ; l'inventaire a été reconstruit.",
+        "discoverNoRanges": "Aucune plage d'analyse - ajoutez-en une sur la page « Scanner réseau » ; la recherche couvre les plages listées.",
+        "discoverNone": "Aucune réponse. La recherche ne voit que le segment réseau de l'agent - les ordinateurs des autres segments viennent des tables DHCP/ARP des routeurs.",
+        "typeAuto": "Automatique",
+        "roleLabel": "Rôle",
+        "roleServer": "Serveur",
+        "roleWorkstation": "Poste de travail",
         "openInSoftware": "Ouvrir dans Logiciels →",
         "scanNow": "Analyser",
         "scanning": "Analyse…",

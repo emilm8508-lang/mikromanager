@@ -1134,6 +1134,18 @@
         }
     },
     "assets": {
+        "onlyNew": "Solo activos descubiertos en los últimos 7 días",
+        "clearFilter": "Quitar filtro",
+        "discover": "Buscar equipos",
+        "discovering": "Buscando…",
+        "discoverHint": "Sondea cada dirección de los rangos, lee la tabla ARP y pide nombres NetBIOS / DNS: encuentra equipos cuyo cortafuegos oculta todos los puertos al escáner de vulnerabilidades",
+        "discoverResult": "Se encontraron {{alive}} hosts activos en {{ranges}} rango(s); se reconstruyó el inventario.",
+        "discoverNoRanges": "Aún no hay rango de análisis: añádalo en la página «Escáner de red»; la búsqueda cubre esos rangos.",
+        "discoverNone": "Nada respondió. La búsqueda solo ve el segmento de red del agente: los equipos de otros segmentos salen de las tablas DHCP/ARP de los routers.",
+        "typeAuto": "Automático",
+        "roleLabel": "Rol",
+        "roleServer": "Servidor",
+        "roleWorkstation": "Estación de trabajo",
         "openInSoftware": "Abrir en Software →",
         "scanNow": "Analizar",
         "scanning": "Analizando…",

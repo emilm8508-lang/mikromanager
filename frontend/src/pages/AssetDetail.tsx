@@ -118,11 +118,13 @@ function Overview({ a }: { a: Detail }) {
   const [notes, setNotes] = useState(a.notes ?? '')
   const [tags, setTags] = useState<string[]>(a.manual_groups)
   const [tag, setTag] = useState('')
+  const [kind, setKind] = useState(a.override.type ?? 'auto')
+  const [role, setRole] = useState(a.override.role ?? 'auto')
   const save = useMutation({
-    mutationFn: () => assetsApi.update(a.id, { location_override: location, notes, manual_groups: tags }),
+    mutationFn: () => assetsApi.update(a.id, { location_override: location, notes, manual_groups: tags, asset_type: kind, role }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset', a.id] }); qc.invalidateQueries({ queryKey: ['assets'] }); qc.invalidateQueries({ queryKey: ['asset-summary'] }) },
   })
-  const dirty = location !== (a.location_override ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
+  const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
   return (
     <div className="space-y-4">
       <Section title={t('assets.scanInfo') as string}>
@@ -134,6 +136,18 @@ function Overview({ a }: { a: Detail }) {
       </Section>
       <Section title={t('assets.yourData') as string}>
         <div className="space-y-3 text-sm">
+          <div className="flex gap-3 flex-wrap">
+            <label className="block"><span className="text-xs text-slate-500">{t('assets.assetType')}</span>
+              <select value={kind} onChange={e => setKind(e.target.value)} className="mt-0.5 block border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
+                <option value="auto">{t('assets.typeAuto')}</option>{(['windows', 'linux', 'virtual', 'server', 'network', 'printer', 'other'] as const).map(k => <option key={k} value={k}>{t(`assets.type.${k}`)}</option>)}
+              </select></label>
+            {(COMPUTER.includes((kind === 'auto' ? a.type : kind) as AssetType)) && (
+              <label className="block"><span className="text-xs text-slate-500">{t('assets.roleLabel')}</span>
+                <select value={role} onChange={e => setRole(e.target.value)} className="mt-0.5 block border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
+                  <option value="auto">{t('assets.typeAuto')}</option><option value="server">{t('assets.roleServer')}</option><option value="workstation">{t('assets.roleWorkstation')}</option>
+                </select></label>
+            )}
+          </div>
           <label className="block"><span className="text-xs text-slate-500">{t('assets.location')}</span>
             <input value={location} onChange={e => setLocation(e.target.value)} placeholder={a.location && !a.location_override ? a.location : (t('assets.locationPlaceholder') as string)}
               className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5" maxLength={128} /></label>

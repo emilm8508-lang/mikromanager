@@ -210,7 +210,7 @@ export function Vulnerabilities() {
         ))}
       </div>
 
-      {tab === 'overview' && <VulnOverview onOpenList={() => setTab('cves')} />}
+      {tab === 'overview' && <VulnOverview onOpen={(k, f) => setParams({ tab: k, ...(f ?? {}) })} />}
       {tab === 'cves' && <VulnCveList />}
 
       {tab === 'hosts' && <>

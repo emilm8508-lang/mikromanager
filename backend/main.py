@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc, asset_scan as asset_scan_svc
+from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc
 
 
 @asynccontextmanager
@@ -63,6 +63,8 @@ async def lifespan(app: FastAPI):
     hyperv_actions.mark_interrupted()
     hyperv_manage.start()
     assets_svc.start()
+    asset_scan_svc.start()
+    lan_sweep_svc.start()
     try:
         yield
     finally:
@@ -79,6 +81,8 @@ async def lifespan(app: FastAPI):
         fleet_schedule.stop()
         hyperv_manage.stop()
         assets_svc.stop()
+        asset_scan_svc.stop()
+        lan_sweep_svc.stop()
 
 
 app = FastAPI(title="Mikrotik Manager", version="1.0.0", lifespan=lifespan)

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 import asyncio
 
-from services import assets, asset_scan
+from services import assets, asset_scan, lan_sweep
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
@@ -25,6 +25,19 @@ async def vuln_history(days: int = 90):
 @router.get("")
 async def list_assets():
     return {"assets": await assets.list_assets()}
+
+
+@router.get("/discover")
+async def discover_status():
+    return lan_sweep.status()
+
+
+@router.post("/discover")
+async def discover():
+    """Looks for the computers of the scan ranges (TCP pokes + ARP + NetBIOS/DNS names) and rebuilds the inventory with them."""
+    sweep = await lan_sweep.sweep_all()
+    inv = await assets.refresh()
+    return {"sweep": sweep, "inventory": inv}
 
 
 @router.post("/refresh")
@@ -76,6 +89,8 @@ async def software(asset_id: int):
 
 
 class AssetEdit(BaseModel):
+    asset_type: Optional[str] = None
+    role: Optional[str] = None
     name: Optional[str] = None
     location_override: Optional[str] = None
     notes: Optional[str] = None

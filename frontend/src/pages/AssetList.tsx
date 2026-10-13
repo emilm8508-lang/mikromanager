@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetRow, type AssetType } from '../lib/api'
@@ -22,14 +22,16 @@ export function AssetList() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const { data = [], isLoading } = useQuery({ queryKey: ['assets'], queryFn: assetsApi.list, refetchInterval: 60_000 })
+  const [params, setParams] = useSearchParams()
   const [q, setQ] = useState('')
-  const [type, setType] = useState('all')
-  const [location, setLocation] = useState('all')
-  const [lifecycle, setLifecycle] = useState('all')
-  const [vuln, setVuln] = useState('all')
-  const [level, setLevel] = useState('all')
-  const [group, setGroup] = useState('all')
-  const [inactive, setInactive] = useState(false)
+  const [type, setType] = useState(params.get('type') ?? 'all')
+  const [location, setLocation] = useState(params.get('location') ?? 'all')
+  const [lifecycle, setLifecycle] = useState(params.get('lifecycle') ?? 'all')
+  const [vuln, setVuln] = useState(params.get('vuln') ?? 'all')
+  const [level, setLevel] = useState(params.get('level') ?? 'all')
+  const [group, setGroup] = useState(params.get('group') ?? 'all')
+  const [inactive, setInactive] = useState(params.get('inactive') === '1')
+  const [onlyNew, setOnlyNew] = useState(params.get('new') === '1')
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'vulns', dir: 1 })
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(25)
@@ -41,6 +43,7 @@ export function AssetList() {
   const rows = useMemo(() => {
     const f = data.filter(a =>
       (inactive || a.active)
+      && (!onlyNew || (a.first_seen_at != null && Date.now() - new Date(a.first_seen_at).getTime() < 7 * 86_400_000))
       && (type === 'all' || a.type === type)
       && (location === 'all' || (location === '_none' ? !a.location : a.location === location))
       && (lifecycle === 'all' || a.lifecycle === lifecycle)
@@ -60,7 +63,7 @@ export function AssetList() {
       }
     }
     return [...f].sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * sort.dir })
-  }, [data, inactive, type, location, lifecycle, vuln, level, group, needle, sort])
+  }, [data, inactive, onlyNew, type, location, lifecycle, vuln, level, group, needle, sort])
 
   const pages = Math.max(1, Math.ceil(rows.length / size))
   const cur = Math.min(page, pages - 1)
@@ -87,6 +90,12 @@ export function AssetList() {
 
   return (
     <div className="p-6 space-y-4 max-w-[1400px]">
+      {onlyNew && (
+        <div className="text-sm bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-2 text-indigo-900 flex items-center gap-3">
+          {t('assets.onlyNew')}
+          <button className="text-xs text-indigo-600 hover:underline" onClick={() => { setOnlyNew(false); setParams({}, { replace: true }) }}>{t('assets.clearFilter')}</button>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Boxes size={20} className="text-indigo-600" /> {t('assets.listTitle')}</h1>

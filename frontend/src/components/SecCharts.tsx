@@ -50,8 +50,10 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number): string 
   return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`
 }
 
-export function Donut({ segs, center, centerLabel, size = 150, hole = 0.68 }: {
+export function Donut({ segs, center, centerLabel, size = 150, hole = 0.68, onSelect }: {
   segs: Seg[]; center?: string; centerLabel?: string; size?: number; hole?: number
+  /** makes every segment and legend row clickable (drill down to the details behind the value) */
+  onSelect?: (key: string) => void
 }) {
   const [hover, setHover] = useState<string | null>(null)
   const live = segs.filter(s => s.value > 0)
@@ -65,14 +67,14 @@ export function Donut({ segs, center, centerLabel, size = 150, hole = 0.68 }: {
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={live.map(s => `${s.label}: ${s.value}`).join(', ')}>
           <circle cx={cx} cy={cx} r={r} fill="none" stroke="#f1f0ec" strokeWidth={w} />
-          {live.length === 1 && <circle cx={cx} cy={cx} r={r} fill="none" stroke={live[0].color} strokeWidth={w} />}
+          {live.length === 1 && <circle cx={cx} cy={cx} r={r} fill="none" stroke={live[0].color} strokeWidth={w} style={onSelect ? { cursor: 'pointer' } : undefined} onClick={onSelect ? () => onSelect(live[0].key) : undefined} />}
           {live.length > 1 && live.map(s => {
             const sweep = (s.value / total) * Math.PI * 2
             const d = arc(cx, cx, r, a + gap / 2, a + sweep - gap / 2)
             a += sweep
             return (
               <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth={hover === s.key ? w + 4 : w} opacity={hover && hover !== s.key ? 0.35 : 1}
-                style={{ transition: 'opacity .15s' }} onPointerEnter={() => setHover(s.key)} onPointerLeave={() => setHover(null)} />
+                style={{ transition: 'opacity .15s', cursor: onSelect ? 'pointer' : undefined }} onPointerEnter={() => setHover(s.key)} onPointerLeave={() => setHover(null)} onClick={onSelect ? () => onSelect(s.key) : undefined} />
             )
           })}
         </svg>
@@ -83,7 +85,9 @@ export function Donut({ segs, center, centerLabel, size = 150, hole = 0.68 }: {
       </div>
       <ul className="text-xs space-y-1 min-w-[110px] flex-1">
         {segs.map(s => (
-          <li key={s.key} className="flex items-center gap-2" onPointerEnter={() => setHover(s.key)} onPointerLeave={() => setHover(null)}>
+          <li key={s.key} className={cn('flex items-center gap-2', onSelect && s.value > 0 && 'cursor-pointer hover:bg-slate-50 rounded -mx-1 px-1')} onPointerEnter={() => setHover(s.key)} onPointerLeave={() => setHover(null)}
+            onClick={onSelect && s.value > 0 ? () => onSelect(s.key) : undefined} role={onSelect && s.value > 0 ? 'button' : undefined} tabIndex={onSelect && s.value > 0 ? 0 : undefined}
+            onKeyDown={onSelect && s.value > 0 ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(s.key) } } : undefined}>
             <i className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
             <span className="text-slate-600 truncate flex-1" title={s.label}>{s.label}</span>
             <span className="tabular-nums text-slate-900 font-medium">{fmt(s.value)}</span>
@@ -99,12 +103,14 @@ export function Donut({ segs, center, centerLabel, size = 150, hole = 0.68 }: {
 export interface Bar { key: string; label: string; value: number; color?: string }
 
 /** Horizontal bars: label on the left, value at the tip. */
-export function HBars({ bars, color = CAT[0], unit = '' }: { bars: Bar[]; color?: string; unit?: string }) {
+export function HBars({ bars, color = CAT[0], unit = '', onSelect }: { bars: Bar[]; color?: string; unit?: string; onSelect?: (key: string) => void }) {
   const max = Math.max(1, ...bars.map(b => b.value))
   return (
     <ul className="space-y-2">
       {bars.map(b => (
-        <li key={b.key} className="group flex items-center gap-2 text-xs" title={`${b.label}: ${b.value}${unit}`}>
+        <li key={b.key} className={cn('group flex items-center gap-2 text-xs', onSelect && b.value > 0 && 'cursor-pointer hover:bg-slate-50 rounded -mx-1 px-1')} title={`${b.label}: ${b.value}${unit}`}
+          onClick={onSelect && b.value > 0 ? () => onSelect(b.key) : undefined} role={onSelect && b.value > 0 ? 'button' : undefined} tabIndex={onSelect && b.value > 0 ? 0 : undefined}
+          onKeyDown={onSelect && b.value > 0 ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(b.key) } } : undefined}>
           <span className="w-28 shrink-0 truncate text-slate-600" title={b.label}>{b.label}</span>
           <div className="flex-1 h-3 flex items-center">
             <div className="h-3 transition-all group-hover:brightness-110" style={{ width: `${Math.max(1.5, (b.value / max) * 100)}%`, background: b.color ?? color, borderRadius: '0 4px 4px 0' }} />
@@ -212,11 +218,12 @@ export function AreaChart({ points, color = CAT[0], height = 170, label, tickEve
 
 // ── Number tiles / hero / gauge ──────────────────────────────────────────────
 
-export function NumberTiles({ tiles }: { tiles: Array<{ label: string; value: number | string; tone?: 'plain' | 'critical' | 'high' }> }) {
+export function NumberTiles({ tiles }: { tiles: Array<{ label: string; value: number | string; tone?: 'plain' | 'critical' | 'high'; onClick?: () => void }> }) {
   return (
     <div className="grid gap-2 h-full" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
       {tiles.map(t => (
-        <div key={t.label} className="rounded-lg px-3 py-2 flex flex-col justify-center min-h-[96px]"
+        <div key={t.label} className={cn('rounded-lg px-3 py-2 flex flex-col justify-center min-h-[96px]', t.onClick && 'cursor-pointer hover:brightness-95')}
+          onClick={t.onClick} role={t.onClick ? 'button' : undefined} tabIndex={t.onClick ? 0 : undefined} onKeyDown={t.onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.onClick!() } } : undefined}
           style={t.tone === 'critical' ? { background: '#d03b3b', color: '#fff' } : t.tone === 'high' ? { background: '#ec835a', color: '#0b0b0b' } : { background: '#f4f3ef' }}>
           <div className="text-4xl font-semibold leading-none">{typeof t.value === 'number' ? fmt(t.value) : t.value}</div>
           <div className="text-xs mt-1.5 opacity-90">{t.label}</div>

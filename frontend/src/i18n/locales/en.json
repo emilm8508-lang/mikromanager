@@ -1134,6 +1134,18 @@
         }
     },
     "assets": {
+        "onlyNew": "Showing only assets first seen in the last 7 days",
+        "clearFilter": "Clear filter",
+        "discover": "Find computers",
+        "discovering": "Looking…",
+        "discoverHint": "Probes every address of the scan ranges, reads the ARP table and asks for NetBIOS / DNS names - finds computers whose firewall hides every port from the vulnerability scanner",
+        "discoverResult": "{{alive}} live hosts found in {{ranges}} scan range(s); the inventory was rebuilt.",
+        "discoverNoRanges": "There is no scan range yet - add one on the \"Skaner sieci\" page; the search covers the ranges listed there.",
+        "discoverNone": "Nothing answered. The search sees only the agent's own network segment - computers in other segments come from the routers' DHCP/ARP tables.",
+        "typeAuto": "Automatic",
+        "roleLabel": "Role",
+        "roleServer": "Server",
+        "roleWorkstation": "Workstation",
         "openInSoftware": "Open in Software →",
         "scanNow": "Scan now",
         "scanning": "Scanning…",
