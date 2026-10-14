@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { devicesApi, fleetActionsApi, hypervApi, linuxApi, windowsApi, type AssetDetail as Detail, type HypervActionKind } from '../lib/api'
+import { devicesApi, fleetActionsApi, hypervApi, linuxApi, windowsApi, type AssetDetail as Detail, type AssetRow, type HypervActionKind } from '../lib/api'
 import { Button } from './ui/Button'
 import { Pill } from './AssetBits'
 import { ExternalLink, Play, Power, PowerOff, RefreshCw, RotateCcw, Download, Camera, ShieldCheck, Loader2 } from 'lucide-react'
@@ -200,6 +200,79 @@ export function AssetActions({ a }: { a: Detail }) {
           <p className="text-sm text-slate-600">{t('assets.act.dellNote')}</p>
         </Section>
       )}
+    </div>
+  )
+}
+
+// ── Bulk actions on the selected rows of the asset list ──────────────────────
+
+/** The managed objects behind a set of assets, by kind; what is left (printers, phones, ...) has no action. */
+export function partition(rows: AssetRow[]) {
+  const linux: number[] = [], windows: number[] = [], routers: number[] = []
+  let skipped = 0
+  for (const a of rows) {
+    const r = a.refs ?? {}
+    if (r.linux_host_id) linux.push(r.linux_host_id)
+    else if (r.windows_host_id) windows.push(r.windows_host_id)
+    else if (r.device_id && a.type === 'network' && a.manufacturer === 'MikroTik') routers.push(r.device_id)
+    else skipped++
+  }
+  return { linux, windows, routers, skipped }
+}
+
+export function AssetBulkBar({ rows, onClear }: { rows: AssetRow[]; onClear: () => void }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const p = partition(rows)
+  const [stagger, setStagger] = useState(60)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const done = (queued: number) => { setMsg({ ok: true, text: t('assets.bulk.queued', { count: queued }) as string }); qc.invalidateQueries({ queryKey: ['linux-hosts'] }); qc.invalidateQueries({ queryKey: ['windows-hosts'] }) }
+  const fail = (e: any) => setMsg({ ok: false, text: e?.response?.data?.detail ?? e?.message ?? String(e) })
+  const reason = (key: string) => askReason(t as any, key)
+
+  const install = async () => {
+    if (!confirm(t('assets.bulk.confirmInstall', { linux: p.linux.length, windows: p.windows.length }) as string)) return
+    let why = ''
+    if (p.windows.length) { const r = reason('assets.act.reasonPromptUpdate'); if (!r) return; why = r }
+    setBusy('install'); setMsg(null)
+    try {
+      let n = 0
+      if (p.linux.length) n += (await linuxApi.upgradeBulk(p.linux)).queued ?? 0
+      if (p.windows.length) n += (await windowsApi.upgradeBulk(p.windows, why)).queued ?? 0
+      done(n)
+    } catch (e) { fail(e) } finally { setBusy(null) }
+  }
+  const restart = async () => {
+    if (!confirm(t('assets.bulk.confirmRestart', { count: p.linux.length + p.windows.length + p.routers.length, seconds: stagger }) as string)) return
+    const why = reason('assets.act.reasonPromptRestart'); if (!why) return
+    setBusy('restart'); setMsg(null)
+    try {
+      let n = 0
+      if (p.linux.length) n += (await linuxApi.restartBulk({ ids: p.linux, reason: why, stagger_sec: stagger })).queued ?? 0
+      if (p.windows.length) n += (await windowsApi.restartBulk({ ids: p.windows, reason: why, stagger_sec: stagger })).queued ?? 0
+      if (p.routers.length) { await fleetActionsApi.start({ action: 'reboot', device_ids: p.routers, reason: why }); n += p.routers.length }
+      done(n)
+    } catch (e) { fail(e) } finally { setBusy(null) }
+  }
+  const actionable = p.linux.length + p.windows.length + p.routers.length
+
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-semibold text-indigo-900">{t('assets.bulk.selected', { count: rows.length })}</span>
+        <span className="text-xs text-indigo-800">{t('assets.bulk.breakdown', { linux: p.linux.length, windows: p.windows.length, routers: p.routers.length, skipped: p.skipped })}</span>
+        <span className="flex-1" />
+        <label className="text-xs text-indigo-900 inline-flex items-center gap-1.5">{t('assets.bulk.stagger')}
+          <select value={stagger} onChange={e => setStagger(Number(e.target.value))} className="border border-indigo-200 rounded px-1.5 py-1 bg-white">
+            {[0, 30, 60, 300, 600].map(sec => <option key={sec} value={sec}>{sec === 0 ? t('assets.bulk.noStagger') : t('assets.bulk.seconds', { count: sec })}</option>)}
+          </select>
+        </label>
+        <Btn busy={busy} k="install" disabled={p.linux.length + p.windows.length === 0} icon={<Download size={13} />} onClick={install}>{t('assets.act.install')}</Btn>
+        <Btn busy={busy} k="restart" danger disabled={actionable === 0} icon={<RotateCcw size={13} />} onClick={restart}>{t('assets.act.restart')}</Btn>
+        <button className="text-xs text-indigo-700 hover:underline" onClick={onClear}>{t('assets.bulk.clear')}</button>
+      </div>
+      <Msg msg={msg} />
     </div>
   )
 }

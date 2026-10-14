@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "Выбрано: {{count}}",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · без действий {{skipped}}",
+            "stagger": "Пауза между перезапусками:",
+            "noStagger": "нет",
+            "seconds": "{{count}} с",
+            "clear": "Снять выделение",
+            "selectPage": "Выбрать устройства на этой странице, у которых есть действия",
+            "queued": "Запрошено для устройств: {{count}} - выполняются в фоне.",
+            "confirmInstall": "Установить обновления на компьютерах: Linux {{linux}}, Windows {{windows}}? (Неуправляемые хосты и рабочие станции Windows пропускаются.)",
+            "confirmRestart": "Перезапустить устройства: {{count}}, по одному каждые {{seconds}} с?"
+        },
         "act": {
             "queued": "Запрошено - выполняется в фоне, статус выше обновляется сам.",
             "reasonRequired": "Нужна причина.",

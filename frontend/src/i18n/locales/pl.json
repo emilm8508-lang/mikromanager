@@ -1300,6 +1300,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "Zaznaczono: {{count}}",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · bez akcji {{skipped}}",
+            "stagger": "Odstęp między restartami:",
+            "noStagger": "brak",
+            "seconds": "{{count}} s",
+            "clear": "Wyczyść zaznaczenie",
+            "selectPage": "Zaznacz urządzenia z tej strony, które mają akcje",
+            "queued": "Zlecono dla urządzeń: {{count}} - wykonują się w tle.",
+            "confirmInstall": "Zainstalować aktualizacje na komputerach: Linux {{linux}}, Windows {{windows}}? (Hosty niezarządzane i stacje robocze Windows są pomijane.)",
+            "confirmRestart": "Zrestartować urządzenia: {{count}}, jedno co {{seconds}} s?"
+        },
         "act": {
             "queued": "Zlecono - wykonuje się w tle, status powyżej odświeża się sam.",
             "reasonRequired": "Powód jest wymagany.",

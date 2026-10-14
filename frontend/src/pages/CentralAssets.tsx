@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralVulnFinding } from '../lib/api'
+import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
 import { Button } from '../components/ui/Button'
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Pill } from '../components/AssetBits'
 import { SeverityPill } from '../components/VulnViews'
-import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2 } from 'lucide-react'
+import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2, Play, Power, PowerOff, Camera } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; assets: NonNullable<Awaited<ReturnType<typeof centralApi.assetsStatusAll>>['tenants'][number]['assets']> }
@@ -117,6 +117,24 @@ function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
                 </div>
               </>
             )}
+            {x && x.k === 'vm' && (
+              <>
+                <div className="flex flex-wrap gap-2 text-sm"><Pill tone={/running/i.test(x.st ?? '') ? 'green' : 'gray'}>{x.st || '—'}</Pill></div>
+                <div className="flex flex-wrap gap-2">
+                  {([['start', Play, 'vmStart', null], ['shutdown', Power, 'vmShutdown', 'vmConfirmShutdown'], ['restart', RotateCcw, 'vmRestart', 'vmConfirmRestart'], ['checkpoint', Camera, 'vmCheckpoint', null], ['poweroff', PowerOff, 'vmPoweroff', 'vmConfirmPoweroff']] as const).map(([kind, Icon, label, conf]) => {
+                    const running = /running/i.test(x.st ?? ''), off = /^off/i.test(x.st ?? '')
+                    const disabled = busy !== null || (kind === 'start' ? running : (kind === 'checkpoint' ? false : off))
+                    return (
+                      <Button key={kind} size="sm" variant={kind === 'poweroff' ? 'danger' : 'secondary'} disabled={disabled} onClick={() => {
+                        if (conf && !confirm(t(`assets.act.${conf}`, { name: row.n }) as string)) return
+                        const reason = reasonFor('assets.act.vmReasonPrompt'); if (!reason) return
+                        send(kind, () => centralApi.requestHypervVmAction(row.tenant, x.id, kind as HypervActionKind, reason))
+                      }}>{busy === kind ? <Loader2 size={13} className="animate-spin" /> : <Icon size={13} />} {t(`assets.act.${label}`)}</Button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
             {x && x.k === 'device' && (
               <>
                 <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={backup} onChange={e => setBackup(e.target.checked)} className="rounded border-slate-300" /> {t('assets.act.fwBackup')}</label>
@@ -124,6 +142,10 @@ function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
                   if (!confirm(t('assets.act.fwConfirm', { name: row.n }) as string)) return
                   send('fw', () => centralApi.requestFirmwareUpgrade(row.tenant, x.id, backup))
                 }}>{busy === 'fw' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} {t('assets.act.fwUpgrade')}</Button>
+                <Button size="sm" variant="danger" disabled={busy !== null} onClick={() => {
+                  const reason = reasonFor('assets.act.reasonPromptRestart'); if (!reason) return
+                  send('reboot', () => centralApi.requestDeviceReboot(row.tenant, x.id, reason))
+                }}>{busy === 'reboot' ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} {t('assets.act.reboot')}</Button>
               </>
             )}
             {msg && <p className={cn('text-sm rounded-lg px-3 py-2 border', msg.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700')}>{msg.text}</p>}

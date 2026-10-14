@@ -709,6 +709,10 @@ def _canonical_commands(commands: list) -> str:
         elif isinstance(c, dict) and c.get("type") == "windows_restart":
             host_id = int(c.get("host_id") or 0)
             parts.append(f"windows_restart:{host_id}")
+        elif isinstance(c, dict) and c.get("type") == "hyperv_vm_action":
+            parts.append(f"hyperv_vm_action:{int(c.get('vm_id') or 0)}:{c.get('action') or ''}")
+        elif isinstance(c, dict) and c.get("type") == "device_reboot":
+            parts.append(f"device_reboot:{int(c.get('device_id') or 0)}")
         elif isinstance(c, dict) and c.get("type") == "windows_manage_toggle":
             parts.append(f"windows_manage_toggle:{'1' if c.get('enabled') else '0'}")
         elif isinstance(c, dict) and c.get("type") == "dell_check":
@@ -996,6 +1000,31 @@ async def _handle_commands(commands: list) -> None:
                     asyncio.create_task(windows_manage.restart_host(int(host_id), reason))
                 else:
                     print(f"[uplink] windows_restart command missing host_id: {cmd}")
+            elif cmd_type == "hyperv_vm_action":
+                vm_id = cmd.get("vm_id")
+                action = str(cmd.get("action") or "")
+                reason = cmd.get("reason") or ""
+                from services import hyperv_actions
+                try:
+                    if not vm_id or not action:
+                        raise ValueError("vm_id and action required")
+                    log_id = hyperv_actions.start_action(int(vm_id), action, reason, "Centrala")
+                    print(f"[uplink] received HYPERV_VM_ACTION {action} for VM {vm_id} (action log {log_id})")
+                except (PermissionError, ValueError) as e:
+                    print(f"[uplink] hyperv_vm_action rejected: {e}")
+            elif cmd_type == "device_reboot":
+                device_id = cmd.get("device_id")
+                reason = cmd.get("reason") or ""
+                from services import fleet_actions
+                try:
+                    if not fleet_actions.ENABLED:
+                        raise PermissionError("bulk device actions are switched off on this agent")
+                    if not device_id:
+                        raise ValueError("device_id required")
+                    run_id = fleet_actions.start_run("reboot", [int(device_id)], reason, None, False, "Centrala")
+                    print(f"[uplink] received DEVICE_REBOOT for device {device_id} (run {run_id})")
+                except (PermissionError, ValueError) as e:
+                    print(f"[uplink] device_reboot rejected: {e}")
             elif cmd_type == "windows_manage_toggle":
                 # Sets the DB-backed toggle itself — deliberately NOT gated
                 # on _manage_enabled() (that would make the one command

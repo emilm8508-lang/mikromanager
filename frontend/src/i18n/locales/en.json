@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "{{count}} selected",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · without actions {{skipped}}",
+            "stagger": "Gap between restarts:",
+            "noStagger": "none",
+            "seconds": "{{count}} s",
+            "clear": "Clear selection",
+            "selectPage": "Select the devices on this page that have actions",
+            "queued": "Requested for {{count}} devices - they run in the background.",
+            "confirmInstall": "Install updates on {{linux}} Linux and {{windows}} Windows computers? (Hosts that are not managed, and Windows workstations, are skipped.)",
+            "confirmRestart": "Restart {{count}} devices, one every {{seconds}} s?"
+        },
         "act": {
             "queued": "Requested - it runs in the background, the status above updates by itself.",
             "reasonRequired": "A reason is required.",

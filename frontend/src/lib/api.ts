@@ -1096,7 +1096,7 @@ export interface AssetsPublicRow {
   n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
   lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
   // what Central may ask the agent to do with the device (ids and flags only)
-  x?: { k: 'linux' | 'windows' | 'device'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean }
+  x?: { k: 'linux' | 'windows' | 'device' | 'vm'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean; st?: string | null }
 }
 export interface AssetsPublic {
   summary: Pick<AssetSummary, 'total' | 'total_7d_ago' | 'new_7d' | 'new_by_day' | 'by_type' | 'by_location' | 'by_lifecycle' | 'by_scan_level' | 'inactive' | 'vulnerable'>
@@ -2607,6 +2607,14 @@ export const centralApi = {
   requestLinuxRestart: (tenant: string, hostId: number, reason: string) =>
     centralRequest<{ ok: boolean; tenant: string; host_id: number; queued_at: string; note: string }>(
       'request_linux_restart', { tenant, host_id: String(hostId), reason },
+    ),
+  requestHypervVmAction: (tenant: string, vmId: number, action: HypervActionKind, reason: string) =>
+    centralRequest<{ ok: boolean; tenant: string; vm_id: number; vm_action: string; queued_at: string }>(
+      'request_hyperv_vm_action', { tenant, vm_id: String(vmId), vm_action: action, reason },
+    ),
+  requestDeviceReboot: (tenant: string, deviceId: number, reason: string) =>
+    centralRequest<{ ok: boolean; tenant: string; device_id: number; queued_at: string }>(
+      'request_device_reboot', { tenant, device_id: String(deviceId), reason },
     ),
   pendingLinuxRestarts: () =>
     centralRequest<{ pending: Array<{ tenant: string; host_id: number; queued_at: string }> }>('pending_linux_restarts'),

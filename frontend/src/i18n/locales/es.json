@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "{{count}} seleccionados",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · sin acciones {{skipped}}",
+            "stagger": "Intervalo entre reinicios:",
+            "noStagger": "ninguno",
+            "seconds": "{{count}} s",
+            "clear": "Quitar la selección",
+            "selectPage": "Seleccionar los dispositivos de esta página que tienen acciones",
+            "queued": "Solicitado para {{count}} dispositivos: se ejecutan en segundo plano.",
+            "confirmInstall": "¿Instalar las actualizaciones en {{linux}} equipos Linux y {{windows}} Windows? (Se omiten los hosts no gestionados y las estaciones Windows.)",
+            "confirmRestart": "¿Reiniciar {{count}} dispositivos, uno cada {{seconds}} s?"
+        },
         "act": {
             "queued": "Solicitado: se ejecuta en segundo plano, el estado de arriba se actualiza solo.",
             "reasonRequired": "Se requiere un motivo.",

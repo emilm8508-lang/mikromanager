@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "{{count}} ausgewählt",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · ohne Aktionen {{skipped}}",
+            "stagger": "Abstand zwischen Neustarts:",
+            "noStagger": "keiner",
+            "seconds": "{{count}} s",
+            "clear": "Auswahl aufheben",
+            "selectPage": "Geräte dieser Seite mit Aktionen auswählen",
+            "queued": "Für {{count}} Geräte beauftragt - sie laufen im Hintergrund.",
+            "confirmInstall": "Updates auf {{linux}} Linux- und {{windows}} Windows-Computern installieren? (Nicht verwaltete Hosts und Windows-Arbeitsplätze werden übersprungen.)",
+            "confirmRestart": "{{count}} Geräte neu starten, eines alle {{seconds}} s?"
+        },
         "act": {
             "queued": "Beauftragt - läuft im Hintergrund, der Status oben aktualisiert sich selbst.",
             "reasonRequired": "Ein Grund ist erforderlich.",

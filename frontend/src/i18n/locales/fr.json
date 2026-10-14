@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "{{count}} sélectionnés",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · sans action {{skipped}}",
+            "stagger": "Délai entre redémarrages :",
+            "noStagger": "aucun",
+            "seconds": "{{count}} s",
+            "clear": "Effacer la sélection",
+            "selectPage": "Sélectionner les appareils de cette page qui ont des actions",
+            "queued": "Demandé pour {{count}} appareils - exécution en arrière-plan.",
+            "confirmInstall": "Installer les mises à jour sur {{linux}} ordinateurs Linux et {{windows}} Windows ? (Les hôtes non gérés et les postes Windows sont ignorés.)",
+            "confirmRestart": "Redémarrer {{count}} appareils, un toutes les {{seconds}} s ?"
+        },
         "act": {
             "queued": "Demandé - s'exécute en arrière-plan, l'état ci-dessus se met à jour tout seul.",
             "reasonRequired": "Un motif est obligatoire.",

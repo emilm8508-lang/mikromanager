@@ -71,6 +71,11 @@ function canonical_commands(array $commands): string {
             $parts[] = 'windows_update:' . (int)($c['host_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_restart') {
             $parts[] = 'windows_restart:' . (int)($c['host_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'hyperv_vm_action') {
+            // reason excluded from the signed string, like the other restarts
+            $parts[] = 'hyperv_vm_action:' . (int)($c['vm_id'] ?? 0) . ':' . (string)($c['action'] ?? '');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'device_reboot') {
+            $parts[] = 'device_reboot:' . (int)($c['device_id'] ?? 0);
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_manage_toggle') {
             $parts[] = 'windows_manage_toggle:' . (!empty($c['enabled']) ? '1' : '0');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'dell_check') {
@@ -563,6 +568,32 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "windows_restart_delivered", ?, ?)')
                     ->execute([$tenant_header, "Restart Windows dostarczony do agenta {$tenant_header}", json_encode(['host_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3d2. Hyper-V virtual machine actions and 3d3. router reboots asked for in Central (reason = the marker's content)
+    foreach (glob($state_dir . "/hv_action_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^hv_action_.+_(\d+)_(start|shutdown|poweroff|restart|checkpoint)$/', $base, $m)) {
+            $reason = trim(@file_get_contents($f));
+            $commands[] = ['type' => 'hyperv_vm_action', 'vm_id' => (int)$m[1], 'action' => $m[2], 'reason' => $reason];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "hyperv_vm_action_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Akcja na maszynie Hyper-V ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['vm_id'=>(int)$m[1],'action'=>$m[2],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+    foreach (glob($state_dir . "/device_reboot_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^device_reboot_.+_(\d+)$/', $base, $m)) {
+            $reason = trim(@file_get_contents($f));
+            $commands[] = ['type' => 'device_reboot', 'device_id' => (int)$m[1], 'reason' => $reason];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "device_reboot_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Restart routera dostarczony do agenta {$tenant_header}", json_encode(['device_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

@@ -1142,6 +1142,18 @@
         }
     },
     "assets": {
+        "bulk": {
+            "selected": "Вибрано: {{count}}",
+            "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · без дій {{skipped}}",
+            "stagger": "Пауза між перезапусками:",
+            "noStagger": "немає",
+            "seconds": "{{count}} с",
+            "clear": "Зняти виділення",
+            "selectPage": "Вибрати пристрої на цій сторінці, які мають дії",
+            "queued": "Замовлено для пристроїв: {{count}} - виконуються у фоні.",
+            "confirmInstall": "Встановити оновлення на комп'ютерах: Linux {{linux}}, Windows {{windows}}? (Некеровані хости та робочі станції Windows пропускаються.)",
+            "confirmRestart": "Перезапустити пристрої: {{count}}, по одному кожні {{seconds}} с?"
+        },
         "act": {
             "queued": "Замовлено - виконується у фоні, статус вище оновлюється сам.",
             "reasonRequired": "Потрібна причина.",

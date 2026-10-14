@@ -471,6 +471,7 @@ async def public_summary() -> dict:
         lin = {h.id: h for h in db.execute(select(LinuxHost)).scalars().all()}
         win = {h.id: h for h in db.execute(select(WindowsHost)).scalars().all()}
         mik = {d.id for d in db.execute(select(Device)).scalars().all() if (d.vendor or "mikrotik").lower() == "mikrotik"}
+        vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
     for r in shown:
         seen = datetime.fromisoformat(r["last_seen_at"].rstrip("Z")) if r["last_seen_at"] else None
@@ -488,6 +489,8 @@ async def public_summary() -> dict:
             row["x"] = {"k": "windows", "id": h.id, "m": bool(h.managed), "u": h.upgradable_count, "rb": bool(h.reboot_required), "ws": h.host_type == "workstation"}
         elif refs.get("device_id") in mik:
             row["x"] = {"k": "device", "id": refs["device_id"]}
+        elif refs.get("hyperv_vm_id") in vmstate:
+            row["x"] = {"k": "vm", "id": refs["hyperv_vm_id"], "st": vmstate[refs["hyperv_vm_id"]]}
         out.append(row)
     return {
         "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable")},

@@ -1281,6 +1281,55 @@ try {
             ]);
             break;
 
+        case 'request_hyperv_vm_action':
+            // A Hyper-V virtual machine action asked for in Central. Marker-with-content like the Linux / Windows restarts: the
+            // file name carries tenant, VM id and action (whitelisted), the content the reason. The agent still applies its own
+            // checks (Windows management switched on, host managed, reason present) before it does anything.
+            $tenant = $_GET['tenant'] ?? '';
+            $vm_id = (int)($_GET['vm_id'] ?? 0);
+            $vm_action = $_GET['vm_action'] ?? '';
+            $reason = trim($_GET['reason'] ?? '');
+            if ($tenant === '' || $vm_id <= 0 || $reason === '' || !in_array($vm_action, ['start', 'shutdown', 'poweroff', 'restart', 'checkpoint'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, vm_id, vm_action (start|shutdown|poweroff|restart|checkpoint) and reason required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/hv_action_{$safe}_{$vm_id}_{$vm_action}.pending", $reason);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'vm_id' => $vm_id, 'vm_action' => $vm_action,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
+        case 'request_device_reboot':
+            // Restart of a Mikrotik router asked for in Central (the agent runs it as a one-device fleet "reboot" action).
+            $tenant = $_GET['tenant'] ?? '';
+            $device_id = (int)($_GET['device_id'] ?? 0);
+            $reason = trim($_GET['reason'] ?? '');
+            if ($tenant === '' || $device_id <= 0 || $reason === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, device_id and reason required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/device_reboot_{$safe}_{$device_id}.pending", $reason);
+            echo json_encode([
+                'ok' => true, 'tenant' => $tenant, 'device_id' => $device_id,
+                'queued_at' => date('c'),
+                'note' => 'Delivered on next agent heartbeat (max 2 min)',
+            ]);
+            break;
+
         case 'pending_linux_restarts':
             require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
@@ -2676,6 +2725,8 @@ try {
                     'device_router_override_' => ['Klasyfikacja urządzenia',     '/^device_router_override_(.+)_(\d+)$/'],
                     'logs_request_'           => ['Pobranie logów',              '/^logs_request_(.+)_(\d+)_(\d+)$/'],
                     'win_manage_toggle_'      => ['Przełącznik zarządzania Windows', '/^win_manage_toggle_(.+)_[01]$/'],
+                    'hv_action_'              => ['Akcja na maszynie Hyper-V',   '/^hv_action_(.+)_(\d+)_(?:start|shutdown|poweroff|restart|checkpoint)$/'],
+                    'device_reboot_'          => ['Restart routera',             '/^device_reboot_(.+)_(\d+)$/'],
                 ];
                 foreach ($id_patterns as $prefix => $pat) {
                     [$label, $re] = $pat;
@@ -2701,6 +2752,7 @@ try {
                 'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
                 'windows_restart_delivered', 'windows_restarted',
                 'windows_manage_toggle_delivered',
+                'hyperv_vm_action_delivered', 'device_reboot_delivered',
                 'dell_check_delivered',
                 'vuln_remediation_delivered',
                 'device_router_override_delivered',

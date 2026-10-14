@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetRow, type AssetType } from '../lib/api'
 import { TypeIcon, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
+import { AssetBulkBar, partition } from '../components/AssetActions'
 import { Button } from '../components/ui/Button'
 import { Boxes, Download, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -32,6 +33,7 @@ export function AssetList() {
   const [group, setGroup] = useState(params.get('group') ?? 'all')
   const [inactive, setInactive] = useState(params.get('inactive') === '1')
   const [onlyNew, setOnlyNew] = useState(params.get('new') === '1')
+  const [picked, setPicked] = useState<Set<number>>(new Set())
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'vulns', dir: 1 })
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(25)
@@ -65,6 +67,7 @@ export function AssetList() {
     return [...f].sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * sort.dir })
   }, [data, inactive, onlyNew, type, location, lifecycle, vuln, level, group, needle, sort])
 
+  const selectedRows = useMemo(() => data.filter(a => picked.has(a.id)), [data, picked])
   const pages = Math.max(1, Math.ceil(rows.length / size))
   const cur = Math.min(page, pages - 1)
   const shown = rows.slice(cur * size, cur * size + size)
@@ -140,11 +143,16 @@ export function AssetList() {
         <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={inactive} onChange={e => { setInactive(e.target.checked); setPage(0) }} />{t('assets.showInactive')}</label>
       </div>
 
+      {selectedRows.length > 0 && <AssetBulkBar rows={selectedRows} onClear={() => setPicked(new Set())} />}
+
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p> : shown.length === 0 ? <p className="p-5 text-sm text-slate-500">{t('assets.none')}</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs text-slate-500 bg-slate-50 border-b border-slate-200">
+                <th className="pl-4 w-8"><input type="checkbox" aria-label={t('assets.bulk.selectPage') as string} title={t('assets.bulk.selectPage') as string}
+                  checked={shown.length > 0 && shown.filter(a => partition([a]).skipped === 0).every(a => picked.has(a.id)) && shown.some(a => partition([a]).skipped === 0)}
+                  onChange={e => setPicked(prev => { const n = new Set(prev); shown.filter(a => partition([a]).skipped === 0).forEach(a => e.target.checked ? n.add(a.id) : n.delete(a.id)); return n })} /></th>
                 {th('name', t('assets.colName') as string, 'px-4')}{th('type', t('assets.colType') as string)}{th('vulns', t('assets.colVulns') as string)}
                 {th('lifecycle', t('assets.colLifecycle') as string)}{th('ip', t('assets.colIp') as string)}{th('location', t('assets.colLocation') as string)}
                 <th className="font-normal">{t('assets.colScan')}</th>{th('seen', t('assets.colLastSeen') as string, 'pr-4')}
@@ -152,7 +160,10 @@ export function AssetList() {
               <tbody>
                 {shown.map(a => (
                   <tr key={a.id} onClick={() => nav(`/inventory/${a.id}`)} className={cn('border-b border-slate-100 hover:bg-slate-50 cursor-pointer', !a.active && 'opacity-60')}>
-                    <td className="px-4 py-2.5">
+                    <td className="pl-4 w-8" onClick={e => e.stopPropagation()}>
+                      {partition([a]).skipped === 0 && <input type="checkbox" checked={picked.has(a.id)} onChange={e => setPicked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.id) : n.delete(a.id); return n })} />}
+                    </td>
+                    <td className="px-2 py-2.5">
                       <span className="inline-flex items-center gap-2.5 min-w-0"><TypeIcon type={a.type as AssetType} size={18} />
                         <span className="min-w-0"><span className="block text-slate-900 font-medium truncate max-w-[16rem]">{a.name}</span>
                           {(a.manufacturer || a.model) && <span className="block text-[11px] text-slate-400 truncate max-w-[16rem]">{[a.manufacturer, a.model].filter(Boolean).join(' · ')}</span>}</span></span>
