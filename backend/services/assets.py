@@ -411,6 +411,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
         "vulns": _vuln_counts(fnd), "risk": round(_risk(fnd), 1),
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),
         "active": bool(last and now - last < timedelta(days=STALE_DAYS)),
+        "refs": {k: v for k, v in _jload(a.refs, {}).items() if isinstance(v, int)},       # which managed objects this asset is (host ids, device id, VM id)
     }
 
 
@@ -465,13 +466,29 @@ async def public_summary() -> dict:
     device, the most exposed first. Deliberately without serial numbers, MAC addresses, notes, tags and hardware details."""
     s = await summary()
     rows = [r for r in await list_assets() if r["active"]]
+    shown = rows[:MAX_PUBLIC_ROWS]
+    with SessionLocal() as db:
+        lin = {h.id: h for h in db.execute(select(LinuxHost)).scalars().all()}
+        win = {h.id: h for h in db.execute(select(WindowsHost)).scalars().all()}
+        mik = {d.id for d in db.execute(select(Device)).scalars().all() if (d.vendor or "mikrotik").lower() == "mikrotik"}
     out = []
-    for r in rows[:MAX_PUBLIC_ROWS]:
+    for r in shown:
         seen = datetime.fromisoformat(r["last_seen_at"].rstrip("Z")) if r["last_seen_at"] else None
         v = r["vulns"]
-        out.append({"n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
-                    "lc": r["lifecycle"], "v": [v["critical"], v["high"], v["medium"], v["low"]], "loc": r["location"], "sl": r["scan_level"],
-                    "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None})
+        row = {"n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
+               "lc": r["lifecycle"], "v": [v["critical"], v["high"], v["medium"], v["low"]], "loc": r["location"], "sl": r["scan_level"],
+               "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None}
+        # What Central may ask the agent to do with it (the same commands as on the server boards): only ids and flags, no details.
+        refs = r["refs"]
+        if refs.get("linux_host_id") in lin:
+            h = lin[refs["linux_host_id"]]
+            row["x"] = {"k": "linux", "id": h.id, "m": bool(h.managed), "u": h.upgradable_count, "rb": bool(h.reboot_required)}
+        elif refs.get("windows_host_id") in win:
+            h = win[refs["windows_host_id"]]
+            row["x"] = {"k": "windows", "id": h.id, "m": bool(h.managed), "u": h.upgradable_count, "rb": bool(h.reboot_required), "ws": h.host_type == "workstation"}
+        elif refs.get("device_id") in mik:
+            row["x"] = {"k": "device", "id": refs["device_id"]}
+        out.append(row)
     return {
         "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable")},
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,

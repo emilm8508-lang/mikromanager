@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AssetsPublicRow, type AssetType } from '../lib/api'
+import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralVulnFinding } from '../lib/api'
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
-import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill } from '../components/AssetBits'
-import { Boxes, ArrowUp, ArrowDown } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Pill } from '../components/AssetBits'
+import { SeverityPill } from '../components/VulnViews'
+import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; assets: NonNullable<Awaited<ReturnType<typeof centralApi.assetsStatusAll>>['tenants'][number]['assets']> }
@@ -15,6 +17,121 @@ const ago = (epoch: number | null) => {
   if (!epoch) return '—'
   const min = Math.max(0, Math.round((Date.now() / 1000 - epoch) / 60))
   return min < 90 ? `${min} min` : min < 2880 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`
+}
+
+// Drawer with what Central knows about one device and the commands it may send to the agent for it (the same ones as on the
+// server boards: updates and restart for Linux / Windows hosts, firmware for Mikrotik routers). A command is queued at Central and
+// the agent carries it out on its next synchronisation.
+function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [backup, setBackup] = useState(true)
+  const x = row.x
+  const [findings, setFindings] = useState<CentralVulnFinding[] | null>(null)
+  useEffect(() => {
+    let live = true
+    centralApi.vulnFindingsStatusAll().then(r => {
+      if (!live) return
+      const host = r.tenants.find(tn => tn.tenant === row.tenant)?.hosts?.find(h => h.ip === row.ip)
+      setFindings(host?.findings ?? [])
+    }).catch(() => live && setFindings([]))
+    return () => { live = false }
+  }, [row.tenant, row.ip])
+  const send = async (key: string, fn: () => Promise<unknown>) => {
+    setBusy(key); setMsg(null)
+    try { await fn(); setMsg({ ok: true, text: t('assetsCentral.requested') as string }) }
+    catch (e) { setMsg({ ok: false, text: (e as Error).message }) }
+    finally { setBusy(null) }
+  }
+  const reasonFor = (key: string) => {
+    const r = window.prompt(t(key) as string)
+    if (r === null) return null
+    if (!r.trim()) { alert(t('assets.act.reasonRequired') as string); return null }
+    return r.trim()
+  }
+  const fact = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-5 border-b border-slate-100 last:border-0"><dt className="col-span-2 px-3 py-2 text-sm font-semibold text-slate-800">{label}</dt><dd className="col-span-3 px-3 py-2 text-sm text-slate-700 break-words">{value ?? '—'}</dd></div>
+  )
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30" onClick={onClose}>
+      <div className="w-full max-w-lg h-full bg-slate-50 shadow-2xl overflow-y-auto p-4 space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-lg font-semibold text-slate-900 truncate inline-flex items-center gap-2"><TypeIcon type={row.t as AssetType} size={20} />{row.n}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-800" aria-label="close"><X size={18} /></button>
+        </div>
+        <dl className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          {fact(t('assetsCentral.client') as string, row.tenant)}
+          {fact(t('assets.colIp') as string, <span className="font-mono">{row.ip ?? '—'}</span>)}
+          {fact(t('assets.colType') as string, <TypePill type={row.t} role={row.r} />)}
+          {fact(t('assets.manufacturer') as string, [row.mf, row.md].filter(Boolean).join(' · ') || null)}
+          {fact(t('assets.osVersion') as string, row.os)}
+          {fact(t('assets.colLifecycle') as string, <LifecyclePill status={row.lc} />)}
+          {fact(t('assets.colVulns') as string, row.v.some(n => n > 0) ? <VulnPill v={{ critical: row.v[0], high: row.v[1], medium: row.v[2], low: row.v[3], total: row.v[0] + row.v[1] + row.v[2] + row.v[3] }} /> : <span className="text-emerald-700">{t('assets.noVulns')}</span>)}
+          {fact(t('assets.colLocation') as string, row.loc)}
+          {fact(t('assets.colScan') as string, <ScanLevelPill level={row.sl} />)}
+          {fact(t('assets.colLastSeen') as string, ago(row.seen))}
+        </dl>
+        <p className="text-[11px] text-slate-400">{t('assetsCentral.drawerNote')}</p>
+
+        {findings && findings.length > 0 && (
+          <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+            <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100">{t('assetsCentral.findingsTitle')} ({findings.length})</h4>
+            <ul className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              {findings.map(f => (
+                <li key={`${f.cve_id}:${f.product}:${f.version}`} className="px-4 py-2 text-sm flex items-center gap-2">
+                  <SeverityPill severity={f.severity} />
+                  <a href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-blue-600 hover:underline">{f.cve_id}</a>
+                  <span className="text-xs text-slate-500 truncate">{f.product} {f.version}</span>
+                  <span className="ml-auto text-xs text-slate-400 shrink-0">{f.cvss_score ?? ''}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="px-4 py-1.5 text-[11px] text-slate-400">{t('assetsCentral.findingsNote')}</p>
+          </section>
+        )}
+
+        <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+          <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100">{t('assetsCentral.actionsTitle')}</h4>
+          <div className="p-4 space-y-3">
+            {!x && <p className="text-sm text-slate-500">{t('assetsCentral.noActions')}</p>}
+            {x && (x.k === 'linux' || x.k === 'windows') && (
+              <>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <Pill tone={x.m ? 'green' : 'gray'}>{x.m ? t('assets.act.managed') : t('assets.act.notManaged')}</Pill>
+                  {x.u != null && <Pill tone={x.u > 0 ? 'amber' : 'green'}>{x.u > 0 ? t('assets.act.updatesPending', { count: x.u }) : t('assets.act.upToDate')}</Pill>}
+                  {x.rb && <Pill tone="orange">{t('assets.act.rebootRequired')}</Pill>}
+                </div>
+                {!x.m && <p className="text-xs text-slate-500">{t('assetsCentral.needManage')}</p>}
+                {x.ws && <p className="text-xs text-slate-500">{t('assets.act.workstationNote')}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" disabled={!x.m || x.ws || busy !== null} onClick={() => {
+                    if (!confirm(t('assets.act.confirmInstall', { name: row.n }) as string)) return
+                    if (x.k === 'linux') { send('install', () => centralApi.requestLinuxAptUpgrade(row.tenant, x.id)); return }
+                    const reason = reasonFor('assets.act.reasonPromptUpdate'); if (reason) send('install', () => centralApi.requestWindowsUpdate(row.tenant, x.id, reason))
+                  }}>{busy === 'install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} {t('assets.act.install')}</Button>
+                  <Button size="sm" variant="danger" disabled={!x.m || busy !== null} onClick={() => {
+                    const reason = reasonFor('assets.act.reasonPromptRestart'); if (!reason) return
+                    send('restart', () => x.k === 'linux' ? centralApi.requestLinuxRestart(row.tenant, x.id, reason) : centralApi.requestWindowsRestart(row.tenant, x.id, reason))
+                  }}>{busy === 'restart' ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} {t('assets.act.restart')}</Button>
+                </div>
+              </>
+            )}
+            {x && x.k === 'device' && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={backup} onChange={e => setBackup(e.target.checked)} className="rounded border-slate-300" /> {t('assets.act.fwBackup')}</label>
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => {
+                  if (!confirm(t('assets.act.fwConfirm', { name: row.n }) as string)) return
+                  send('fw', () => centralApi.requestFirmwareUpgrade(row.tenant, x.id, backup))
+                }}>{busy === 'fw' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} {t('assets.act.fwUpgrade')}</Button>
+              </>
+            )}
+            {msg && <p className={cn('text-sm rounded-lg px-3 py-2 border', msg.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700')}>{msg.text}</p>}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
 }
 
 // The asset inventory of every client at once. Central only ever gets numbers and compact rows (no serial numbers, MAC addresses
@@ -32,6 +149,7 @@ export function CentralAssets() {
   const [vuln, setVuln] = useState('all')
   const [level, setLevel] = useState('all')
   const tableRef = useRef<HTMLElement>(null)
+  const [selected, setSelected] = useState<Row | null>(null)
   const pick = (f: { type?: string; lifecycle?: string; vuln?: string; level?: string }) => {
     setType(f.type ?? 'all'); setLifecycle(f.lifecycle ?? 'all'); setVuln(f.vuln ?? 'all'); setLevel(f.level ?? 'all'); setQ('')
     setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -193,7 +311,7 @@ export function CentralAssets() {
                   <th className="font-normal">{t('assets.colLocation')}</th><th className="font-normal">{t('assets.colScan')}</th><th className="font-normal pr-4">{t('assets.colLastSeen')}</th></tr></thead>
                 <tbody>
                   {shown.slice(page * PAGE, (page + 1) * PAGE).map((r, i) => (
-                    <tr key={`${r.tenant}:${r.ip}:${r.n}:${i}`} className="border-b border-slate-100">
+                    <tr key={`${r.tenant}:${r.ip}:${r.n}:${i}`} onClick={() => setSelected(r)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
                       <td className="px-4 py-2"><span className="inline-flex items-center gap-2 text-slate-800 font-medium"><TypeIcon type={r.t as AssetType} />{r.n}</span>
                         {(r.mf || r.md) && <div className="text-[11px] text-slate-400 ml-6">{[r.mf, r.md].filter(Boolean).join(' · ')}</div>}</td>
                       <td className="text-slate-600">{r.tenant}</td>
@@ -218,6 +336,7 @@ export function CentralAssets() {
               </div>
             )}
           </section>
+          {selected && <AssetDrawer row={selected} onClose={() => setSelected(null)} />}
           {truncated.length > 0 && <p className="text-xs text-slate-400">{t('assetsCentral.truncated', { clients: truncated.join(', ') })}</p>}
         </>
       )}

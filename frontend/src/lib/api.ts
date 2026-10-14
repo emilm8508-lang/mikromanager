@@ -1073,6 +1073,7 @@ export interface AssetRow {
   last_seen_at: string | null
   last_scan_at: string | null
   active: boolean
+  refs?: Record<string, number>
 }
 
 export interface AssetSummary {
@@ -1094,6 +1095,8 @@ export interface AssetSummary {
 export interface AssetsPublicRow {
   n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
   lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
+  // what Central may ask the agent to do with the device (ids and flags only)
+  x?: { k: 'linux' | 'windows' | 'device'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean }
 }
 export interface AssetsPublic {
   summary: Pick<AssetSummary, 'total' | 'total_7d_ago' | 'new_7d' | 'new_by_day' | 'by_type' | 'by_location' | 'by_lifecycle' | 'by_scan_level' | 'inactive' | 'vulnerable'>

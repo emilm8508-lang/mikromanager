@@ -6,14 +6,20 @@ import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type Vu
 import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
 import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
+import { AssetActions, hasActions } from '../components/AssetActions'
 import { ArrowLeft, Trash2, Save, X, ScanSearch, Loader2, Search, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
 
-type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies'
+type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions'
 
 function tabsFor(a: Detail): TabKey[] {
+  const tabs = baseTabs(a)
+  return hasActions(a) ? [...tabs, 'actions'] : tabs
+}
+
+function baseTabs(a: Detail): TabKey[] {
   if (COMPUTER.includes(a.type)) return ['overview', 'hardware', 'software', 'vulns', 'services', ...(a.type === 'windows' || a.type === 'linux' ? ['peripherals' as TabKey] : [])]
   if (a.type === 'network') return ['overview', 'config', 'services', 'vulns']
   if (a.type === 'printer') return ['overview', 'supplies', 'services', 'vulns']
@@ -444,6 +450,7 @@ export function AssetDetail() {
           {active === 'services' && <Services a={a} />}
           {active === 'peripherals' && <Peripherals a={a} />}
           {active === 'supplies' && <Supplies a={a} />}
+          {active === 'actions' && <AssetActions a={a} />}
         </div>
       </div>
     </div>

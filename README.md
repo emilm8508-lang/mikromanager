@@ -100,6 +100,10 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
   ręczne ustawienie typu i roli. Poświadczenia do skanów wybiera się na stronie
   **Poświadczenia**; harmonogram: komputery raz na dobę, pozostałe urządzenia (SNMP)
   co 2 godziny (do zmiany w „Harmonogramie skanów” na przeglądzie zasobów).
+  Z karty zasobu (zakładka **Akcje**) można działać na urządzeniu: aktualizacje i restart
+  komputerów Linux/Windows, akcje na maszynach Hyper-V, firmware i restart routerów
+  Mikrotik; w Centrali kliknięcie zasobu otwiera panel z informacjami i poleceniami
+  (aktualizacje, restart, firmware).
 - **Podsumowanie bezpieczeństwa** — jeden pulpit (agent i Centrala): podatności,
   zgodność, zdarzenia i alerty ze wszystkich źródeł.
 - **Hyper-V** — graficzna tablica hostów i maszyn wirtualnych, alerty,
