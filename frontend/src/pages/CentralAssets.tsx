@@ -156,6 +156,59 @@ function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
   )
 }
 
+const rowKey = (r: Row) => `${r.tenant}:${r.x?.k}:${r.x?.id}`
+const bulkable = (r: Row) => !!r.x && (r.x.k === 'linux' || r.x.k === 'windows' || r.x.k === 'device')
+
+// Bulk bar for the selected rows (any mix of clients): the same commands as the drawer, one per device. Central queues them; every agent
+// then applies its own checks, so a host that is not managed there (or a workstation) simply does nothing.
+function CentralBulkBar({ rows, onClear }: { rows: Row[]; onClear: () => void }) {
+  const { t } = useTranslation()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const count = (k: string) => rows.filter(r => r.x?.k === k).length
+  const tenants = new Set(rows.map(r => r.tenant)).size
+  const run = async (key: 'install' | 'restart') => {
+    const targets = rows.filter(r => r.x && (key === 'restart' ? true : r.x.k !== 'device' && !r.x.ws && r.x.m))
+    if (targets.length === 0) { setMsg({ ok: false, text: t('assetsCentral.bulkNothing') as string }); return }
+    if (!confirm(t(key === 'install' ? 'assetsCentral.bulkConfirmInstall' : 'assetsCentral.bulkConfirmRestart', { count: targets.length, clients: tenants }) as string)) return
+    const needReason = key === 'restart' || targets.some(r => r.x!.k === 'windows')
+    let reason = ''
+    if (needReason) {
+      const r = window.prompt(t(key === 'restart' ? 'assets.act.reasonPromptRestart' : 'assets.act.reasonPromptUpdate') as string)
+      if (r === null) return
+      if (!r.trim()) { alert(t('assets.act.reasonRequired') as string); return }
+      reason = r.trim()
+    }
+    setBusy(key); setMsg(null)
+    let ok = 0; const errors: string[] = []
+    for (const r of targets) {
+      const x = r.x!
+      try {
+        if (key === 'install') await (x.k === 'linux' ? centralApi.requestLinuxAptUpgrade(r.tenant, x.id) : centralApi.requestWindowsUpdate(r.tenant, x.id, reason))
+        else if (x.k === 'linux') await centralApi.requestLinuxRestart(r.tenant, x.id, reason)
+        else if (x.k === 'windows') await centralApi.requestWindowsRestart(r.tenant, x.id, reason)
+        else await centralApi.requestDeviceReboot(r.tenant, x.id, reason)
+        ok++
+      } catch (e) { errors.push(`${r.n}: ${(e as Error).message}`) }
+    }
+    setMsg({ ok: errors.length === 0, text: `${t('assetsCentral.bulkQueued', { count: ok })}${errors.length ? ` ${errors.slice(0, 3).join('; ')}` : ''}` })
+    setBusy(null)
+  }
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-semibold text-indigo-900">{t('assets.bulk.selected', { count: rows.length })}</span>
+        <span className="text-xs text-indigo-800">Linux {count('linux')} · Windows {count('windows')} · Mikrotik {count('device')} · {tenants} {t('assetsCentral.bulkClients')}</span>
+        <span className="flex-1" />
+        <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => run('install')}>{busy === 'install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} {t('assets.act.install')}</Button>
+        <Button size="sm" variant="danger" disabled={busy !== null} onClick={() => run('restart')}>{busy === 'restart' ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} {t('assets.act.restart')}</Button>
+        <button className="text-xs text-indigo-700 hover:underline" onClick={onClear}>{t('assets.bulk.clear')}</button>
+      </div>
+      {msg && <p className={cn('text-sm rounded-lg px-3 py-2 border', msg.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700')}>{msg.text}</p>}
+    </div>
+  )
+}
+
 // The asset inventory of every client at once. Central only ever gets numbers and compact rows (no serial numbers, MAC addresses
 // or hardware details), so this page has no device cards - those are on the agent.
 export function CentralAssets() {
@@ -172,6 +225,7 @@ export function CentralAssets() {
   const [level, setLevel] = useState('all')
   const tableRef = useRef<HTMLElement>(null)
   const [selected, setSelected] = useState<Row | null>(null)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   const pick = (f: { type?: string; lifecycle?: string; vuln?: string; level?: string }) => {
     setType(f.type ?? 'all'); setLifecycle(f.lifecycle ?? 'all'); setVuln(f.vuln ?? 'all'); setLevel(f.level ?? 'all'); setQ('')
     setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -218,6 +272,7 @@ export function CentralAssets() {
     && (!needle || [r.n, r.ip, r.mf, r.md, r.os, r.loc, r.tenant].some(v => (v ?? '').toLowerCase().includes(needle))))
     .sort((a, b) => (b.v[0] - a.v[0]) || (b.v[1] - a.v[1]) || (LC_ORDER[a.lc] - LC_ORDER[b.lc]) || a.n.localeCompare(b.n)), [rows, type, lifecycle, vuln, level, needle])
   useEffect(() => setPage(0), [tenant, q, type, lifecycle, vuln, level])
+  const pickedRows = useMemo(() => rows.filter(r => bulkable(r) && picked.has(rowKey(r))), [rows, picked])
 
   if (!cfg) {
     return <div className="p-6 max-w-5xl"><div className="bg-amber-50 border border-amber-200 rounded p-4 text-sm text-amber-800">{t('alerts.needsCentral')}</div></div>
@@ -308,6 +363,7 @@ export function CentralAssets() {
             </section>
           )}
 
+          {pickedRows.length > 0 && <CentralBulkBar rows={pickedRows} onClear={() => setPicked(new Set())} />}
           <section ref={tableRef} className="bg-white border border-slate-200 rounded-xl shadow-sm scroll-mt-4">
             <div className="px-4 pt-3 pb-3 flex flex-wrap gap-2 items-center">
               <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('assetsCentral.search') as string} className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 flex-1 min-w-[12rem] max-w-sm" />
@@ -328,13 +384,19 @@ export function CentralAssets() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-xs text-slate-400 border-y border-slate-200 bg-slate-50">
-                  <th className="px-4 py-2 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assetsCentral.client')}</th><th className="font-normal">{t('assets.colType')}</th>
+                  <th className="pl-4 w-8"><input type="checkbox" aria-label={t('assets.bulk.selectPage') as string} title={t('assets.bulk.selectPage') as string}
+                    checked={shown.slice(page * PAGE, (page + 1) * PAGE).some(bulkable) && shown.slice(page * PAGE, (page + 1) * PAGE).filter(bulkable).every(r => picked.has(rowKey(r)))}
+                    onChange={e => setPicked(prev => { const n = new Set(prev); shown.slice(page * PAGE, (page + 1) * PAGE).filter(bulkable).forEach(r => e.target.checked ? n.add(rowKey(r)) : n.delete(rowKey(r))); return n })} /></th>
+                  <th className="px-2 py-2 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assetsCentral.client')}</th><th className="font-normal">{t('assets.colType')}</th>
                   <th className="font-normal">{t('assets.colVulns')}</th><th className="font-normal">{t('assets.colLifecycle')}</th><th className="font-normal">{t('assets.colIp')}</th>
                   <th className="font-normal">{t('assets.colLocation')}</th><th className="font-normal">{t('assets.colScan')}</th><th className="font-normal pr-4">{t('assets.colLastSeen')}</th></tr></thead>
                 <tbody>
                   {shown.slice(page * PAGE, (page + 1) * PAGE).map((r, i) => (
                     <tr key={`${r.tenant}:${r.ip}:${r.n}:${i}`} onClick={() => setSelected(r)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
-                      <td className="px-4 py-2"><span className="inline-flex items-center gap-2 text-slate-800 font-medium"><TypeIcon type={r.t as AssetType} />{r.n}</span>
+                      <td className="pl-4 w-8" onClick={e => e.stopPropagation()}>
+                        {bulkable(r) && <input type="checkbox" checked={picked.has(rowKey(r))} onChange={e => setPicked(prev => { const n = new Set(prev); e.target.checked ? n.add(rowKey(r)) : n.delete(rowKey(r)); return n })} />}
+                      </td>
+                      <td className="px-2 py-2"><span className="inline-flex items-center gap-2 text-slate-800 font-medium"><TypeIcon type={r.t as AssetType} />{r.n}</span>
                         {(r.mf || r.md) && <div className="text-[11px] text-slate-400 ml-6">{[r.mf, r.md].filter(Boolean).join(' · ')}</div>}</td>
                       <td className="text-slate-600">{r.tenant}</td>
                       <td><TypePill type={r.t} role={r.r} /></td>
@@ -346,7 +408,7 @@ export function CentralAssets() {
                       <td className="pr-4 text-xs text-slate-500">{ago(r.seen)}</td>
                     </tr>
                   ))}
-                  {shown.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{t('assets.none')}</td></tr>}
+                  {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{t('assets.none')}</td></tr>}
                 </tbody>
               </table>
             </div>

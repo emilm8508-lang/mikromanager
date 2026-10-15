@@ -1497,6 +1497,11 @@
         "lastSuccessfulScan": "Last successful scan"
     },
     "assetsCentral": {
+        "bulkClients": "client(s)",
+        "bulkNothing": "None of the selected devices can take this action (not managed, a workstation, or no commands for it).",
+        "bulkConfirmInstall": "Queue the update installation for {{count}} devices of {{clients}} client(s)? Each agent runs it on its next synchronisation.",
+        "bulkConfirmRestart": "Queue a restart of {{count}} devices of {{clients}} client(s)? They restart as soon as their agents pick the command up, all at once.",
+        "bulkQueued": "Queued {{count}} commands.",
         "findingsTitle": "Vulnerabilities (critical and high)",
         "findingsNote": "Central receives only the critical and high findings.",
         "drawerNote": "Serial numbers, MAC addresses and hardware details are only on the client's agent.",

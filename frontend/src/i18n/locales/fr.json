@@ -1497,6 +1497,11 @@
         "lastSuccessfulScan": "Dernière analyse réussie"
     },
     "assetsCentral": {
+        "bulkClients": "client(s)",
+        "bulkNothing": "Aucun des appareils sélectionnés ne peut effectuer cette action (non géré, poste de travail ou pas de commande).",
+        "bulkConfirmInstall": "Demander l'installation des mises à jour pour {{count}} appareils de {{clients}} client(s) ? Chaque agent l'exécute à sa prochaine synchronisation.",
+        "bulkConfirmRestart": "Demander le redémarrage de {{count}} appareils de {{clients}} client(s) ? Ils redémarrent dès que leurs agents reçoivent la commande, tous en même temps.",
+        "bulkQueued": "{{count}} commandes demandées.",
         "findingsTitle": "Vulnérabilités (critiques et élevées)",
         "findingsNote": "La centrale ne reçoit que les constats critiques et élevés.",
         "drawerNote": "Les numéros de série, adresses MAC et détails matériels ne sont que dans l'agent du client.",

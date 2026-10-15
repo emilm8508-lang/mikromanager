@@ -1655,6 +1655,11 @@
         "lastSuccessfulScan": "Ostatni udany skan"
     },
     "assetsCentral": {
+        "bulkClients": "klient(ów)",
+        "bulkNothing": "Żadne z zaznaczonych urządzeń nie może wykonać tej akcji (niezarządzane, stacja robocza albo brak poleceń).",
+        "bulkConfirmInstall": "Zlecić instalację aktualizacji dla urządzeń: {{count}} (klientów: {{clients}})? Każdy agent wykona ją przy najbliższej synchronizacji.",
+        "bulkConfirmRestart": "Zlecić restart urządzeń: {{count}} (klientów: {{clients}})? Zrestartują się, gdy tylko ich agenci odbiorą polecenie - wszystkie naraz.",
+        "bulkQueued": "Zlecono poleceń: {{count}}.",
         "findingsTitle": "Podatności (krytyczne i wysokie)",
         "findingsNote": "Centrala dostaje tylko ustalenia krytyczne i wysokie.",
         "drawerNote": "Numery seryjne, adresy MAC i szczegóły sprzętu są tylko w agencie klienta.",

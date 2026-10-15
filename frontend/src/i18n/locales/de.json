@@ -1497,6 +1497,11 @@
         "lastSuccessfulScan": "Letzter erfolgreicher Scan"
     },
     "assetsCentral": {
+        "bulkClients": "Kunde(n)",
+        "bulkNothing": "Keines der ausgewählten Geräte kann diese Aktion ausführen (nicht verwaltet, Arbeitsplatz oder keine Befehle).",
+        "bulkConfirmInstall": "Updateinstallation für {{count}} Geräte von {{clients}} Kunde(n) beauftragen? Jeder Agent führt sie bei der nächsten Synchronisierung aus.",
+        "bulkConfirmRestart": "Neustart von {{count}} Geräten von {{clients}} Kunde(n) beauftragen? Sie starten neu, sobald ihre Agenten den Befehl abholen - alle gleichzeitig.",
+        "bulkQueued": "{{count}} Befehle beauftragt.",
         "findingsTitle": "Schwachstellen (kritisch und hoch)",
         "findingsNote": "Die Zentrale erhält nur kritische und hohe Funde.",
         "drawerNote": "Seriennummern, MAC-Adressen und Hardwaredetails gibt es nur im Agenten des Kunden.",

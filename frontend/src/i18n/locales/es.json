@@ -1497,6 +1497,11 @@
         "lastSuccessfulScan": "Último análisis correcto"
     },
     "assetsCentral": {
+        "bulkClients": "cliente(s)",
+        "bulkNothing": "Ninguno de los dispositivos seleccionados puede realizar esta acción (no gestionado, estación de trabajo o sin comandos).",
+        "bulkConfirmInstall": "¿Solicitar la instalación de actualizaciones para {{count}} dispositivos de {{clients}} cliente(s)? Cada agente la ejecuta en su próxima sincronización.",
+        "bulkConfirmRestart": "¿Solicitar el reinicio de {{count}} dispositivos de {{clients}} cliente(s)? Se reinician en cuanto sus agentes recogen el comando, todos a la vez.",
+        "bulkQueued": "{{count}} comandos solicitados.",
         "findingsTitle": "Vulnerabilidades (críticas y altas)",
         "findingsNote": "La central solo recibe los hallazgos críticos y altos.",
         "drawerNote": "Los números de serie, las direcciones MAC y los detalles de hardware solo están en el agente del cliente.",
