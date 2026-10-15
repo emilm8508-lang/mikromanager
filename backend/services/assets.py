@@ -249,6 +249,11 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
         existing = db.execute(select(Asset)).scalars().all()
         by_key = {a.key: a for a in existing}
         by_mac = {a.mac: a for a in existing if a.mac}
+        by_ref = {}
+        for a in existing:                                    # the managed object behind an asset outlives its address
+            for k, v in _jload(a.refs, {}).items():
+                if k in ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id") and isinstance(v, int):
+                    by_ref.setdefault((k, v), a)
         used = set()
         for r in recs.values():
             a = by_key.get(r["key"])
@@ -257,6 +262,15 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                 by_key.pop(a.key, None)
                 a.key = r["key"]
                 by_key[a.key] = a
+            if a is None:
+                for k, v in (r.get("refs") or {}).items():
+                    cand = by_ref.get((k, v))
+                    if cand is not None and cand.id not in used and cand.key != r["key"] and not cand.key.startswith("vm:"):
+                        a = cand                              # same Linux / Windows host, router or VM, new address: re-key, no second asset
+                        by_key.pop(a.key, None)
+                        a.key = r["key"]
+                        by_key[a.key] = a
+                        break
             if a is None:
                 if baseline:     # everything found by the very first population counts as already known
                     first = min(r.get("first") or (now - timedelta(days=365)), now - timedelta(days=NEW_DAYS + 1))

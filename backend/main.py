@@ -51,6 +51,8 @@ async def lifespan(app: FastAPI):
     init_db()
     from services import fs_perms
     fs_perms.harden_data_dir(os.path.join(os.path.dirname(__file__), "data"))     # keys readable by the agent's account only
+    from services import host_identity
+    host_identity.startup_merge()                                                   # one entry per machine, also for the pairs left by an address change
     refresher.start()
     uplink.start()
     vuln_scan.start()

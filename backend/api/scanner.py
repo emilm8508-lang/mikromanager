@@ -373,6 +373,12 @@ async def run_scan(credential_id: Optional[int] = None, full: bool = False):
                     # Upsert
                     with SessionLocal() as db:
                         device = db.execute(select(Device).where(Device.ip == found["ip"])).scalar_one_or_none()
+                        if device is None and found.get("identity"):
+                            # the same router / switch under a new address (the old one is offline): change the address, no second entry
+                            from services import host_identity
+                            moved = host_identity.adopt_moved_device(found.get("identity"), found.get("vendor"), found["ip"])
+                            if moved:
+                                device = db.execute(select(Device).where(Device.id == moved)).scalar_one_or_none()
                         if device:
                             device.has_api = found.get("has_api", device.has_api)
                             device.has_ssh = found.get("has_ssh", device.has_ssh)

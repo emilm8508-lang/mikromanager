@@ -279,6 +279,11 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
     now = datetime.utcnow()
 
     if port_by_ip:
+        # a host that got another address is one entry, not two: fold the pairs that already exist
+        from services import host_identity
+        if host_identity.merge_duplicates("windows", set(port_by_ip)):
+            with SessionLocal() as db:
+                known_ips = {ip for ip in db.execute(select(WindowsHost.ip)).scalars().all()}
         with SessionLocal() as db:
             existing = db.execute(
                 select(WindowsHost).where(WindowsHost.ip.in_(list(port_by_ip.keys())))
@@ -316,6 +321,11 @@ async def discover_windows_hosts(on_event: Optional[Callable] = None) -> dict:
                             "detail": info.get("error")})
         if info.get("error"):
             print(f"[windows_manage] identify skipped {ip}: {info['error']}")
+            continue
+        from services import host_identity
+        if host_identity.adopt_moved(WindowsHost, info["hostname"], ip, set(port_by_ip), winrm_port=port, os_name=info["os_name"],
+                                      os_version=info["os_version"], domain=info.get("domain"), system_model=info.get("system_model")):
+            discovered += 1                                  # known by its name: the entry just got the new address
             continue
         with SessionLocal() as db:
             if db.execute(select(WindowsHost).where(WindowsHost.ip == ip)).scalar_one_or_none():

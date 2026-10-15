@@ -218,6 +218,11 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
 
     # Refresh last_seen_at for already-known hosts still present in this pass.
     if candidate_ips:
+        # a host that got another address is one entry, not two: fold the pairs that already exist
+        from services import host_identity
+        if host_identity.merge_duplicates("linux", set(candidate_ips)):
+            with SessionLocal() as db:
+                known_ips = {ip for ip in db.execute(select(LinuxHost.ip)).scalars().all()}
         with SessionLocal() as db:
             existing = db.execute(
                 select(LinuxHost).where(LinuxHost.ip.in_(candidate_ips))
@@ -237,6 +242,11 @@ async def discover_linux_hosts(on_event: Optional[Callable] = None) -> dict:
         if info.get("error"):
             print(f"[linux_manage] identify skipped {ip}: {info['error']}")
         if not info["distro_id"]:
+            continue
+        from services import host_identity
+        if host_identity.adopt_moved(LinuxHost, info["hostname"], ip, set(candidate_ips), distro_id=info["distro_id"], distro_pretty=info["distro_pretty"],
+                                      distro_version=info["distro_version"], package_manager=info["package_manager"]):
+            discovered += 1                                  # known by its name: the entry just got the new address
             continue
         with SessionLocal() as db:
             if db.execute(select(LinuxHost).where(LinuxHost.ip == ip)).scalar_one_or_none():
