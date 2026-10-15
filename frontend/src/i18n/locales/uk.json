@@ -1142,6 +1142,8 @@
         }
     },
     "assets": {
+        "installedOn": "Встановлений на цих комп'ютерах",
+        "openAsset": "Відкрити картку {{name}}",
         "bulk": {
             "selected": "Вибрано: {{count}}",
             "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · без дій {{skipped}}",
@@ -1271,6 +1273,8 @@
         "showing": "{{from}}–{{to}} з {{total}}",
         "perPage": "на сторінці",
         "type": {
+            "camera": "Камери",
+            "mobile": "Телефони та планшети",
             "windows": "Windows",
             "linux": "Linux",
             "network": "Мережеві пристрої",

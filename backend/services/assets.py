@@ -34,7 +34,7 @@ from models.database import (
 )
 from services import asset_lifecycle, asset_scan
 
-TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "other")
+TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "camera", "mobile", "other")
 # How old the routers' DHCP/ARP tables may be before an inventory rebuild logs in to every router again for them (each login is a
 # line in the router's log); a button press always reads fresh ones.
 DIRECTORY_MAX_AGE_SEC = int(os.environ.get("MIKROTIK_ASSET_DIRECTORY_SEC", "7200"))
@@ -175,6 +175,13 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             r["asset_type"] = "windows" if kind == "other" and hints.get(ip) == "windows" else kind
         if r["asset_type"] == "windows" and not r.get("role"):
             r["role"] = "workstation"                    # a Windows host nobody classified: most are workstations; the operator can change it
+        # What the network card and the host name give away, for the devices nothing else could classify
+        from services import oui
+        c = oui.classify(r.get("mac"), r.get("name"))
+        if c["vendor"]:
+            r["oui_vendor"] = c["vendor"]
+        if r["asset_type"] == "other" and c["type"] in ("printer", "camera", "mobile", "network", "virtual"):
+            r["asset_type"] = c["type"]
 
     for d in devices:
         r = rec(d.ip)
@@ -232,13 +239,13 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
     return recs
 
 
-def _save(recs: Dict[str, _Rec]) -> dict:
+def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
     """Upserts the records. The very first population treats everything as already known, so "new assets" only counts
-    what appears afterwards."""
+    what appears afterwards; so does the first LAN discovery (`force_baseline`), which finds every computer at once."""
     now = datetime.utcnow()
     created = updated = 0
     with SessionLocal() as db:
-        baseline = db.execute(select(Asset.id).limit(1)).first() is None
+        baseline = force_baseline or db.execute(select(Asset.id).limit(1)).first() is None
         existing = db.execute(select(Asset)).scalars().all()
         by_key = {a.key: a for a in existing}
         by_mac = {a.mac: a for a in existing if a.mac}
@@ -264,6 +271,8 @@ def _save(recs: Dict[str, _Rec]) -> dict:
             used.add(a.id)
             if r.get("ip"):
                 a.ip = r["ip"]
+            if r.get("oui_vendor") and not a.manufacturer:
+                a.manufacturer = r["oui_vendor"]               # only fills a gap: a scan or a credential knows better than the MAC prefix
             for f in ("mac", "name", "manufacturer", "model", "serial", "os_name", "os_version", "role"):
                 if r.get(f) and not (f == "role" and "role" in _jload(a.details, {}).get("_over", {})):
                     setattr(a, f, r[f])
@@ -308,7 +317,20 @@ async def refresh(directory: bool = True, fresh: bool = False) -> dict:
             sweep_entries = lan_sweep.entries()
         except Exception as e:
             print(f"[assets] LAN sweep results unavailable: {e}")
-        result = _save(_collect(entries + sweep_entries))
+        first_sweep = False
+        if sweep_entries:
+            from models.database import AssetScanSettings
+            with SessionLocal() as db:
+                row = db.get(AssetScanSettings, 1)
+                first_sweep = row is None or row.sweep_baseline_at is None
+        result = _save(_collect(entries + sweep_entries), force_baseline=first_sweep)
+        if first_sweep:
+            from models.database import AssetScanSettings
+            with SessionLocal() as db:
+                row = db.get(AssetScanSettings, 1) or AssetScanSettings(id=1)
+                row.sweep_baseline_at = datetime.utcnow()
+                db.merge(row)
+                db.commit()
         result["sources"] = {"routers": len(entries), "sweep": len(sweep_entries)}
         _state["last_refresh"] = datetime.utcnow()
         try:
@@ -578,8 +600,20 @@ async def get_asset(asset_id: int) -> Optional[dict]:
         periph = [{"id": p.id, "kind": p.kind, "name": p.name, "manufacturer": p.manufacturer, "model": p.model, "serial": p.serial,
                    "details": _jload(p.details, {}), "last_seen_at": _iso(p.last_seen_at)}
                   for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.asset_id == a.id)).scalars().all()]
+        installed_on = []
+        if a.asset_type == "printer" and a.ip:
+            names = {x.id: x.name or x.ip for x in db.execute(select(Asset)).scalars().all()}
+            for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.kind == "printer")).scalars().all():
+                if _jload(p.details, {}).get("address") == a.ip and p.asset_id in names and p.asset_id != a.id:
+                    installed_on.append({"id": p.asset_id, "name": names[p.asset_id], "queue": p.name})
+        for p in periph:
+            addr = p["details"].get("address") if p["kind"] == "printer" else None
+            if addr:
+                tgt = db.execute(select(Asset).where(Asset.ip == addr)).scalars().first()
+                if tgt and tgt.id != a.id:
+                    p["details"] = {**p["details"], "asset_id": tgt.id, "asset_name": tgt.name or tgt.ip}
         row.update({
-            "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
+            "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
             "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,

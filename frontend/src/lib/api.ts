@@ -1043,7 +1043,7 @@ export interface InventoryOut {
 
 // ── Asset inventory (services/assets.py) ──────────────────────────────────────
 
-export type AssetType = 'windows' | 'linux' | 'network' | 'printer' | 'virtual' | 'server' | 'other'
+export type AssetType = 'windows' | 'linux' | 'network' | 'printer' | 'virtual' | 'server' | 'camera' | 'mobile' | 'other'
 export type AssetLifecycle = 'supported' | 'ending' | 'eol' | 'unknown'
 export type AssetScanLevel = 'credentialed' | 'snmp' | 'passive'
 
@@ -1123,6 +1123,7 @@ export interface AssetDetail extends AssetRow {
   refs: Record<string, number>
   override: { type?: string; role?: string }
   parent: string | null
+  installed_on?: Array<{ id: number; name: string; queue: string | null }>
   hardware: Record<string, any>
   peripherals: AssetPeripheralOut[]
   services: Array<{ port: number; proto: string | null; service: string | null; product: string | null; version: string | null }>

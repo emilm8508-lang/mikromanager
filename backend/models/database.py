@@ -430,6 +430,7 @@ class AssetScanSettings(Base):
     id = Column(Integer, primary_key=True)
     computers_hours = Column(Float, nullable=True)
     devices_hours = Column(Float, nullable=True)
+    sweep_baseline_at = Column(DateTime, nullable=True)   # set once the first LAN discovery has been folded into the inventory as "already known"
 
 
 class VulnDaily(Base):
@@ -1121,6 +1122,12 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE credentials ADD COLUMN domain TEXT"))
             if "asset_scan" not in cred_cols:
                 conn.execute(text("ALTER TABLE credentials ADD COLUMN asset_scan TEXT"))
+
+    if "asset_scan_settings" in inspector.get_table_names():
+        ass_cols = {c["name"] for c in inspector.get_columns("asset_scan_settings")}
+        if "sweep_baseline_at" not in ass_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE asset_scan_settings ADD COLUMN sweep_baseline_at DATETIME"))
 
     if "devices" in inspector.get_table_names():
         dev_cols = {c["name"] for c in inspector.get_columns("devices")}

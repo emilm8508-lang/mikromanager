@@ -1142,6 +1142,8 @@
         }
     },
     "assets": {
+        "installedOn": "Auf diesen Computern installiert",
+        "openAsset": "Gerätekarte von {{name}} öffnen",
         "bulk": {
             "selected": "{{count}} ausgewählt",
             "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · ohne Aktionen {{skipped}}",
@@ -1271,6 +1273,8 @@
         "showing": "{{from}}–{{to}} von {{total}}",
         "perPage": "pro Seite",
         "type": {
+            "camera": "Kameras",
+            "mobile": "Telefone und Tablets",
             "windows": "Windows",
             "linux": "Linux",
             "network": "Netzwerkgeräte",

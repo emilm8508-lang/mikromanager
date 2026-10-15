@@ -343,8 +343,8 @@ function Peripherals({ a }: { a: Detail }) {
       {groups.map(g => (
         <Section key={g.k} title={`${t(`assets.peripheral.${g.k}`)} (${g.items.length})`}>
           <table className="w-full text-sm"><thead><tr className="text-left text-xs text-slate-400 border-b"><th className="py-1.5 font-normal">{t('assets.colName')}</th><th className="font-normal">{t('assets.manufacturer')}</th><th className="font-normal">{t('assets.model')}</th><th className="font-normal">{t('assets.serial')}</th><th className="font-normal">{t('assets.details')}</th></tr></thead>
-            <tbody>{g.items.map(p => <tr key={p.id} className="border-b border-slate-100 align-top"><td className="py-1.5 text-slate-800">{p.name ?? '—'}</td><td>{p.manufacturer ?? '—'}</td><td>{p.model ?? '—'}</td><td className="font-mono text-xs">{p.serial ?? '—'}</td>
-              <td className="text-xs text-slate-600">{Object.entries(p.details ?? {}).map(([k, v]) => <span key={k} className="mr-3 whitespace-nowrap">{t(`assets.hw.${k}`, { defaultValue: humanize(k) })}: <Val k={k} v={v} /></span>)}</td></tr>)}</tbody></table>
+            <tbody>{g.items.map(p => <tr key={p.id} className="border-b border-slate-100 align-top"><td className="py-1.5 text-slate-800">{p.details?.asset_id ? <Link to={`/inventory/${p.details.asset_id}`} className="text-indigo-600 hover:underline" title={t('assets.openAsset', { name: p.details.asset_name }) as string}>{p.name ?? '—'}</Link> : (p.name ?? '—')}</td><td>{p.manufacturer ?? '—'}</td><td>{p.model ?? '—'}</td><td className="font-mono text-xs">{p.serial ?? '—'}</td>
+              <td className="text-xs text-slate-600">{Object.entries(p.details ?? {}).filter(([k]) => k !== 'asset_id' && k !== 'asset_name').map(([k, v]) => <span key={k} className="mr-3 whitespace-nowrap">{t(`assets.hw.${k}`, { defaultValue: humanize(k) })}: <Val k={k} v={v} /></span>)}</td></tr>)}</tbody></table>
         </Section>
       ))}
     </div>
@@ -354,7 +354,12 @@ function Peripherals({ a }: { a: Detail }) {
 function Supplies({ a }: { a: Detail }) {
   const { t } = useTranslation()
   const p = a.hardware.printer as Record<string, any> | undefined
-  if (!p) return <Section title={t('assets.tab.supplies') as string}><p className="text-sm text-slate-500">{t('assets.noSupplies')}</p></Section>
+  const installed = (a.installed_on ?? []).length > 0 && (
+    <Section title={t('assets.installedOn') as string}>
+      <ul className="text-sm space-y-1">{a.installed_on!.map(x => <li key={`${x.id}:${x.queue}`}><Link to={`/inventory/${x.id}`} className="text-indigo-600 hover:underline">{x.name}</Link>{x.queue && <span className="text-slate-400"> · {x.queue}</span>}</li>)}</ul>
+    </Section>
+  )
+  if (!p) return <div className="space-y-4"><Section title={t('assets.tab.supplies') as string}><p className="text-sm text-slate-500">{t('assets.noSupplies')}</p></Section>{installed}</div>
   const supplies: Array<{ name: string; level_pct: number | null }> = Array.isArray(p.supplies) ? p.supplies : []
   return (
     <div className="space-y-4">
@@ -368,6 +373,7 @@ function Supplies({ a }: { a: Detail }) {
         </Section>
       )}
       <Section title={t('assets.hwSection.printer') as string}><KeyValues data={Object.fromEntries(Object.entries(p).filter(([k]) => k !== 'supplies'))} /></Section>
+      {installed}
     </div>
   )
 }

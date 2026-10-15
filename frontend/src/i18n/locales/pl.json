@@ -1300,6 +1300,8 @@
         }
     },
     "assets": {
+        "installedOn": "Zainstalowana na komputerach",
+        "openAsset": "Otwórz kartę zasobu {{name}}",
         "bulk": {
             "selected": "Zaznaczono: {{count}}",
             "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · bez akcji {{skipped}}",
@@ -1429,6 +1431,8 @@
         "showing": "{{from}}–{{to}} z {{total}}",
         "perPage": "na stronę",
         "type": {
+            "camera": "Kamery",
+            "mobile": "Telefony i tablety",
             "windows": "Windows",
             "linux": "Linux",
             "network": "Urządzenia sieciowe",

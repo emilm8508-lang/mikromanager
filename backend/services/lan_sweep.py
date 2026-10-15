@@ -23,6 +23,7 @@ PROBE_PORTS = (445, 139, 135, 3389, 5985, 22, 80, 443, 9100, 631)
 PROBE_TIMEOUT = 0.5
 CONCURRENCY = int(os.environ.get("MIKROTIK_LAN_SWEEP_CONCURRENCY", "120"))
 MAX_RANGE_ADDRESSES = 1024                      # a /22; bigger ranges are skipped
+MAX_KNOWN_PROBES = 1000                         # hosts of the routers' tables probed per sweep
 SWEEP_HOURS = float(os.environ.get("MIKROTIK_LAN_SWEEP_HOURS", "6"))
 _WINDOWS_PORTS = {445, 139, 135, 3389, 5985}
 
@@ -163,6 +164,39 @@ async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     return {"cidr": cidr, "label": label, "probed": len(ips), "alive": len(entries), "entries": entries}
 
 
+async def probe_known(ips: List[str]) -> List[dict]:
+    """The hosts the routers' DHCP / ARP tables list but that are outside every swept segment (or hide behind a firewall): no ARP
+    here - the agent is not on their segment - so only what answers: open ports, a NetBIOS name, a reverse-DNS name. A host that
+    answers nothing is simply not reported (the router's own entry still puts it in the inventory)."""
+    if not ips:
+        return []
+    sem = asyncio.Semaphore(CONCURRENCY)
+    ports: Dict[str, List[int]] = {}
+
+    async def probe(ip: str, port: int):
+        async with sem:
+            if await _open(ip, port):
+                ports.setdefault(ip, []).append(port)
+
+    await asyncio.gather(*(probe(ip, p) for ip in ips for p in PROBE_PORTS))
+    loop = asyncio.get_event_loop()
+    nsem = asyncio.Semaphore(30)
+
+    async def names(ip: str):
+        async with nsem:
+            nb = await loop.run_in_executor(None, _nbstat_sync, ip)
+            dns = None if nb else await loop.run_in_executor(None, _rdns_sync, ip)
+            return ip, nb, dns
+
+    entries = []
+    for ip, nb, dns in await asyncio.gather(*(names(ip) for ip in ips)):
+        p = sorted(ports.get(ip, []))
+        if p or nb or dns:
+            entries.append({"name": nb or dns, "ip": ip, "mac": None, "sources": ["sweep"], "devices": [], "comment": None, "ports": p,
+                            "hint": "windows" if (nb or set(p) & _WINDOWS_PORTS) else None})
+    return entries
+
+
 async def sweep_all() -> dict:
     """Sweeps every active scan range, keeps the result for the inventory and returns {"ranges": [...], "alive": n}."""
     if _state["running"]:
@@ -179,6 +213,18 @@ async def sweep_all() -> dict:
                     seen.add(e["ip"])
                     entries.append(e)
             results.append(r)
+        # the routers' own tables: hosts in other segments that no ARP of ours can reach
+        try:
+            from services import host_monitor
+            known = [e["ip"] for e in await host_monitor.directory(max_age=86400) if e.get("ip") and e["ip"] not in seen and "sweep" not in (e.get("sources") or [])]
+            extra = await probe_known(known[:MAX_KNOWN_PROBES])
+            for e in extra:
+                seen.add(e["ip"])
+                entries.append(e)
+            if known:
+                results.append({"cidr": "routers' DHCP/ARP tables", "label": None, "probed": min(len(known), MAX_KNOWN_PROBES), "alive": len(extra)})
+        except Exception as e:
+            print(f"[lan_sweep] probing the routers' hosts failed: {e}")
         _state.update(entries=entries, ranges=results, at=time.time())
         return {"ranges": results, "alive": len(entries)}
     finally:

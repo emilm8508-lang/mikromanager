@@ -1142,6 +1142,8 @@
         }
     },
     "assets": {
+        "installedOn": "Установлен на этих компьютерах",
+        "openAsset": "Открыть карточку {{name}}",
         "bulk": {
             "selected": "Выбрано: {{count}}",
             "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · без действий {{skipped}}",
@@ -1271,6 +1273,8 @@
         "showing": "{{from}}–{{to}} из {{total}}",
         "perPage": "на странице",
         "type": {
+            "camera": "Камеры",
+            "mobile": "Телефоны и планшеты",
             "windows": "Windows",
             "linux": "Linux",
             "network": "Сетевые устройства",

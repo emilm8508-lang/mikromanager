@@ -1142,6 +1142,8 @@
         }
     },
     "assets": {
+        "installedOn": "Instalada en estos equipos",
+        "openAsset": "Abrir la ficha de {{name}}",
         "bulk": {
             "selected": "{{count}} seleccionados",
             "breakdown": "Linux {{linux}} · Windows {{windows}} · Mikrotik {{routers}} · sin acciones {{skipped}}",
@@ -1271,6 +1273,8 @@
         "showing": "{{from}}–{{to}} de {{total}}",
         "perPage": "por página",
         "type": {
+            "camera": "Cámaras",
+            "mobile": "Teléfonos y tabletas",
             "windows": "Windows",
             "linux": "Linux",
             "network": "Dispositivos de red",
