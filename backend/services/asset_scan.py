@@ -84,7 +84,9 @@ _attempts: Dict[int, datetime] = {}     # last try per asset, so an unreachable 
 RETRY_HOURS = 1.0
 NO_ANSWER_HOURS = 24.0
 AUTH_RETRY_HOURS = 168.0      # a rejected password is not retried by the scheduler for a week (account lockout policies)
-_AUTH_MARKERS = ("401", "unauthorized", "invalidcredentials", "credentials were rejected", "login refused", "authentication failed", "logon failure")
+_AUTH_MARKERS = ("401", "unauthorized", "invalidcredentials", "credentials were rejected", "login refused", "authentication failed", "logon failure",
+                 "logon_failure", "access_denied", "rpc_s_access_denied", "wbem_e_access_denied")
+DCOM_FALLBACK = os.environ.get("MIKROTIK_ASSET_SCAN_DCOM", "1").strip().lower() not in ("0", "false", "no")
 
 
 def _is_auth_error(text: str) -> bool:
@@ -457,6 +459,14 @@ async def _scan_credentialed(kind: str, ip: str, cred_info) -> dict:
                 if res["ok"]:
                     return {"ok": parse(res["parsed"]), "cred_id": cid}
                 err, auth = res["error"], _is_auth_error(res["error"])
+                if not auth and DCOM_FALLBACK:
+                    # WinRM is off or unreachable (the usual state of a workstation): the same read-only queries over WMI / DCOM, same
+                    # credential. Not after a rejected password - a second try with it would only add to a lockout count.
+                    from services import asset_scan_wmi as W
+                    w = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, W.scan_sync, ip, username, password, domain), timeout=SCAN_TIMEOUT_SEC + 20)
+                    if w["ok"]:
+                        return {"ok": parse(w["parsed"]), "cred_id": cid, "via": "wmi"}
+                    err, auth = f"WinRM: {err} | {w['error']}", _is_auth_error(w["error"])
             else:
                 from services import asset_scan_linux as L
                 username, password, cid = item

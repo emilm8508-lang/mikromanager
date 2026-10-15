@@ -93,7 +93,7 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
   ukrywa wszystkie porty). Skan z poświadczeniami (read-only): Windows przez
   WinRM/WMI (numer seryjny, BIOS, procesor, moduły RAM, dyski, karty sieciowe z MAC,
   zalogowany użytkownik, **podłączone monitory, zainstalowane drukarki, USB**),
-  Linux przez SSH (DMI, lscpu, lsblk, EDID monitorów, CUPS). Bez poświadczeń —
+  (gdy WinRM jest wyłączony — przez WMI/DCOM, port 135), Linux przez SSH (DMI, lscpu, lsblk, EDID monitorów, CUPS). Bez poświadczeń —
   podstawowe informacje przez SNMP (nazwa, model, numer seryjny, a dla drukarek
   licznik stron i poziomy tonerów). Cykl życia systemu (wspierany / kończy się /
   koniec wsparcia), podatności per urządzenie, lokalizacja z etykiety zakresu,
@@ -192,6 +192,7 @@ pokazuje `/api/system/device-access`. Progi alarmowe (Telegram, z histerezą):
 | `MIKROMANAGER_SESSION_HOURS` | `168` | ważność logowania (godziny, maks. 720) |
 | `MIKROMANAGER_API_DOCS` | `0` | `1` = udostępnij `/docs` i `/openapi.json` |
 | `MIKROTIK_ASSET_SCAN_HOURS` / `MIKROTIK_ASSET_DEVICE_SCAN_HOURS` | `24` / `2` | częstotliwość skanów komputerów / pozostałych urządzeń (zmienialna też w interfejsie) |
+| `MIKROTIK_ASSET_SCAN_DCOM` | `1` | skan komputerów Windows przez WMI/DCOM, gdy WinRM jest wyłączony (`0` = wyłącz) |
 | `MIKROTIK_LAN_SWEEP_HOURS` | `6` | jak często wykrywane są komputery w zakresach skanowania |
 | `MIKROTIK_ASSET_DIRECTORY_SEC` | `7200` | jak stara może być kopia tablic DHCP/ARP przy przebudowie inwentarza |
 | `MIKROTIK_DEVICE_RESOURCE_CHECK_MIN` | `60` | odpytywanie zasobów routerów (minuty) |
