@@ -1159,6 +1159,8 @@ export const assetsApi = {
   update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
+  bulkDelete: (ids: number[]) => api.post<{ deleted: number; managed: number }>('/assets/bulk', { ids, action: 'delete' }).then(r => r.data),
+  bulkType: (ids: number[], asset_type: string) => api.post<{ changed: number }>('/assets/bulk', { ids, action: 'type', asset_type }).then(r => r.data),
 }
 
 export const inventoryApi = {

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetRow, type AssetType } from '../lib/api'
 import { TypeIcon, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
-import { AssetBulkBar, partition } from '../components/AssetActions'
+import { AssetBulkBar } from '../components/AssetActions'
 import { Button } from '../components/ui/Button'
 import { Boxes, Download, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -143,7 +143,7 @@ export function AssetList() {
         <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={inactive} onChange={e => { setInactive(e.target.checked); setPage(0) }} />{t('assets.showInactive')}</label>
       </div>
 
-      {selectedRows.length > 0 && <AssetBulkBar rows={selectedRows} onClear={() => setPicked(new Set())} />}
+      {selectedRows.length > 0 && <AssetBulkBar rows={selectedRows} onClear={() => setPicked(new Set())} total={rows.length} onSelectAll={() => setPicked(new Set(rows.map(r => r.id)))} />}
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p> : shown.length === 0 ? <p className="p-5 text-sm text-slate-500">{t('assets.none')}</p> : (
@@ -151,8 +151,8 @@ export function AssetList() {
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs text-slate-500 bg-slate-50 border-b border-slate-200">
                 <th className="pl-4 w-8"><input type="checkbox" aria-label={t('assets.bulk.selectPage') as string} title={t('assets.bulk.selectPage') as string}
-                  checked={shown.length > 0 && shown.filter(a => partition([a]).skipped === 0).every(a => picked.has(a.id)) && shown.some(a => partition([a]).skipped === 0)}
-                  onChange={e => setPicked(prev => { const n = new Set(prev); shown.filter(a => partition([a]).skipped === 0).forEach(a => e.target.checked ? n.add(a.id) : n.delete(a.id)); return n })} /></th>
+                  checked={shown.length > 0 && shown.every(a => picked.has(a.id))}
+                  onChange={e => setPicked(prev => { const n = new Set(prev); shown.forEach(a => e.target.checked ? n.add(a.id) : n.delete(a.id)); return n })} /></th>
                 {th('name', t('assets.colName') as string, 'px-4')}{th('type', t('assets.colType') as string)}{th('vulns', t('assets.colVulns') as string)}
                 {th('lifecycle', t('assets.colLifecycle') as string)}{th('ip', t('assets.colIp') as string)}{th('location', t('assets.colLocation') as string)}
                 <th className="font-normal">{t('assets.colScan')}</th>{th('seen', t('assets.colLastSeen') as string, 'pr-4')}
@@ -161,7 +161,7 @@ export function AssetList() {
                 {shown.map(a => (
                   <tr key={a.id} onClick={() => nav(`/inventory/${a.id}`)} className={cn('border-b border-slate-100 hover:bg-slate-50 cursor-pointer', !a.active && 'opacity-60')}>
                     <td className="pl-4 w-8" onClick={e => e.stopPropagation()}>
-                      {partition([a]).skipped === 0 && <input type="checkbox" checked={picked.has(a.id)} onChange={e => setPicked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.id) : n.delete(a.id); return n })} />}
+                      <input type="checkbox" checked={picked.has(a.id)} onChange={e => setPicked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.id) : n.delete(a.id); return n })} />
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="inline-flex items-center gap-2.5 min-w-0"><TypeIcon type={a.type as AssetType} size={18} />

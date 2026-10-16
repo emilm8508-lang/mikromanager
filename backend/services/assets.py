@@ -44,6 +44,7 @@ VULN_HOST_MAX_AGE_DAYS = 30          # a scan result older than this no longer m
 PRUNE_AFTER_DAYS = 14                # a passive asset that no source lists any more and that holds nothing of the operator's goes after this
 NEW_DAYS = 7
 _PRINTER_PORTS = {9100, 631, 515}
+_LOCAL_PRINTER_PORTS = ("USB", "LPT", "COM", "DOT4", "BTH")
 _WINDOWS_PORTS = {445, 3389, 135, 5985, 5986}
 _PRINTER_NAME = re.compile(r"printer|drukark|\bhp[0-9a-f]{4,}|brother|epson|canon|xerox|lexmark|kyocera|ricoh|konica|oki\b|samsung.?(?:m|c|x)\d|\bmfp\b", re.I)
 _SEV_WEIGHT = {"CRITICAL": 5, "HIGH": 3, "MEDIUM": 1, "LOW": 0.5}
@@ -98,8 +99,10 @@ def _locator(db):
 
 
 def _guess_type(ports: set, name: Optional[str]) -> str:
-    if ports & _PRINTER_PORTS or (name and _PRINTER_NAME.search(name)):
+    if name and _PRINTER_NAME.search(name):
         return "printer"
+    if ports & _PRINTER_PORTS and not ports & (_WINDOWS_PORTS | {22}):
+        return "printer"                           # 9100 is also node_exporter, 631 CUPS, 515 LPD of a PC: a computer with its own services is not a printer
     if ports & _WINDOWS_PORTS:
         return "windows"
     if 22 in ports:
@@ -278,8 +281,8 @@ def _collect_attached(recs: Dict[str, _Rec], items: list, host_assets: Dict[int,
                     r["asset_type"] = "printer"
                 r.put(name=p.name, model=p.model, first=host.first_seen_at, seen=p.last_seen_at)
                 continue
-            if d.get("network"):
-                continue
+            if d.get("network") or not (d.get("port") or "").upper().startswith(_LOCAL_PRINTER_PORTS):
+                continue                              # a WSD / shared / unknown port is not a device attached to this computer
             key = f"prt:a{p.asset_id}|{(p.name or '').strip().casefold()}"
             best[key] = (p.last_seen_at or datetime.min, p, host)
             continue
@@ -802,17 +805,45 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
     return {"ok": True}
 
 
+_MANAGED_REFS = ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id", "dell_server_id")
+
+
 def delete_asset(asset_id: int) -> bool:
-    """Forget an asset (it comes back if a source still reports it)."""
+    """Forget an asset. The port-scan result behind it goes too (otherwise the next rebuild would bring the asset back at once); it
+    comes back only if a source still reports the device - a router's DHCP / ARP entry, a managed host, a router."""
+    return bool(delete_assets([asset_id])["deleted"])
+
+
+def delete_assets(ids: List[int]) -> dict:
+    """Deletes the assets; returns {"deleted": n, "managed": n} where `managed` counts the ones that a managed object (Linux / Windows
+    host, router, Hyper-V VM, Dell server) stands behind - those are removed on their own pages and come back until then."""
+    deleted = managed = 0
+    ids = [i for i in dict.fromkeys(ids) if isinstance(i, int)]
     with SessionLocal() as db:
-        a = db.get(Asset, asset_id)
-        if not a:
-            return False
-        for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.asset_id == a.id)).scalars().all():
-            db.delete(p)
-        db.delete(a)
+        for i in range(0, len(ids), 500):
+            for a in db.execute(select(Asset).where(Asset.id.in_(ids[i:i + 500]))).scalars().all():
+                refs = _jload(a.refs, {})
+                if any(refs.get(k) for k in _MANAGED_REFS):
+                    managed += 1
+                vh = refs.get("vuln_host_id")
+                if vh:
+                    for m in (VulnService, VulnPackage):
+                        db.execute(delete(m).where(m.host_id == vh).execution_options(synchronize_session=False))
+                    db.execute(delete(VulnHost).where(VulnHost.id == vh).execution_options(synchronize_session=False))
+                db.execute(delete(AssetPeripheral).where(AssetPeripheral.asset_id == a.id).execution_options(synchronize_session=False))
+                db.delete(a)
+                deleted += 1
         db.commit()
-    return True
+    return {"deleted": deleted, "managed": managed}
+
+
+def set_types(ids: List[int], asset_type: str) -> int:
+    """Gives the assets this type (an override: the automatic classification no longer changes it); "auto" removes the override."""
+    n = 0
+    for i in dict.fromkeys(ids):
+        if isinstance(i, int) and update_asset(i, {"asset_type": asset_type}) is not None:
+            n += 1
+    return n
 
 
 # ── Own loop ─────────────────────────────────────────────────────────────────

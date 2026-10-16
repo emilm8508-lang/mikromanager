@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { devicesApi, fleetActionsApi, hypervApi, linuxApi, windowsApi, type AssetDetail as Detail, type AssetRow, type HypervActionKind } from '../lib/api'
+import { assetsApi, devicesApi, fleetActionsApi, hypervApi, linuxApi, windowsApi, type AssetDetail as Detail, type AssetRow, type HypervActionKind } from '../lib/api'
 import { Button } from './ui/Button'
-import { Pill } from './AssetBits'
-import { ExternalLink, Play, Power, PowerOff, RefreshCw, RotateCcw, Download, Camera, ShieldCheck, Loader2 } from 'lucide-react'
+import { Pill, TYPE_ORDER } from './AssetBits'
+import { ExternalLink, Play, Power, PowerOff, RefreshCw, RotateCcw, Download, Camera, ShieldCheck, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // "Akcje" tab of the asset card: the actions the agent already has for this kind of device (check / install updates and restart for
@@ -220,13 +220,14 @@ export function partition(rows: AssetRow[]) {
   return { linux, windows, routers, skipped }
 }
 
-export function AssetBulkBar({ rows, onClear }: { rows: AssetRow[]; onClear: () => void }) {
+export function AssetBulkBar({ rows, onClear, total, onSelectAll }: { rows: AssetRow[]; onClear: () => void; total?: number; onSelectAll?: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const p = partition(rows)
   const [stagger, setStagger] = useState(60)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [newType, setNewType] = useState('')
   const done = (queued: number) => { setMsg({ ok: true, text: t('assets.bulk.queued', { count: queued }) as string }); qc.invalidateQueries({ queryKey: ['linux-hosts'] }); qc.invalidateQueries({ queryKey: ['windows-hosts'] }) }
   const fail = (e: any) => setMsg({ ok: false, text: e?.response?.data?.detail ?? e?.message ?? String(e) })
   const reason = (key: string) => askReason(t as any, key)
@@ -255,6 +256,22 @@ export function AssetBulkBar({ rows, onClear }: { rows: AssetRow[]; onClear: () 
       done(n)
     } catch (e) { fail(e) } finally { setBusy(null) }
   }
+  const refreshAssets = () => { qc.invalidateQueries({ queryKey: ['assets'] }); qc.invalidateQueries({ queryKey: ['asset-summary'] }) }
+  const ids = rows.map(r => r.id)
+  const changeType = async () => {
+    if (!newType) return
+    setBusy('type'); setMsg(null)
+    try { const r = await assetsApi.bulkType(ids, newType); refreshAssets(); setMsg({ ok: true, text: t('assets.bulk.typeChanged', { count: r.changed }) as string }) }
+    catch (e) { fail(e) } finally { setBusy(null) }
+  }
+  const remove = async () => {
+    if (!confirm(t('assets.bulk.confirmDelete', { count: ids.length }) as string)) return
+    setBusy('delete'); setMsg(null)
+    try {
+      const r = await assetsApi.bulkDelete(ids); refreshAssets(); onClear()
+      window.alert((t('assets.bulk.deleted', { count: r.deleted }) as string) + (r.managed ? ' ' + (t('assets.bulk.deletedManaged', { count: r.managed }) as string) : ''))
+    } catch (e) { fail(e) } finally { setBusy(null) }
+  }
   const actionable = p.linux.length + p.windows.length + p.routers.length
 
   return (
@@ -271,6 +288,18 @@ export function AssetBulkBar({ rows, onClear }: { rows: AssetRow[]; onClear: () 
         <Btn busy={busy} k="install" disabled={p.linux.length + p.windows.length === 0} icon={<Download size={13} />} onClick={install}>{t('assets.act.install')}</Btn>
         <Btn busy={busy} k="restart" danger disabled={actionable === 0} icon={<RotateCcw size={13} />} onClick={restart}>{t('assets.act.restart')}</Btn>
         <button className="text-xs text-indigo-700 hover:underline" onClick={onClear}>{t('assets.bulk.clear')}</button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="text-xs text-indigo-900 inline-flex items-center gap-1.5">{t('assets.bulk.setType')}
+          <select value={newType} onChange={e => setNewType(e.target.value)} className="border border-indigo-200 rounded px-1.5 py-1 bg-white">
+            <option value="">—</option>
+            <option value="auto">{t('assets.bulk.typeAuto')}</option>
+            {TYPE_ORDER.map(k => <option key={k} value={k}>{t(`assets.type.${k}`)}</option>)}
+          </select>
+        </label>
+        <Btn busy={busy} k="type" disabled={!newType} icon={<RefreshCw size={13} />} onClick={changeType}>{t('assets.bulk.apply')}</Btn>
+        <Btn busy={busy} k="delete" danger icon={<Trash2 size={13} />} onClick={remove}>{t('assets.bulk.delete')}</Btn>
+        {onSelectAll && total != null && total > rows.length && <button className="text-xs text-indigo-700 hover:underline" onClick={onSelectAll}>{t('assets.bulk.selectAll', { count: total })}</button>}
       </div>
       <Msg msg={msg} />
     </div>

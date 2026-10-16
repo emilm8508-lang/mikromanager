@@ -121,6 +121,28 @@ async def update(asset_id: int, body: AssetEdit):
     return r
 
 
+class BulkIn(BaseModel):
+    ids: List[int]
+    action: str                       # delete | type
+    asset_type: Optional[str] = None  # for "type": one of assets.TYPES, or "auto"
+
+
+@router.post("/bulk")
+async def bulk(body: BulkIn):
+    if not body.ids or len(body.ids) > 5000:
+        raise HTTPException(400, "select between 1 and 5000 assets")
+    if body.action == "delete":
+        return assets.delete_assets(body.ids)
+    if body.action == "type":
+        if body.asset_type != "auto" and body.asset_type not in assets.TYPES:
+            raise HTTPException(400, "unknown asset type")
+        n = assets.set_types(body.ids, body.asset_type)
+        if body.asset_type == "auto":
+            await assets.refresh(directory=False)          # the automatic classification applies at once
+        return {"changed": n}
+    raise HTTPException(400, "unknown action")
+
+
 @router.delete("/{asset_id}")
 async def delete(asset_id: int):
     if not assets.delete_asset(asset_id):
