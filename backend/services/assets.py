@@ -26,7 +26,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from models.database import (
     VulnDaily, SessionLocal, Asset, AssetPeripheral, Device, VulnHost, VulnService, VulnPackage, LinuxHost, WindowsHost, LinuxHostDisk,
@@ -40,6 +40,8 @@ TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "camera"
 DIRECTORY_MAX_AGE_SEC = int(os.environ.get("MIKROTIK_ASSET_DIRECTORY_SEC", "7200"))
 REFRESH_SEC = max(120, int(os.environ.get("MIKROTIK_ASSET_REFRESH_SEC", "900")))
 STALE_DAYS = 7                       # not seen for this long = inactive
+VULN_HOST_MAX_AGE_DAYS = 30          # a scan result older than this no longer makes an asset on its own
+PRUNE_AFTER_DAYS = 14                # a passive asset that no source lists any more and that holds nothing of the operator's goes after this
 NEW_DAYS = 7
 _PRINTER_PORTS = {9100, 631, 515}
 _WINDOWS_PORTS = {445, 3389, 135, 5985, 5986}
@@ -157,7 +159,10 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         r = rec(e["ip"])
         r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now)
     ports_by_ip: Dict[str, set] = {}
+    stale_scan = now - timedelta(days=VULN_HOST_MAX_AGE_DAYS)
     for h in vuln_hosts:
+        if h.last_scan_at is not None and h.last_scan_at < stale_scan and not h.device_id and not h.credential_id:
+            continue                                    # left behind by a scan of a range that is gone: not a device on the network now
         ports = ports_by_host.get(h.id, set())
         ports_by_ip[h.ip] = ports
         r = rec(h.ip)
@@ -239,6 +244,31 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
     return recs
 
 
+def _prune(db, recs: Dict[str, _Rec], now: datetime) -> int:
+    """Drops the assets that nothing lists any more and that hold nothing of the operator's: only a port-scan result behind them (whose
+    host is gone, or not scanned for PRUNE_AFTER_DAYS), no scan, no notes / tags / overrides. What somebody managed or edited stays."""
+    live_hosts = {i for i, in db.execute(select(VulnHost.id)).all()}
+    cutoff = now - timedelta(days=PRUNE_AFTER_DAYS)
+    doomed = []
+    for a in db.execute(select(Asset)).scalars().all():
+        if a.key in recs or a.key.startswith("vm:"):
+            continue
+        refs = _jload(a.refs, {})
+        if any(k != "vuln_host_id" and v for k, v in refs.items()):
+            continue
+        d = _jload(a.details, {})
+        if (a.notes or _jload(a.manual_groups, []) or a.location_override or d.get("_over") or a.scan_level != "passive" or a.last_scan_at):
+            continue
+        orphan = refs.get("vuln_host_id") is not None and refs["vuln_host_id"] not in live_hosts
+        if orphan or (a.last_seen_at or a.first_seen_at) < cutoff:
+            doomed.append(a.id)
+    for i in range(0, len(doomed), 500):
+        chunk = doomed[i:i + 500]
+        db.execute(delete(AssetPeripheral).where(AssetPeripheral.asset_id.in_(chunk)).execution_options(synchronize_session=False))
+        db.execute(delete(Asset).where(Asset.id.in_(chunk)).execution_options(synchronize_session=False))
+    return len(doomed)
+
+
 def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
     """Upserts the records. The very first population treats everything as already known, so "new assets" only counts
     what appears afterwards; so does the first LAN discovery (`force_baseline`), which finds every computer at once."""
@@ -304,8 +334,11 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             if _SCAN_RANK[level] > _SCAN_RANK.get(a.scan_level or "passive", 0) or not a.last_scan_at:
                 a.scan_level = level
             a.last_seen_at = max(filter(None, [a.last_seen_at, r.get("seen")]), default=now)
+        gone = _prune(db, recs, now)
         db.commit()
-    return {"created": created, "updated": updated, "total": len(recs), "baseline": baseline}
+    if gone:
+        print(f"[assets] removed {gone} asset(s) that nothing lists any more")
+    return {"created": created, "updated": updated, "total": len(recs), "baseline": baseline, "pruned": gone}
 
 
 _state = {"last_refresh": None, "running": False}

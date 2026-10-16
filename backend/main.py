@@ -53,6 +53,10 @@ async def lifespan(app: FastAPI):
     fs_perms.harden_data_dir(os.path.join(os.path.dirname(__file__), "data"))     # keys readable by the agent's account only
     from services import host_identity
     host_identity.startup_merge()                                                   # one entry per machine, also for the pairs left by an address change
+    try:
+        vuln_scan.cleanup_hosts()                                                   # hosts of ranges that are gone, and the phantoms of an antivirus mail proxy
+    except Exception as e:
+        print(f"[startup] host cleanup skipped: {e}")
     refresher.start()
     uplink.start()
     vuln_scan.start()

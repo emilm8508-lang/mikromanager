@@ -124,6 +124,26 @@ async def _neighbours() -> Dict[str, str]:
     return parse_neighbours(out)
 
 
+EVERYWHERE_MIN_HOSTS = 20
+EVERYWHERE_SHARE = 0.9
+
+
+def filter_answers(ports: Dict[str, List[int]], arp: Dict[str, str]) -> Dict[str, List[int]]:
+    """Keeps only the TCP answers that come from a real host. A security product or a proxy on the agent's own computer can accept
+    connections for ANY address (the packet never leaves), so:
+      - in a segment the agent is on (the neighbour table has entries for it) a host that has no MAC there is not on the wire - its
+        "open ports" are the local interceptor's;
+      - a port that is "open" on >= 90 % of 20+ hosts is not a service of those hosts, it is the interceptor again."""
+    if arp:
+        ports = {ip: p for ip, p in ports.items() if ip in arp}
+    if len(ports) >= EVERYWHERE_MIN_HOSTS:
+        everywhere = {p for p in PROBE_PORTS if sum(1 for v in ports.values() if p in v) >= EVERYWHERE_SHARE * len(ports)}
+        if everywhere:
+            ports = {ip: [x for x in v if x not in everywhere] for ip, v in ports.items()}
+            ports = {ip: v for ip, v in ports.items() if v}
+    return ports
+
+
 async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     """{"cidr", "label", "probed", "alive", "entries": [...]} or {"cidr", "skipped": reason}."""
     try:
@@ -144,6 +164,7 @@ async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     await asyncio.gather(*(probe(ip, p) for ip in ips for p in PROBE_PORTS))
     in_range = set(ips)
     arp = {ip: mac for ip, mac in (await _neighbours()).items() if ip in in_range}
+    ports = filter_answers(ports, arp)
     alive = sorted(set(ports) | set(arp), key=lambda i: [int(x) for x in i.split(".")])
 
     loop = asyncio.get_event_loop()
@@ -179,6 +200,7 @@ async def probe_known(ips: List[str]) -> List[dict]:
                 ports.setdefault(ip, []).append(port)
 
     await asyncio.gather(*(probe(ip, p) for ip in ips for p in PROBE_PORTS))
+    ports = filter_answers(ports, {})
     loop = asyncio.get_event_loop()
     nsem = asyncio.Semaphore(30)
 

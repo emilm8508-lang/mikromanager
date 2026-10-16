@@ -1675,6 +1675,101 @@ async def public_summary() -> list:
 
 # ── Orchestration ────────────────────────────────────────────────────────────
 
+# Mail ports that a security product on the agent's own computer (Norton, Kaspersky, ESET, Avast ... "email protection") answers for EVERY
+# address - the connection never leaves the machine - so every address of a range looked like a host with SMTP / POP3 / IMAP open.
+MAIL_PORTS = {25, 110, 143, 465, 587, 993, 995}
+_INTERCEPT_BANNER = re.compile(r"norton|symantec|kaspersky|eset|avast|\bavg\b|bitdefender|mcafee|trend micro|concurrent connection limit", re.I)
+EVERYWHERE_MIN_HOSTS = 20          # with fewer live hosts than this there is nothing to compare
+EVERYWHERE_SHARE = 0.8             # a mail port open on this share of all live hosts is not a mail server, it is the local interceptor
+
+
+def drop_interception(results: list) -> list:
+    """`results` is one {port: (kind, banner, product, version)} per scanned address. Removes the mail ports that are the local antivirus's
+    answer, not a host's: on a host that has such a banner on any mail port, and on every host when a mail port is open on >= 80 % of all
+    the live hosts. A host left with no port is "not alive". Returns the cleaned list (same order)."""
+    live = [r for r in results if r]
+    everywhere = set()
+    if len(live) >= EVERYWHERE_MIN_HOSTS:
+        for p in MAIL_PORTS:
+            if sum(1 for r in live if p in r) >= EVERYWHERE_SHARE * len(live):
+                everywhere.add(p)
+    out = []
+    for r in results:
+        if not r:
+            out.append(r)
+            continue
+        fake = any(p in MAIL_PORTS and r[p][1] and _INTERCEPT_BANNER.search(str(r[p][1])) for p in r)
+        out.append({p: v for p, v in r.items() if not ((fake and p in MAIL_PORTS) or p in everywhere)})
+    return out
+
+
+def _local_sources_ips(db) -> set:
+    """Addresses that something other than a port scan vouches for: devices, Linux / Windows hosts, Dell servers."""
+    from models.database import LinuxHost, WindowsHost, DellServer
+    ips = {d.ip for d in db.execute(select(Device)).scalars().all()}
+    ips |= {h.ip for h in db.execute(select(LinuxHost)).scalars().all()}
+    ips |= {h.ip for h in db.execute(select(WindowsHost)).scalars().all()}
+    ips |= {x.idrac_ip for x in db.execute(select(DellServer)).scalars().all() if getattr(x, "idrac_ip", None)}
+    return ips
+
+
+def cleanup_hosts(stale_days: int = 14) -> dict:
+    """Removes what a scan range no longer justifies (database only, safe to run at any time):
+      - hosts outside every active scan range that were not seen by a scan for `stale_days` (a range that was removed or narrowed used to
+        leave all its hosts behind for ever: prune only looked at the addresses of the scan that was running);
+      - phantom hosts: whose only open ports are mail ports with an antivirus banner, or - when 20+ hosts have exactly the same mail-only
+        set - those hosts (the local interceptor, see drop_interception).
+    Hosts that a device / Linux / Windows entry vouches for stay. Returns {"out_of_scope": n, "phantom": n, "ips": [...removed addresses]}."""
+    import ipaddress
+    cutoff = datetime.utcnow() - timedelta(days=stale_days)
+    removed = {"out_of_scope": 0, "phantom": 0, "ips": []}
+    with SessionLocal() as db:
+        nets = []
+        for r in db.execute(select(ScanRange).where(ScanRange.active == True)).scalars().all():  # noqa: E712
+            try:
+                nets.append(ipaddress.ip_network(r.cidr, strict=False))
+            except ValueError:
+                continue
+        vouched = _local_sources_ips(db)
+        hosts = db.execute(select(VulnHost)).scalars().all()
+        ports_by_host: dict = {}
+        banners_by_host: dict = {}
+        for sv in db.execute(select(VulnService)).scalars().all():
+            ports_by_host.setdefault(sv.host_id, set()).add(sv.port)
+            if sv.banner_raw:
+                banners_by_host.setdefault(sv.host_id, []).append(sv.banner_raw)
+        mail_only = [h for h in hosts if ports_by_host.get(h.id) and ports_by_host[h.id] <= MAIL_PORTS]
+        mail_wave = len(mail_only) >= EVERYWHERE_MIN_HOSTS
+        doomed = []
+        for h in hosts:
+            if h.ip in vouched or h.device_id:
+                continue
+            try:
+                addr = ipaddress.ip_address(h.ip)
+            except ValueError:
+                continue
+            ports = ports_by_host.get(h.id, set())
+            only_mail = bool(ports) and ports <= MAIL_PORTS
+            fake_banner = any(_INTERCEPT_BANNER.search(b) for b in banners_by_host.get(h.id, []))
+            if only_mail and (fake_banner or mail_wave):
+                doomed.append((h, "phantom"))
+            elif not any(addr in n for n in nets) and (h.last_scan_at is None or h.last_scan_at < cutoff):
+                doomed.append((h, "out_of_scope"))
+        for h, why in doomed:
+            removed[why] += 1
+            removed["ips"].append(h.ip)
+        ids = [h.id for h, _ in doomed]
+        for i in range(0, len(ids), 500):                 # in chunks: tens of thousands of stale hosts are possible
+            chunk = ids[i:i + 500]
+            db.execute(delete(VulnService).where(VulnService.host_id.in_(chunk)).execution_options(synchronize_session=False))
+            db.execute(delete(VulnPackage).where(VulnPackage.host_id.in_(chunk)).execution_options(synchronize_session=False))
+            db.execute(delete(VulnHost).where(VulnHost.id.in_(chunk)).execution_options(synchronize_session=False))
+        db.commit()
+    if removed["ips"]:
+        print(f"[vuln_scan] cleanup: removed {removed['phantom']} phantom host(s) and {removed['out_of_scope']} host(s) outside the scan ranges")
+    return removed
+
+
 async def _prune_dead_hosts(candidate_ips: list, alive_ips: set) -> None:
     """Remove VulnHost (+ its VulnService rows) for any host that was part of
     this scan's target set but didn't answer this time. The report should
@@ -1929,6 +2024,7 @@ async def run_scan(on_event: Optional[Callable] = None, range_ids: Optional[list
                 if r:
                     results[i] = r
 
+        results = drop_interception(results)
         n_alive = sum(1 for r in results if r)
         _emit(on_event, {"type": "phase", "phase": "credentials", "total": n_alive})
         cred_completed = 0
@@ -1954,6 +2050,10 @@ async def run_scan(on_event: Optional[Callable] = None, range_ids: Optional[list
         host_ids = await _persist_services(alive_ips, alive_results)
         await _apply_credentials({ip: info["cred_id"] for ip, info in auth_by_ip.items()})
         await _prune_dead_hosts(all_ips, set(alive_ips))
+        try:
+            cleanup_hosts()
+        except Exception as e:
+            print(f"[vuln_scan] cleanup error: {e}")
 
         # Deeper, opt-in full package/software audit — only for hosts where
         # a credential just worked, gated per-host by PACKAGE_AUDIT_DAYS
