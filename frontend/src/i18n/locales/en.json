@@ -1143,6 +1143,7 @@
     },
     "assets": {
         "installedOn": "Installed on these computers",
+        "attachedTo": "Connected to computer",
         "openAsset": "Open the asset card of {{name}}",
         "bulk": {
             "selected": "{{count}} selected",
@@ -1274,6 +1275,7 @@
         "perPage": "per page",
         "type": {
             "camera": "Cameras",
+            "monitor": "Monitors",
             "mobile": "Phones and tablets",
             "windows": "Windows",
             "linux": "Linux",

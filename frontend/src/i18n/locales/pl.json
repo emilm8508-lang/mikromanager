@@ -1301,6 +1301,7 @@
     },
     "assets": {
         "installedOn": "Zainstalowana na komputerach",
+        "attachedTo": "Podłączony do komputera",
         "openAsset": "Otwórz kartę zasobu {{name}}",
         "bulk": {
             "selected": "Zaznaczono: {{count}}",
@@ -1432,6 +1433,7 @@
         "perPage": "na stronę",
         "type": {
             "camera": "Kamery",
+            "monitor": "Monitory",
             "mobile": "Telefony i tablety",
             "windows": "Windows",
             "linux": "Linux",

@@ -34,7 +34,7 @@ from models.database import (
 )
 from services import asset_lifecycle, asset_scan
 
-TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "camera", "mobile", "other")
+TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "camera", "mobile", "monitor", "other")
 # How old the routers' DHCP/ARP tables may be before an inventory rebuild logs in to every router again for them (each login is a
 # line in the router's log); a button press always reads fresh ones.
 DIRECTORY_MAX_AGE_SEC = int(os.environ.get("MIKROTIK_ASSET_DIRECTORY_SEC", "7200"))
@@ -151,6 +151,8 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         vms = db.execute(select(HypervVM, HypervHost, WindowsHost).join(HypervHost, HypervVM.hyperv_host_id == HypervHost.id)
                          .join(WindowsHost, HypervHost.windows_host_id == WindowsHost.id)).all()
         windows_by_id = {w.id: w for w in windows}
+        host_assets = {a.id: a for a in db.execute(select(Asset)).scalars().all()}
+        monitors = db.execute(select(AssetPeripheral).where(AssetPeripheral.kind.in_(("monitor", "printer")))).scalars().all()
 
     # weakest first: DHCP/ARP, then the port scan
     for e in directory:
@@ -241,7 +243,65 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         r.put(manufacturer="Microsoft Hyper-V", model=f"Generation {vm.generation}" if vm.generation else None,
               refs={"hyperv_vm_id": vm.id}, seen=vm.last_seen_at, first=vm.first_seen_at, scan_level="credentialed")
         r.setdefault("host_name", host.hostname or host.ip)
+    _collect_attached(recs, monitors, host_assets)
     return recs
+
+
+def _ipv4(x: Optional[str]) -> Optional[str]:
+    import ipaddress
+    try:
+        a = ipaddress.IPv4Address((x or "").strip())
+    except ValueError:
+        return None
+    return None if a.is_loopback or a.is_unspecified or a.is_multicast else str(a)
+
+
+def _collect_attached(recs: Dict[str, _Rec], items: list, host_assets: Dict[int, Asset]) -> None:
+    """The monitors and printers a credentialed scan found on a computer are assets of their own, tied to the computer.
+    A monitor is identified by its serial number (maker + model + serial), so one moved to another computer stays one asset and
+    follows its newest sighting; one without a readable serial is identified by the computer it was seen on. A printer that sits on a
+    network address is the asset of that address (the same one the LAN discovery makes, so it is not doubled); a printer attached
+    to the computer itself (USB / LPT) is an asset tied to the computer. Queues shared by a print server are only
+    connections, not devices."""
+    best: Dict[str, tuple] = {}
+    seen_no_serial: Dict[tuple, int] = {}
+    for p in sorted(items, key=lambda x: (x.asset_id, x.id)):
+        host = host_assets.get(p.asset_id)
+        if host is None:
+            continue
+        if p.kind == "printer":
+            d = _jload(p.details, {})
+            ip = _ipv4(d.get("address"))
+            if ip:
+                r = recs.setdefault(f"ip:{ip}", _Rec(key=f"ip:{ip}", ip=ip))
+                if r.get("asset_type") in (None, "other"):
+                    r["asset_type"] = "printer"
+                r.put(name=p.name, model=p.model, first=host.first_seen_at, seen=p.last_seen_at)
+                continue
+            if d.get("network"):
+                continue
+            key = f"prt:a{p.asset_id}|{(p.name or '').strip().casefold()}"
+            best[key] = (p.last_seen_at or datetime.min, p, host)
+            continue
+        if p.serial:
+            key = "mon:" + "|".join((x or "").strip().casefold() for x in (p.manufacturer, p.model, p.serial))
+        else:
+            n = seen_no_serial[(p.asset_id, p.model)] = seen_no_serial.get((p.asset_id, p.model), 0) + 1
+            key = f"mon:a{p.asset_id}|{(p.model or '').strip().casefold()}|{n}"
+        stamp = p.last_seen_at or datetime.min
+        if key not in best or stamp >= best[key][0]:
+            best[key] = (stamp, p, host)
+    for key, (stamp, p, host) in best.items():
+        r = recs.setdefault(key, _Rec(key=key, ip=None))
+        d = _jload(p.details, {})
+        if p.kind == "printer":
+            r.put(True, asset_type="printer", name=p.name, model=p.model)
+            r.put(refs={"printer_of": host.id}, scan_level="credentialed", seen=p.last_seen_at, first=host.first_seen_at,
+                  host_name=host.name or host.ip, extra={"printer_port": d} if d else None)
+            continue
+        r.put(True, asset_type="monitor", name=p.name or p.model or "Monitor", manufacturer=p.manufacturer, model=p.model, serial=p.serial)
+        r.put(refs={"monitor_of": host.id}, scan_level="credentialed", seen=p.last_seen_at, first=host.first_seen_at,
+              host_name=host.name or host.ip, extra={"monitor": d} if d else None)
 
 
 def _prune(db, recs: Dict[str, _Rec], now: datetime) -> int:
@@ -254,6 +314,9 @@ def _prune(db, recs: Dict[str, _Rec], now: datetime) -> int:
         if a.key in recs or a.key.startswith("vm:"):
             continue
         refs = _jload(a.refs, {})
+        if a.key.startswith(("mon:", "prt:")) and not (a.notes or _jload(a.manual_groups, []) or a.location_override):
+            doomed.append(a.id)                   # the computer no longer reports this monitor (disconnected, or moved and rescanned)
+            continue
         if any(k != "vuln_host_id" and v for k, v in refs.items()):
             continue
         d = _jload(a.details, {})
@@ -326,9 +389,11 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
-            if r.get("host_name"):
+            if r.get("host_name") or r.get("extra"):
                 d = _jload(a.details, {})
-                d["host"] = r["host_name"]
+                if r.get("host_name"):
+                    d["host"] = r["host_name"]
+                d.update(r.get("extra") or {})
                 a.details = json.dumps(d)
             level = r.get("scan_level", "passive")
             if _SCAN_RANK[level] > _SCAN_RANK.get(a.scan_level or "passive", 0) or not a.last_scan_at:
@@ -653,6 +718,10 @@ async def get_asset(asset_id: int) -> Optional[dict]:
             for p in db.execute(select(AssetPeripheral).where(AssetPeripheral.kind == "printer")).scalars().all():
                 if _jload(p.details, {}).get("address") == a.ip and p.asset_id in names and p.asset_id != a.id:
                     installed_on.append({"id": p.asset_id, "name": names[p.asset_id], "queue": p.name})
+        if refs.get("monitor_of") or refs.get("printer_of"):
+            host = db.get(Asset, refs.get("monitor_of") or refs.get("printer_of"))
+            if host:
+                installed_on.append({"id": host.id, "name": host.name or host.ip or host.key, "queue": None})
         for p in periph:
             addr = p["details"].get("address") if p["kind"] == "printer" else None
             if addr:

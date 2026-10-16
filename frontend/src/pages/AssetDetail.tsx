@@ -23,6 +23,7 @@ function baseTabs(a: Detail): TabKey[] {
   if (COMPUTER.includes(a.type)) return ['overview', 'hardware', 'software', 'vulns', 'services', ...(a.type === 'windows' || a.type === 'linux' ? ['peripherals' as TabKey] : [])]
   if (a.type === 'network') return ['overview', 'config', 'services', 'vulns']
   if (a.type === 'printer') return ['overview', 'supplies', 'services', 'vulns']
+  if (a.type === 'monitor') return ['overview', 'hardware']
   return ['overview', 'services', 'vulns']
 }
 
@@ -133,6 +134,11 @@ function Overview({ a }: { a: Detail }) {
   const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
   return (
     <div className="space-y-4">
+      {a.type === 'monitor' && (a.installed_on ?? []).length > 0 && (
+        <Section title={t('assets.attachedTo') as string}>
+          <ul className="text-sm space-y-1">{a.installed_on!.map(x => <li key={x.id}><Link to={`/inventory/${x.id}`} className="text-indigo-600 hover:underline">{x.name}</Link></li>)}</ul>
+        </Section>
+      )}
       <Section title={t('assets.scanInfo') as string}>
         <div className="flex items-center gap-2 flex-wrap mb-2"><ScanLevelPill level={a.scan_level} />
           <span className="text-xs text-slate-500">{a.last_scan_at ? `${t('assets.lastScan')}: ${ago(a.last_scan_at)}` : t('assets.neverScanned')}</span></div>

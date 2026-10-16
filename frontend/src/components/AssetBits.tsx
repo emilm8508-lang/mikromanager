@@ -1,20 +1,20 @@
 import { useTranslation } from 'react-i18next'
 import type { AssetLifecycle, AssetScanLevel, AssetType, AssetVulnCounts } from '../lib/api'
 import { cn } from '../lib/utils'
-import { Monitor, Terminal, Router, Printer, Layers, Server, HelpCircle, Camera, Smartphone, AlertTriangle, CheckCircle2, ShieldCheck, Radio, Eye } from 'lucide-react'
+import { Monitor, Terminal, Router, Printer, Layers, Server, HelpCircle, Camera, Smartphone, Tv, AlertTriangle, CheckCircle2, ShieldCheck, Radio, Eye } from 'lucide-react'
 
 // Small shared pieces of the asset pages: type icon / colour, and the pills used in the list and on the card.
 
 export const TYPE_ICON: Record<AssetType, typeof Monitor> = {
-  windows: Monitor, linux: Terminal, network: Router, printer: Printer, virtual: Layers, server: Server, camera: Camera, mobile: Smartphone, other: HelpCircle,
+  windows: Monitor, linux: Terminal, network: Router, printer: Printer, virtual: Layers, server: Server, camera: Camera, mobile: Smartphone, monitor: Tv, other: HelpCircle,
 }
 
 // colour follows the type everywhere (reference categorical order; grey for "other")
 export const TYPE_COLOR: Record<AssetType, string> = {
-  windows: '#2a78d6', linux: '#eb6834', network: '#1baf7a', printer: '#eda100', virtual: '#4a3aa7', server: '#e87ba4', camera: '#008300', mobile: '#e34948', other: '#898781',
+  windows: '#2a78d6', linux: '#eb6834', network: '#1baf7a', printer: '#eda100', virtual: '#4a3aa7', server: '#e87ba4', camera: '#008300', mobile: '#e34948', monitor: '#12a4b4', other: '#898781',
 }
 
-export const TYPE_ORDER: AssetType[] = ['windows', 'linux', 'virtual', 'server', 'network', 'printer', 'camera', 'mobile', 'other']
+export const TYPE_ORDER: AssetType[] = ['windows', 'linux', 'virtual', 'server', 'network', 'printer', 'camera', 'mobile', 'monitor', 'other']
 
 export function TypeIcon({ type, size = 16, className }: { type: AssetType; size?: number; className?: string }) {
   const I = TYPE_ICON[type] ?? HelpCircle

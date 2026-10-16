@@ -1143,6 +1143,7 @@
     },
     "assets": {
         "installedOn": "Auf diesen Computern installiert",
+        "attachedTo": "Angeschlossen an Computer",
         "openAsset": "Gerätekarte von {{name}} öffnen",
         "bulk": {
             "selected": "{{count}} ausgewählt",
@@ -1274,6 +1275,7 @@
         "perPage": "pro Seite",
         "type": {
             "camera": "Kameras",
+            "monitor": "Monitore",
             "mobile": "Telefone und Tablets",
             "windows": "Windows",
             "linux": "Linux",

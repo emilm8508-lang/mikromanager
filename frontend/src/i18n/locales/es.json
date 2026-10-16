@@ -1143,6 +1143,7 @@
     },
     "assets": {
         "installedOn": "Instalada en estos equipos",
+        "attachedTo": "Conectado al equipo",
         "openAsset": "Abrir la ficha de {{name}}",
         "bulk": {
             "selected": "{{count}} seleccionados",
@@ -1274,6 +1275,7 @@
         "perPage": "por página",
         "type": {
             "camera": "Cámaras",
+            "monitor": "Monitores",
             "mobile": "Teléfonos y tabletas",
             "windows": "Windows",
             "linux": "Linux",

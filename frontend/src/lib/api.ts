@@ -1043,7 +1043,7 @@ export interface InventoryOut {
 
 // ── Asset inventory (services/assets.py) ──────────────────────────────────────
 
-export type AssetType = 'windows' | 'linux' | 'network' | 'printer' | 'virtual' | 'server' | 'camera' | 'mobile' | 'other'
+export type AssetType = 'windows' | 'linux' | 'network' | 'printer' | 'virtual' | 'server' | 'camera' | 'mobile' | 'monitor' | 'other'
 export type AssetLifecycle = 'supported' | 'ending' | 'eol' | 'unknown'
 export type AssetScanLevel = 'credentialed' | 'snmp' | 'passive'
 
