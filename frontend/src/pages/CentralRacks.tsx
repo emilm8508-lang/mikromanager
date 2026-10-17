@@ -71,46 +71,67 @@ export function CentralRacks() {
     if (!parts.length) return
     const p = parts.find(x => x.tenant === tenant) ?? parts[0]
     if (p.tenant !== tenant) setTenant(p.tenant)
+    if (rackId != null && rackId < 0) return                        // a rack still on its way: keep it selected until the agent reports it
     if (!p.racks.some(r => r.id === rackId)) setRackId(p.racks[0]?.id ?? null)
   }, [parts, tenant, rackId])
 
   const part = parts.find(p => p.tenant === tenant)
+  // racks asked for but not yet reported by the agent are drawn at once (empty, ids below zero) so that devices can be put into them right away
+  const virtualRacks = useMemo(() => {
+    const known = new Set((part?.racks ?? []).map(r => r.n))
+    return pending.filter(p => p.op.op === 'rack_create' && !known.has(String(p.op.name))).map((p, i) => ({ id: -(i + 1), name: String(p.op.name), location: (p.op.location as string | null) ?? null, units: Number(p.op.units) || 42 }))
+  }, [pending, part])
+  const virtual = rackId != null && rackId < 0 ? virtualRacks.find(v => v.id === rackId) : undefined
   const raw = part?.racks.find(r => r.id === rackId)
   // a queued change stays drawn until the agent's log shows a result newer than the request
   useEffect(() => {
     const done = Math.max(0, ...(part?.ops ?? []).map(o => o.at))
     setPending(p => { const keep = p.filter(x => x.at > done); return keep.length === p.length ? p : keep })
   }, [part])
-  const rack = useMemo(() => raw ? withPending(rackFromCentral(raw), pending, part?.assets ?? []) : null, [raw, pending, part])
-  const summaries: RackSummary[] = useMemo(() => (part?.racks ?? []).map(r => ({ id: r.id, name: r.n, location: r.loc, units: r.u, notes: r.nt ?? null, items: r.items.length, used_u: r.items.reduce((n, i) => n + i.h, 0) })), [part])
+  // the rack the agent has reported under the name of the one that was waiting: switch to it
+  useEffect(() => {
+    if (rackId != null && rackId < 0 && !virtual) setRackId(null)
+  }, [rackId, virtual])
+  const rack = useMemo(() => {
+    const base = raw ? rackFromCentral(raw) : virtual ? { id: virtual.id, name: virtual.name, location: virtual.location, units: virtual.units, items: [], links: [] } as RackView : null
+    return base ? withPending(base, pending, part?.assets ?? []) : null
+  }, [raw, virtual, pending, part])
+  const summaries: RackSummary[] = useMemo(() => [
+    ...(part?.racks ?? []).map(r => ({ id: r.id, name: r.n, location: r.loc, units: r.u, notes: r.nt ?? null, items: r.items.length, used_u: r.items.reduce((n, i) => n + i.h, 0) })),
+    ...virtualRacks.map(v => ({ id: v.id, name: `${v.name} ⏳`, location: v.location, units: v.units, notes: null, items: 0, used_u: pending.filter(p => p.op.op === 'item_add' && p.op.rack_id === v.id).reduce((n, p) => n + (Number(p.op.height) || 1), 0) })),
+  ], [part, virtualRacks, pending])
 
   // what can still be put into a rack: the client's devices (as the inventory reports them) that no rack of that client holds yet
   const palette: RackPaletteAsset[] = useMemo(() => {
     if (!part) return []
     const placed = new Set(part.racks.flatMap(r => r.items.map(i => i.a?.id)).filter((x): x is number => x != null))
-    const loc = raw?.loc?.trim().toLowerCase()
+    const loc = (raw?.loc ?? virtual?.location)?.trim().toLowerCase()
     const now = Date.now() / 1000
     const byId = new Map(part.assets.map(a => [a.id, a]))
     return part.assets.filter(a => !placed.has(a.id) && ['network', 'server', 'windows', 'linux', 'printer', 'other'].includes(a.t)).map(a => {
       const infra = a.t === 'network' || a.t === 'server' || a.r === 'server'
       return { id: a.id, name: a.n, type: a.t as RackPaletteAsset['type'], role: a.r, ip: a.ip, model: a.md, location: a.loc, infra, suggested: !!loc && !!a.loc && a.loc.trim().toLowerCase() === loc }
     }).filter(a => a.infra || !byId.get(a.id)?.seen || now - byId.get(a.id)!.seen! < WEEK).sort((x, y) => Number(y.suggested) - Number(x.suggested) || Number(y.infra) - Number(x.infra) || x.name.localeCompare(y.name))
-  }, [part, raw])
+  }, [part, raw, virtual])
 
   const send = async (op: Record<string, unknown>) => {
     await centralApi.requestRackOp(tenant, JSON.stringify(op))
     setQueued(n => n + 1)
     setPending(p => [...p, { op, at: Math.floor(Date.now() / 1000) - 5 }])
   }
+  const waiting = () => { throw new Error(t('racks.waitingForAgent') as string) }
   const ops: RackOps = {
-    createRack: b => send({ op: 'rack_create', name: b.name, location: b.location ?? null, units: b.units, notes: b.notes ?? null }),
-    updateRack: (id, b) => send({ op: 'rack_update', id, name: b.name, location: b.location ?? null, units: b.units, notes: b.notes ?? null }),
-    removeRack: id => send({ op: 'rack_delete', id }),
-    addSuggested: id => send({ op: 'rack_suggested', id }),
-    addItem: (rid, b) => send({ op: 'item_add', rack_id: rid, ...b }),
-    updateItem: (id, b) => send({ op: 'item_update', id, ...b }),
-    removeItem: id => send({ op: 'item_delete', id }),
-    addLink: (rid, b) => send({ op: 'link_add', rack_id: rid, ...b }),
+    createRack: async b => {
+      await send({ op: 'rack_create', name: b.name, location: b.location ?? null, units: b.units, notes: b.notes ?? null })
+      setRackId(-(virtualRacks.length + 1))                         // open the new rack at once (it is drawn while it waits for the agent)
+    },
+    updateRack: (id, b) => id < 0 ? waiting() : send({ op: 'rack_update', id, name: b.name, location: b.location ?? null, units: b.units, notes: b.notes ?? null }),
+    removeRack: id => id < 0 ? waiting() : send({ op: 'rack_delete', id }),
+    addSuggested: id => send({ op: 'rack_suggested', id, ...(id < 0 ? { rack_name: virtualRacks.find(v => v.id === id)?.name } : {}) }),
+    addItem: (rid, b) => send({ op: 'item_add', rack_id: rid, ...(rid < 0 ? { rack_name: virtualRacks.find(v => v.id === rid)?.name } : {}), ...b }),
+    updateItem: (id, b) => id < 0 ? waiting() : send({ op: 'item_update', id, ...b }),
+    removeItem: id => id < 0 ? waiting() : send({ op: 'item_delete', id }),
+    addLink: (rid, b) => (rid < 0 || b.item_a_id < 0 || (b.item_b_id ?? 0) < 0) ? waiting() : send({ op: 'link_add', rack_id: rid, ...b }),
     removeLink: id => send({ op: 'link_delete', id }),
   }
 

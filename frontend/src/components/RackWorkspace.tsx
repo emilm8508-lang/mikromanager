@@ -75,6 +75,7 @@ export function RackWorkspace({ racks, rackId, onRackId, rack, palette, paletteL
     return palette.filter(a => (!onlyInfra || a.infra || a.suggested) && (!needle || [a.name, a.ip, a.model, a.location].some(v => (v ?? '').toLowerCase().includes(needle))))
   }, [palette, q, onlyInfra])
   const suggested = shown.filter(a => a.suggested)
+  const hidden = onlyInfra ? palette.filter(a => !a.infra && !a.suggested).length : 0
   const rest = shown.filter(a => !a.suggested).slice(0, 80)
 
   const saveForm = async () => {
@@ -136,6 +137,7 @@ export function RackWorkspace({ racks, rackId, onRackId, rack, palette, paletteL
             <section>
               <h4 className="text-xs font-semibold text-slate-700 mb-1">{t('racks.assets')}</h4>
               {paletteLoading ? <p className="text-xs text-slate-400">{t('common.loading')}</p> : rest.length === 0 ? <p className="text-xs text-slate-400">{t('racks.noAssets')}</p> : <PaletteList rows={rest} onAdd={addAsset} />}
+              {hidden > 0 && <p className="text-[11px] text-slate-400 mt-1">{t('racks.hiddenOthers', { count: hidden })}</p>}
             </section>
             <section>
               <h4 className="text-xs font-semibold text-slate-700 mb-1">{t('racks.manual')}</h4>

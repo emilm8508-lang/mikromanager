@@ -1170,6 +1170,8 @@
         "addAll": "Añadir todos",
         "assets": "Activos",
         "noAssets": "No hay activos para añadir.",
+        "waitingForAgent": "Este elemento aún espera al agente del cliente: espere a que aparezca en su informe (unos minutos).",
+        "hiddenOthers": "Dispositivos de otro tipo ocultos: {{count}}; desmarque «Solo hardware» para verlos.",
         "manual": "Elementos manuales",
         "addFirstFree": "Añadir en el primer hueco libre",
         "noSpace": "No hay espacio libre en el rack.",

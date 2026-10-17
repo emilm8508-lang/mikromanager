@@ -1328,6 +1328,8 @@
         "addAll": "Dodaj wszystkie",
         "assets": "Zasoby",
         "noAssets": "Brak zasobów do dodania.",
+        "waitingForAgent": "Ta pozycja czeka jeszcze na agenta klienta - poczekaj, aż pojawi się w jego raporcie (kilka minut).",
+        "hiddenOthers": "Ukryto urządzenia innego typu: {{count}} - odznacz „Tylko sprzęt”, żeby je zobaczyć.",
         "manual": "Elementy ręczne",
         "addFirstFree": "Dodaj na pierwszym wolnym miejscu",
         "noSpace": "Brak wolnego miejsca w szafie.",

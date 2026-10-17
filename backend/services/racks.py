@@ -573,6 +573,20 @@ async def live(rack_id: int) -> Optional[dict]:
 _ops_log: List[dict] = []                          # the last results, sent back with the racks so Central can show what happened
 
 
+def _rack_ref(a: dict) -> int:
+    """The rack an operation is about: its id, or - for a rack Central has just asked for and does not know the id of yet - its name."""
+    with SessionLocal() as db:
+        rid = a.get("rack_id") if a.get("rack_id") is not None else a.get("id")
+        if rid is not None and int(rid) > 0 and db.get(Rack, int(rid)):
+            return int(rid)
+        name = _clean(a.get("rack_name"), 80)
+        if name:
+            r = db.execute(select(Rack).where(Rack.name == name).order_by(Rack.id.desc())).scalars().first()
+            if r:
+                return r.id
+    raise RackError("rack not found")
+
+
 def apply_op(op: dict) -> dict:
     """Carries out one rack operation queued in Central ({"op": name, ...args}); the same operations the agent's own page uses.
     Never raises: the outcome goes into the log that Central sees. Returns {"ok": bool, "error": str|None}."""
@@ -588,9 +602,9 @@ def apply_op(op: dict) -> dict:
             if not delete_rack(int(a["id"])):
                 raise RackError("rack not found")
         elif name == "rack_suggested":
-            add_suggested(int(a["id"]))
+            add_suggested(_rack_ref(a))
         elif name == "item_add":
-            add_item(int(a["rack_id"]), int(a["u"]), a.get("height"), a.get("asset_id"), a.get("kind"), a.get("label"), a.get("port_count"))
+            add_item(_rack_ref(a), int(a["u"]), a.get("height"), a.get("asset_id"), a.get("kind"), a.get("label"), a.get("port_count"))
         elif name == "item_update":
             fields = {k: a[k] for k in ("u", "height", "label", "notes", "port_count", "rack_id") if a.get(k) is not None}
             update_item(int(a["id"]), fields)
@@ -598,7 +612,7 @@ def apply_op(op: dict) -> dict:
             if not delete_item(int(a["id"])):
                 raise RackError("item not found")
         elif name == "link_add":
-            add_link(int(a["rack_id"]), int(a["item_a_id"]), a.get("port_a"), a.get("item_b_id"), a.get("port_b"), a.get("remote_text"), a.get("label"), a.get("cable"))
+            add_link(_rack_ref(a), int(a["item_a_id"]), a.get("port_a"), a.get("item_b_id"), a.get("port_b"), a.get("remote_text"), a.get("label"), a.get("cable"))
         elif name == "link_delete":
             if not delete_link(int(a["id"])):
                 raise RackError("link not found")

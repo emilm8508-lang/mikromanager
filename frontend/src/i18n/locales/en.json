@@ -1170,6 +1170,8 @@
         "addAll": "Add all",
         "assets": "Assets",
         "noAssets": "No assets to add.",
+        "waitingForAgent": "This item is still waiting for the client's agent - wait until it shows up in its report (a few minutes).",
+        "hiddenOthers": "Other kinds of devices hidden: {{count}} - untick \"Hardware only\" to see them.",
         "manual": "Manual items",
         "addFirstFree": "Add at the first free place",
         "noSpace": "No free space in the rack.",

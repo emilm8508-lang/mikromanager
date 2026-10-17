@@ -1170,6 +1170,8 @@
         "addAll": "Tout ajouter",
         "assets": "Actifs",
         "noAssets": "Aucun actif à ajouter.",
+        "waitingForAgent": "Cet élément attend encore l'agent du client - patientez jusqu'à ce qu'il apparaisse dans son rapport (quelques minutes).",
+        "hiddenOthers": "Autres types d'appareils masqués : {{count}} - décochez « Matériel seulement » pour les voir.",
         "manual": "Éléments manuels",
         "addFirstFree": "Ajouter à la première place libre",
         "noSpace": "Plus de place dans la baie.",

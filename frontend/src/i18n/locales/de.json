@@ -1170,6 +1170,8 @@
         "addAll": "Alle hinzufügen",
         "assets": "Assets",
         "noAssets": "Keine Assets zum Hinzufügen.",
+        "waitingForAgent": "Dieser Eintrag wartet noch auf den Agenten des Kunden - warten Sie, bis er in dessen Bericht erscheint (einige Minuten).",
+        "hiddenOthers": "Ausgeblendete Geräte anderer Art: {{count}} - „Nur Hardware“ abwählen, um sie zu sehen.",
         "manual": "Manuelle Elemente",
         "addFirstFree": "Am ersten freien Platz hinzufügen",
         "noSpace": "Kein freier Platz im Schrank.",
