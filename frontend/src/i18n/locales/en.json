@@ -1171,6 +1171,7 @@
         "assets": "Assets",
         "noAssets": "No assets to add.",
         "waitingForAgent": "This item is still waiting for the client's agent - wait until it shows up in its report (a few minutes).",
+        "agentSilent": "This client's agent is older than 2.82, or is still running old code (it was not restarted after the update). An older agent drops changes from Central without a word, although the activity log shows them as \"delivered\". Update and restart this client's agent.",
         "hiddenOthers": "Other kinds of devices hidden: {{count}} - untick \"Hardware only\" to see them.",
         "manual": "Manual items",
         "addFirstFree": "Add at the first free place",

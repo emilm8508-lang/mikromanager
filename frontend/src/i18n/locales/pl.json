@@ -1329,6 +1329,7 @@
         "assets": "Zasoby",
         "noAssets": "Brak zasobów do dodania.",
         "waitingForAgent": "Ta pozycja czeka jeszcze na agenta klienta - poczekaj, aż pojawi się w jego raporcie (kilka minut).",
+        "agentSilent": "Agent tego klienta jest w starszej wersji niż 2.82 albo działa jeszcze na starym kodzie (nie został zrestartowany po aktualizacji). Starszy agent odrzuca zmiany z Centrali bez żadnego komunikatu, choć w dzienniku czynności widać je jako „dostarczone”. Zaktualizuj i zrestartuj agenta tego klienta.",
         "hiddenOthers": "Ukryto urządzenia innego typu: {{count}} - odznacz „Tylko sprzęt”, żeby je zobaczyć.",
         "manual": "Elementy ręczne",
         "addFirstFree": "Dodaj na pierwszym wolnym miejscu",

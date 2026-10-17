@@ -136,6 +136,8 @@ export function CentralRacks() {
   }
 
   const lastOps = (part?.ops ?? []).slice(-3).reverse()
+  // changes queued a while ago with no result from the agent since: it has not answered (too old, not restarted, offline)
+  const silent = pending.some(p => Date.now() / 1000 - p.at > 360)
   const sel = 'text-sm border border-slate-300 rounded-lg px-2 py-1.5 bg-white'
   if (loading) return <div className="p-6"><p className="text-sm text-slate-500">{t('common.loading')}</p></div>
   return (
@@ -152,8 +154,9 @@ export function CentralRacks() {
               {parts.map(p => p.tenant).sort().map(tn => <option key={tn} value={tn}>{tn}</option>)}
             </select>}
           toolbar={<button onClick={reload} className="text-xs text-indigo-600 hover:underline">{t('common.refresh')}</button>}
-          notice={(queued > 0 || lastOps.length > 0) && (
+          notice={(queued > 0 || lastOps.length > 0 || silent) && (
             <div className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 space-y-1">
+              {silent && <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">{t('racks.agentSilent')}</p>}
               {queued > 0 && <p className="text-slate-700">{t('racks.centralQueued', { count: queued })}</p>}
               {part?.lastSeen && <p className="text-slate-400">{t('racks.centralSeen', { when: new Date(part.lastSeen.replace(' ', 'T') + (part.lastSeen.includes('Z') ? '' : 'Z')).toLocaleString() })}</p>}
               {lastOps.map((o, i) => <p key={i} className={o.ok ? 'text-slate-500' : 'text-red-700'}>{new Date(o.at * 1000).toLocaleTimeString()} · {o.op} · {o.ok ? 'OK' : o.error}</p>)}

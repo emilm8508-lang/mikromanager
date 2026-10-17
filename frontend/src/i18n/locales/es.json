@@ -1171,6 +1171,7 @@
         "assets": "Activos",
         "noAssets": "No hay activos para añadir.",
         "waitingForAgent": "Este elemento aún espera al agente del cliente: espere a que aparezca en su informe (unos minutos).",
+        "agentSilent": "El agente de este cliente es anterior a la 2.82 o aún ejecuta código antiguo (no se reinició tras la actualización). Un agente antiguo descarta los cambios de la Central sin aviso, aunque el registro los muestre como «entregados». Actualice y reinicie el agente de este cliente.",
         "hiddenOthers": "Dispositivos de otro tipo ocultos: {{count}}; desmarque «Solo hardware» para verlos.",
         "manual": "Elementos manuales",
         "addFirstFree": "Añadir en el primer hueco libre",

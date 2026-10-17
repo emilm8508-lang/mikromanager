@@ -1171,6 +1171,7 @@
         "assets": "Assets",
         "noAssets": "Keine Assets zum Hinzufügen.",
         "waitingForAgent": "Dieser Eintrag wartet noch auf den Agenten des Kunden - warten Sie, bis er in dessen Bericht erscheint (einige Minuten).",
+        "agentSilent": "Der Agent dieses Kunden ist älter als 2.82 oder läuft noch mit altem Code (nach dem Update nicht neu gestartet). Ein älterer Agent verwirft Änderungen aus der Zentrale kommentarlos, obwohl das Aktivitätsprotokoll sie als „zugestellt“ zeigt. Agent dieses Kunden aktualisieren und neu starten.",
         "hiddenOthers": "Ausgeblendete Geräte anderer Art: {{count}} - „Nur Hardware“ abwählen, um sie zu sehen.",
         "manual": "Manuelle Elemente",
         "addFirstFree": "Am ersten freien Platz hinzufügen",

@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.83 — 2026-10-17
+- Racks in Central: a visible warning when the agent does not answer. A change queued in Central is "delivered" in the activity log as soon as the relay hands it to the agent; an agent that is too old (before 2.82) or still running old code (not restarted after the update) does not know the command and drops the whole signed batch without a word, so the log said "delivered" and nothing happened. Now, when a change has had no result from the agent for over 6 minutes, the rack screen says so and what to check (update to 2.82+ and restart the agent). Nothing else changes; the agents need no update for this (Central view only).
+
 ## 2.82 — 2026-10-17
 - Racks in Central: a rack created there is usable at once. Until now a new rack did not show up until the client's agent had applied the command and sent its next report (a few minutes), so there was nothing to put devices into. Now the rack appears immediately (marked with an hourglass), opens by itself, and devices can be added to it right away; the agent finds the rack by its name (`rack_name`), since Central does not know its number yet. Items, cables and edits of things that are still on their way are refused with a short note ("still waiting for the agent") instead of failing silently. The list of assets on the left says how many devices of other kinds are hidden by "Hardware only" (a switch typed "other" is not hardware until you change its type or untick the filter). Update the agents (2.82) and the Central view.
 

@@ -1171,6 +1171,7 @@
         "assets": "Actifs",
         "noAssets": "Aucun actif à ajouter.",
         "waitingForAgent": "Cet élément attend encore l'agent du client - patientez jusqu'à ce qu'il apparaisse dans son rapport (quelques minutes).",
+        "agentSilent": "L'agent de ce client est antérieur à la 2.82 ou exécute encore l'ancien code (non redémarré après la mise à jour). Un ancien agent rejette sans un mot les modifications de la Centrale, même si le journal les montre comme « livrées ». Mettez à jour et redémarrez l'agent de ce client.",
         "hiddenOthers": "Autres types d'appareils masqués : {{count}} - décochez « Matériel seulement » pour les voir.",
         "manual": "Éléments manuels",
         "addFirstFree": "Ajouter à la première place libre",
