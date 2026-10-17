@@ -53,6 +53,8 @@ _state = {
     "buffered_count": 0,
     "total_sent": 0,
     "total_failed": 0,
+    "building_since": None,      # a report is being put together (the sections are awaited one by one) - set while it lasts
+    "last_build_sec": None,      # how long the last report took to build
 }
 _buffer = []
 _task: Optional[asyncio.Task] = None
@@ -180,21 +182,41 @@ def _load():
 
 # One section of the snapshot (a router that does not answer, a Hyper-V host that hangs ...) must not hold back everything else: the snapshot is
 # built section by section, each awaited on the network, and used to be unbounded - a handful of unreachable devices made one build last
-# minutes and the agent looked silent. Each section now gets SECTION_TIMEOUT_SEC; on a timeout it is skipped for this cycle (the same
-# as when it raises) and the next cycle tries again.
+# minutes and the agent looked silent (its status showed no attempt at all). Now:
+#   - each section gets SECTION_TIMEOUT_SEC, and the whole build BUILD_BUDGET_SEC (what is left is skipped for this report);
+#   - a section that runs out is NOT cancelled - it goes on in the background, so a slow shared scan (the WAN scan of all routers) still
+#     finishes and fills its cache; the next report takes its result (events included, nothing is lost) instead of starting it again.
 SECTION_TIMEOUT_SEC = max(15, int(os.environ.get("MIKROTIK_UPLINK_SECTION_TIMEOUT", "90")))
+BUILD_BUDGET_SEC = max(60, int(os.environ.get("MIKROTIK_UPLINK_BUILD_BUDGET", "300")))
+_section_tasks: dict = {}
+_build_started = [0.0]
 
 
 async def _bounded(coro):
+    name = getattr(coro, "__qualname__", None) or getattr(getattr(coro, "cr_code", None), "co_name", "section")
+    prev = _section_tasks.get(name)
+    if prev is not None:
+        if not prev.done():
+            coro.close()
+            raise TimeoutError(f"{name} is still running from an earlier report - skipped for this one")
+        del _section_tasks[name]
+        coro.close()
+        return prev.result()                                  # finished after its report was sent: its result (events ...) is not lost
+    left = BUILD_BUDGET_SEC - (time.time() - _build_started[0])
+    if left <= 0:
+        coro.close()
+        raise TimeoutError(f"{name} skipped: the report has used its {BUILD_BUDGET_SEC}s")
+    task = asyncio.ensure_future(coro)
     try:
-        return await asyncio.wait_for(coro, SECTION_TIMEOUT_SEC)
+        return await asyncio.wait_for(asyncio.shield(task), min(SECTION_TIMEOUT_SEC, left))
     except asyncio.TimeoutError:
-        name = getattr(coro, "__qualname__", None) or getattr(getattr(coro, "cr_code", None), "co_name", "section")
-        raise TimeoutError(f"{name} took longer than {SECTION_TIMEOUT_SEC}s - skipped for this snapshot") from None
+        _section_tasks[name] = task                           # keeps running; collected by the next report
+        raise TimeoutError(f"{name} took longer than {SECTION_TIMEOUT_SEC}s - continuing in the background, skipped for this report") from None
 
 
 async def _build_snapshot() -> dict:
     """Build current snapshot from local database + fresh log scan."""
+    _build_started[0] = time.time()
     with SessionLocal() as db:
         devices = db.execute(select(Device)).scalars().all()
         links = db.execute(select(DeviceLink)).scalars().all()
@@ -1175,7 +1197,13 @@ async def _loop():
             if not is_configured():
                 continue
 
-            snapshot = await _build_snapshot()
+            _state["building_since"] = datetime.utcnow().isoformat() + "Z"
+            t_build = time.time()
+            try:
+                snapshot = await _build_snapshot()
+            finally:
+                _state["building_since"] = None
+            _state["last_build_sec"] = round(time.time() - t_build, 1)
             _buffer.append(snapshot)
 
             # Try to drain buffer oldest-first
