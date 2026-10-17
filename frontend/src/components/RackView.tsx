@@ -166,8 +166,8 @@ function ItemBlock({ item, byId, top, selected, related, selectedPort, onSelect,
       <span className="flex flex-wrap gap-[2px] justify-end content-center flex-1 min-w-0 self-center">
         {ports.map(p => (
           <button key={p.name} type="button" onClick={e => { e.stopPropagation(); onSelect(item.id, p.name) }}
-            title={[p.name, p.speed, p.remote?.name].filter(Boolean).join(' · ')}
-            className={cn('rounded-[2px] border', selectedPort === p.name ? 'border-indigo-600 ring-1 ring-indigo-500' : p.remote ? 'border-slate-700' : 'border-slate-400')}
+            title={[p.name, p.speed, p.poe?.on ? 'PoE' + (p.poe.watts != null ? ` ${p.poe.watts} W` : '') : null, p.remote?.name].filter(Boolean).join(' · ')}
+            className={cn('rounded-[2px] border', selectedPort === p.name ? 'border-indigo-600 ring-1 ring-indigo-500' : p.poe?.on ? 'border-amber-500 border-2' : p.remote ? 'border-slate-700' : 'border-slate-400')}
             style={{ width: box, height: box, background: portColor(p) }} />
         ))}
         {ports.length === 0 && item.portCount ? Array.from({ length: Math.min(item.portCount, 96) }, (_, n) => (
@@ -180,6 +180,16 @@ function ItemBlock({ item, byId, top, selected, related, selectedPort, onSelect,
   )
 }
 
+const hasPoe = (ports: RackPort[]) => ports.some(p => p.poe)
+function PoeCell({ p }: { p: RackPort }) {
+  const { t } = useTranslation()
+  const o = p.poe
+  if (!o) return <span className="text-slate-300">—</span>
+  if (o.off) return <span className="text-slate-400">{t('racks.poe.off')}</span>
+  if (o.on) return <span className="text-amber-700 font-medium whitespace-nowrap">⚡ {o.watts != null ? `${o.watts} W` : t('racks.poe.on')}</span>
+  if (o.status === 'fault') return <span className="text-red-600">{t('racks.poe.fault')}</span>
+  return <span className="text-slate-500">{t('racks.poe.idle')}</span>
+}
 const fmtMbps = (v: number | null | undefined) => v == null ? '' : v < 1 ? `${Math.round(v * 1000)} kb/s` : `${v.toFixed(1)} Mb/s`
 
 export function RackItemPanel({ rack, item, selectedPort, onSelect, assetHref, children }: {
@@ -192,6 +202,7 @@ export function RackItemPanel({ rack, item, selectedPort, onSelect, assetHref, c
   const byId = useMemo(() => new Map(rack.items.map(i => [i.id, i])), [rack.items])
   const links = rack.links.filter(l => l.a === item.id || l.b === item.id)
   const many = item.ports.length > 16
+  const poe = hasPoe(item.ports)
   const rows = item.ports.filter(p => !(many && onlyBusy) || p.remote || p.up)
   const color = itemColor(item)
   const href = item.asset && assetHref ? assetHref(item.asset.id) : null
@@ -227,11 +238,12 @@ export function RackItemPanel({ rack, item, selectedPort, onSelect, assetHref, c
         <section className="bg-white border border-slate-200 rounded-xl">
           <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-3">
             <h4 className="text-sm font-semibold text-slate-800">{t('racks.ports')} ({item.ports.length})</h4>
+            {item.poeTotal && <span className="text-xs text-amber-700">{t('racks.poe.budget', { used: item.poeTotal.used_w, total: item.poeTotal.budget_w })}</span>}
             {many && <label className="text-xs text-slate-500 inline-flex items-center gap-1 ml-auto"><input type="checkbox" checked={onlyBusy} onChange={e => setOnlyBusy(e.target.checked)} />{t('racks.onlyBusy')}</label>}
           </div>
           <div className="max-h-[26rem] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-[11px] text-slate-400 border-b border-slate-100"><th className="pl-4 py-1.5 font-normal">{t('racks.port')}</th><th className="font-normal">{t('racks.speed')}</th><th className="font-normal">VLAN</th><th className="font-normal">{t('racks.traffic')}</th><th className="font-normal pr-4">{t('racks.connectedTo')}</th></tr></thead>
+              <thead><tr className="text-left text-[11px] text-slate-400 border-b border-slate-100"><th className="pl-4 py-1.5 font-normal">{t('racks.port')}</th><th className="font-normal">{t('racks.speed')}</th><th className="font-normal">VLAN</th><th className="font-normal">{t('racks.traffic')}</th>{poe && <th className="font-normal">PoE</th>}<th className="font-normal pr-4">{t('racks.connectedTo')}</th></tr></thead>
               <tbody>
                 {rows.map(p => {
                   const r = p.remote
@@ -242,6 +254,7 @@ export function RackItemPanel({ rack, item, selectedPort, onSelect, assetHref, c
                       <td className="text-xs text-slate-600 whitespace-nowrap">{p.speed ?? '—'}</td>
                       <td className="text-xs text-slate-600">{p.vlan ?? '—'}</td>
                       <td className="text-[11px] text-slate-500 whitespace-nowrap">{p.rx != null || p.tx != null ? <>↓{fmtMbps(p.rx)}<br />↑{fmtMbps(p.tx)}</> : '—'}</td>
+                      {poe && <td className="text-xs"><PoeCell p={p} /></td>}
                       <td className="pr-4 text-xs">
                         {!r ? <span className="text-slate-300">—</span> : r.kind === 'multi' ? (
                           <span title={(r.hosts ?? []).map(h => `${h.name}${h.ip ? ` (${h.ip})` : ''}`).join('\n')} className="text-slate-600">{t('racks.multi', { count: r.count })}</span>

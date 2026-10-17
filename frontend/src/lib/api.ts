@@ -1166,12 +1166,13 @@ export const assetsApi = {
 // ── Server racks ──────────────────────────────────────────────────────────────
 
 export interface RackRemote { kind: 'lldp' | 'mac' | 'multi'; name: string; ip?: string | null; port?: string | null; assetId?: number | null; count?: number; hosts?: Array<{ name: string; ip?: string | null }> }
-export interface RackPort { name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx?: number | null; tx?: number | null; remote?: RackRemote | null }
+export interface RackPoe { mode?: string | null; on?: boolean | null; status?: string | null; watts?: number | null; off?: boolean }
+export interface RackPort { name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx?: number | null; tx?: number | null; remote?: RackRemote | null; poe?: RackPoe | null }
 export interface RackNic { name: string | null; ips: string[]; connected?: { item_id: number; port: string; vlan?: string | null } | null }
 export interface RackItemView {
   id: number; kind: string; label: string; u: number; height: number; portCount: number | null; notes?: string | null
   asset: { id: number; type: AssetType; role?: string | null; ip?: string | null; model?: string | null; manufacturer?: string | null; online: boolean | null; managed?: boolean } | null
-  ports: RackPort[]; nics: RackNic[]; error?: string | null
+  ports: RackPort[]; nics: RackNic[]; error?: string | null; poeTotal?: { budget_w: number; used_w: number } | null
   pending?: boolean                                  // placed in Central but not yet applied by the agent
 }
 export interface RackLinkView { id: number | null; a: number; aPort: string | null; b: number | null; bPort: string | null; remote?: string | null; label?: string | null; cable?: string | null; kind: 'lldp' | 'mac' | 'manual' }
@@ -1186,9 +1187,9 @@ export interface RackDetailRaw {
   links: Array<{ id: number; a: number; a_port: string | null; b: number | null; b_port: string | null; remote: string | null; label: string | null; cable: string | null; kind: 'manual' }>
 }
 export interface RackLiveRaw {
-  items: Record<string, { online: boolean | null; ports: Array<{ name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx_mbps?: number | null; tx_mbps?: number | null
+  items: Record<string, { online: boolean | null; ports: Array<{ name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx_mbps?: number | null; tx_mbps?: number | null; poe?: RackPoe | null
     remote?: { kind: 'lldp' | 'mac' | 'multi'; name: string; ip?: string | null; port?: string | null; asset_id?: number | null; count?: number; hosts?: Array<{ name: string; ip?: string | null }> } | null }> | null
-    nics: RackNic[]; error: string | null }>
+    nics: RackNic[]; error: string | null; poe_total?: { budget_w: number; used_w: number } | null }>
   links: Array<{ id: number | null; a: number; a_port: string | null; b: number | null; b_port: string | null; remote: string | null; label: string | null; cable: string | null; kind: 'lldp' | 'mac' | 'manual' }>
   at: string
 }
@@ -1202,9 +1203,9 @@ export function rackFromAgent(r: RackDetailRaw, live?: RackLiveRaw | null): Rack
       return {
         id: i.id, kind: i.kind, label: i.label, u: i.u, height: i.height, portCount: i.port_count, notes: i.notes,
         asset: i.asset ? { id: i.asset.id, type: i.asset.type, role: i.asset.role, ip: i.asset.ip, model: i.asset.model, manufacturer: i.asset.manufacturer, online: l?.online ?? i.asset.online, managed: i.asset.managed } : null,
-        ports: (l?.ports ?? []).map(p => ({ name: p.name, up: p.up, disabled: p.disabled, speed: p.speed, vlan: p.vlan, comment: p.comment, rx: p.rx_mbps, tx: p.tx_mbps,
+        ports: (l?.ports ?? []).map(p => ({ name: p.name, up: p.up, disabled: p.disabled, speed: p.speed, vlan: p.vlan, comment: p.comment, rx: p.rx_mbps, tx: p.tx_mbps, poe: p.poe,
           remote: p.remote ? { kind: p.remote.kind, name: p.remote.name, ip: p.remote.ip, port: p.remote.port, assetId: p.remote.asset_id, count: p.remote.count, hosts: p.remote.hosts } : null })),
-        nics: l?.nics ?? [], error: l?.error ?? null,
+        nics: l?.nics ?? [], error: l?.error ?? null, poeTotal: l?.poe_total ?? null,
       }
     }),
     links: (live?.links ?? r.links).map(l => ({ id: l.id, a: l.a, aPort: l.a_port, b: l.b, bPort: l.b_port, remote: l.remote, label: l.label, cable: l.cable, kind: l.kind })),
@@ -1216,7 +1217,8 @@ export interface CentralRack {
   id: number; n: string; loc: string | null; u: number; nt?: string | null
   items: Array<{ id: number; k: string; l: string; u: number; h: number; pc: number | null
     a: { id: number; t: AssetType; r: string | null; ip: string | null; md: string | null; mf: string | null; on: boolean | null } | null
-    p: Array<{ n: string; up: boolean | null; sp: string | null; v: string | null; c: string | null; rx: number | null; tx: number | null; rm: { k: 'lldp' | 'mac' | 'multi'; n: string; ip?: string; p?: string; aid?: number; c?: number; hs?: Array<{ n: string; ip?: string | null }> } | null }>
+    pt?: { budget_w: number; used_w: number } | null
+    p: Array<{ n: string; up: boolean | null; sp: string | null; v: string | null; c: string | null; rx: number | null; tx: number | null; po?: { m?: string; on?: boolean; st?: string; w?: number; off?: boolean } | null; rm: { k: 'lldp' | 'mac' | 'multi'; n: string; ip?: string; p?: string; aid?: number; c?: number; hs?: Array<{ n: string; ip?: string | null }> } | null }>
     nic: Array<{ n: string | null; ip: string[]; c: { item_id: number; port: string; vlan?: string | null } | null }> }>
   links: Array<{ a: number; ap: string | null; b: number | null; bp: string | null; rm: string | null; lb: string | null; cb: string | null; k: 'lldp' | 'mac' | 'manual' }>
 }
@@ -1227,7 +1229,8 @@ export function rackFromCentral(r: CentralRack): RackView {
     items: r.items.map(i => ({
       id: i.id, kind: i.k, label: i.l, u: i.u, height: i.h, portCount: i.pc,
       asset: i.a ? { id: i.a.id, type: i.a.t, role: i.a.r, ip: i.a.ip, model: i.a.md, manufacturer: i.a.mf, online: i.a.on } : null,
-      ports: i.p.map(p => ({ name: p.n, up: p.up, speed: p.sp, vlan: p.v, comment: p.c, rx: p.rx, tx: p.tx,
+      poeTotal: i.pt ?? null,
+      ports: i.p.map(p => ({ name: p.n, up: p.up, speed: p.sp, vlan: p.v, comment: p.c, rx: p.rx, tx: p.tx, poe: p.po ? { mode: p.po.m, on: p.po.on, status: p.po.st, watts: p.po.w, off: p.po.off } : null,
         remote: p.rm ? { kind: p.rm.k, name: p.rm.n, ip: p.rm.ip, port: p.rm.p, assetId: p.rm.aid, count: p.rm.c, hosts: p.rm.hs?.map(h => ({ name: h.n, ip: h.ip })) } : null })),
       nics: i.nic.map(n => ({ name: n.n, ips: n.ip ?? [], connected: n.c })),
     })),

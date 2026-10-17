@@ -1354,6 +1354,13 @@
         "traffic": "Ruch",
         "connectedTo": "Podłączone do",
         "onlyBusy": "Tylko zajęte",
+        "poe": {
+            "off": "wył.",
+            "on": "zasila",
+            "fault": "usterka",
+            "idle": "gotowy",
+            "budget": "PoE: {{used}} W z {{total}} W"
+        },
         "multi": "{{count}} adresów MAC",
         "nics": "Karty sieciowe",
         "notFound": "nie znaleziono na switchu",

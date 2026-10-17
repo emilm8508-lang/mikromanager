@@ -1196,6 +1196,13 @@
         "traffic": "Tráfico",
         "connectedTo": "Conectado a",
         "onlyBusy": "Solo ocupados",
+        "poe": {
+            "off": "apag.",
+            "on": "alimenta",
+            "fault": "fallo",
+            "idle": "libre",
+            "budget": "PoE: {{used}} W de {{total}} W"
+        },
         "multi": "{{count}} direcciones MAC",
         "nics": "Tarjetas de red",
         "notFound": "no encontrada en un switch",

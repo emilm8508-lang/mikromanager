@@ -298,18 +298,61 @@ def _speed(txt) -> Optional[str]:
     return t or None
 
 
+def _saved_communities(first: Optional[str] = None) -> List[str]:
+    """SNMP v2c communities to try: the device's own, then every saved one, then "public"."""
+    from services.crypto import decrypt
+    out: List[str] = [first] if first else []
+    with SessionLocal() as db:
+        for c in db.execute(select(Credential)).scalars().all():
+            try:
+                v = decrypt(c.snmp_community_enc) if c.snmp_community_enc else None
+            except Exception:
+                v = None
+            if v and v not in out:
+                out.append(v)
+    if "public" not in out:
+        out.append("public")
+    return out
+
+
+async def _fetch_asset_snmp(asset_id: int) -> Optional[dict]:
+    """A switch that is only an asset (no router / switch record with a credential): read over SNMP with the saved communities."""
+    from services import snmp_ports
+    with SessionLocal() as db:
+        a = db.get(Asset, asset_id)
+        ip = a.ip if a else None
+    if not ip:
+        return {"error": "the asset has no address"}
+    snap = await snmp_ports.read(ip, _saved_communities())
+    return snap or {"error": "no SNMP answer (tried the saved communities and public)"}
+
+
 async def _fetch_snapshot(device_id: int) -> Optional[dict]:
     from services.device_client import build_client
+    if device_id < 0:                                   # a negative key = an asset read over SNMP
+        return await _fetch_asset_snmp(-device_id)
     with SessionLocal() as db:
         d = db.get(Device, device_id)
         c = db.get(Credential, d.credential_id) if d and d.credential_id else None
-        if not d or not c:
+        vendor = ((d.vendor if d else None) or "mikrotik").lower()
+        if d and vendor != "mikrotik":                  # Cisco Small Business and other SNMP switches: the standard MIBs
+            from services import snmp_ports
+            from services.crypto import decrypt
+            try:
+                com = decrypt(c.snmp_community_enc) if c and c.snmp_community_enc else None
+            except Exception:
+                com = None
+            ip, port = d.ip, d.snmp_port or 161
+        elif not d or not c:
             return {"error": "no credential for this device"}
-        try:
-            client = build_client(d, c)
-        except Exception as e:
-            return {"error": f"{type(e).__name__}: {e}"}
-        vendor = (d.vendor or "mikrotik").lower()
+        else:
+            try:
+                client = build_client(d, c)
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"}
+    if vendor != "mikrotik":
+        snap = await snmp_ports.read(ip, _saved_communities(com), port)
+        return snap or {"error": "no SNMP answer (check the community in the device's credential)"}
 
     async def step(fn, default):
         try:
@@ -321,14 +364,16 @@ async def _fetch_snapshot(device_id: int) -> Optional[dict]:
     neighbors = await step(client.get_neighbors, [])
     bridge = await step(client.get_bridge_hosts, []) if hasattr(client, "get_bridge_hosts") and vendor == "mikrotik" else []
     ethernet = await step(client.get_ethernet, []) if hasattr(client, "get_ethernet") else []
+    poe = await step(client.get_poe, {}) if hasattr(client, "get_poe") else {}
     if not ifaces:
         return {"error": "the device did not answer"}
-    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "vendor": vendor}
+    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "poe": poe, "vendor": vendor}
 
 
 async def _snapshot(device_id: int, fresh: bool = False) -> Optional[dict]:
     hit = _snapshots.get(device_id)
-    if hit and not fresh and time.time() - hit[0] < SNAPSHOT_TTL:
+    ttl = SNAPSHOT_TTL if not hit or (hit[1] and "ifaces" in hit[1]) or device_id > 0 else 300.0    # a switch that did not answer SNMP is not asked again for 5 min
+    if hit and not fresh and time.time() - hit[0] < ttl:
         return hit[1]
     data = await _fetch_snapshot(device_id)
     _snapshots[device_id] = (time.time(), data)
@@ -387,12 +432,17 @@ def _ports_from_snapshot(snap: dict, stats: Dict[str, dict], resolver: _Resolver
             continue
         name = str(f["name"])
         e = eth.get(name, {})
-        st = stats.get(name, {})
+        st = (snap.get("stats") or {}).get(name) or stats.get(name, {})
         port = {"name": name, "up": _b(f.get("running")) and not _b(f.get("disabled")), "disabled": _b(f.get("disabled")),
-                "speed": _speed(e.get("rate") or e.get("speed")), "rx_mbps": st.get("rx_mbps"), "tx_mbps": st.get("tx_mbps"),
+                "speed": _speed(e.get("rate") or e.get("speed") or f.get("speed")), "rx_mbps": st.get("rx_mbps"), "tx_mbps": st.get("tx_mbps"),
                 "comment": f.get("comment") or None, "remote": None}
+        p = (snap.get("poe") or {}).get(name)
+        if p:
+            mode = str(p.get("mode") or "").lower()
+            port["poe"] = {"mode": p.get("mode"), "on": p.get("on"), "status": p.get("status"), "watts": p.get("watts"), "off": mode in ("off", "disabled", "false")}
         macs = by_port_macs.get(name, [])
         port["mac_count"] = len(macs)
+        port["_macs"] = [m for m in (_norm_mac(b.get("mac-address")) for b in macs[:2000]) if m]      # for locating hosts; never sent out
         vlans = sorted({str(b.get("vid")) for b in macs if b.get("vid")})
         if vlans:
             port["vlan"] = ",".join(vlans[:4])
@@ -429,11 +479,13 @@ async def live(rack_id: int) -> Optional[dict]:
         directory = await host_monitor.directory(max_age=3600)
     except Exception:
         directory = []
-    managed = {}                                   # item id -> device id
+    managed = {}                                   # item id -> device id (a router / switch with a credential), or -asset id (read over SNMP)
     for it in rack["items"]:
         a = it["asset"]
         if a and a["refs"].get("device_id") and a["managed"]:
             managed[it["id"]] = a["refs"]["device_id"]
+        elif a and a["type"] == "network" and a["ip"]:
+            managed[it["id"]] = -a["id"]
     snaps: Dict[int, Optional[dict]] = {}
     sem = asyncio.Semaphore(4)
 
@@ -448,16 +500,17 @@ async def live(rack_id: int) -> Optional[dict]:
         asset_item = {it["asset"]["id"]: it["id"] for it in rack["items"] if it["asset"]}
         stats_all: Dict[int, Dict[str, dict]] = {}
         from models.database import DeviceInterfaceStats
-        for s in db.execute(select(DeviceInterfaceStats).where(DeviceInterfaceStats.device_id.in_(list(set(managed.values())) or [0]))).scalars().all():
+        for s in db.execute(select(DeviceInterfaceStats).where(DeviceInterfaceStats.device_id.in_([d for d in set(managed.values()) if d > 0] or [0]))).scalars().all():
             stats_all.setdefault(s.device_id, {})[s.iface_name] = {"rx_mbps": s.rx_mbps, "tx_mbps": s.tx_mbps}
         out_items: Dict[int, dict] = {}
         for it in rack["items"]:
-            entry: dict = {"online": it["asset"]["online"] if it["asset"] else None, "ports": None, "nics": [], "error": None}
+            entry: dict = {"online": it["asset"]["online"] if it["asset"] else None, "ports": None, "nics": [], "error": None, "poe_total": None}
             did = managed.get(it["id"])
             if did:
                 snap = snaps.get(did)
                 if snap and "ifaces" in snap:
                     entry["ports"] = _ports_from_snapshot(snap, stats_all.get(did, {}), resolver, ip_assets)
+                    entry["poe_total"] = snap.get("poe_total")
                 else:
                     entry["error"] = (snap or {}).get("error") or "the device did not answer"
             elif it["asset"]:
@@ -472,30 +525,46 @@ async def live(rack_id: int) -> Optional[dict]:
 
     links: List[dict] = list(rack["links"])
     seen_pairs = set()
-    # switch <-> switch / router (LLDP) and switch -> computer (the MAC learned on an edge port)
+    # Where each MAC sits: in an all-switch network a host's MAC is learned on every switch up to the core, so the real port is the one that
+    # has the fewest MACs behind it and no LLDP neighbour (an uplink has one). Taken out of the ports here - the full lists never leave.
+    where: Dict[str, list] = {}
+    for item_id, e in out_items.items():
+        for p in e["ports"] or []:
+            macs = p.pop("_macs", [])
+            if (p.get("remote") or {}).get("kind") == "lldp":
+                continue
+            for m in macs:
+                where.setdefault(m, []).append((len(macs), item_id, p["name"], p.get("vlan")))
+    # switch <-> switch / router (LLDP)
     for item_id, e in out_items.items():
         for p in e["ports"] or []:
             r = p.get("remote") or {}
             tgt = asset_item.get(r.get("asset_id")) if r.get("asset_id") else None
-            if tgt and tgt != item_id:
+            if r.get("kind") == "lldp" and tgt and tgt != item_id:
                 key = tuple(sorted([(item_id, p["name"]), (tgt, r.get("port") or "")]))
                 if key in seen_pairs:
                     continue
                 seen_pairs.add(key)
-                links.append({"id": None, "a": item_id, "a_port": p["name"], "b": tgt, "b_port": r.get("port"), "kind": r.get("kind"), "remote": None, "label": None, "cable": None})
-            elif r.get("kind") == "multi":
-                for h in r.get("hosts") or []:
-                    t2 = asset_item.get(h.get("asset_id")) if h.get("asset_id") else None
-                    if t2 and t2 != item_id:
-                        links.append({"id": None, "a": item_id, "a_port": p["name"], "b": t2, "b_port": None, "kind": "mac", "remote": None, "label": None, "cable": None})
-    for item_id, e in out_items.items():
-        for n in e["nics"]:
-            for sw_id, se in out_items.items():
-                for p in se["ports"] or []:
-                    r = p.get("remote") or {}
-                    hit = r.get("mac") == n["mac"] or any(h.get("mac") == n["mac"] for h in r.get("hosts") or [])
-                    if hit and n["mac"]:
-                        n["connected"] = {"item_id": sw_id, "port": p["name"], "vlan": p.get("vlan")}
+                links.append({"id": None, "a": item_id, "a_port": p["name"], "b": tgt, "b_port": r.get("port"), "kind": "lldp", "remote": None, "label": None, "cable": None})
+    # switch port -> computer / any other device of the rack, by its MACs
+    for it in rack["items"]:
+        e = out_items[it["id"]]
+        macs = {n["mac"] for n in e["nics"] if n.get("mac")} | ({_norm_mac(it["asset"]["mac"])} - {None} if it["asset"] and it["asset"].get("mac") else set())
+        found = set()
+        for m in macs:
+            cands = [c for c in where.get(m, []) if c[1] != it["id"]]
+            if not cands:
+                continue
+            _n, sw_id, port, vlan = min(cands)
+            for n in e["nics"]:
+                if n.get("mac") == m:
+                    n["connected"] = {"item_id": sw_id, "port": port, "vlan": vlan}
+            if (sw_id, port) not in found:
+                found.add((sw_id, port))
+                links.append({"id": None, "a": sw_id, "a_port": port, "b": it["id"], "b_port": None, "kind": "mac", "remote": None, "label": None, "cable": None})
+    for e in out_items.values():
+        for p in e["ports"] or []:
+            p.pop("_macs", None)
     return {"items": out_items, "links": links, "at": datetime.utcnow().isoformat() + "Z"}
 
 
@@ -568,13 +637,20 @@ async def public_summary() -> dict:
                 "id": it["id"], "k": it["kind"], "l": it["label"], "u": it["u"], "h": it["height"], "pc": it["port_count"],
                 "a": ({"id": a["id"], "t": a["type"], "r": a["role"], "ip": a["ip"], "md": a["model"], "mf": a["manufacturer"], "on": a["online"]} if a else None),
                 "p": [{"n": p["name"], "up": p.get("up"), "sp": p.get("speed"), "v": p.get("vlan"), "c": p.get("comment"),
-                       "rx": p.get("rx_mbps"), "tx": p.get("tx_mbps"), "rm": _public_remote(p.get("remote"))} for p in (e.get("ports") or [])],
+                       "rx": p.get("rx_mbps"), "tx": p.get("tx_mbps"), "rm": _public_remote(p.get("remote")), "po": _public_poe(p.get("poe"))} for p in (e.get("ports") or [])],
+                "pt": e.get("poe_total"),
                 "nic": [{"n": n.get("name"), "ip": n.get("ips"), "c": n.get("connected")} for n in e.get("nics", [])],
             })
         out.append({"id": r["id"], "n": r["name"], "loc": r["location"], "u": r["units"], "nt": r["notes"], "items": items,
                     "links": [{"a": l["a"], "ap": l["a_port"], "b": l["b"], "bp": l["b_port"], "rm": l.get("remote"), "lb": l.get("label"), "cb": l.get("cable"), "k": l["kind"]}
                               for l in (lv or {}).get("links", rack["links"])]})
     return {"racks": out, "ops": list(_ops_log)}
+
+
+def _public_poe(p: Optional[dict]) -> Optional[dict]:
+    if not p:
+        return None
+    return {k: v for k, v in {"m": p.get("mode"), "on": p.get("on"), "st": p.get("status"), "w": p.get("watts"), "off": p.get("off") or None}.items() if v is not None}
 
 
 def _public_remote(r: Optional[dict]) -> Optional[dict]:

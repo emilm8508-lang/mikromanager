@@ -657,6 +657,40 @@ class MikrotikClient:
         except Exception:
             return []
 
+    async def get_poe(self) -> dict:
+        """PoE-out of the ports: {port: {"mode", "on", "status", "watts"}}. The mode (off / auto-on / forced-on) comes from
+        /interface/ethernet/poe; whether a port really delivers power, and how much, from its monitor (REST only, best effort -
+        without it only the mode is known). Routers without PoE ports answer nothing and give {}."""
+        out: dict = {}
+        try:
+            cfg = await self._rest_or_api("interface/ethernet/poe", "/interface/ethernet/poe")
+        except Exception:
+            return {}
+        for e in cfg or []:
+            if e.get("name"):
+                out[e["name"]] = {"mode": e.get("poe-out"), "on": None, "status": None, "watts": None}
+        if not out:
+            return {}
+        names = ",".join(out)
+        mon = None
+        for body in ({"numbers": names, "once": ""}, {"numbers": names, "once": True}):
+            try:
+                mon = await self.rest_post("interface/ethernet/poe/monitor", body)
+                break
+            except Exception:
+                continue
+        for m in (mon if isinstance(mon, list) else [mon] if isinstance(mon, dict) else []):
+            e = out.get(m.get("name"))
+            if e is None:
+                continue
+            st = m.get("poe-out-status")
+            e["status"], e["on"] = st, (st == "powered-on") if st else None
+            try:
+                e["watts"] = round(float(m["poe-out-power"]), 1) if m.get("poe-out-power") not in (None, "") else None
+            except (TypeError, ValueError):
+                pass
+        return out
+
     async def get_ethernet(self) -> list:
         """/interface/ethernet - the physical ports' negotiated speed / duplex (REST or API only; the rack view shows it per port)."""
         try:

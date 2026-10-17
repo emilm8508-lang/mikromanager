@@ -1196,6 +1196,13 @@
         "traffic": "Verkehr",
         "connectedTo": "Verbunden mit",
         "onlyBusy": "Nur belegte",
+        "poe": {
+            "off": "aus",
+            "on": "speist",
+            "fault": "Fehler",
+            "idle": "bereit",
+            "budget": "PoE: {{used}} W von {{total}} W"
+        },
         "multi": "{{count}} MAC-Adressen",
         "nics": "Netzwerkkarten",
         "notFound": "an keinem Switch gefunden",
