@@ -462,6 +462,49 @@ class AssetPeripheral(Base):
     last_seen_at = Column(DateTime, nullable=True)
 
 
+class Rack(Base):
+    """A server rack / cabinet (services/racks.py): a named stack of `units` rack units that devices are placed in."""
+    __tablename__ = "racks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    location = Column(String, nullable=True)       # matches the asset "location" - what the suggestion of devices for this rack goes by
+    units = Column(Integer, nullable=False, default=42)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RackItem(Base):
+    """One thing mounted in a rack: an inventory asset (asset_id) or a manual item (patch panel, UPS, shelf ...).
+    `u` is the lowest unit it occupies (1 = bottom), `height` how many units it spans."""
+    __tablename__ = "rack_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rack_id = Column(Integer, ForeignKey("racks.id"), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True, index=True)
+    kind = Column(String, nullable=False, default="asset")      # asset | patch_panel | switch | ups | pdu | cable_manager | shelf | blank | other
+    label = Column(String, nullable=True)
+    u = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False, default=1)
+    port_count = Column(Integer, nullable=True)                 # manual items: how many ports to draw (patch panel 24, ...)
+    notes = Column(Text, nullable=True)
+
+
+class RackLink(Base):
+    """A cable the operator drew by hand (patch panels and unmanaged devices report nothing themselves)."""
+    __tablename__ = "rack_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rack_id = Column(Integer, ForeignKey("racks.id"), nullable=False, index=True)
+    item_a_id = Column(Integer, ForeignKey("rack_items.id"), nullable=False, index=True)
+    port_a = Column(String, nullable=True)
+    item_b_id = Column(Integer, ForeignKey("rack_items.id"), nullable=True, index=True)
+    port_b = Column(String, nullable=True)
+    remote_text = Column(String, nullable=True)                 # the other end when it is not in this rack ("wall socket B12")
+    label = Column(String, nullable=True)
+    cable = Column(String, nullable=True)                       # cat6 | fibre | dac | power | other
+
+
 class HostGroup(Base):
     """An operator-defined group of Linux or Windows servers (services/host_groups.py) — what the
     "update / restart the whole group" buttons act on. Per platform: a group holds only hosts of

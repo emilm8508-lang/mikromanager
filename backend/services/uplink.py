@@ -504,6 +504,14 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] asset summary error: {e}")
         assets_status = None
 
+    # The racks (placement, ports, what is plugged into what) for Central's rack view - sanitised, see racks.public_summary.
+    try:
+        from services import racks as racks_svc
+        racks_status = await racks_svc.public_summary()
+    except Exception as e:
+        print(f"[uplink] racks summary error: {e}")
+        racks_status = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -538,6 +546,7 @@ async def _build_snapshot() -> dict:
         "mikrotik_fleet": mikrotik_fleet,
         "security_stats": security_stats,
         "assets_status": assets_status,
+        "racks_status": racks_status,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -591,6 +600,7 @@ def _build_request_body(snapshot: dict) -> tuple:
             "mikrotik_fleet": snapshot.get("mikrotik_fleet"),
             "security_stats": snapshot.get("security_stats"),
             "assets_status": snapshot.get("assets_status"),
+            "racks_status": snapshot.get("racks_status"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),
@@ -713,6 +723,9 @@ def _canonical_commands(commands: list) -> str:
             parts.append(f"hyperv_vm_action:{int(c.get('vm_id') or 0)}:{c.get('action') or ''}")
         elif isinstance(c, dict) and c.get("type") == "device_reboot":
             parts.append(f"device_reboot:{int(c.get('device_id') or 0)}")
+        elif isinstance(c, dict) and c.get("type") == "rack_op":
+            # the operation travels as an opaque JSON string; its SHA-256 is what is signed
+            parts.append("rack_op:" + hashlib.sha256(str(c.get("op") or "").encode("utf-8")).hexdigest())
         elif isinstance(c, dict) and c.get("type") == "windows_manage_toggle":
             parts.append(f"windows_manage_toggle:{'1' if c.get('enabled') else '0'}")
         elif isinstance(c, dict) and c.get("type") == "dell_check":
@@ -1025,6 +1038,17 @@ async def _handle_commands(commands: list) -> None:
                     print(f"[uplink] received DEVICE_REBOOT for device {device_id} (run {run_id})")
                 except (PermissionError, ValueError) as e:
                     print(f"[uplink] device_reboot rejected: {e}")
+            elif cmd_type == "rack_op":
+                from services import racks as racks_svc
+                try:
+                    op = json.loads(str(cmd.get("op") or ""))
+                    if not isinstance(op, dict):
+                        raise ValueError("not an object")
+                except ValueError as e:
+                    print(f"[uplink] rack_op rejected: {e}")
+                else:
+                    r = racks_svc.apply_op(op)
+                    print(f"[uplink] received RACK_OP {op.get('op')}: {'ok' if r['ok'] else r['error']}")
             elif cmd_type == "windows_manage_toggle":
                 # Sets the DB-backed toggle itself — deliberately NOT gated
                 # on _manage_enabled() (that would make the one command

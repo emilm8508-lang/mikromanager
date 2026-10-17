@@ -613,7 +613,7 @@ async def public_summary() -> dict:
     for r in shown:
         seen = datetime.fromisoformat(r["last_seen_at"].rstrip("Z")) if r["last_seen_at"] else None
         v = r["vulns"]
-        row = {"n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
+        row = {"id": r["id"], "n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
                "lc": r["lifecycle"], "v": [v["critical"], v["high"], v["medium"], v["low"]], "loc": r["location"], "sl": r["scan_level"],
                "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None}
         # What Central may ask the agent to do with it (the same commands as on the server boards): only ids and flags, no details.

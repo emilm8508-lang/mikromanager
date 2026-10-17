@@ -10,6 +10,8 @@ import { Logs } from './pages/Logs'
 import { Central } from './pages/Central'
 import { CentralInventory } from './pages/CentralInventory'
 import { CentralAssets } from './pages/CentralAssets'
+import { CentralRacks } from './pages/CentralRacks'
+import { Racks } from './pages/Racks'
 import { CentralCompliance } from './pages/CentralCompliance'
 import { CentralExternalMonitoring } from './pages/CentralExternalMonitoring'
 import { CentralDellServers } from './pages/CentralDellServers'
@@ -66,6 +68,7 @@ export default function App() {
             <Route path="/inventory" element={<AssetsOverview />} />
             <Route path="/inventory/list" element={<AssetList />} />
             <Route path="/inventory/:id" element={<AssetDetail />} />
+            <Route path="/racks" element={<Racks />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />
@@ -73,6 +76,7 @@ export default function App() {
             <Route path="/security" element={<Security />} />
             <Route path="/central" element={<Central />} />
             <Route path="/central/assets" element={<CentralAssets />} />
+            <Route path="/central/racks" element={<CentralRacks />} />
             <Route path="/central/inventory" element={<CentralInventory />} />
             <Route path="/central/compliance" element={<CentralCompliance />} />
             <Route path="/central/external-monitoring" element={<CentralExternalMonitoring />} />

@@ -76,6 +76,9 @@ function canonical_commands(array $commands): string {
             $parts[] = 'hyperv_vm_action:' . (int)($c['vm_id'] ?? 0) . ':' . (string)($c['action'] ?? '');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'device_reboot') {
             $parts[] = 'device_reboot:' . (int)($c['device_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'rack_op') {
+            // the operation is an opaque JSON string; its SHA-256 is what is signed (see _canonical_commands in uplink.py)
+            $parts[] = 'rack_op:' . hash('sha256', (string)($c['op'] ?? ''));
         } elseif (is_array($c) && ($c['type'] ?? '') === 'windows_manage_toggle') {
             $parts[] = 'windows_manage_toggle:' . (!empty($c['enabled']) ? '1' : '0');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'dell_check') {
@@ -595,6 +598,22 @@ try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "device_reboot_delivered", ?, ?)')
                     ->execute([$tenant_header, "Restart routera dostarczony do agenta {$tenant_header}", json_encode(['device_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
+        }
+    }
+
+    // 3d4. rack edits made in Central: the marker's content is the operation (a JSON string), delivered as is and applied by the agent
+    foreach (glob($state_dir . "/rack_op_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^rack_op_.+_[0-9a-f]{12}$/', $base)) {
+            $op = trim(@file_get_contents($f));
+            if ($op !== '' && strlen($op) <= 4000) {
+                $commands[] = ['type' => 'rack_op', 'op' => $op];
+                try {
+                    $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "rack_op_delivered", ?, ?)')
+                        ->execute([$tenant_header, "Zmiana w szafie rack dostarczona do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+                } catch (Throwable $e) {}
+            }
+            @unlink($f);
         }
     }
 

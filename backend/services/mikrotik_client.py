@@ -657,6 +657,13 @@ class MikrotikClient:
         except Exception:
             return []
 
+    async def get_ethernet(self) -> list:
+        """/interface/ethernet - the physical ports' negotiated speed / duplex (REST or API only; the rack view shows it per port)."""
+        try:
+            return await self._rest_or_api("interface/ethernet", "/interface/ethernet")
+        except Exception:
+            return []
+
     async def get_wireguard_status(self) -> dict:
         """WireGuard interfaces + per-peer status. See _wireguard_peer_status
         for the up/down rule (last-handshake recency, disabled flag).

@@ -19,6 +19,8 @@ Dane na zrzutach są przykładowe (nie pochodzą z prawdziwej sieci).
 
 ![Lista zasobów](docs/screenshots/zasoby-lista.png)
 
+**Szafy rackowe** — rysunek szafy z urządzeniami ustawianymi przeciąganiem (routery, switche, serwery, patch panele, UPS), po kliknięciu w urządzenie: porty na żywo, sąsiedzi LLDP i to, co jest wpięte w który port (po adresach MAC z tablicy switcha). Dostępne także w Centrali - po wybraniu klienta można tam szafy układać, a zmiany trafiają do agenta jako podpisane komendy.
+
 **Karta zasobu** — zakładki zależne od typu urządzenia: przegląd, sprzęt (BIOS, procesor, pamięć, dyski, karty sieciowe), oprogramowanie, ryzyko (podatności + cykl życia), usługi sieciowe, monitory i drukarki podłączone do komputera.
 
 ![Karta zasobu — przegląd](docs/screenshots/zasoby-karta-przeglad.png)

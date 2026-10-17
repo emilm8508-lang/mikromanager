@@ -1307,6 +1307,28 @@ try {
             ]);
             break;
 
+        case 'request_rack_op':
+            // An edit of a server rack made in Central (place / move / remove a device, cable it, create a rack ...). The operation is
+            // a JSON string the agent applies as is - after checking the signature of the command list it arrives in. Whitelisted
+            // operation names, size-limited; unique marker per request so several edits in a row all arrive, in order.
+            $tenant = $_GET['tenant'] ?? '';
+            $op_json = (string)($_GET['op'] ?? '');
+            $op = json_decode($op_json, true);
+            $ops_ok = ['rack_create', 'rack_update', 'rack_delete', 'rack_suggested', 'item_add', 'item_update', 'item_delete', 'link_add', 'link_delete'];
+            if ($tenant === '' || strlen($op_json) > 4000 || !is_array($op) || !in_array($op['op'] ?? '', $ops_ok, true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and op (JSON, whitelisted operation, up to 4000 bytes) required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/rack_op_{$safe}_" . sprintf('%010x', (int)(microtime(true) * 1000) & 0xFFFFFFFFFF) . bin2hex(random_bytes(1)) . ".pending", $op_json);
+            echo json_encode(['ok' => true, 'tenant' => $tenant, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
+            break;
+
         case 'request_device_reboot':
             // Restart of a Mikrotik router asked for in Central (the agent runs it as a one-device fleet "reboot" action).
             $tenant = $_GET['tenant'] ?? '';
@@ -1919,6 +1941,31 @@ try {
                     if (is_array($meta) && isset($meta['assets_status']) && is_array($meta['assets_status'])) { $assets = $meta['assets_status']; }
                 }
                 $result[] = ['tenant' => $r['tenant'], 'last_seen' => $r['last_seen'], 'assets' => $assets];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
+        case 'racks_status_all':
+            // The server racks of every tenant this identity can see (placement, ports, what is plugged into what), as the agent
+            // put them into its snapshot - sanitised on the agent (no credentials, no MAC tables). Plaintext envelope metadata,
+            // same pattern as assets_status_all.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $racks = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta) && isset($meta['racks_status']) && is_array($meta['racks_status'])) { $racks = $meta['racks_status']; }
+                }
+                $result[] = ['tenant' => $r['tenant'], 'last_seen' => $r['last_seen'], 'racks' => $racks];
             }
             $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
             echo json_encode(['tenants' => $result]);
@@ -2727,6 +2774,7 @@ try {
                     'win_manage_toggle_'      => ['Przełącznik zarządzania Windows', '/^win_manage_toggle_(.+)_[01]$/'],
                     'hv_action_'              => ['Akcja na maszynie Hyper-V',   '/^hv_action_(.+)_(\d+)_(?:start|shutdown|poweroff|restart|checkpoint)$/'],
                     'device_reboot_'          => ['Restart routera',             '/^device_reboot_(.+)_(\d+)$/'],
+                    'rack_op_'                => ['Zmiana w szafie rack',        '/^rack_op_(.+)_[0-9a-f]{12}$/'],
                 ];
                 foreach ($id_patterns as $prefix => $pat) {
                     [$label, $re] = $pat;
@@ -2752,7 +2800,7 @@ try {
                 'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
                 'windows_restart_delivered', 'windows_restarted',
                 'windows_manage_toggle_delivered',
-                'hyperv_vm_action_delivered', 'device_reboot_delivered',
+                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'rack_op_delivered',
                 'dell_check_delivered',
                 'vuln_remediation_delivered',
                 'device_router_override_delivered',

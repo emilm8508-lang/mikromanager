@@ -1093,7 +1093,7 @@ export interface AssetSummary {
 
 // What an agent sends to Central about its assets: numbers and compact rows, never serial numbers or MAC addresses
 export interface AssetsPublicRow {
-  n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
+  id?: number; n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
   lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
   // what Central may ask the agent to do with the device (ids and flags only)
   x?: { k: 'linux' | 'windows' | 'device' | 'vm'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean; st?: string | null }
@@ -1161,6 +1161,94 @@ export const assetsApi = {
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
   bulkDelete: (ids: number[]) => api.post<{ deleted: number; managed: number }>('/assets/bulk', { ids, action: 'delete' }).then(r => r.data),
   bulkType: (ids: number[], asset_type: string) => api.post<{ changed: number }>('/assets/bulk', { ids, action: 'type', asset_type }).then(r => r.data),
+}
+
+// ── Server racks ──────────────────────────────────────────────────────────────
+
+export interface RackRemote { kind: 'lldp' | 'mac' | 'multi'; name: string; ip?: string | null; port?: string | null; assetId?: number | null; count?: number; hosts?: Array<{ name: string; ip?: string | null }> }
+export interface RackPort { name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx?: number | null; tx?: number | null; remote?: RackRemote | null }
+export interface RackNic { name: string | null; ips: string[]; connected?: { item_id: number; port: string; vlan?: string | null } | null }
+export interface RackItemView {
+  id: number; kind: string; label: string; u: number; height: number; portCount: number | null; notes?: string | null
+  asset: { id: number; type: AssetType; role?: string | null; ip?: string | null; model?: string | null; manufacturer?: string | null; online: boolean | null; managed?: boolean } | null
+  ports: RackPort[]; nics: RackNic[]; error?: string | null
+  pending?: boolean                                  // placed in Central but not yet applied by the agent
+}
+export interface RackLinkView { id: number | null; a: number; aPort: string | null; b: number | null; bPort: string | null; remote?: string | null; label?: string | null; cable?: string | null; kind: 'lldp' | 'mac' | 'manual' }
+export interface RackView { id: number; name: string; location: string | null; units: number; notes?: string | null; items: RackItemView[]; links: RackLinkView[] }
+
+export interface RackSummary { id: number; name: string; location: string | null; units: number; notes: string | null; items: number; used_u: number }
+export interface RackPaletteAsset { id: number; name: string; type: AssetType; role: string | null; ip: string | null; model: string | null; location: string | null; infra: boolean; suggested: boolean }
+export interface RackDetailRaw {
+  id: number; name: string; location: string | null; units: number; notes: string | null
+  items: Array<{ id: number; kind: string; label: string; u: number; height: number; port_count: number | null; notes: string | null
+    asset: { id: number; name: string; type: AssetType; role: string | null; ip: string | null; model: string | null; manufacturer: string | null; online: boolean | null; managed: boolean } | null }>
+  links: Array<{ id: number; a: number; a_port: string | null; b: number | null; b_port: string | null; remote: string | null; label: string | null; cable: string | null; kind: 'manual' }>
+}
+export interface RackLiveRaw {
+  items: Record<string, { online: boolean | null; ports: Array<{ name: string; up: boolean | null; disabled?: boolean; speed?: string | null; vlan?: string | null; comment?: string | null; rx_mbps?: number | null; tx_mbps?: number | null
+    remote?: { kind: 'lldp' | 'mac' | 'multi'; name: string; ip?: string | null; port?: string | null; asset_id?: number | null; count?: number; hosts?: Array<{ name: string; ip?: string | null }> } | null }> | null
+    nics: RackNic[]; error: string | null }>
+  links: Array<{ id: number | null; a: number; a_port: string | null; b: number | null; b_port: string | null; remote: string | null; label: string | null; cable: string | null; kind: 'lldp' | 'mac' | 'manual' }>
+  at: string
+}
+
+/** the rack as the diagram draws it: the stored placement plus (when it has arrived) what the devices report live */
+export function rackFromAgent(r: RackDetailRaw, live?: RackLiveRaw | null): RackView {
+  return {
+    id: r.id, name: r.name, location: r.location, units: r.units, notes: r.notes,
+    items: r.items.map(i => {
+      const l = live?.items[String(i.id)]
+      return {
+        id: i.id, kind: i.kind, label: i.label, u: i.u, height: i.height, portCount: i.port_count, notes: i.notes,
+        asset: i.asset ? { id: i.asset.id, type: i.asset.type, role: i.asset.role, ip: i.asset.ip, model: i.asset.model, manufacturer: i.asset.manufacturer, online: l?.online ?? i.asset.online, managed: i.asset.managed } : null,
+        ports: (l?.ports ?? []).map(p => ({ name: p.name, up: p.up, disabled: p.disabled, speed: p.speed, vlan: p.vlan, comment: p.comment, rx: p.rx_mbps, tx: p.tx_mbps,
+          remote: p.remote ? { kind: p.remote.kind, name: p.remote.name, ip: p.remote.ip, port: p.remote.port, assetId: p.remote.asset_id, count: p.remote.count, hosts: p.remote.hosts } : null })),
+        nics: l?.nics ?? [], error: l?.error ?? null,
+      }
+    }),
+    links: (live?.links ?? r.links).map(l => ({ id: l.id, a: l.a, aPort: l.a_port, b: l.b, bPort: l.b_port, remote: l.remote, label: l.label, cable: l.cable, kind: l.kind })),
+  }
+}
+
+// what Central receives (compact keys, see services/racks.py public_summary)
+export interface CentralRack {
+  id: number; n: string; loc: string | null; u: number; nt?: string | null
+  items: Array<{ id: number; k: string; l: string; u: number; h: number; pc: number | null
+    a: { id: number; t: AssetType; r: string | null; ip: string | null; md: string | null; mf: string | null; on: boolean | null } | null
+    p: Array<{ n: string; up: boolean | null; sp: string | null; v: string | null; c: string | null; rx: number | null; tx: number | null; rm: { k: 'lldp' | 'mac' | 'multi'; n: string; ip?: string; p?: string; aid?: number; c?: number; hs?: Array<{ n: string; ip?: string | null }> } | null }>
+    nic: Array<{ n: string | null; ip: string[]; c: { item_id: number; port: string; vlan?: string | null } | null }> }>
+  links: Array<{ a: number; ap: string | null; b: number | null; bp: string | null; rm: string | null; lb: string | null; cb: string | null; k: 'lldp' | 'mac' | 'manual' }>
+}
+export interface CentralRackOp { at: number; op: string; ok: boolean; error: string | null }
+export function rackFromCentral(r: CentralRack): RackView {
+  return {
+    id: r.id, name: r.n, location: r.loc, units: r.u,
+    items: r.items.map(i => ({
+      id: i.id, kind: i.k, label: i.l, u: i.u, height: i.h, portCount: i.pc,
+      asset: i.a ? { id: i.a.id, type: i.a.t, role: i.a.r, ip: i.a.ip, model: i.a.md, manufacturer: i.a.mf, online: i.a.on } : null,
+      ports: i.p.map(p => ({ name: p.n, up: p.up, speed: p.sp, vlan: p.v, comment: p.c, rx: p.rx, tx: p.tx,
+        remote: p.rm ? { kind: p.rm.k, name: p.rm.n, ip: p.rm.ip, port: p.rm.p, assetId: p.rm.aid, count: p.rm.c, hosts: p.rm.hs?.map(h => ({ name: h.n, ip: h.ip })) } : null })),
+      nics: i.nic.map(n => ({ name: n.n, ips: n.ip ?? [], connected: n.c })),
+    })),
+    links: r.links.map(l => ({ id: null, a: l.a, aPort: l.ap, b: l.b, bPort: l.bp, remote: l.rm, label: l.lb, cable: l.cb, kind: l.k })),
+  }
+}
+
+export const racksApi = {
+  list: () => api.get<{ racks: RackSummary[] }>('/racks').then(r => r.data.racks),
+  get: (id: number) => api.get<RackDetailRaw>(`/racks/${id}`).then(r => r.data),
+  live: (id: number) => api.get<RackLiveRaw>(`/racks/${id}/live`).then(r => r.data),
+  palette: (rackId?: number) => api.get<{ assets: RackPaletteAsset[] }>('/racks/palette', { params: { rack_id: rackId } }).then(r => r.data.assets),
+  create: (body: { name: string; location?: string | null; units: number; notes?: string | null }) => api.post<RackSummary>('/racks', body).then(r => r.data),
+  update: (id: number, body: { name: string; location?: string | null; units: number; notes?: string | null }) => api.put<RackSummary>(`/racks/${id}`, body).then(r => r.data),
+  remove: (id: number) => api.delete(`/racks/${id}`).then(r => r.data),
+  addSuggested: (id: number) => api.post<{ placed: number }>(`/racks/${id}/suggested`).then(r => r.data),
+  addItem: (rackId: number, body: { u: number; height?: number; asset_id?: number; kind?: string; label?: string; port_count?: number }) => api.post(`/racks/${rackId}/items`, body).then(r => r.data),
+  updateItem: (id: number, body: { u?: number; height?: number; label?: string; notes?: string; port_count?: number; rack_id?: number }) => api.put(`/racks/items/${id}`, body).then(r => r.data),
+  removeItem: (id: number) => api.delete(`/racks/items/${id}`).then(r => r.data),
+  addLink: (rackId: number, body: { item_a_id: number; port_a?: string; item_b_id?: number | null; port_b?: string; remote_text?: string; label?: string; cable?: string }) => api.post(`/racks/${rackId}/links`, body).then(r => r.data),
+  removeLink: (id: number) => api.delete(`/racks/links/${id}`).then(r => r.data),
 }
 
 export const inventoryApi = {
@@ -2653,6 +2741,10 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  racksStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; racks: { racks: CentralRack[]; ops: CentralRackOp[] } | null }> }>('racks_status_all'),
+  requestRackOp: (tenant: string, op: string) =>
+    centralRequest<{ ok: boolean; tenant: string; queued_at: string }>('request_rack_op', { tenant, op }),
   assetsStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; assets: AssetsPublic | null }> }>('assets_status_all'),
   securityStatusAll: () =>
