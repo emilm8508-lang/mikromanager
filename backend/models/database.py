@@ -433,6 +433,31 @@ class AssetScanSettings(Base):
     sweep_baseline_at = Column(DateTime, nullable=True)   # set once the first LAN discovery has been folded into the inventory as "already known"
 
 
+class ServiceDeskTicket(Base):
+    """A ticket MikroManager opened (or is about to open) in ManageEngine ServiceDesk Plus for an outage, and its life cycle
+    (services/servicedesk_tickets.py): pending (the outage has to last `delay` minutes first) -> open (ticket created) -> recovering
+    (the thing came back; the ticket is being resolved and closed) -> closed. An outage that ends before the delay is "cancelled": no
+    ticket was ever made. One active row per (rule, key)."""
+    __tablename__ = "servicedesk_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rule = Column(String, nullable=False)                    # wan | service | idrac
+    key = Column(String, nullable=False)                     # what is down: "device:iface", "platform:host:service", "server id"
+    state = Column(String, nullable=False, default="pending", index=True)    # pending | open | recovering | closed | cancelled
+    subject = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    what = Column(String, nullable=True)                     # short phrase for the closing text ("Łącze WAN R1 (ether1)")
+    down_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    up_at = Column(DateTime, nullable=True)
+    open_after = Column(DateTime, nullable=True)             # not before this (the delay), then retried with a back-off on errors
+    sdp_id = Column(String, nullable=True)
+    sdp_display_id = Column(String, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    last_error = Column(Text, nullable=True)
+    note = Column(Text, nullable=True)                       # what happened at closing (resolution text, or why only "resolved")
+
+
 class VulnDaily(Base):
     """One row per day: how many open vulnerabilities (per severity) and vulnerable assets there were - the history behind the
     "vulnerable assets over time" chart (services/assets.py record_vuln_day). The vulnerability data itself keeps no history."""

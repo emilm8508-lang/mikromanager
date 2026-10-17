@@ -178,6 +178,21 @@ def _load():
         print(f"[uplink] config load error: {e}")
 
 
+# One section of the snapshot (a router that does not answer, a Hyper-V host that hangs ...) must not hold back everything else: the snapshot is
+# built section by section, each awaited on the network, and used to be unbounded - a handful of unreachable devices made one build last
+# minutes and the agent looked silent. Each section now gets SECTION_TIMEOUT_SEC; on a timeout it is skipped for this cycle (the same
+# as when it raises) and the next cycle tries again.
+SECTION_TIMEOUT_SEC = max(15, int(os.environ.get("MIKROTIK_UPLINK_SECTION_TIMEOUT", "90")))
+
+
+async def _bounded(coro):
+    try:
+        return await asyncio.wait_for(coro, SECTION_TIMEOUT_SEC)
+    except asyncio.TimeoutError:
+        name = getattr(coro, "__qualname__", None) or getattr(getattr(coro, "cr_code", None), "co_name", "section")
+        raise TimeoutError(f"{name} took longer than {SECTION_TIMEOUT_SEC}s - skipped for this snapshot") from None
+
+
 async def _build_snapshot() -> dict:
     """Build current snapshot from local database + fresh log scan."""
     with SessionLocal() as db:
@@ -212,7 +227,7 @@ async def _build_snapshot() -> dict:
     # Get critical logs (cached or fresh)
     try:
         from api import system as sys_api
-        crit_logs = await sys_api.get_critical_logs(limit=30)
+        crit_logs = await _bounded(sys_api.get_critical_logs(limit=30))
         if hasattr(crit_logs, "body"):  # if it's a Response object
             crit_logs = []
     except Exception:
@@ -221,109 +236,109 @@ async def _build_snapshot() -> dict:
     git_info = updater.read_git_info()
 
     try:
-        alert_events = await alerts.collect_alert_events()
+        alert_events = await _bounded(alerts.collect_alert_events())
     except Exception as e:
         print(f"[uplink] alert detection error: {e}")
         alert_events = []
 
     try:
         from services import vuln_scan as vuln_scan_svc
-        alert_events += await vuln_scan_svc.collect_overdue_alert_events()
+        alert_events += await _bounded(vuln_scan_svc.collect_overdue_alert_events())
     except Exception as e:
         print(f"[uplink] vuln overdue alert detection error: {e}")
 
     try:
-        alert_events += await edge_discovery.collect_wan_change_events()
+        alert_events += await _bounded(edge_discovery.collect_wan_change_events())
     except Exception as e:
         print(f"[uplink] WAN change detection error: {e}")
 
     try:
-        alert_events += await edge_discovery.collect_wan_link_events()
+        alert_events += await _bounded(edge_discovery.collect_wan_link_events())
     except Exception as e:
         print(f"[uplink] WAN link status detection error: {e}")
 
     try:
         from services import tunnel_monitor
-        alert_events += await tunnel_monitor.collect_tunnel_events()
+        alert_events += await _bounded(tunnel_monitor.collect_tunnel_events())
     except Exception as e:
         print(f"[uplink] tunnel monitor error: {e}")
 
     try:
         from services import hyperv_manage
-        alert_events += await hyperv_manage.collect_hyperv_events()
+        alert_events += await _bounded(hyperv_manage.collect_hyperv_events())
     except Exception as e:
         print(f"[uplink] hyperv monitor error: {e}")
 
     try:
         from services import host_monitor
-        alert_events += await host_monitor.collect_alert_events()
+        alert_events += await _bounded(host_monitor.collect_alert_events())
     except Exception as e:
         print(f"[uplink] host monitor alert events error: {e}")
 
     try:
         from services import host_services
-        alert_events += await host_services.collect_alert_events()
+        alert_events += await _bounded(host_services.collect_alert_events())
     except Exception as e:
         print(f"[uplink] host services alert events error: {e}")
 
     try:
         from services import resource_monitor
-        alert_events += await resource_monitor.collect_resource_events()
+        alert_events += await _bounded(resource_monitor.collect_resource_events())
     except Exception as e:
         print(f"[uplink] resource monitor error: {e}")
 
     try:
         from services import dell_monitor
-        alert_events += await dell_monitor.collect_dell_events()
+        alert_events += await _bounded(dell_monitor.collect_dell_events())
     except Exception as e:
         print(f"[uplink] dell monitor error: {e}")
 
     try:
         from services import prtg_monitor
-        alert_events += await prtg_monitor.collect_prtg_events()
+        alert_events += await _bounded(prtg_monitor.collect_prtg_events())
     except Exception as e:
         print(f"[uplink] PRTG monitor error: {e}")
 
     try:
         from services import checkmk_monitor
-        alert_events += await checkmk_monitor.collect_checkmk_events()
+        alert_events += await _bounded(checkmk_monitor.collect_checkmk_events())
     except Exception as e:
         print(f"[uplink] Check_MK monitor error: {e}")
 
     try:
         from services import wazuh_monitor
-        alert_events += await wazuh_monitor.collect_wazuh_events()
+        alert_events += await _bounded(wazuh_monitor.collect_wazuh_events())
     except Exception as e:
         print(f"[uplink] Wazuh monitor error: {e}")
 
     try:
         from services import prtg_monitor
-        await prtg_monitor.collect_activity()
+        await _bounded(prtg_monitor.collect_activity())
     except Exception as e:
         print(f"[uplink] PRTG activity error: {e}")
 
     try:
-        edge_ips = await edge_discovery.collect_public_ips()
+        edge_ips = await _bounded(edge_discovery.collect_public_ips())
     except Exception as e:
         print(f"[uplink] edge discovery error: {e}")
         edge_ips = []
 
     try:
         from services import edge_selfcheck
-        edge_check_results = await edge_selfcheck.check_all()
+        edge_check_results = await _bounded(edge_selfcheck.check_all())
     except Exception as e:
         print(f"[uplink] edge selfcheck error: {e}")
         edge_check_results = []
 
     try:
         from services import edge_selfcheck
-        edge_verify_results = await edge_selfcheck.check_verify_targets()
+        edge_verify_results = await _bounded(edge_selfcheck.check_verify_targets())
     except Exception as e:
         print(f"[uplink] edge cross-verify error: {e}")
         edge_verify_results = []
 
     try:
-        fw_status = await firmware_status.collect_firmware_status()
+        fw_status = await _bounded(firmware_status.collect_firmware_status())
     except Exception as e:
         print(f"[uplink] firmware status error: {e}")
         fw_status = None
@@ -351,8 +366,8 @@ async def _build_snapshot() -> dict:
         # stay purely local (still fully visible in the agent's own
         # Vulnerabilities page, which reads straight from the DB and
         # doesn't go through this function at all).
-        vuln_findings_summary = await vuln_scan.hosts_with_findings(
-            severities=frozenset({"CRITICAL", "HIGH", "MEDIUM"}))
+        vuln_findings_summary = await _bounded(vuln_scan.hosts_with_findings(
+            severities=frozenset({"CRITICAL", "HIGH", "MEDIUM"})))
     except Exception as e:
         print(f"[uplink] vuln findings summary error: {e}")
         vuln_findings_summary = []
@@ -363,7 +378,7 @@ async def _build_snapshot() -> dict:
         # explicit, informed tradeoff the user chose (Central visibility
         # without requiring the E2E key on every viewer), not a default.
         # See vuln_scan.public_summary()'s own comment for the full reasoning.
-        vuln_findings_status = await vuln_scan.public_summary()
+        vuln_findings_status = await _bounded(vuln_scan.public_summary())
     except Exception as e:
         print(f"[uplink] public vuln findings summary error: {e}")
         vuln_findings_status = []
@@ -491,15 +506,22 @@ async def _build_snapshot() -> dict:
     try:
         from services import security_summary
         security_summary.record_events(alert_events)
-        security_stats = await security_summary.compute()
+        security_stats = await _bounded(security_summary.compute())
     except Exception as e:
         print(f"[uplink] security summary error: {e}")
         security_stats = None
 
+    # Outages that should open (and, when they end, close) a ServiceDesk Plus ticket - see services/servicedesk_tickets.py
+    try:
+        from services import servicedesk_tickets
+        servicedesk_tickets.process_events(alert_events, _config["tenant"])
+    except Exception as e:
+        print(f"[uplink] servicedesk tickets error: {e}")
+
     # The asset inventory, cut down for Central: numbers plus compact rows, no serial numbers / MAC addresses.
     try:
         from services import assets as assets_svc
-        assets_status = await assets_svc.public_summary()
+        assets_status = await _bounded(assets_svc.public_summary())
     except Exception as e:
         print(f"[uplink] asset summary error: {e}")
         assets_status = None
@@ -507,7 +529,7 @@ async def _build_snapshot() -> dict:
     # The racks (placement, ports, what is plugged into what) for Central's rack view - sanitised, see racks.public_summary.
     try:
         from services import racks as racks_svc
-        racks_status = await racks_svc.public_summary()
+        racks_status = await _bounded(racks_svc.public_summary())
     except Exception as e:
         print(f"[uplink] racks summary error: {e}")
         racks_status = None

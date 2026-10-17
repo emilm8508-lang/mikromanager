@@ -38,10 +38,20 @@ import aiohttp
 
 from services.crypto import encrypt, decrypt
 
+_DEFAULT_RULES = {
+    "wan": {"enabled": False, "delay_min": 5},          # WAN interface of a router down (wan_down / wan_up)
+    "service": {"enabled": False, "delay_min": 5},      # a watched Windows / Linux service down (host_service_down / _up)
+    "idrac": {"enabled": False, "delay_min": 5},        # a Dell server's iDRAC unreachable (idrac_unreachable / idrac_reachable)
+}
+_DEFAULT_TICKET = {"request_type": "Incident", "priority": "", "urgency": "", "category": "", "closure_code": "Success"}
+
 _config = {
     "url": "",         # e.g. http://sdp.klient.local:8080
     "authtoken": "",    # technician API key; plaintext in memory, encrypted on disk
     "verify_ssl": True,
+    "rules": json.loads(json.dumps(_DEFAULT_RULES)),   # which outages open a ticket, and after how many minutes
+    "ticket": dict(_DEFAULT_TICKET),                   # the fields of those tickets (names as they exist in this SDP)
+    "close_on_recovery": True,                         # resolve + close the ticket when the outage ends
 }
 
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "servicedesk.json")
@@ -62,15 +72,33 @@ def status() -> dict:
         "url": _config["url"],
         "has_authtoken": bool(_config["authtoken"]),
         "verify_ssl": _config["verify_ssl"],
+        "rules": _config["rules"],
+        "ticket": _config["ticket"],
+        "close_on_recovery": _config["close_on_recovery"],
     }
 
 
-def configure(url: str, authtoken: str = "", verify_ssl: bool = True) -> dict:
-    """Empty authtoken means 'keep existing' — mirrors prtg_client.configure()."""
+def configure(url: str, authtoken: str = "", verify_ssl: bool = True, rules: Optional[dict] = None, ticket: Optional[dict] = None,
+              close_on_recovery: Optional[bool] = None) -> dict:
+    """Empty authtoken means 'keep existing' — mirrors prtg_client.configure(). `rules` / `ticket` / `close_on_recovery` are only changed
+    when given (a caller that only knows URL + token leaves them alone)."""
     _config["url"] = url.rstrip("/")
     if authtoken:
         _config["authtoken"] = authtoken
     _config["verify_ssl"] = verify_ssl
+    if rules is not None:
+        for name, default in _DEFAULT_RULES.items():
+            r = rules.get(name) or {}
+            _config["rules"][name] = {"enabled": bool(r.get("enabled", default["enabled"])),
+                                      "delay_min": max(0, min(24 * 60, int(r.get("delay_min", default["delay_min"]) or 0)))}
+    if ticket is not None:
+        for k in _DEFAULT_TICKET:
+            if k in ticket:
+                _config["ticket"][k] = str(ticket[k] or "").strip()[:80]
+        if not _config["ticket"]["request_type"]:
+            _config["ticket"]["request_type"] = "Incident"
+    if close_on_recovery is not None:
+        _config["close_on_recovery"] = bool(close_on_recovery)
     _persist()
     return status()
 
@@ -96,6 +124,15 @@ def _load():
             _config["url"] = saved["url"]
         if "verify_ssl" in saved:
             _config["verify_ssl"] = bool(saved["verify_ssl"])
+        for name in _DEFAULT_RULES:
+            r = (saved.get("rules") or {}).get(name)
+            if isinstance(r, dict):
+                _config["rules"][name] = {"enabled": bool(r.get("enabled")), "delay_min": max(0, min(24 * 60, int(r.get("delay_min", 5) or 0)))}
+        for k in _DEFAULT_TICKET:
+            if isinstance((saved.get("ticket") or {}).get(k), str):
+                _config["ticket"][k] = saved["ticket"][k]
+        if "close_on_recovery" in saved:
+            _config["close_on_recovery"] = bool(saved["close_on_recovery"])
         token = saved.get("authtoken")
         if token:
             try:
@@ -196,6 +233,60 @@ async def create_ticket(subject: str, description: str = "", request_type: str =
                 return {"ok": False, "error": str(resp_status.get("messages") or resp_status), "raw": data}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+async def _call(method: str, path: str, payload: Optional[dict] = None, timeout: int = 15) -> dict:
+    """One SDP API v3 call with the `input_data` form encoding the API wants. Never raises: {"ok": bool, "data": ..., "error": str}."""
+    headers = dict(_headers())
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.request(method, f"{_config['url']}/api/v3/{path.lstrip('/')}",
+                                       data={"input_data": json.dumps(payload)} if payload is not None else None, headers=headers,
+                                       timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                try:
+                    data = await resp.json(content_type=None)
+                except Exception:
+                    return {"ok": False, "error": f"HTTP {resp.status}: {(await resp.text())[:300]}"}
+                st = (data or {}).get("response_status") or {}
+                if isinstance(st, list):
+                    st = st[0] if st else {}
+                if st.get("status") == _STATUS_OK:
+                    return {"ok": True, "data": data}
+                return {"ok": False, "error": str(st.get("messages") or st or f"HTTP {resp.status}")[:400], "data": data}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+async def close_ticket(request_id: str, resolution: str, closure_code: Optional[str] = None) -> dict:
+    """Resolves and closes a request: a note with the text (always - it stays visible whatever follows), the resolution, then the close with
+    its closure info. When this instance refuses the close (a closure code it does not have, mandatory fields of its own ...) the request is
+    left "Resolved" instead, with the reason in "error"/"steps". Returns {"ok": bool, "closed": bool, "steps": [...], "error": str|None};
+    ok is True when the request ended Closed or at least Resolved.
+
+    Written from ManageEngine's API v3 reference (requests/{id}/notes, /resolutions, /close); not yet exercised against a live instance
+    here, which is why every step is reported and the test button of the settings page exists."""
+    steps: list = []
+    code = closure_code or _config["ticket"].get("closure_code") or "Success"
+    r = await _call("POST", f"requests/{request_id}/notes", {"request_note": {"description": resolution, "show_to_requester": True, "notify_technician": False}})
+    steps.append({"step": "note", "ok": r["ok"], "error": r.get("error")})
+    r = await _call("PUT", f"requests/{request_id}/resolutions", {"resolution": {"content": resolution}})
+    steps.append({"step": "resolution", "ok": r["ok"], "error": r.get("error")})
+    closure = {"requester_ack_resolution": False, "requester_ack_comments": resolution, "closure_comments": resolution}
+    for with_code in (True, False):
+        info = dict(closure)
+        if with_code and code:
+            info["closure_code"] = {"name": code}
+        r = await _call("PUT", f"requests/{request_id}/close", {"request": {"closure_info": info}})
+        steps.append({"step": "close" + ("" if with_code else " (no closure code)"), "ok": r["ok"], "error": r.get("error")})
+        if r["ok"]:
+            return {"ok": True, "closed": True, "steps": steps, "error": None}
+        if not code:
+            break
+    r = await _call("PUT", f"requests/{request_id}", {"request": {"status": {"name": "Resolved"}}})
+    steps.append({"step": "status Resolved", "ok": r["ok"], "error": r.get("error")})
+    return {"ok": r["ok"], "closed": False, "steps": steps, "error": next((s["error"] for s in steps if s["step"].startswith("close") and s["error"]), None)}
 
 
 def has_secret() -> bool:

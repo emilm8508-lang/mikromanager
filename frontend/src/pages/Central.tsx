@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { systemApi, centralApi, centralConfig, CentralConfig, CentralTenant, DeviceLogFetchResult, generateEncKey, decryptEnvelopeToBytes } from '../lib/api'
+import type { ServicedeskRule, ServicedeskRules, ServicedeskTestTicket, ServicedeskTicketFields, ServicedeskTicketRow } from '../lib/api'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -534,9 +535,8 @@ function WazuhPanel() {
 
 // ── ManageEngine ServiceDesk Plus connector (on-premise — NIS2/KSC incident
 // and request register, see services/servicedesk_client.py's docstring) ──────
-// Deliberately settings + test-connection only for now, same as PRTG/Check_MK
-// started out — which local events should create a ticket here is a later,
-// separate decision, not wired up yet.
+// Settings, a connection test and the outage -> ticket rules (services/servicedesk_tickets.py): an
+// outage opens a ticket after a delay and the ticket is resolved and closed when the outage ends.
 
 function ServicedeskPanel() {
   const { t } = useTranslation()
@@ -545,15 +545,29 @@ function ServicedeskPanel() {
     queryFn: systemApi.servicedeskStatus,
   })
 
-  const [form, setForm] = useState({ url: '', authtoken: '', verify_ssl: true })
+  const noRules: ServicedeskRules = { wan: { enabled: false, delay_min: 5 }, service: { enabled: false, delay_min: 5 }, idrac: { enabled: false, delay_min: 5 } }
+  const noTicket: ServicedeskTicketFields = { request_type: 'Incident', priority: '', urgency: '', category: '', closure_code: 'Success' }
+  const [form, setForm] = useState({ url: '', authtoken: '', verify_ssl: true, rules: noRules, ticket: noTicket, close_on_recovery: true })
   const [editing, setEditing] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [ticketTest, setTicketTest] = useState<ServicedeskTestTicket | null>(null)
+  const tickets = useQuery({ queryKey: ['servicedesk-tickets'], queryFn: systemApi.servicedeskTickets, enabled: !!status?.enabled, refetchInterval: 30_000 })
+  const testTicket = useMutation({
+    mutationFn: systemApi.servicedeskTestTicket,
+    onSuccess: r => { setTicketTest(r); tickets.refetch() },
+    onError: e => setTicketTest({ ok: false, error: errorMessage(e) }),
+  })
 
   useEffect(() => {
     if (status && !editing) {
-      setForm({ url: status.url || '', authtoken: '', verify_ssl: status.verify_ssl ?? true })
+      setForm({ url: status.url || '', authtoken: '', verify_ssl: status.verify_ssl ?? true, rules: status.rules ?? noRules, ticket: status.ticket ?? noTicket, close_on_recovery: status.close_on_recovery ?? true })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, editing])
+  const RULES: Array<keyof ServicedeskRules> = ['wan', 'service', 'idrac']
+  const setRule = (k: keyof ServicedeskRules, patch: Partial<ServicedeskRule>) => setForm(f => ({ ...f, rules: { ...f.rules, [k]: { ...f.rules[k], ...patch } } }))
+  const setTicket = (k: keyof ServicedeskTicketFields, v: string) => setForm(f => ({ ...f, ticket: { ...f.ticket, [k]: v } }))
+  const stateVariant = (s: ServicedeskTicketRow['state']) => s === 'closed' ? 'green' : s === 'open' ? 'blue' : s === 'recovering' ? 'yellow' : s === 'pending' ? 'purple' : 'gray'
 
   const save = useMutation({
     mutationFn: () => systemApi.servicedeskConfigure(form),
@@ -600,6 +614,33 @@ function ServicedeskPanel() {
                 onChange={e => setForm(f => ({ ...f, verify_ssl: e.target.checked }))} />
               {t('central.verifySsl')}
             </label>
+
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <h3 className="text-xs font-semibold text-slate-700">{t('central.sdRulesTitle')}</h3>
+              <p className="text-xs text-slate-500">{t('central.sdRulesHint')}</p>
+              {RULES.map(k => (
+                <div key={k} className="flex items-center gap-3 text-sm">
+                  <label className="flex items-center gap-2 flex-1 text-slate-700">
+                    <input type="checkbox" checked={form.rules[k].enabled} onChange={e => setRule(k, { enabled: e.target.checked })} />
+                    {t(`central.sdRule.${k}`)}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">{t('central.sdDelay')}
+                    <input type="number" min={0} max={1440} value={form.rules[k].delay_min} disabled={!form.rules[k].enabled}
+                      onChange={e => setRule(k, { delay_min: Number(e.target.value) || 0 })} className="w-16 border border-slate-300 rounded px-1.5 py-1 text-sm disabled:opacity-50" />
+                  </label>
+                </div>
+              ))}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                {(['request_type', 'priority', 'urgency', 'category', 'closure_code'] as const).map(k => (
+                  <Input key={k} label={t(`central.sdField.${k}`)} value={form.ticket[k]} onChange={e => setTicket(k, e.target.value)} />
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400">{t('central.sdFieldHint')}</p>
+              <label className="flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" checked={form.close_on_recovery} onChange={e => setForm(f => ({ ...f, close_on_recovery: e.target.checked }))} />
+                {t('central.sdCloseOnRecovery')}
+              </label>
+            </div>
             {save.isError && (
               <p className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {errorMessage(save.error)}</p>
             )}
@@ -617,6 +658,9 @@ function ServicedeskPanel() {
               <span className="text-slate-800">{status?.has_authtoken ? '••••••••' : '—'}</span>
               <span className="text-slate-500">TLS:</span>
               <span className="text-slate-800">{status?.verify_ssl ? t('central.verifySslOn') : t('central.verifySslOff')}</span>
+              <span className="text-slate-500">{t('central.sdRulesTitle')}:</span>
+              <span className="text-slate-800">{status && RULES.some(k => status.rules?.[k]?.enabled)
+                ? RULES.filter(k => status.rules[k].enabled).map(k => `${t(`central.sdRule.${k}`)} (${status.rules[k].delay_min} min)`).join(', ') : '—'}</span>
             </div>
             <div className="pt-2 flex items-center gap-2 flex-wrap">
               <Button size="sm" variant="secondary" onClick={() => test.mutate()}
@@ -630,7 +674,30 @@ function ServicedeskPanel() {
                   <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {testResult.error || t('central.connectionFailed')}</span>
                 )
               )}
+              <Button size="sm" variant="secondary" onClick={() => { setTicketTest(null); testTicket.mutate() }} disabled={!status?.enabled || testTicket.isPending}>
+                <Ticket size={13} /> {t('central.sdTestTicket')}
+              </Button>
+              {ticketTest && (ticketTest.ok
+                ? <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 size={13} /> {t(ticketTest.closed ? 'central.sdTestClosed' : 'central.sdTestResolved', { id: ticketTest.created })}</span>
+                : <span className="text-xs text-red-700 flex items-center gap-1"><XCircle size={13} /> {ticketTest.stage ? `${ticketTest.stage}: ` : ''}{ticketTest.error || t('central.connectionFailed')}</span>)}
             </div>
+            {(tickets.data?.length ?? 0) > 0 && (
+              <div className="pt-3">
+                <h3 className="text-xs font-semibold text-slate-700 mb-1">{t('central.sdTickets')}</h3>
+                <div className="max-h-64 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-left text-slate-400 border-b border-slate-100"><th className="py-1 font-normal">{t('central.sdColWhat')}</th><th className="font-normal">{t('central.sdColDown')}</th><th className="font-normal">{t('central.sdColTicket')}</th><th className="font-normal">{t('central.sdColStatus')}</th></tr></thead>
+                    <tbody>{tickets.data!.map(r => (
+                      <tr key={r.id} className="border-b border-slate-50 align-top" title={r.last_error ?? r.note ?? undefined}>
+                        <td className="py-1.5 text-slate-800">{r.what}{r.last_error && r.state !== 'closed' && <span className="block text-[10px] text-red-600 truncate max-w-[18rem]">{r.last_error}</span>}</td>
+                        <td className="text-slate-500 whitespace-nowrap">{new Date(r.down_at).toLocaleString()}{r.up_at && <span className="block text-[10px] text-slate-400">→ {new Date(r.up_at).toLocaleString()}</span>}</td>
+                        <td className="font-mono text-slate-600">{r.sdp_display_id ? `#${r.sdp_display_id}` : '—'}</td>
+                        <td><Badge variant={stateVariant(r.state)}>{t(`central.sdState.${r.state}`)}</Badge></td>
+                      </tr>))}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

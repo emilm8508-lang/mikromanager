@@ -625,13 +625,40 @@ def apply_op(op: dict) -> dict:
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
     _ops_log.append({"at": int(time.time()), "op": name, "ok": err is None, "error": err})
+    _pub_cache["data"] = None                               # the next snapshot carries the new placement at once; the live part follows in the background
     del _ops_log[:-12]
     return {"ok": err is None, "error": err}
 
 
 # ── Copy for the Central relay ───────────────────────────────────────────────
 
+_pub_cache: dict = {"at": 0.0, "data": None}
+_pub_task: Optional[asyncio.Task] = None
+PUBLIC_TTL = 240.0
+
+
 async def public_summary() -> dict:
+    """What the snapshot carries to Central. It never waits for the devices: the live read (routers, switches - slow or unreachable ones can
+    take minutes) happens in the background and the last result is returned; before the first one finishes, and right after Central changed
+    something, the racks are sent with their placement only (database, instant)."""
+    global _pub_task
+    if (_pub_cache["data"] is None or time.time() - _pub_cache["at"] > PUBLIC_TTL) and (_pub_task is None or _pub_task.done()):
+        _pub_task = asyncio.create_task(_refresh_public())
+    if _pub_cache["data"] is None:
+        return await _build_public_summary(with_live=False)
+    return _pub_cache["data"]
+
+
+async def _refresh_public() -> None:
+    try:
+        _pub_cache["data"] = await _build_public_summary(with_live=True)
+        _pub_cache["at"] = time.time()
+    except Exception as e:
+        print(f"[racks] live refresh error: {e}")
+        _pub_cache["at"] = time.time()                     # do not retry in a tight loop
+
+
+async def _build_public_summary(with_live: bool) -> dict:
     """The racks as Central shows them: placement, ports with what is behind them, links. No credentials, no MAC tables, no addresses of
     hosts outside the inventory beyond what the port shows. A rack whose live read fails is still sent (placement only)."""
     out = []
@@ -640,7 +667,7 @@ async def public_summary() -> dict:
         if rack is None:
             continue
         try:
-            lv = await live(r["id"])
+            lv = await live(r["id"]) if with_live else None
         except Exception:
             lv = None
         items = []

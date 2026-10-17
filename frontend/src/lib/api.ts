@@ -370,12 +370,24 @@ export interface EndpointCentralSample {
   error?: string
 }
 
+export interface ServicedeskRule { enabled: boolean; delay_min: number }
+export interface ServicedeskRules { wan: ServicedeskRule; service: ServicedeskRule; idrac: ServicedeskRule }
+export interface ServicedeskTicketFields { request_type: string; priority: string; urgency: string; category: string; closure_code: string }
 export interface ServicedeskStatus {
   enabled: boolean
   url: string
   has_authtoken: boolean
   verify_ssl: boolean
+  rules: ServicedeskRules
+  ticket: ServicedeskTicketFields
+  close_on_recovery: boolean
 }
+export interface ServicedeskTicketRow {
+  id: number; rule: 'wan' | 'service' | 'idrac'; state: 'pending' | 'open' | 'recovering' | 'closed' | 'cancelled'
+  what: string | null; subject: string | null; down_at: string; up_at: string | null; closed_at: string | null
+  sdp_display_id: string | null; attempts: number; last_error: string | null; note: string | null
+}
+export interface ServicedeskTestTicket { ok: boolean; stage?: string; created?: string | number; closed?: boolean; error?: string | null; steps?: Array<{ step: string; ok: boolean; error?: string | null }> }
 
 export interface SelfVersion {
   commit: string | null
@@ -427,8 +439,10 @@ export const systemApi = {
   wazuhTest: () => api.post<ConnectorTestResult>('/system/wazuh/test').then(r => r.data),
 
   servicedeskStatus: () => api.get<ServicedeskStatus>('/system/servicedesk/status').then(r => r.data),
-  servicedeskConfigure: (data: { url: string; authtoken: string; verify_ssl: boolean }) =>
+  servicedeskConfigure: (data: { url: string; authtoken: string; verify_ssl: boolean; rules?: ServicedeskRules; ticket?: ServicedeskTicketFields; close_on_recovery?: boolean }) =>
     api.post<ServicedeskStatus>('/system/servicedesk/config', data).then(r => r.data),
+  servicedeskTickets: () => api.get<{ tickets: ServicedeskTicketRow[] }>('/system/servicedesk/tickets').then(r => r.data.tickets),
+  servicedeskTestTicket: () => api.post<ServicedeskTestTicket>('/system/servicedesk/test-ticket').then(r => r.data),
   servicedeskTest: () => api.post<ConnectorTestResult>('/system/servicedesk/test').then(r => r.data),
 
   endpointcentralStatus: () => api.get<EndpointCentralStatus>('/system/endpointcentral/status').then(r => r.data),

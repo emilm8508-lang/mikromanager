@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import time
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from services import refresher
 from services import topology as topo_svc
@@ -412,10 +413,32 @@ async def wazuh_test():
 # and request register — see services/servicedesk_client.py's docstring)
 # ─────────────────────────────────────────────────────────────────────────
 
+class ServicedeskRule(BaseModel):
+    enabled: bool = False
+    delay_min: int = 5
+
+
+class ServicedeskRules(BaseModel):
+    wan: ServicedeskRule = ServicedeskRule()
+    service: ServicedeskRule = ServicedeskRule()
+    idrac: ServicedeskRule = ServicedeskRule()
+
+
+class ServicedeskTicketFields(BaseModel):
+    request_type: str = "Incident"
+    priority: str = ""
+    urgency: str = ""
+    category: str = ""
+    closure_code: str = "Success"
+
+
 class ServicedeskConfig(BaseModel):
     url: str
     authtoken: str = ""  # empty = keep existing (see servicedesk_client.configure)
     verify_ssl: bool = True
+    rules: Optional[ServicedeskRules] = None                   # which outages open a ticket (None = leave as is)
+    ticket: Optional[ServicedeskTicketFields] = None
+    close_on_recovery: Optional[bool] = None
 
 
 @router.get("/servicedesk/status")
@@ -425,7 +448,23 @@ async def servicedesk_status():
 
 @router.post("/servicedesk/config")
 async def servicedesk_configure(cfg: ServicedeskConfig):
-    return servicedesk_svc.configure(url=cfg.url, authtoken=cfg.authtoken, verify_ssl=cfg.verify_ssl)
+    return servicedesk_svc.configure(url=cfg.url, authtoken=cfg.authtoken, verify_ssl=cfg.verify_ssl,
+                                     rules=cfg.rules.model_dump() if cfg.rules else None,
+                                     ticket=cfg.ticket.model_dump() if cfg.ticket else None, close_on_recovery=cfg.close_on_recovery)
+
+
+@router.get("/servicedesk/tickets")
+async def servicedesk_tickets(limit: int = 50):
+    """The outages that opened (or are about to open) tickets, and how each ended."""
+    from services import servicedesk_tickets as sdt
+    return {"tickets": sdt.list_tickets(limit)}
+
+
+@router.post("/servicedesk/test-ticket")
+async def servicedesk_test_ticket():
+    """Creates a test ticket and closes it again, reporting every step - the way to check that creating and closing work in this help desk."""
+    from services import servicedesk_tickets as sdt
+    return await sdt.test_ticket()
 
 
 @router.post("/servicedesk/test")
