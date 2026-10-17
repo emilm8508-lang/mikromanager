@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.84 — 2026-10-17
+- Central "Ostatnie działania": one line per command, with a status that changes. A command used to show up as up to three separate lines (queued, then "delivered", then the agent's "done"); now the delivery and the agent's completion of the same command are folded into one row - same client, same kind of command and, where both name one, the same target - and the badge goes W kolejce -> Dostarczono -> Wykonano / Błąd; the time is that of the latest step, and a failure shows its reason. A completion with no command before it (an agent that updated itself) stays a row of its own. The agent now also reports the outcome of a rack change made in Central (`rack_op_done` / `rack_op_failed`, with the reason of a refusal), so those show "Wykonano" or "Błąd" instead of staying "Dostarczono". Upload `ovh/api.php` and `ovh/notifications.php`; update the agents for the rack results.
+
 ## 2.83 — 2026-10-17
 - Racks in Central: a visible warning when the agent does not answer. A change queued in Central is "delivered" in the activity log as soon as the relay hands it to the agent; an agent that is too old (before 2.82) or still running old code (not restarted after the update) does not know the command and drops the whole signed batch without a word, so the log said "delivered" and nothing happened. Now, when a change has had no result from the agent for over 6 minutes, the rack screen says so and what to check (update to 2.82+ and restart the agent). Nothing else changes; the agents need no update for this (Central view only).
 

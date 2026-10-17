@@ -2800,7 +2800,7 @@ try {
                 'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
                 'windows_restart_delivered', 'windows_restarted',
                 'windows_manage_toggle_delivered',
-                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'rack_op_delivered',
+                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'rack_op_delivered', 'rack_op_done', 'rack_op_failed',
                 'dell_check_delivered',
                 'vuln_remediation_delivered',
                 'device_router_override_delivered',
@@ -2819,26 +2819,75 @@ try {
                 }
             }
             if (!isset($log_rows)) {
-                $stmt = $pdo->prepare($sql . ' ORDER BY ts DESC LIMIT ' . ($limit * 3));
+                $stmt = $pdo->prepare($sql . ' ORDER BY ts DESC, id DESC LIMIT ' . ($limit * 3));
                 $stmt->execute($params);
                 $log_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            $delivered = array_map(function ($r) {
+            // One line per command, whose status changes (queued -> delivered -> done / failed): the delivery event and the
+            // agent's completion event of the same command are folded into one row. The log rows come newest first;
+            // walking them oldest first, every "*_delivered" opens a command and the first matching completion after it
+            // (same client, same kind, same target when both name one) closes it. A completion with no delivery before it
+            // (an agent that updated itself, say) stays a row of its own.
+            $kinds = [
+                'update_delivered'                 => ['Aktualizacja agenta', ['agent_updated']],
+                'restart_delivered'                => ['Restart agenta', ['agent_restart']],
+                'supply_chain_scan_delivered'      => ['Skan łańcucha dostaw', []],
+                'linux_scan_delivered'             => ['Odświeżenie hostów Linux', []],
+                'windows_scan_delivered'           => ['Odświeżenie hostów Windows', []],
+                'drp_doc_generate_delivered'       => ['Dokumentacja DRP', ['drp_doc_generate_done', 'drp_doc_generate_failed']],
+                'firmware_upgrade_delivered'       => ['Aktualizacja firmware routera', ['firmware_upgraded', 'firmware_upgrade_failed']],
+                'linux_apt_upgrade_delivered'      => ['Aktualizacja hosta Linux', ['linux_apt_upgraded', 'linux_apt_upgrade_failed']],
+                'linux_restart_delivered'          => ['Restart hosta Linux', ['linux_restarted']],
+                'windows_update_delivered'         => ['Aktualizacja Windows', ['windows_update_installed', 'windows_update_failed']],
+                'windows_restart_delivered'        => ['Restart hosta Windows', ['windows_restarted']],
+                'windows_manage_toggle_delivered'  => ['Przełącznik zarządzania Windows', []],
+                'hyperv_vm_action_delivered'       => ['Akcja na maszynie Hyper-V', []],
+                'device_reboot_delivered'          => ['Restart routera', []],
+                'rack_op_delivered'                => ['Zmiana w szafie rack', ['rack_op_done', 'rack_op_failed']],
+                'dell_check_delivered'             => ['Sprawdzenie iDRAC', []],
+                'vuln_remediation_delivered'       => ['Status podatności', []],
+                'device_router_override_delivered' => ['Klasyfikacja urządzenia', []],
+                'device_logs_delivered'            => ['Pobranie logów', []],
+            ];
+            $completion_of = [];                       // completion event type => [delivered type, label]
+            foreach ($kinds as $dt => $k) {
+                foreach ($k[1] as $ct) $completion_of[$ct] = [$dt, $k[0]];
+            }
+            $target_of = function ($details) {
+                return $details['host_id'] ?? $details['device_id'] ?? $details['server_id'] ?? null;
+            };
+            $delivered = [];
+            foreach (array_reverse($log_rows) as $r) {
                 $details = $r['details'] ? (json_decode($r['details'], true) ?: []) : [];
-                if (substr($r['event_type'], -7) === 'failed') {
-                    $status = 'failed';
-                } elseif (substr($r['event_type'], -10) === '_delivered') {
-                    $status = 'delivered';
-                } else {
-                    $status = 'done';
+                $type = $r['event_type'];
+                $target = $target_of($details);
+                if (isset($kinds[$type])) {
+                    $delivered[] = ['tenant' => $r['tenant'], 'label' => $kinds[$type][0], 'target' => $target, 'status' => 'delivered',
+                                    'at' => $r['ts'], 'detail' => $r['message'], '_kind' => $type, '_open' => true];
+                    continue;
                 }
-                return [
-                    'tenant' => $r['tenant'], 'label' => $r['message'],
-                    'target' => $details['host_id'] ?? $details['device_id'] ?? $details['server_id'] ?? null,
-                    'status' => $status, 'at' => $r['ts'],
-                ];
-            }, $log_rows);
+                $failed = substr($type, -6) === 'failed';
+                $status = $failed ? 'failed' : 'done';
+                $matched = false;
+                if (isset($completion_of[$type])) {
+                    foreach ($delivered as $n => $c) {            // the OLDEST open command of this kind this completion can belong to
+                        if (!$c['_open'] || $c['tenant'] !== $r['tenant'] || $c['_kind'] !== $completion_of[$type][0]) continue;
+                        if ($c['target'] !== null && $target !== null && (string)$c['target'] !== (string)$target) continue;
+                        $delivered[$n]['status'] = $status;
+                        $delivered[$n]['at'] = $r['ts'];
+                        $delivered[$n]['detail'] = $r['message'];
+                        $delivered[$n]['_open'] = false;
+                        $matched = true;
+                        break;
+                    }
+                }
+                if (!$matched) {
+                    $delivered[] = ['tenant' => $r['tenant'], 'label' => isset($completion_of[$type]) ? $completion_of[$type][1] : $r['message'],
+                                    'target' => $target, 'status' => $status, 'at' => $r['ts'], 'detail' => $r['message'], '_kind' => $type, '_open' => false];
+                }
+            }
+            $delivered = array_map(function ($c) { unset($c['_kind'], $c['_open']); return $c; }, $delivered);
 
             $all = array_merge($queued, $delivered);
             usort($all, function ($a, $b) { return strtotime($b['at']) <=> strtotime($a['at']); });

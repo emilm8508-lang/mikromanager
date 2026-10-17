@@ -888,8 +888,9 @@ function RecentActionsPanel() {
                 return (
                   <div key={i} className="flex items-center gap-3 px-5 py-2 text-sm">
                     <TenantBadge tenant={a.tenant} />
-                    <span className="flex-1 min-w-0 text-slate-700 truncate">
+                    <span className="flex-1 min-w-0 text-slate-700 truncate" title={a.detail}>
                       {a.label}{a.target ? ` (#${a.target})` : ''}
+                      {a.status === 'failed' && a.detail && <span className="text-red-600 text-xs"> · {a.detail}</span>}
                     </span>
                     <Badge variant={badge.variant} className="text-[10px] inline-flex items-center gap-1 shrink-0">
                       <Icon size={9} />

@@ -1498,6 +1498,10 @@ function activity_format_message(string $type, array $e): string {
             return "Generowanie dokumentacji DRP nie powiodło się: " . ($e['error'] ?? 'unknown error');
         case 'agent_restart':
             return "Agent zrestartowany na żądanie z Centrali";
+        case 'rack_op_done':
+            return "Zmiana w szafie rack wykonana (" . ($e['op'] ?? '?') . ")";
+        case 'rack_op_failed':
+            return "Zmiana w szafie rack odrzucona (" . ($e['op'] ?? '?') . "): " . ($e['error'] ?? 'unknown error');
         case 'wan_ip_changed':
             $old_ip = $e['old_ip'] ?? '?';
             $new_ip = $e['new_ip'] ?? '?';

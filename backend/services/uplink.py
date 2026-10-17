@@ -1049,6 +1049,7 @@ async def _handle_commands(commands: list) -> None:
                 else:
                     r = racks_svc.apply_op(op)
                     print(f"[uplink] received RACK_OP {op.get('op')}: {'ok' if r['ok'] else r['error']}")
+                    activity.record("rack_op_done" if r["ok"] else "rack_op_failed", op=str(op.get("op") or ""), error=r["error"])
             elif cmd_type == "windows_manage_toggle":
                 # Sets the DB-backed toggle itself — deliberately NOT gated
                 # on _manage_enabled() (that would make the one command

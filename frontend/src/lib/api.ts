@@ -2570,6 +2570,7 @@ export interface CentralRecentAction {
   target: string | number | null
   status: 'queued' | 'delivered' | 'done' | 'failed'
   at: string
+  detail?: string          // the message of the latest event of this command (e.g. why it failed)
 }
 
 export interface DeviceLogFetchResult {
