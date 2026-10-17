@@ -196,7 +196,7 @@ def scan_sync(ip: str, username: str, password: str, domain: Optional[str]) -> d
         sess = _Session(ip, user, password, domain)
         return {"ok": True, "parsed": collect(sess)}
     except ImportError:
-        return {"ok": False, "error": "DCOM/WMI scan needs the 'impacket' package (pip install impacket)"}
+        return {"ok": False, "error": "DCOM/WMI scan needs the optional 'impacket' package (pip install -r backend/requirements-dcom.txt)"}
     except Exception as e:
         return {"ok": False, "error": f"DCOM/WMI: {type(e).__name__}: {e}"[:600]}
     finally:

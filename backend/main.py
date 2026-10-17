@@ -52,6 +52,11 @@ async def lifespan(app: FastAPI):
     from services import fs_perms
     fs_perms.harden_data_dir(os.path.join(os.path.dirname(__file__), "data"))     # keys readable by the agent's account only
     from services import host_identity
+    try:
+        from services import pkg_hygiene
+        pkg_hygiene.remove_impacket_examples()                                      # antivirus-flagged example scripts of the optional impacket package
+    except Exception as e:
+        print(f"[startup] package hygiene skipped: {e}")
     host_identity.startup_merge()                                                   # one entry per machine, also for the pairs left by an address change
     try:
         vuln_scan.cleanup_hosts()                                                   # hosts of ranges that are gone, and the phantoms of an antivirus mail proxy

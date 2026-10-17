@@ -1,0 +1,6 @@
+# Optional: the DCOM / WMI fallback of the computer scan (services/asset_scan_wmi.py) - the hardware scan of Windows computers that have WinRM off.
+# Not in requirements.txt on purpose: impacket is a penetration-testing toolkit and its ~60 example scripts (secretsdump.py ...) are
+# detected as "HackTool" by Windows Defender and other antivirus products. The agent only uses its library, and removes the example scripts
+# after every install (services/pkg_hygiene.py), but a client who does not need the scan should not get it at all.
+#   pip install -r backend/requirements-dcom.txt      (or set MIKROMANAGER_DCOM=1 before updating: the updater installs it)
+impacket>=0.12.0

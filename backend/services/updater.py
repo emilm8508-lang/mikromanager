@@ -181,6 +181,20 @@ async def perform_update(restart_supervisor: bool = True) -> tuple:
                 _state["last_error"] = "pip install failed"
                 return False, log
 
+        # 3b. The optional DCOM / WMI scan (impacket): kept up to date where it is already installed, or installed on request
+        # (MIKROMANAGER_DCOM=1); never otherwise - see requirements-dcom.txt. Its antivirus-flagged example scripts are removed afterwards.
+        import importlib.util
+        opt_path = os.path.join(REPO_ROOT, "backend", "requirements-dcom.txt")
+        if os.path.exists(opt_path) and (importlib.util.find_spec("impacket") is not None
+                                         or os.environ.get("MIKROMANAGER_DCOM", "").strip().lower() in ("1", "true", "yes")):
+            if await _run([sys.executable, "-m", "pip", "install", "-r", opt_path, "--quiet"], log, cwd=REPO_ROOT, timeout=600) != 0:
+                log.append("[optional DCOM dependency failed to install - the WMI fallback stays off]")
+        try:
+            from services import pkg_hygiene
+            pkg_hygiene.remove_impacket_examples()
+        except Exception as e:
+            log.append(f"[pkg_hygiene error] {e}")
+
         # 4. npm install + build
         frontend = os.path.join(REPO_ROOT, "frontend")
         npm = _npm_cmd()

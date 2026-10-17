@@ -8,6 +8,7 @@ on the computer. The result lands in Asset.details / AssetPeripheral and lifts t
 
 Linux (SSH) and SNMP are added to this module in the next stages."""
 import asyncio
+import importlib.util
 import json
 import math
 import os
@@ -459,7 +460,9 @@ async def _scan_credentialed(kind: str, ip: str, cred_info) -> dict:
                 if res["ok"]:
                     return {"ok": parse(res["parsed"]), "cred_id": cid}
                 err, auth = res["error"], _is_auth_error(res["error"])
-                if not auth and DCOM_FALLBACK:
+                if not auth and DCOM_FALLBACK and importlib.util.find_spec("impacket") is None:
+                    err = f"{err} | DCOM/WMI fallback not installed (backend/requirements-dcom.txt)"
+                elif not auth and DCOM_FALLBACK:
                     # WinRM is off or unreachable (the usual state of a workstation): the same read-only queries over WMI / DCOM, same
                     # credential. Not after a rejected password - a second try with it would only add to a lockout count.
                     from services import asset_scan_wmi as W
