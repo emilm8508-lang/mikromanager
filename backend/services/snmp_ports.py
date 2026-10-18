@@ -36,6 +36,8 @@ OID_LLDP_PORT_DESC = "1.0.8802.1.1.2.1.4.1.1.8"
 OID_LLDP_CHASSIS_SUBTYPE = "1.0.8802.1.1.2.1.4.1.1.4"
 OID_LLDP_CHASSIS_ID = "1.0.8802.1.1.2.1.4.1.1.5"
 OID_LLDP_MAN_ADDR = "1.0.8802.1.1.2.1.4.2.1.3"
+OID_IP_ADDR = "1.3.6.1.2.1.4.20.1.1"
+OID_IP_MASK = "1.3.6.1.2.1.4.20.1.3"
 OID_PETH_ADMIN = "1.3.6.1.2.1.105.1.1.1.3"
 OID_PETH_DETECT = "1.3.6.1.2.1.105.1.1.1.6"
 OID_PETH_MAIN_POWER = "1.3.6.1.2.1.105.1.3.1.1.2"
@@ -153,8 +155,26 @@ async def read(ip: str, communities: List[str], port: int = 161) -> Optional[dic
     if not prev or now - prev[0] >= 5:
         _last_counters[ip] = (now, cur)
 
+    addresses = await _addresses(c)
     neighbors, bridge, poe, poe_total = await asyncio.gather(_neighbors(c, idx_name), _fdb(c, idx_name), _poe(c, {f["ifindex"]: f["name"] for f in ifaces}), _poe_total(c))
-    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": [], "poe": poe, "poe_total": poe_total, "stats": stats, "vendor": "snmp"}
+    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": [], "poe": poe, "poe_total": poe_total, "stats": stats, "addresses": addresses, "vendor": "snmp"}
+
+
+async def _addresses(c: SnmpClient) -> List[dict]:
+    """The IPv4 addresses of the device's interfaces as [{"address": "10.0.0.1/24"}] (ipAddrTable) - what subnets a router / L3 switch serves."""
+    addr, mask = await asyncio.gather(_walk(c, OID_IP_ADDR), _walk(c, OID_IP_MASK))
+    masks = {".".join(oid.lstrip(".").split(".")[-4:]): v for oid, v in mask}
+    out = []
+    for oid, v in addr:
+        ip = ".".join(oid.lstrip(".").split(".")[-4:])
+        m = masks.get(ip)
+        try:
+            prefix = bin(int.from_bytes(m, "big")).count("1") if isinstance(m, (bytes, bytearray)) else bin(int(__import__("ipaddress").ip_address(str(m)))).count("1")
+        except Exception:
+            continue
+        if not ip.startswith("127."):
+            out.append({"address": f"{ip}/{prefix}"})
+    return out
 
 
 async def _neighbors(c: SnmpClient, idx_name: Dict[int, str]) -> List[dict]:

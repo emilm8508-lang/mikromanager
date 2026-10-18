@@ -1971,6 +1971,30 @@ try {
             echo json_encode(['tenants' => $result]);
             break;
 
+        case 'topology_status_all':
+            // The network map (nodes, edges) of every tenant this identity can see, as the agent put it into its snapshot - plaintext
+            // envelope metadata like assets_status_all / racks_status_all.
+            $stmt = $pdo->query(
+                'SELECT t.id AS tenant, t.last_seen,
+                        (SELECT payload FROM snapshots
+                         WHERE tenant = t.id
+                         ORDER BY received_at DESC LIMIT 1) AS _latest_payload
+                 FROM tenants t
+                 ORDER BY t.id'
+            );
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $map = null;
+                if (!empty($r['_latest_payload'])) {
+                    $meta = json_decode($r['_latest_payload'], true);
+                    if (is_array($meta) && isset($meta['topology_status']) && is_array($meta['topology_status'])) { $map = $meta['topology_status']; }
+                }
+                $result[] = ['tenant' => $r['tenant'], 'last_seen' => $r['last_seen'], 'map' => $map];
+            }
+            $result = array_values(array_filter($result, function ($r) use ($identity) { return tenant_allowed($identity, $r['tenant']); }));
+            echo json_encode(['tenants' => $result]);
+            break;
+
         case 'firewall_status_all':
             // Aggregate view across every tenant this identity can see —
             // same subquery pattern as hyperv_hosts_status_all: latest

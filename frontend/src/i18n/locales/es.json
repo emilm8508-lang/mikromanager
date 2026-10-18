@@ -13,6 +13,7 @@
                 "securitySummary": "Resumen de seguridad",
                 "assetsOverview": "Resumen de activos",
                 "racks": "Racks",
+                "netmap": "Mapa de toda la red",
                 "assetsList": "Lista de activos",
                 "groupSystems": "Sistemas",
                 "groupNetwork": "Red",
@@ -1174,6 +1175,43 @@
             "dhcp_pool_exhausted": "El servidor DHCP no pudo asignar una dirección. Amplíe el pool de direcciones o acorte el tiempo de concesión.",
             "dhcp_ip_changed": "La concesión de la dirección expiró o fue liberada y la dirección del host pudo cambiar. Considere una reserva fija (static lease) para este host.",
             "firewall_block": "Una regla del firewall descartaba el tráfico de este host durante la caída. Compruebe si es intencionado."
+        }
+    },
+    "netmap": {
+        "title": "Mapa de toda la red",
+        "subtitle": "Puerta de enlace → routers → switches → equipos, a partir de lo que informan los propios dispositivos (LLDP, tablas MAC), sin adivinar. Pase el cursor por un nodo para ver detalles; doble clic lo renombra.",
+        "centralIntro": "El mapa de red del cliente elegido, como lo informó su agente (solo lectura; los dispositivos se renombran en el agente).",
+        "centralNoData": "Ningún agente ha informado todavía de un mapa de red.",
+        "partial": "Este es un primer mapa desde la base de datos (activos y enlaces guardados). El completo, con los puertos de los switches y las subredes, se construye en segundo plano y aparece en breve.",
+        "counts": "Nodos: {{nodes}} · enlaces: {{edges}} · subredes: {{subnets}}",
+        "auto": "Actualización",
+        "autoOff": "desactivada",
+        "rebuild": "Reconstruir",
+        "search": "Buscar (nombre, IP, fabricante)…",
+        "layout": {
+            "hier": "Jerárquico",
+            "force": "Force Atlas"
+        },
+        "subnets": "Recuadros de subred",
+        "onlyVuln": "Solo con vulnerabilidades",
+        "fit": "Ajustar",
+        "clearFilter": "quitar filtro",
+        "empty": "Aún no hay nada que dibujar.",
+        "openAsset": "Abrir la ficha del activo",
+        "rename": "Nuevo nombre del dispositivo:",
+        "renameHint": "Doble clic en un nodo para renombrarlo.",
+        "edge": {
+            "backbone": "troncal (LLDP)",
+            "uplink": "uplink",
+            "client": "puerto de cliente",
+            "l3": "por subred",
+            "vm": "máquina virtual"
+        },
+        "sev": {
+            "1": "baja",
+            "2": "media",
+            "3": "alta",
+            "4": "crítica"
         }
     },
     "racks": {

@@ -557,6 +557,15 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] racks summary error: {e}")
         racks_status = None
 
+    # The map of the whole network (nodes, edges) for Central's map: the last one built; asking for it also starts a rebuild in the background.
+    try:
+        from services import topology_map
+        await topology_map.get_map()
+        topology_status = topology_map.public_summary()
+    except Exception as e:
+        print(f"[uplink] network map error: {e}")
+        topology_status = None
+
     return {
         "tenant": _config["tenant"],
         "sent_at": int(time.time()),
@@ -592,6 +601,7 @@ async def _build_snapshot() -> dict:
         "security_stats": security_stats,
         "assets_status": assets_status,
         "racks_status": racks_status,
+        "topology_status": topology_status,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -606,10 +616,10 @@ async def _build_snapshot() -> dict:
 # Sections that Central reads only from the plaintext metadata of the envelope (never from the decrypted snapshot). With end-to-end
 # encryption they used to travel twice - once in the metadata and once, base64-encoded (x 1.33), inside the ciphertext: a few hundred KB of
 # racks made a big client's report cross the relay's 2 MB limit (HTTP 413 "payload too large", every report refused).
-_META_ONLY = ("racks_status", "assets_status")
+_META_ONLY = ("racks_status", "assets_status", "topology_status")
 MAX_BODY_BYTES = int(os.environ.get("MIKROTIK_UPLINK_MAX_BYTES", str(1_900_000)))      # the relay refuses more than 2 MB
 # What may be cut down, in this order (least important first), when a report is still too big: the lists inside are halved, then dropped.
-_TRIM_ORDER = ("racks_status", "assets_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
+_TRIM_ORDER = ("topology_status", "racks_status", "assets_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
 
 
 def _halve(v):
@@ -692,6 +702,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             "security_stats": snapshot.get("security_stats"),
             "assets_status": snapshot.get("assets_status"),
             "racks_status": snapshot.get("racks_status"),
+            "topology_status": snapshot.get("topology_status"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),

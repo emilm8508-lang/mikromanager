@@ -13,6 +13,7 @@
                 "securitySummary": "Security summary",
                 "assetsOverview": "Overview",
                 "racks": "Server racks",
+                "netmap": "Whole-network map",
                 "assetsList": "Asset list",
                 "groupSystems": "Systems",
                 "groupNetwork": "Network",
@@ -1174,6 +1175,43 @@
             "dhcp_pool_exhausted": "The DHCP server could not assign an address. Enlarge the address pool or shorten the lease time.",
             "dhcp_ip_changed": "The address lease expired or was released and the host's address may have changed. Consider a static lease reservation for this host.",
             "firewall_block": "A firewall rule was dropping this host's traffic during the outage. Check whether that is intended."
+        }
+    },
+    "netmap": {
+        "title": "Whole-network map",
+        "subtitle": "Gateway → routers → switches → computers, from what the devices themselves report (LLDP, MAC tables) - not guessed. Hover a node for details; double-click renames it.",
+        "centralIntro": "The network map of the chosen client as its agent reported it (read-only; devices are renamed in the agent).",
+        "centralNoData": "No agent has reported a network map yet.",
+        "partial": "This is a first map from the database (assets and stored links). The full one - with the switches' ports and the subnets - is being built in the background and appears shortly.",
+        "counts": "Nodes: {{nodes}} · links: {{edges}} · subnets: {{subnets}}",
+        "auto": "Auto-refresh",
+        "autoOff": "off",
+        "rebuild": "Rebuild",
+        "search": "Search (name, IP, vendor)…",
+        "layout": {
+            "hier": "Hierarchical",
+            "force": "Force Atlas"
+        },
+        "subnets": "Subnet boxes",
+        "onlyVuln": "Vulnerable only",
+        "fit": "Fit",
+        "clearFilter": "clear filter",
+        "empty": "Nothing to draw yet.",
+        "openAsset": "Open the asset card",
+        "rename": "New name of the device:",
+        "renameHint": "Double-click a node to rename it.",
+        "edge": {
+            "backbone": "backbone (LLDP)",
+            "uplink": "uplink",
+            "client": "client port",
+            "l3": "by subnet",
+            "vm": "virtual machine"
+        },
+        "sev": {
+            "1": "low",
+            "2": "medium",
+            "3": "high",
+            "4": "critical"
         }
     },
     "racks": {

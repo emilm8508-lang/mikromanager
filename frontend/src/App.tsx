@@ -4,6 +4,8 @@ import { Dashboard } from './pages/Dashboard'
 import { Devices } from './pages/Devices'
 import { DeviceDetail } from './pages/DeviceDetail'
 import { NetworkMap } from './pages/NetworkMap'
+import { NetworkMapAll } from './pages/NetworkMapAll'
+import { CentralNetworkMap } from './pages/CentralNetworkMap'
 import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
 import { Logs } from './pages/Logs'
@@ -69,6 +71,7 @@ export default function App() {
             <Route path="/inventory/list" element={<AssetList />} />
             <Route path="/inventory/:id" element={<AssetDetail />} />
             <Route path="/racks" element={<Racks />} />
+            <Route path="/netmap" element={<NetworkMapAll />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />
@@ -77,6 +80,7 @@ export default function App() {
             <Route path="/central" element={<Central />} />
             <Route path="/central/assets" element={<CentralAssets />} />
             <Route path="/central/racks" element={<CentralRacks />} />
+            <Route path="/central/netmap" element={<CentralNetworkMap />} />
             <Route path="/central/inventory" element={<CentralInventory />} />
             <Route path="/central/compliance" element={<CentralCompliance />} />
             <Route path="/central/external-monitoring" element={<CentralExternalMonitoring />} />

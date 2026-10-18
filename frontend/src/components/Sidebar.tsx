@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3 } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -263,6 +263,7 @@ export function Sidebar() {
     { key: 'network', label: t('nav.groupNetwork') as string, icon: Network, items: [
       item('/devices', t('nav.devices') as string, Server),
       item('/map', t('nav.map') as string, Network),
+      item('/netmap', t('nav.netmap') as string, Waypoints),
       item('/scanner', t('nav.scanner') as string, Search),
       item('/logs', t('nav.logs') as string, ScrollText),
     ] },
@@ -314,6 +315,7 @@ export function Sidebar() {
       item('/central/assets', t('nav.assetsOverview') as string, PieChart),
       item('/central/inventory', t('nav.inventory') as string, Boxes),
       item('/central/racks', t('nav.racks') as string, Rows3),
+      item('/central/netmap', t('nav.netmap') as string, Waypoints),
     ] },
   ]
   const nav = mode === 'central' ? centralNav : agentNav

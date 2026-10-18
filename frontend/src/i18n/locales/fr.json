@@ -13,6 +13,7 @@
                 "securitySummary": "Synthèse de sécurité",
                 "assetsOverview": "Vue d'ensemble du parc",
                 "racks": "Baies serveurs",
+                "netmap": "Carte de tout le réseau",
                 "assetsList": "Liste du parc",
                 "groupSystems": "Systèmes",
                 "groupNetwork": "Réseau",
@@ -1174,6 +1175,43 @@
             "dhcp_pool_exhausted": "Le serveur DHCP n'a pas pu attribuer d'adresse. Agrandissez la plage d'adresses ou raccourcissez la durée du bail.",
             "dhcp_ip_changed": "Le bail de l'adresse a expiré ou été libéré et l'adresse de l'hôte a pu changer. Envisagez une réservation fixe (static lease) pour cet hôte.",
             "firewall_block": "Une règle du pare-feu rejetait le trafic de cet hôte pendant la coupure. Vérifiez si c'est voulu."
+        }
+    },
+    "netmap": {
+        "title": "Carte de tout le réseau",
+        "subtitle": "Passerelle → routeurs → switchs → ordinateurs, d'après ce que signalent les équipements eux-mêmes (LLDP, tables MAC), sans deviner. Survolez un nœud pour les détails ; un double-clic le renomme.",
+        "centralIntro": "La carte réseau du client choisi, telle que son agent l'a signalée (lecture seule ; les équipements se renomment dans l'agent).",
+        "centralNoData": "Aucun agent n'a encore signalé de carte réseau.",
+        "partial": "Première carte issue de la base (actifs et liens enregistrés). La carte complète - avec les ports des switchs et les sous-réseaux - se construit en arrière-plan et apparaît bientôt.",
+        "counts": "Nœuds : {{nodes}} · liens : {{edges}} · sous-réseaux : {{subnets}}",
+        "auto": "Actualisation",
+        "autoOff": "désactivée",
+        "rebuild": "Reconstruire",
+        "search": "Rechercher (nom, IP, fabricant)…",
+        "layout": {
+            "hier": "Hiérarchique",
+            "force": "Force Atlas"
+        },
+        "subnets": "Cadres de sous-réseau",
+        "onlyVuln": "Seulement vulnérables",
+        "fit": "Ajuster",
+        "clearFilter": "effacer le filtre",
+        "empty": "Rien à dessiner pour le moment.",
+        "openAsset": "Ouvrir la fiche de l'actif",
+        "rename": "Nouveau nom de l'équipement :",
+        "renameHint": "Double-cliquez sur un nœud pour le renommer.",
+        "edge": {
+            "backbone": "dorsale (LLDP)",
+            "uplink": "uplink",
+            "client": "port client",
+            "l3": "par sous-réseau",
+            "vm": "machine virtuelle"
+        },
+        "sev": {
+            "1": "faible",
+            "2": "moyenne",
+            "3": "élevée",
+            "4": "critique"
         }
     },
     "racks": {

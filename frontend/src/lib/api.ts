@@ -1268,6 +1268,27 @@ export const racksApi = {
   removeLink: (id: number) => api.delete(`/racks/links/${id}`).then(r => r.data),
 }
 
+// ── Network map ───────────────────────────────────────────────────────────────
+
+export interface NetMap {
+  nodes: Array<{ id: number | string; name: string; type: AssetType | 'subnet' | 'internet'; role?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }>
+  edges: Array<{ a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm'; l: string }>
+  subnets: Array<{ cidr: string; n: number }>
+  at: string; partial: boolean; building?: boolean
+}
+export const netmapApi = {
+  get: () => api.get<NetMap>('/netmap').then(r => r.data),
+  refresh: () => api.post<NetMap>('/netmap/refresh').then(r => r.data),
+}
+// what Central receives: nodes [id, name, type, ip, vulnerability, subnet, level], edges [a, b, kind, label]
+export interface CentralNetMap { n: Array<[number | string, string, NetMap['nodes'][number]['type'], string | null, number, string | null, number | null]>; e: Array<[number | string, number | string, NetMap['edges'][number]['k'], string]>; at: string }
+export function netmapFromCentral(m: CentralNetMap): Pick<NetMap, 'nodes' | 'edges'> {
+  return {
+    nodes: m.n.map(([id, name, type, ip, v, sub, lvl]) => ({ id, name, type, ip, v, sub, lvl })),
+    edges: m.e.map(([a, b, k, l]) => ({ a, b, k, l })),
+  }
+}
+
 export const inventoryApi = {
   get: () => api.get<InventoryOut>('/inventory').then(r => r.data),
 }
@@ -2759,6 +2780,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; hosts: CentralHypervHostStatus[] }> }>('hyperv_hosts_status_all'),
   firewallStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
+  topologyStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; map: CentralNetMap | null }> }>('topology_status_all'),
   racksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; racks: { racks: CentralRack[]; ops: CentralRackOp[] } | null }> }>('racks_status_all'),
   requestRackOp: (tenant: string, op: string) =>

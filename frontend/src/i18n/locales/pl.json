@@ -13,6 +13,7 @@
                 "securitySummary": "Podsumowanie bezpieczeństwa",
                 "assetsOverview": "Przegląd zasobów",
                 "racks": "Szafy rackowe",
+                "netmap": "Mapa całej sieci",
                 "assetsList": "Lista zasobów",
                 "groupSystems": "Systemy",
                 "groupNetwork": "Sieć",
@@ -1332,6 +1333,43 @@
             "dhcp_pool_exhausted": "Serwer DHCP nie mógł przydzielić adresu. Zwiększ pulę adresów lub skróć czas dzierżawy.",
             "dhcp_ip_changed": "Dzierżawa adresu wygasła lub została zwolniona, a adres hosta mógł się zmienić. Rozważ stałą rezerwację adresu (static lease) dla tego hosta.",
             "firewall_block": "Reguła firewalla odrzucała ruch tego hosta w czasie przerwy. Sprawdź, czy to zamierzone."
+        }
+    },
+    "netmap": {
+        "title": "Mapa całej sieci",
+        "subtitle": "Brama → routery → switche → komputery, ze zgłoszeń samych urządzeń (LLDP, tablice MAC) - nie z zgadywania. Najedź na węzeł, żeby zobaczyć szczegóły; dwuklik zmienia nazwę.",
+        "centralIntro": "Mapa sieci wybranego klienta, tak jak zgłosił ją agent (tylko podgląd; nazwy urządzeń zmienia się w agencie).",
+        "centralNoData": "Żaden agent nie zgłosił jeszcze mapy sieci.",
+        "partial": "To wstępna mapa z bazy (zasoby i zapisane połączenia). Pełna - z portami switchy i podsieciami - buduje się w tle i pojawi się za chwilę.",
+        "counts": "Węzłów: {{nodes}} · połączeń: {{edges}} · podsieci: {{subnets}}",
+        "auto": "Odświeżanie",
+        "autoOff": "wyłączone",
+        "rebuild": "Odbuduj",
+        "search": "Szukaj (nazwa, IP, producent)…",
+        "layout": {
+            "hier": "Hierarchia",
+            "force": "Force Atlas"
+        },
+        "subnets": "Ramki podsieci",
+        "onlyVuln": "Tylko z podatnościami",
+        "fit": "Dopasuj",
+        "clearFilter": "wyczyść filtr",
+        "empty": "Brak danych do narysowania.",
+        "openAsset": "Otwórz kartę zasobu",
+        "rename": "Nowa nazwa urządzenia:",
+        "renameHint": "Dwuklik na węźle - zmiana nazwy.",
+        "edge": {
+            "backbone": "szkielet (LLDP)",
+            "uplink": "uplink",
+            "client": "port klienta",
+            "l3": "wg podsieci",
+            "vm": "maszyna wirtualna"
+        },
+        "sev": {
+            "1": "niska",
+            "2": "średnia",
+            "3": "wysoka",
+            "4": "krytyczna"
         }
     },
     "racks": {

@@ -13,6 +13,7 @@
                 "securitySummary": "Sicherheitsübersicht",
                 "assetsOverview": "Bestandsübersicht",
                 "racks": "Serverschränke",
+                "netmap": "Gesamtnetz-Karte",
                 "assetsList": "Bestandsliste",
                 "groupSystems": "Systeme",
                 "groupNetwork": "Netzwerk",
@@ -1174,6 +1175,43 @@
             "dhcp_pool_exhausted": "Der DHCP-Server konnte keine Adresse vergeben. Vergrößern Sie den Adresspool oder verkürzen Sie die Lease-Dauer.",
             "dhcp_ip_changed": "Die Adress-Lease ist abgelaufen oder wurde freigegeben, die Adresse des Hosts kann sich geändert haben. Erwägen Sie eine feste Reservierung (Static Lease) für diesen Host.",
             "firewall_block": "Eine Firewall-Regel hat den Verkehr dieses Hosts während des Ausfalls verworfen. Prüfen Sie, ob das beabsichtigt ist."
+        }
+    },
+    "netmap": {
+        "title": "Gesamtnetz-Karte",
+        "subtitle": "Gateway → Router → Switches → Computer, aus den Meldungen der Geräte selbst (LLDP, MAC-Tabellen) - nicht geraten. Knoten anfahren für Details; Doppelklick benennt um.",
+        "centralIntro": "Die Netzkarte des gewählten Kunden, wie sein Agent sie gemeldet hat (nur Ansicht; Geräte werden im Agenten umbenannt).",
+        "centralNoData": "Noch kein Agent hat eine Netzkarte gemeldet.",
+        "partial": "Dies ist eine erste Karte aus der Datenbank (Assets und gespeicherte Verbindungen). Die vollständige - mit den Ports der Switches und den Subnetzen - entsteht im Hintergrund und erscheint gleich.",
+        "counts": "Knoten: {{nodes}} · Verbindungen: {{edges}} · Subnetze: {{subnets}}",
+        "auto": "Aktualisierung",
+        "autoOff": "aus",
+        "rebuild": "Neu aufbauen",
+        "search": "Suchen (Name, IP, Hersteller)…",
+        "layout": {
+            "hier": "Hierarchisch",
+            "force": "Force Atlas"
+        },
+        "subnets": "Subnetz-Rahmen",
+        "onlyVuln": "Nur mit Schwachstellen",
+        "fit": "Einpassen",
+        "clearFilter": "Filter löschen",
+        "empty": "Noch nichts zu zeichnen.",
+        "openAsset": "Asset-Karte öffnen",
+        "rename": "Neuer Name des Geräts:",
+        "renameHint": "Doppelklick auf einen Knoten benennt ihn um.",
+        "edge": {
+            "backbone": "Backbone (LLDP)",
+            "uplink": "Uplink",
+            "client": "Client-Port",
+            "l3": "nach Subnetz",
+            "vm": "virtuelle Maschine"
+        },
+        "sev": {
+            "1": "niedrig",
+            "2": "mittel",
+            "3": "hoch",
+            "4": "kritisch"
         }
     },
     "racks": {

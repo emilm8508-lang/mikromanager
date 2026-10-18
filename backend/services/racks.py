@@ -365,9 +365,10 @@ async def _fetch_snapshot(device_id: int) -> Optional[dict]:
     bridge = await step(client.get_bridge_hosts, []) if hasattr(client, "get_bridge_hosts") and vendor == "mikrotik" else []
     ethernet = await step(client.get_ethernet, []) if hasattr(client, "get_ethernet") else []
     poe = await step(client.get_poe, {}) if hasattr(client, "get_poe") else {}
+    addresses = await step(client.get_ip_addresses, []) if hasattr(client, "get_ip_addresses") else []        # the subnets it routes (the network map)
     if not ifaces:
         return {"error": "the device did not answer"}
-    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "poe": poe, "vendor": vendor}
+    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "poe": poe, "addresses": addresses, "vendor": vendor}
 
 
 async def _snapshot(device_id: int, fresh: bool = False) -> Optional[dict]:
