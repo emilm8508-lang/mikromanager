@@ -1,8 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
+import { loadTheme, saveTheme, type ThemeMode } from '../lib/theme'
 import { cn } from '../lib/utils'
 import { SUPPORTED_LANGS } from '../i18n'
 import { api, systemApi, authApi, MfaSetupInfo, uiMode, UiMode } from '../lib/api'
@@ -70,6 +71,21 @@ function RefresherStatus() {
       {data.ping_interval_min != null && (
         <p className="text-slate-400">{t('refresher.pingEvery', { min: formatMinutes(data.ping_interval_min) })}</p>
       )}
+    </div>
+  )
+}
+
+// light -> dark -> follow the system; the palette itself is src/theme.css (the class "dark" on <html>)
+function ThemeSwitcher() {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<ThemeMode>(loadTheme())
+  const next = () => { const n: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light'; saveTheme(n); setMode(n) }
+  const Icon = mode === 'dark' ? Moon : mode === 'auto' ? MonitorCog : Sun
+  return (
+    <div className="px-3 pt-1">
+      <button onClick={next} title={t('nav.theme.label') as string} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+        <Icon size={13} /><span>{t(`nav.theme.${mode}`)}</span>
+      </button>
     </div>
   )
 }
@@ -440,6 +456,7 @@ export function Sidebar() {
       <RefresherStatus />
       <SelfUpdatePanel />
       <LanguageSwitcher />
+      <ThemeSwitcher />
       <AccountPanel />
 
       <VersionFooter />

@@ -15,6 +15,12 @@
                 "racks": "Racks",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
+                "theme": {
+                    "label": "Tema: claro / oscuro / según el sistema",
+                    "light": "Tema claro",
+                    "dark": "Tema oscuro",
+                    "auto": "Tema del sistema"
+                },
                 "assetsList": "Lista de activos",
                 "groupSystems": "Sistemas",
                 "groupNetwork": "Red",

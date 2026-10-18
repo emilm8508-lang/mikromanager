@@ -15,6 +15,12 @@
                 "racks": "Serverschränke",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
+                "theme": {
+                    "label": "Design: hell / dunkel / wie das System",
+                    "light": "Helles Design",
+                    "dark": "Dunkles Design",
+                    "auto": "Systemdesign"
+                },
                 "assetsList": "Bestandsliste",
                 "groupSystems": "Systeme",
                 "groupNetwork": "Netzwerk",

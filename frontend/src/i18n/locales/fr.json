@@ -15,6 +15,12 @@
                 "racks": "Baies serveurs",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
+                "theme": {
+                    "label": "Thème : clair / sombre / selon le système",
+                    "light": "Thème clair",
+                    "dark": "Thème sombre",
+                    "auto": "Thème du système"
+                },
                 "assetsList": "Liste du parc",
                 "groupSystems": "Systèmes",
                 "groupNetwork": "Réseau",

@@ -15,6 +15,12 @@
                 "racks": "Server racks",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
+                "theme": {
+                    "label": "Theme: light / dark / follow the system",
+                    "light": "Light theme",
+                    "dark": "Dark theme",
+                    "auto": "System theme"
+                },
                 "assetsList": "Asset list",
                 "groupSystems": "Systems",
                 "groupNetwork": "Network",

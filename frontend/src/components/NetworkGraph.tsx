@@ -6,6 +6,7 @@ import type { AssetType } from '../lib/api'
 import { TYPE_COLOR, TYPE_ORDER } from './AssetBits'
 import { Button } from './ui/Button'
 import { cn } from '../lib/utils'
+import { isDark } from '../lib/theme'
 
 // The map of the whole network: nodes are the assets, edges what the devices report (LLDP, the port a MAC was learned on, the subnet).
 // Shared by the agent page and Central. Layouts: hierarchical (the levels come from the server: Internet, routers, switches, clients)
@@ -94,7 +95,7 @@ export function NetworkGraph({ nodes, edges, assetHref, onRename, height = '70vh
           shape: n.type === 'internet' ? 'star' : n.type === 'subnet' ? 'ellipse' : n.cls === 'gateway' ? 'hexagon' : n.cls === 'router' ? 'hexagon' : n.cls === 'ap' ? 'triangle' : infra || n.type === 'network' ? 'square' : n.type === 'server' || n.role === 'server' ? 'diamond' : 'dot',
           size: n.type === 'internet' ? 24 : n.cls === 'gateway' ? 24 : n.type === 'network' ? 20 : n.type === 'subnet' ? 10 : 13,
           color: { background: nodeColor(n.type), border: sev || nodeColor(n.type), highlight: { background: nodeColor(n.type), border: '#111827' } },
-          borderWidth: sev ? 4 : 1.5, font: { size: n.type === 'subnet' ? 10 : 12, color: '#1e293b', strokeWidth: 3, strokeColor: '#ffffff' },
+          borderWidth: sev ? 4 : 1.5, font: { size: n.type === 'subnet' ? 10 : 12, color: isDark() ? '#e2e8f0' : '#1e293b', strokeWidth: 3, strokeColor: isDark() ? '#0f172a' : '#ffffff' },
           opacity: ok ? 1 : 0.12, title: tooltip(n, n.type === 'subnet' ? 'subnet' : n.type === 'internet' ? 'Internet' : (t(`assets.type.${n.type}`) as string), edgeText.get(String(n.id)) ?? []),
         }
       })),
