@@ -1477,6 +1477,24 @@
             "running": "en curso…",
             "empty": "Elija una herramienta: el resultado aparece aquí a medida que se produce."
         },
+        "hintsBadge": "Dispositivo embebido: es posible una contraseña de fábrica (detalles en la ficha)",
+        "hintsTitle": "Atención: posible contraseña de fábrica",
+        "hintsAdvice": "Estos dispositivos suelen venir con usuario y contraseña por defecto, y algunos se quedan así. MikroManager no prueba nada aquí (sería un ataque al dispositivo): es solo una pista: abra el panel del dispositivo, compruébelo a mano y ponga su propia contraseña; desactive los servicios que no necesite.",
+        "hintsOpen": "Abrir el panel http://{{ip}}",
+        "hint": {
+            "ilo": "Controlador HPE iLO",
+            "idrac": "Controlador Dell iDRAC",
+            "bmc": "Controlador de gestión (BMC / IPMI)",
+            "xport": "Servidor de dispositivos serie (Lantronix XPort / UDS)",
+            "label_printer": "Impresora de etiquetas / industrial (SATO, Zebra, InfoPrint...)",
+            "printer": "Impresora de red",
+            "camera": "Cámara IP / grabador",
+            "ups": "Tarjeta de red de SAI",
+            "nas": "NAS",
+            "soho": "Equipo de red doméstico / SOHO",
+            "industrial": "Equipo industrial / controladores",
+            "raspberry": "Raspberry Pi (usuario por defecto pi)"
+        },
         "class": {
             "gateway": "Puerta de enlace (router WAN)",
             "router": "Router",

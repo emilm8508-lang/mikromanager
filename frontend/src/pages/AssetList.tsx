@@ -165,7 +165,7 @@ export function AssetList() {
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="inline-flex items-center gap-2.5 min-w-0"><TypeIcon type={a.type as AssetType} size={18} />
-                        <span className="min-w-0"><span className="block text-slate-900 font-medium truncate max-w-[16rem]">{a.name}</span>
+                        <span className="min-w-0"><span className="block text-slate-900 font-medium truncate max-w-[16rem]">{a.name}{(a.hints?.length ?? 0) > 0 && <span className="ml-1.5 text-amber-600" title={t('assets.hintsBadge') as string}>⚠</span>}</span>
                           {(a.manufacturer || a.model) && <span className="block text-[11px] text-slate-400 truncate max-w-[16rem]">{[a.manufacturer, a.model].filter(Boolean).join(' · ')}</span>}</span></span>
                     </td>
                     <td><TypePill type={a.type} role={a.role} cls={a.dclass} /></td>

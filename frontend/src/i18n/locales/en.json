@@ -1477,6 +1477,24 @@
             "running": "running…",
             "empty": "Pick a tool - the output appears here as it is produced."
         },
+        "hintsBadge": "Embedded device - a factory password is possible (details on the card)",
+        "hintsTitle": "Note: a factory password is possible",
+        "hintsAdvice": "Such devices are often shipped with a default login and password, and some stay that way. MikroManager tries nothing here (that would be an attack on the device) - this is only a hint: open the device's panel, check by hand and set your own password; switch off services you do not need.",
+        "hintsOpen": "Open the panel http://{{ip}}",
+        "hint": {
+            "ilo": "HPE iLO controller",
+            "idrac": "Dell iDRAC controller",
+            "bmc": "Management controller (BMC / IPMI)",
+            "xport": "Serial device server (Lantronix XPort / UDS)",
+            "label_printer": "Label / industrial printer (SATO, Zebra, InfoPrint...)",
+            "printer": "Network printer",
+            "camera": "IP camera / recorder",
+            "ups": "UPS network card",
+            "nas": "NAS",
+            "soho": "Home / SOHO-grade network gear",
+            "industrial": "Industrial equipment / controllers",
+            "raspberry": "Raspberry Pi (default user pi)"
+        },
         "class": {
             "gateway": "Gateway (WAN router)",
             "router": "Router",

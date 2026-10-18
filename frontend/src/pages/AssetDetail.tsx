@@ -140,6 +140,13 @@ function Overview({ a }: { a: Detail }) {
           <ul className="text-sm space-y-1">{a.installed_on!.map(x => <li key={x.id}><Link to={`/inventory/${x.id}`} className="text-indigo-600 hover:underline">{x.name}</Link></li>)}</ul>
         </Section>
       )}
+      {(a.hints?.length ?? 0) > 0 && (
+        <Section title={t('assets.hintsTitle') as string}>
+          <ul className="text-sm text-slate-700 list-disc pl-5 mb-2">{a.hints!.map(h => <li key={h}>{t(`assets.hint.${h}`)}</li>)}</ul>
+          <p className="text-xs text-slate-500">{t('assets.hintsAdvice')}</p>
+          {a.ip && <p className="text-xs mt-1.5"><a href={`http://${a.ip}`} target="_blank" rel="noreferrer noopener" className="text-indigo-600 hover:underline">{t('assets.hintsOpen', { ip: a.ip })}</a></p>}
+        </Section>
+      )}
       <Section title={t('assets.scanInfo') as string}>
         <div className="flex items-center gap-2 flex-wrap mb-2"><ScanLevelPill level={a.scan_level} />
           <span className="text-xs text-slate-500">{a.last_scan_at ? `${t('assets.lastScan')}: ${ago(a.last_scan_at)}` : t('assets.neverScanned')}</span></div>

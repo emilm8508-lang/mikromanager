@@ -1071,6 +1071,7 @@ export interface AssetRow {
   type: AssetType
   role: 'server' | 'workstation' | null
   dclass?: string | null            // gateway / router / switch / ap / apple / raspberry / vm
+  hints?: string[]                  // embedded device kinds often left on a factory password (ilo, printer, camera ...)
   manufacturer: string | null
   model: string | null
   serial: string | null

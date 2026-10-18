@@ -1477,6 +1477,24 @@
             "running": "en cours…",
             "empty": "Choisissez un outil - le résultat s'affiche ici au fur et à mesure."
         },
+        "hintsBadge": "Équipement embarqué : un mot de passe d'usine est possible (détails sur la fiche)",
+        "hintsTitle": "Attention : mot de passe d'usine possible",
+        "hintsAdvice": "Ces équipements sont souvent livrés avec un identifiant et un mot de passe par défaut, et certains le restent. MikroManager n'essaie rien ici (ce serait une attaque contre l'équipement) : ce n'est qu'une piste : ouvrez le panneau de l'équipement, vérifiez à la main et définissez votre propre mot de passe ; désactivez les services inutiles.",
+        "hintsOpen": "Ouvrir le panneau http://{{ip}}",
+        "hint": {
+            "ilo": "Contrôleur HPE iLO",
+            "idrac": "Contrôleur Dell iDRAC",
+            "bmc": "Contrôleur de gestion (BMC / IPMI)",
+            "xport": "Serveur de périphériques série (Lantronix XPort / UDS)",
+            "label_printer": "Imprimante d'étiquettes / industrielle (SATO, Zebra, InfoPrint...)",
+            "printer": "Imprimante réseau",
+            "camera": "Caméra IP / enregistreur",
+            "ups": "Carte réseau d'onduleur",
+            "nas": "NAS",
+            "soho": "Équipement réseau grand public / SOHO",
+            "industrial": "Équipement industriel / automates",
+            "raspberry": "Raspberry Pi (utilisateur par défaut pi)"
+        },
         "class": {
             "gateway": "Passerelle (routeur WAN)",
             "router": "Routeur",

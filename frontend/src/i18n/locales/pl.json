@@ -1635,6 +1635,24 @@
             "running": "trwa…",
             "empty": "Wybierz narzędzie - wynik pojawia się tutaj na bieżąco."
         },
+        "hintsBadge": "Urządzenie wbudowane - możliwe fabryczne hasło (szczegóły na karcie)",
+        "hintsTitle": "Uwaga: możliwe fabryczne hasło",
+        "hintsAdvice": "Takie urządzenia są często dostarczane z domyślnym loginem i hasłem, a część zostaje tak skonfigurowana. MikroManager niczego tu nie próbuje (to byłby atak na urządzenie) - to tylko wskazówka: otwórz panel urządzenia, sprawdź ręcznie i ustaw własne hasło; jeśli się da, wyłącz niepotrzebne usługi.",
+        "hintsOpen": "Otwórz panel http://{{ip}}",
+        "hint": {
+            "ilo": "Kontroler HPE iLO",
+            "idrac": "Kontroler Dell iDRAC",
+            "bmc": "Kontroler zarządzający (BMC / IPMI)",
+            "xport": "Serwer portów szeregowych (Lantronix XPort / UDS)",
+            "label_printer": "Drukarka etykiet / przemysłowa (SATO, Zebra, InfoPrint...)",
+            "printer": "Drukarka sieciowa",
+            "camera": "Kamera IP / rejestrator",
+            "ups": "Karta sieciowa UPS",
+            "nas": "Serwer NAS",
+            "soho": "Sprzęt sieciowy klasy domowej / SOHO",
+            "industrial": "Sprzęt przemysłowy / sterowniki",
+            "raspberry": "Raspberry Pi (domyślny użytkownik pi)"
+        },
         "class": {
             "gateway": "Brama (router WAN)",
             "router": "Router",

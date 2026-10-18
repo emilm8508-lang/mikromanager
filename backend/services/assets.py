@@ -146,8 +146,10 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         devices = db.execute(select(Device)).scalars().all()
         vuln_hosts = db.execute(select(VulnHost)).scalars().all()
         ports_by_host: Dict[int, set] = {}
+        text_by_host: Dict[int, str] = {}
         for s in db.execute(select(VulnService)).scalars().all():
             ports_by_host.setdefault(s.host_id, set()).add(s.port)
+            text_by_host[s.host_id] = f"{text_by_host.get(s.host_id, '')} {s.product or ''} {s.service_name or ''} {(s.banner_raw or '')[:200]}"
         linux = db.execute(select(LinuxHost)).scalars().all()
         windows = db.execute(select(WindowsHost)).scalars().all()
         dell = db.execute(select(DellServer)).scalars().all()
@@ -164,12 +166,14 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         r = rec(e["ip"])
         r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"))
     ports_by_ip: Dict[str, set] = {}
+    text_by_ip: Dict[str, str] = {}
     stale_scan = now - timedelta(days=VULN_HOST_MAX_AGE_DAYS)
     for h in vuln_hosts:
         if h.last_scan_at is not None and h.last_scan_at < stale_scan and not h.device_id and not h.credential_id:
             continue                                    # left behind by a scan of a range that is gone: not a device on the network now
         ports = ports_by_host.get(h.id, set())
         ports_by_ip[h.ip] = ports
+        text_by_ip[h.ip] = text_by_host.get(h.id, "")
         r = rec(h.ip)
         r.put(refs={"vuln_host_id": h.id}, seen=h.last_scan_at, scan_level="credentialed" if h.credential_id else "passive")
     for ip, ports in ports_by_ip.items():
@@ -247,7 +251,7 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
               refs={"hyperv_vm_id": vm.id}, seen=vm.last_seen_at, first=vm.first_seen_at, scan_level="credentialed")
         r.setdefault("host_name", host.hostname or host.ip)
     _collect_attached(recs, monitors, host_assets)
-    _classify(recs)
+    _classify(recs, text_by_ip)
     return recs
 
 
@@ -260,9 +264,10 @@ def _ipv4(x: Optional[str]) -> Optional[str]:
     return None if a.is_loopback or a.is_unspecified or a.is_multicast else str(a)
 
 
-def _classify(recs: Dict[str, _Rec]) -> None:
-    """The class of every device (gateway / router / switch / AP / Apple / Raspberry Pi / VM) - services/device_class.py."""
-    from services import device_class
+def _classify(recs: Dict[str, _Rec], text_by_ip: Optional[Dict[str, str]] = None) -> None:
+    """The class of every device (gateway / router / switch / AP / Apple / Raspberry Pi / VM) - services/device_class.py - and the hints for
+    embedded devices that are often left on a factory password - services/embedded_hints.py."""
+    from services import device_class, embedded_hints
     try:
         from services import edge_discovery
         wan = set(edge_discovery.wan_capable_device_ids())
@@ -272,6 +277,9 @@ def _classify(recs: Dict[str, _Rec]) -> None:
         refs = r.get("refs") or {}
         r["cls"] = device_class.classify(type=r.get("asset_type"), name=r.get("name"), manufacturer=r.get("manufacturer"), model=r.get("model"),
                                          os_name=r.get("os_name"), oui_vendor=r.get("oui_vendor"), wan_router=refs.get("device_id") in wan, apple_hint=bool(r.get("apple")))
+        r["hints"] = embedded_hints.match(r.get("name"), r.get("model"), r.get("manufacturer"), r.get("os_name"), r.get("oui_vendor"), (text_by_ip or {}).get(r.get("ip") or ""))
+        if r["cls"] == "raspberry" and "raspberry" not in r["hints"]:
+            r["hints"].append("raspberry")
 
 
 def _collect_attached(recs: Dict[str, _Rec], items: list, host_assets: Dict[int, Asset]) -> None:
@@ -407,7 +415,7 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
-            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl"):
+            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl") or r.get("hints") is not None:
                 d = _jload(a.details, {})
                 if r.get("host_name"):
                     d["host"] = r["host_name"]
@@ -418,6 +426,10 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                     d.pop("_class")                              # what said so no longer does
                 if r.get("ttl"):
                     d["_ttl"] = int(r["ttl"])
+                if r.get("hints"):
+                    d["_hints"] = r["hints"]
+                else:
+                    d.pop("_hints", None)
                 a.details = json.dumps(d)
             level = r.get("scan_level", "passive")
             if _SCAN_RANK[level] > _SCAN_RANK.get(a.scan_level or "passive", 0) or not a.last_scan_at:
@@ -564,7 +576,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
-        "location": a.location_override or locate(a.ip), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"),
+        "location": a.location_override or locate(a.ip), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [],
         "lifecycle": lc["status"], "lifecycle_product": lc["product"], "eol": lc["eol"],
         "vulns": _vuln_counts(fnd), "risk": round(_risk(fnd), 1),
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),

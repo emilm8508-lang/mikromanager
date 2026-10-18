@@ -1477,6 +1477,24 @@
             "running": "läuft…",
             "empty": "Werkzeug wählen - die Ausgabe erscheint hier laufend."
         },
+        "hintsBadge": "Eingebettetes Gerät - ein Werkspasswort ist möglich (Details auf der Karte)",
+        "hintsTitle": "Hinweis: Werkspasswort möglich",
+        "hintsAdvice": "Solche Geräte werden oft mit Standard-Login und -Passwort ausgeliefert, und einige bleiben so. MikroManager probiert hier nichts aus (das wäre ein Angriff auf das Gerät) - es ist nur ein Hinweis: Oberfläche des Geräts öffnen, von Hand prüfen und ein eigenes Passwort setzen; nicht benötigte Dienste abschalten.",
+        "hintsOpen": "Oberfläche http://{{ip}} öffnen",
+        "hint": {
+            "ilo": "HPE-iLO-Controller",
+            "idrac": "Dell-iDRAC-Controller",
+            "bmc": "Management-Controller (BMC / IPMI)",
+            "xport": "Serieller Geräteserver (Lantronix XPort / UDS)",
+            "label_printer": "Etiketten- / Industriedrucker (SATO, Zebra, InfoPrint...)",
+            "printer": "Netzwerkdrucker",
+            "camera": "IP-Kamera / Rekorder",
+            "ups": "USV-Netzwerkkarte",
+            "nas": "NAS",
+            "soho": "Netzwerkgerät der Heim- / SOHO-Klasse",
+            "industrial": "Industriegerät / Steuerung",
+            "raspberry": "Raspberry Pi (Standardbenutzer pi)"
+        },
         "class": {
             "gateway": "Gateway (WAN-Router)",
             "router": "Router",
