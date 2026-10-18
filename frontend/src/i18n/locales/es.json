@@ -344,7 +344,9 @@
                         "priority": "Prioridad",
                         "urgency": "Urgencia",
                         "category": "Categoría",
-                        "closure_code": "Código de cierre"
+                        "closure_code": "Código de cierre",
+                        "requester": "Solicitante (usuario de SDP o correo)",
+                        "extra": "Campos adicionales (JSON)"
                     },
                     "sdFieldHint": "Los nombres deben existir en este ServiceDesk (cada instalación tiene los suyos). Vacío = sin valor. Un nombre desconocido lo rechaza ServiceDesk: compruébelo con el botón de prueba.",
                     "sdCloseOnRecovery": "Al terminar la caída: resolver y cerrar el ticket (si no, solo añadir una nota)",

@@ -430,6 +430,8 @@ class ServicedeskTicketFields(BaseModel):
     urgency: str = ""
     category: str = ""
     closure_code: str = "Success"
+    requester: str = ""
+    extra: str = ""
 
 
 class ServicedeskConfig(BaseModel):

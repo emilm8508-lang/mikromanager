@@ -344,7 +344,9 @@
                         "priority": "Priorität",
                         "urgency": "Dringlichkeit",
                         "category": "Kategorie",
-                        "closure_code": "Abschlusscode"
+                        "closure_code": "Abschlusscode",
+                        "requester": "Anforderer (SDP-Benutzer oder E-Mail)",
+                        "extra": "Zusatzfelder (JSON)"
                     },
                     "sdFieldHint": "Die Namen müssen in diesem ServiceDesk existieren (jede Installation hat eigene). Leer = kein Wert. Ein unbekannter Name wird vom ServiceDesk abgelehnt - mit dem Testknopf prüfen.",
                     "sdCloseOnRecovery": "Wenn der Ausfall endet: Ticket lösen und schließen (sonst nur Notiz anfügen)",

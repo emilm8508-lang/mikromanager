@@ -546,7 +546,7 @@ function ServicedeskPanel() {
   })
 
   const noRules: ServicedeskRules = { wan: { enabled: false, delay_min: 5 }, service: { enabled: false, delay_min: 5 }, idrac: { enabled: false, delay_min: 5 } }
-  const noTicket: ServicedeskTicketFields = { request_type: 'Incident', priority: '', urgency: '', category: '', closure_code: 'Success' }
+  const noTicket: ServicedeskTicketFields = { request_type: 'Incident', priority: '', urgency: '', category: '', closure_code: 'Success', requester: '', extra: '' }
   const [form, setForm] = useState({ url: '', authtoken: '', verify_ssl: true, rules: noRules, ticket: noTicket, close_on_recovery: true })
   const [editing, setEditing] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
@@ -631,7 +631,7 @@ function ServicedeskPanel() {
                 </div>
               ))}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-1">
-                {(['request_type', 'priority', 'urgency', 'category', 'closure_code'] as const).map(k => (
+                {(['request_type', 'requester', 'priority', 'urgency', 'category', 'closure_code', 'extra'] as const).map(k => (
                   <Input key={k} label={t(`central.sdField.${k}`)} value={form.ticket[k]} onChange={e => setTicket(k, e.target.value)} />
                 ))}
               </div>

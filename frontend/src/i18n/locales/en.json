@@ -344,7 +344,9 @@
                         "priority": "Priority",
                         "urgency": "Urgency",
                         "category": "Category",
-                        "closure_code": "Closure code"
+                        "closure_code": "Closure code",
+                        "requester": "Requester (SDP user or e-mail)",
+                        "extra": "Extra fields (JSON)"
                     },
                     "sdFieldHint": "The names must exist in this ServiceDesk (every installation has its own). Empty = no value. An unknown name is rejected by ServiceDesk - check it with the test button.",
                     "sdCloseOnRecovery": "When the outage ends: resolve and close the ticket (otherwise only add a note)",

@@ -344,7 +344,9 @@
                         "priority": "Priorité",
                         "urgency": "Urgence",
                         "category": "Catégorie",
-                        "closure_code": "Code de clôture"
+                        "closure_code": "Code de clôture",
+                        "requester": "Demandeur (utilisateur SDP ou e-mail)",
+                        "extra": "Champs supplémentaires (JSON)"
                     },
                     "sdFieldHint": "Les noms doivent exister dans ce ServiceDesk (chaque installation a les siens). Vide = aucune valeur. Un nom inconnu est refusé par ServiceDesk - vérifiez avec le bouton de test.",
                     "sdCloseOnRecovery": "Quand la panne cesse : résoudre et fermer le ticket (sinon, ajouter seulement une note)",

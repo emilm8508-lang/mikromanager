@@ -32,6 +32,7 @@ later decision.
 """
 import json
 import os
+import re
 from typing import Optional
 
 import aiohttp
@@ -43,7 +44,9 @@ _DEFAULT_RULES = {
     "service": {"enabled": False, "delay_min": 5},      # a watched Windows / Linux service down (host_service_down / _up)
     "idrac": {"enabled": False, "delay_min": 5},        # a Dell server's iDRAC unreachable (idrac_unreachable / idrac_reachable)
 }
-_DEFAULT_TICKET = {"request_type": "Incident", "priority": "", "urgency": "", "category": "", "closure_code": "Success"}
+_DEFAULT_TICKET = {"request_type": "Incident", "priority": "", "urgency": "", "category": "", "closure_code": "Success",
+                   "requester": "",      # who the tickets are filed as (a user of this ServiceDesk: a name, or an e-mail address) - mandatory in many installations
+                   "extra": ""}          # any other fields this installation makes mandatory, as a JSON object merged into the request
 
 _config = {
     "url": "",         # e.g. http://sdp.klient.local:8080
@@ -97,7 +100,14 @@ def configure(url: str, authtoken: str = "", verify_ssl: bool = True, rules: Opt
     if ticket is not None:
         for k in _DEFAULT_TICKET:
             if k in ticket:
-                _config["ticket"][k] = str(ticket[k] or "").strip()[:80]
+                _config["ticket"][k] = str(ticket[k] or "").strip()[:(600 if k == "extra" else 120)]
+        extra = _config["ticket"].get("extra") or ""
+        if extra:
+            try:
+                if not isinstance(json.loads(extra), dict):
+                    raise ValueError
+            except ValueError:
+                raise ValueError('Dodatkowe pola muszą być obiektem JSON, np. {"impact": {"name": "Low"}}')
         if not _config["ticket"]["request_type"]:
             _config["ticket"]["request_type"] = "Incident"
     if close_on_recovery is not None:
@@ -183,7 +193,12 @@ def explain(error: str) -> str:
     if "4002" in e or "does not have this permission" in low or "http 403" in low:
         return (e + " - Technik, do którego należy ten klucz (Authtoken), nie ma w ServiceDesk uprawnienia do tej operacji. Wygeneruj klucz dla technika "
                 "z rolą SDAdmin albo z rolą, która pozwala na zgłoszenia: przeglądanie, dodawanie, edycję, notatki, rozwiązania i zamykanie.")
-    if "401" in e or "invalid api key" in low or "authtoken" in low:
+    if "mandatory" in low or "4012" in e:
+        m = re.search(r"'fields': \[([^\]]*)\]", e)
+        names = ", ".join(x.strip(" '\"") for x in m.group(1).split(",") if x.strip()) if m else ""
+        return (e + f" - ServiceDesk wymaga uzupełnienia pól: {names or 'patrz komunikat'}. Pole „requester” wpisz w ustawieniach jako Zgłaszający (nazwa użytkownika "
+                "ServiceDesk albo jego e-mail); inne wymagane pola dopisz w „Dodatkowe pola (JSON)”, np. {\"impact\": {\"name\": \"Low\"}}.")
+    if re.search(r"\bHTTP 401\b", e) or "invalid api key" in low or "invalid authtoken" in low:
         return e + " - ServiceDesk nie przyjął klucza (Authtoken): sprawdź, czy jest skopiowany w całości i czy należy do aktywnego technika."
     if "ssl" in low or "certificate" in low:
         return e + " - problem z certyfikatem HTTPS: dla certyfikatu samopodpisanego wyłącz weryfikację TLS w ustawieniach."
@@ -252,6 +267,13 @@ async def create_ticket(subject: str, description: str = "", request_type: str =
         request["urgency"] = {"name": urgency}
     if category:
         request["category"] = {"name": category}
+    requester = (_config["ticket"].get("requester") or "").strip()
+    if requester:
+        request["requester"] = {"email_id": requester} if "@" in requester else {"name": requester}
+    try:
+        request.update(json.loads(_config["ticket"].get("extra") or "{}"))        # the installation's own mandatory fields
+    except ValueError:
+        pass
     input_data = json.dumps({"request": request})
 
     url = f"{_config['url']}/api/v3/requests"

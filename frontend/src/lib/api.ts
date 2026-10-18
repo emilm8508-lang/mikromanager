@@ -372,7 +372,7 @@ export interface EndpointCentralSample {
 
 export interface ServicedeskRule { enabled: boolean; delay_min: number }
 export interface ServicedeskRules { wan: ServicedeskRule; service: ServicedeskRule; idrac: ServicedeskRule }
-export interface ServicedeskTicketFields { request_type: string; priority: string; urgency: string; category: string; closure_code: string }
+export interface ServicedeskTicketFields { request_type: string; priority: string; urgency: string; category: string; closure_code: string; requester: string; extra: string }
 export interface ServicedeskStatus {
   enabled: boolean
   url: string

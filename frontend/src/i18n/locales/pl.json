@@ -349,7 +349,9 @@
                         "priority": "Priorytet",
                         "urgency": "Pilność",
                         "category": "Kategoria",
-                        "closure_code": "Kod zamknięcia"
+                        "closure_code": "Kod zamknięcia",
+                        "requester": "Zgłaszający (użytkownik SDP lub e-mail)",
+                        "extra": "Dodatkowe pola (JSON)"
                     },
                     "sdFieldHint": "Nazwy muszą istnieć w tym ServiceDesk (każda instalacja ma własne). Puste pole = bez wartości. Nieznana nazwa zostanie odrzucona przez ServiceDesk - sprawdź przyciskiem testu.",
                     "sdCloseOnRecovery": "Gdy awaria ustąpi: rozwiąż i zamknij zgłoszenie (bez tego tylko dopisz notatkę)",

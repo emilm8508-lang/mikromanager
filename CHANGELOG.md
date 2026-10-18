@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.91 — 2026-10-18
+- ServiceDesk: the requester and the other mandatory fields. A ServiceDesk that makes the requester mandatory refused every ticket ("Please fill the mandatory fields", fields: requester, code 4012). The ticket settings now have "Zgłaszający (użytkownik SDP lub e-mail)" - an e-mail address is sent as `email_id`, anything else as the user's name - and "Dodatkowe pola (JSON)" for whatever else this installation requires (e.g. `{"impact": {"name": "Low"}}`), merged into every ticket; invalid JSON is refused when saved. The error now names the missing fields and says where to enter them; and the hint "the key was not accepted" no longer appears by mistake on this answer (it matched the "401" inside "4012").
+
 ## 2.90 — 2026-10-18
 - Reports refused with "HTTP 413 payload too large". The relay accepts at most 2 MB per report, and a big client's report (sanmed, ~1.8 MB) crossed it once the racks were added - every report was refused (17 sent, 93 failed, 50 buffered). Three changes: (1) the two sections Central reads only from the envelope's plaintext metadata - `racks_status` and `assets_status` - are no longer also put inside the encrypted part, where they travelled a second time as base64 (x 1.33); (2) a report that would still exceed `MIKROTIK_UPLINK_MAX_BYTES` (default 1.9 MB) is cut down before it is sent - the least important big sections first (racks, assets, host monitoring details, findings ...), their lists halved, then dropped - and the log says what was cut; (3) a report the relay refuses as too large is dropped instead of being retried for ever (it could never succeed and filled the buffer of 50 reports); the uplink status shows the last HTTP status as `last_status`. Update the agent; the buffered reports are dropped on their own.
 
