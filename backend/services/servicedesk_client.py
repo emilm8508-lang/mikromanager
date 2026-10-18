@@ -158,6 +158,15 @@ def _headers() -> dict:
     }
 
 
+def _status_of(data) -> dict:
+    """The envelope's response_status as one dict. SDP v3 sends an object for some answers and a one-element ARRAY for others (the list
+    of requests, for one) - treating it as an object failed with "'list' object has no attribute 'get'"."""
+    st = (data or {}).get("response_status") if isinstance(data, dict) else None
+    if isinstance(st, list):
+        st = st[0] if st else {}
+    return st if isinstance(st, dict) else {}
+
+
 def url_problem() -> Optional[str]:
     """What is wrong with the saved URL, or None. aiohttp only says "InvalidURL: rdp.local:8081/api/v3/requests" for an address without
     http:// or https:// - not something an operator can act on."""
@@ -201,7 +210,7 @@ async def test_connection() -> dict:
                     data = await resp.json(content_type=None)
                 except Exception:
                     data = None
-                resp_status = (data or {}).get("response_status") or {}
+                resp_status = _status_of(data)
                 if resp.status == 200 and resp_status.get("status") == _STATUS_OK:
                     return {"ok": True, "sample_count": len(data.get("requests", []) if data else [])}
                 text = (await resp.text())[:300] if data is None else str(resp_status)
@@ -258,7 +267,7 @@ async def create_ticket(subject: str, description: str = "", request_type: str =
                 except Exception:
                     text = (await resp.text())[:300]
                     return {"ok": False, "error": explain(f"HTTP {resp.status}: {text}")}
-                resp_status = data.get("response_status") or {}
+                resp_status = _status_of(data)
                 if resp_status.get("status") == _STATUS_OK:
                     created = data.get("request") or {}
                     return {"ok": True, "id": created.get("id"), "display_id": created.get("display_id")}
@@ -283,9 +292,7 @@ async def _call(method: str, path: str, payload: Optional[dict] = None, timeout:
                     data = await resp.json(content_type=None)
                 except Exception:
                     return {"ok": False, "error": explain(f"HTTP {resp.status}: {(await resp.text())[:300]}")}
-                st = (data or {}).get("response_status") or {}
-                if isinstance(st, list):
-                    st = st[0] if st else {}
+                st = _status_of(data)
                 if st.get("status") == _STATUS_OK:
                     return {"ok": True, "data": data}
                 return {"ok": False, "error": explain(str(st.get("messages") or st or f"HTTP {resp.status}")[:400]), "data": data}

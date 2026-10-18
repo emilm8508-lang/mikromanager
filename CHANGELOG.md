@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.89 — 2026-10-18
+- ServiceDesk: "'list' object has no attribute 'get'" in the connection test. ServiceDesk Plus sends the `response_status` of its answers as an object for some calls and as a one-element array for others (the list of requests, which the test reads); the test and the ticket creation assumed an object and broke on the array although the connection and the key were fine. One reader now handles both (`_status_of` in `services/servicedesk_client.py`).
+
 ## 2.88 — 2026-10-18
 - ServiceDesk: errors you can act on. An address without `http://` / `https://` is now refused when saved (and, if an older version saved one, the test says so) instead of showing aiohttp's bare "InvalidURL: host:8081/api/v3/requests". The usual answers of the help desk come with what to do: 403 / "User does not have this permission" (code 4002) - the technician whose key it is lacks a permission (use the key of a technician with the SDAdmin role, or a role that allows viewing, adding, editing, notes, resolutions and closing of requests); 401 - the key was not accepted; a certificate error - switch off the TLS verification for a self-signed certificate; no connection - check the name, the port and the agent's access to the server.
 
