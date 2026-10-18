@@ -82,6 +82,9 @@ def configure(url: str, authtoken: str = "", verify_ssl: bool = True, rules: Opt
               close_on_recovery: Optional[bool] = None) -> dict:
     """Empty authtoken means 'keep existing' — mirrors prtg_client.configure(). `rules` / `ticket` / `close_on_recovery` are only changed
     when given (a caller that only knows URL + token leaves them alone)."""
+    url = (url or "").strip()
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError(f"Adres musi zaczynać się od http:// lub https:// (np. https://sdp.klient.local:8081), a jest: {url or 'pusty'}")
     _config["url"] = url.rstrip("/")
     if authtoken:
         _config["authtoken"] = authtoken
@@ -155,11 +158,38 @@ def _headers() -> dict:
     }
 
 
+def url_problem() -> Optional[str]:
+    """What is wrong with the saved URL, or None. aiohttp only says "InvalidURL: rdp.local:8081/api/v3/requests" for an address without
+    http:// or https:// - not something an operator can act on."""
+    u = _config["url"]
+    if not u.lower().startswith(("http://", "https://")):
+        return f"Adres ServiceDesk musi zaczynać się od http:// lub https:// (jest: {u or 'pusty'}). Przykład: https://sdp.klient.local:8081"
+    return None
+
+
+def explain(error: str) -> str:
+    """The error as the help desk gave it, plus - for the answers that have a known cause - what to do about it."""
+    e = str(error or "")
+    low = e.lower()
+    if "4002" in e or "does not have this permission" in low or "http 403" in low:
+        return (e + " - Technik, do którego należy ten klucz (Authtoken), nie ma w ServiceDesk uprawnienia do tej operacji. Wygeneruj klucz dla technika "
+                "z rolą SDAdmin albo z rolą, która pozwala na zgłoszenia: przeglądanie, dodawanie, edycję, notatki, rozwiązania i zamykanie.")
+    if "401" in e or "invalid api key" in low or "authtoken" in low:
+        return e + " - ServiceDesk nie przyjął klucza (Authtoken): sprawdź, czy jest skopiowany w całości i czy należy do aktywnego technika."
+    if "ssl" in low or "certificate" in low:
+        return e + " - problem z certyfikatem HTTPS: dla certyfikatu samopodpisanego wyłącz weryfikację TLS w ustawieniach."
+    if "cannot connect" in low or "name or service not known" in low or "getaddrinfo" in low or "timed out" in low or "timeout" in low:
+        return e + " - agent nie łączy się z tym adresem: sprawdź nazwę/adres, port i czy agent ma dostęp do serwera ServiceDesk."
+    return e
+
+
 async def test_connection() -> dict:
     """Cheap read-only call (1 request row) to confirm URL + authtoken are
     valid. Never raises — always returns {"ok": bool, ...}."""
     if not is_configured():
         return {"ok": False, "error": "not configured"}
+    if url_problem():
+        return {"ok": False, "error": url_problem()}
     url = f"{_config['url']}/api/v3/requests"
     list_info = json.dumps({"list_info": {"row_count": 1}})
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
@@ -175,9 +205,9 @@ async def test_connection() -> dict:
                 if resp.status == 200 and resp_status.get("status") == _STATUS_OK:
                     return {"ok": True, "sample_count": len(data.get("requests", []) if data else [])}
                 text = (await resp.text())[:300] if data is None else str(resp_status)
-                return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
+                return {"ok": False, "error": explain(f"HTTP {resp.status}: {text}")}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": explain(str(e))}
 
 
 async def create_ticket(subject: str, description: str = "", request_type: str = "Incident",
@@ -201,6 +231,8 @@ async def create_ticket(subject: str, description: str = "", request_type: str =
     """
     if not is_configured():
         return {"ok": False, "error": "not configured"}
+    if url_problem():
+        return {"ok": False, "error": url_problem()}
 
     request: dict = {"subject": subject[:250], "request_type": {"name": request_type}}
     if description:
@@ -225,18 +257,20 @@ async def create_ticket(subject: str, description: str = "", request_type: str =
                     data = await resp.json(content_type=None)
                 except Exception:
                     text = (await resp.text())[:300]
-                    return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
+                    return {"ok": False, "error": explain(f"HTTP {resp.status}: {text}")}
                 resp_status = data.get("response_status") or {}
                 if resp_status.get("status") == _STATUS_OK:
                     created = data.get("request") or {}
                     return {"ok": True, "id": created.get("id"), "display_id": created.get("display_id")}
-                return {"ok": False, "error": str(resp_status.get("messages") or resp_status), "raw": data}
+                return {"ok": False, "error": explain(str(resp_status.get("messages") or resp_status)), "raw": data}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": explain(str(e))}
 
 
 async def _call(method: str, path: str, payload: Optional[dict] = None, timeout: int = 15) -> dict:
     """One SDP API v3 call with the `input_data` form encoding the API wants. Never raises: {"ok": bool, "data": ..., "error": str}."""
+    if url_problem():
+        return {"ok": False, "error": url_problem()}
     headers = dict(_headers())
     headers["Content-Type"] = "application/x-www-form-urlencoded"
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
@@ -248,15 +282,15 @@ async def _call(method: str, path: str, payload: Optional[dict] = None, timeout:
                 try:
                     data = await resp.json(content_type=None)
                 except Exception:
-                    return {"ok": False, "error": f"HTTP {resp.status}: {(await resp.text())[:300]}"}
+                    return {"ok": False, "error": explain(f"HTTP {resp.status}: {(await resp.text())[:300]}")}
                 st = (data or {}).get("response_status") or {}
                 if isinstance(st, list):
                     st = st[0] if st else {}
                 if st.get("status") == _STATUS_OK:
                     return {"ok": True, "data": data}
-                return {"ok": False, "error": str(st.get("messages") or st or f"HTTP {resp.status}")[:400], "data": data}
+                return {"ok": False, "error": explain(str(st.get("messages") or st or f"HTTP {resp.status}")[:400]), "data": data}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": explain(str(e))}
 
 
 async def close_ticket(request_id: str, resolution: str, closure_code: Optional[str] = None) -> dict:

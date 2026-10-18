@@ -448,9 +448,12 @@ async def servicedesk_status():
 
 @router.post("/servicedesk/config")
 async def servicedesk_configure(cfg: ServicedeskConfig):
-    return servicedesk_svc.configure(url=cfg.url, authtoken=cfg.authtoken, verify_ssl=cfg.verify_ssl,
-                                     rules=cfg.rules.model_dump() if cfg.rules else None,
-                                     ticket=cfg.ticket.model_dump() if cfg.ticket else None, close_on_recovery=cfg.close_on_recovery)
+    try:
+        return servicedesk_svc.configure(url=cfg.url, authtoken=cfg.authtoken, verify_ssl=cfg.verify_ssl,
+                                         rules=cfg.rules.model_dump() if cfg.rules else None,
+                                         ticket=cfg.ticket.model_dump() if cfg.ticket else None, close_on_recovery=cfg.close_on_recovery)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/servicedesk/tickets")
