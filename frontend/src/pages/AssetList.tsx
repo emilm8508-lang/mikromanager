@@ -168,7 +168,7 @@ export function AssetList() {
                         <span className="min-w-0"><span className="block text-slate-900 font-medium truncate max-w-[16rem]">{a.name}</span>
                           {(a.manufacturer || a.model) && <span className="block text-[11px] text-slate-400 truncate max-w-[16rem]">{[a.manufacturer, a.model].filter(Boolean).join(' · ')}</span>}</span></span>
                     </td>
-                    <td><TypePill type={a.type} role={a.role} /></td>
+                    <td><TypePill type={a.type} role={a.role} cls={a.dclass} /></td>
                     <td><VulnPill v={a.vulns} /></td>
                     <td><LifecyclePill status={a.lifecycle} /></td>
                     <td className="font-mono text-xs text-slate-600">{a.ip ?? '—'}</td>

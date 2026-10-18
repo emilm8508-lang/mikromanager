@@ -1626,6 +1626,24 @@
             "server": "Serwery (sprzęt)",
             "other": "Inne"
         },
+        "tools": {
+            "hint": "Polecenia wykonuje agent z komputera, na którym działa - na adresie tego urządzenia ({{ip}}).",
+            "ping": "Ping",
+            "traceroute": "Traceroute",
+            "portscan": "Skan portów",
+            "portsHint": "porty, np. 80,443,8000-8100 (puste = typowe)",
+            "running": "trwa…",
+            "empty": "Wybierz narzędzie - wynik pojawia się tutaj na bieżąco."
+        },
+        "class": {
+            "gateway": "Brama (router WAN)",
+            "router": "Router",
+            "switch": "Switch",
+            "ap": "Punkt dostępowy",
+            "apple": "Apple",
+            "raspberry": "Raspberry Pi",
+            "vm": "Maszyna wirtualna"
+        },
         "role": {
             "serverWin": "Serwer Windows",
             "workstationWin": "Stacja Windows",
@@ -1682,6 +1700,7 @@
             "services": "Usługi sieciowe",
             "lifecycle": "Cykl życia",
             "peripherals": "Monitory i drukarki",
+            "tools": "Narzędzia",
             "supplies": "Materiały eksploatacyjne"
         },
         "noHardware": "Brak danych o sprzęcie. Zbiera je skan poświadczony tego urządzenia.",

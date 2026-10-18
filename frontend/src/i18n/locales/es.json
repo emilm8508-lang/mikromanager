@@ -1468,6 +1468,24 @@
             "server": "Servidores (hardware)",
             "other": "Otros"
         },
+        "tools": {
+            "hint": "El agente ejecuta los comandos desde el equipo en el que funciona, contra la dirección de este dispositivo ({{ip}}).",
+            "ping": "Ping",
+            "traceroute": "Traceroute",
+            "portscan": "Escaneo de puertos",
+            "portsHint": "puertos, p. ej. 80,443,8000-8100 (vacío = habituales)",
+            "running": "en curso…",
+            "empty": "Elija una herramienta: el resultado aparece aquí a medida que se produce."
+        },
+        "class": {
+            "gateway": "Puerta de enlace (router WAN)",
+            "router": "Router",
+            "switch": "Switch",
+            "ap": "Punto de acceso",
+            "apple": "Apple",
+            "raspberry": "Raspberry Pi",
+            "vm": "Máquina virtual"
+        },
         "role": {
             "serverWin": "Servidor Windows",
             "workstationWin": "Estación Windows",
@@ -1524,6 +1542,7 @@
             "services": "Servicios de red",
             "lifecycle": "Ciclo de vida",
             "peripherals": "Monitores e impresoras",
+            "tools": "Herramientas",
             "supplies": "Consumibles"
         },
         "noHardware": "Aún no hay datos de hardware. Un análisis con credenciales de este dispositivo los recoge.",

@@ -1070,6 +1070,7 @@ export interface AssetRow {
   mac: string | null
   type: AssetType
   role: 'server' | 'workstation' | null
+  dclass?: string | null            // gateway / router / switch / ap / apple / raspberry / vm
   manufacturer: string | null
   model: string | null
   serial: string | null
@@ -1173,6 +1174,8 @@ export const assetsApi = {
   update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
+  tool: (id: number, tool: 'ping' | 'traceroute' | 'portscan', ports?: string) => api.post<{ job: string }>(`/assets/${id}/tools`, { tool, ports }).then(r => r.data),
+  toolOutput: (job: string, since = 0) => api.get<{ kind: string; ip: string; lines: string[]; next: number; done: boolean }>(`/assets/tools/${job}`, { params: { since } }).then(r => r.data),
   bulkDelete: (ids: number[]) => api.post<{ deleted: number; managed: number }>('/assets/bulk', { ids, action: 'delete' }).then(r => r.data),
   bulkType: (ids: number[], asset_type: string) => api.post<{ changed: number }>('/assets/bulk', { ids, action: 'type', asset_type }).then(r => r.data),
 }
@@ -1271,7 +1274,7 @@ export const racksApi = {
 // ── Network map ───────────────────────────────────────────────────────────────
 
 export interface NetMap {
-  nodes: Array<{ id: number | string; name: string; type: AssetType | 'subnet' | 'internet'; role?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }>
+  nodes: Array<{ id: number | string; name: string; type: AssetType | 'subnet' | 'internet'; role?: string | null; cls?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }>
   edges: Array<{ a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm'; l: string }>
   subnets: Array<{ cidr: string; n: number }>
   at: string; partial: boolean; building?: boolean
@@ -1281,10 +1284,10 @@ export const netmapApi = {
   refresh: () => api.post<NetMap>('/netmap/refresh').then(r => r.data),
 }
 // what Central receives: nodes [id, name, type, ip, vulnerability, subnet, level], edges [a, b, kind, label]
-export interface CentralNetMap { n: Array<[number | string, string, NetMap['nodes'][number]['type'], string | null, number, string | null, number | null]>; e: Array<[number | string, number | string, NetMap['edges'][number]['k'], string]>; at: string }
+export interface CentralNetMap { n: Array<[number | string, string, NetMap['nodes'][number]['type'], string | null, number, string | null, number | null, (string | null)?]>; e: Array<[number | string, number | string, NetMap['edges'][number]['k'], string]>; at: string }
 export function netmapFromCentral(m: CentralNetMap): Pick<NetMap, 'nodes' | 'edges'> {
   return {
-    nodes: m.n.map(([id, name, type, ip, v, sub, lvl]) => ({ id, name, type, ip, v, sub, lvl })),
+    nodes: m.n.map(([id, name, type, ip, v, sub, lvl, cls]) => ({ id, name, type, ip, v, sub, lvl, cls })),
     edges: m.e.map(([a, b, k, l]) => ({ a, b, k, l })),
   }
 }

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 import asyncio
 
-from services import assets, asset_scan, lan_sweep
+from services import assets, asset_scan, lan_sweep, net_tools
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
@@ -78,6 +78,33 @@ async def scan_one(asset_id: int):
         return {"started": False, "running": True}
     asyncio.create_task(asset_scan.scan_asset(asset_id))
     return {"started": True}
+
+
+class ToolIn(BaseModel):
+    tool: str                       # ping | traceroute | portscan
+    ports: Optional[str] = None     # portscan only: "80,443,8000-8100" (the common ports when empty)
+
+
+@router.post("/{asset_id}/tools")
+async def run_tool(asset_id: int, body: ToolIn):
+    """Ping / traceroute / TCP port scan of this asset's address, started now; read the output with GET /tools/{job}."""
+    a = await assets.get_asset(asset_id)
+    if a is None:
+        raise HTTPException(404, "asset not found")
+    try:
+        return net_tools.start(body.tool, a.get("ip") or "", body.ports)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(429, str(e))
+
+
+@router.get("/tools/{job}")
+async def tool_output(job: str, since: int = 0):
+    r = net_tools.poll(job, since)
+    if r is None:
+        raise HTTPException(404, "no such job (it may have expired)")
+    return r
 
 
 @router.get("/{asset_id}")

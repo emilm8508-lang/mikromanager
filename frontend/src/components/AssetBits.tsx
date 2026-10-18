@@ -33,9 +33,12 @@ export function Pill({ children, tone = 'gray', icon, className }: { children: R
   return <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', tones[tone], className)}>{icon}{children}</span>
 }
 
-export function TypePill({ type, role }: { type: AssetType; role?: string | null }) {
+export function TypePill({ type, role, cls }: { type: AssetType; role?: string | null; cls?: string | null }) {
   const { t } = useTranslation()
-  const label = type === 'windows' || type === 'linux' ? t(`assets.role.${role === 'workstation' ? 'workstation' : 'server'}${type === 'windows' ? 'Win' : 'Linux'}`, { defaultValue: t(`assets.type.${type}`) }) : t(`assets.type.${type}`)
+  const base = type === 'windows' || type === 'linux' ? t(`assets.role.${role === 'workstation' ? 'workstation' : 'server'}${type === 'windows' ? 'Win' : 'Linux'}`, { defaultValue: t(`assets.type.${type}`) }) : t(`assets.type.${type}`)
+  // what it does on the network (switch, router, access point ...) replaces the bare "network device"; for the others it is added
+  const c = cls ? t(`assets.class.${cls}`, { defaultValue: '' }) as string : ''
+  const label = c ? (type === 'network' ? c : `${base} · ${c}`) : base
   return <Pill>{label as string}</Pill>
 }
 

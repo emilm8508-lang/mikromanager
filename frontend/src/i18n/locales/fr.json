@@ -1468,6 +1468,24 @@
             "server": "Serveurs (matériel)",
             "other": "Autres"
         },
+        "tools": {
+            "hint": "Les commandes sont exécutées par l'agent depuis l'ordinateur sur lequel il tourne, vers l'adresse de cet équipement ({{ip}}).",
+            "ping": "Ping",
+            "traceroute": "Traceroute",
+            "portscan": "Scan de ports",
+            "portsHint": "ports, p. ex. 80,443,8000-8100 (vide = courants)",
+            "running": "en cours…",
+            "empty": "Choisissez un outil - le résultat s'affiche ici au fur et à mesure."
+        },
+        "class": {
+            "gateway": "Passerelle (routeur WAN)",
+            "router": "Routeur",
+            "switch": "Switch",
+            "ap": "Point d'accès",
+            "apple": "Apple",
+            "raspberry": "Raspberry Pi",
+            "vm": "Machine virtuelle"
+        },
         "role": {
             "serverWin": "Serveur Windows",
             "workstationWin": "Poste Windows",
@@ -1524,6 +1542,7 @@
             "services": "Services réseau",
             "lifecycle": "Cycle de vie",
             "peripherals": "Écrans et imprimantes",
+            "tools": "Outils",
             "supplies": "Consommables"
         },
         "noHardware": "Pas encore de données matérielles. Une analyse authentifiée de cet appareil les collecte.",

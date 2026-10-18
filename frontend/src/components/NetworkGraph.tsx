@@ -12,7 +12,7 @@ import { cn } from '../lib/utils'
 // and Force Atlas; dashed boxes mark the subnets; hovering shows the device, a double click renames it (agent page only).
 
 export type MapNodeType = AssetType | 'subnet' | 'internet'
-export interface MapNode { id: number | string; name: string; type: MapNodeType; role?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }
+export interface MapNode { id: number | string; name: string; type: MapNodeType; role?: string | null; cls?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }
 export interface MapEdge { a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm'; l: string }
 
 const SEV_COLOR = ['', '#2a78d6', '#c58b00', '#eb6834', '#d1342f']
@@ -32,7 +32,7 @@ function tooltip(n: MapNode, kind: string, edges: string[]): HTMLElement {
   el.style.cssText = 'font:12px/1.4 system-ui;padding:6px 8px;max-width:260px'
   const row = (a: string, b?: string | null) => { if (!b) return; const d = document.createElement('div'); const s = document.createElement('b'); s.textContent = a + ' '; d.appendChild(s); d.appendChild(document.createTextNode(b)); el.appendChild(d) }
   const h = document.createElement('div'); h.style.fontWeight = '600'; h.textContent = n.name; el.appendChild(h)
-  row('', [kind, n.ip].filter(Boolean).join(' · '))
+  row('', [kind, n.cls, n.ip].filter(Boolean).join(' · '))
   row('', [n.mf, n.md].filter(Boolean).join(' '))
   if (n.sub && n.type !== 'subnet') row('Subnet:', n.sub)
   if (n.v) row('Vulnerabilities:', `${n.vn ?? ''} (max ${['', 'low', 'medium', 'high', 'critical'][n.v]})`)
@@ -91,8 +91,8 @@ export function NetworkGraph({ nodes, edges, assetHref, onRename, height = '70vh
         const sev = SEV_COLOR[n.v] || ''
         return {
           id: n.id, label: n.name.length > 22 ? n.name.slice(0, 21) + '…' : n.name, level: layout === 'hier' ? (n.lvl ?? 0) : undefined,
-          shape: n.type === 'internet' ? 'star' : n.type === 'subnet' ? 'ellipse' : infra || n.type === 'network' ? 'square' : n.type === 'server' ? 'diamond' : 'dot',
-          size: n.type === 'internet' ? 24 : n.type === 'network' ? 20 : n.type === 'subnet' ? 10 : 13,
+          shape: n.type === 'internet' ? 'star' : n.type === 'subnet' ? 'ellipse' : n.cls === 'gateway' ? 'hexagon' : n.cls === 'router' ? 'hexagon' : n.cls === 'ap' ? 'triangle' : infra || n.type === 'network' ? 'square' : n.type === 'server' || n.role === 'server' ? 'diamond' : 'dot',
+          size: n.type === 'internet' ? 24 : n.cls === 'gateway' ? 24 : n.type === 'network' ? 20 : n.type === 'subnet' ? 10 : 13,
           color: { background: nodeColor(n.type), border: sev || nodeColor(n.type), highlight: { background: nodeColor(n.type), border: '#111827' } },
           borderWidth: sev ? 4 : 1.5, font: { size: n.type === 'subnet' ? 10 : 12, color: '#1e293b', strokeWidth: 3, strokeColor: '#ffffff' },
           opacity: ok ? 1 : 0.12, title: tooltip(n, n.type === 'subnet' ? 'subnet' : n.type === 'internet' ? 'Internet' : (t(`assets.type.${n.type}`) as string), edgeText.get(String(n.id)) ?? []),

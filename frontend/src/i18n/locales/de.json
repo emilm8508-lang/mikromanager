@@ -1468,6 +1468,24 @@
             "server": "Server (Hardware)",
             "other": "Sonstige"
         },
+        "tools": {
+            "hint": "Die Befehle führt der Agent von seinem Rechner aus gegen die Adresse dieses Geräts ({{ip}}) aus.",
+            "ping": "Ping",
+            "traceroute": "Traceroute",
+            "portscan": "Portscan",
+            "portsHint": "Ports, z. B. 80,443,8000-8100 (leer = übliche)",
+            "running": "läuft…",
+            "empty": "Werkzeug wählen - die Ausgabe erscheint hier laufend."
+        },
+        "class": {
+            "gateway": "Gateway (WAN-Router)",
+            "router": "Router",
+            "switch": "Switch",
+            "ap": "Access Point",
+            "apple": "Apple",
+            "raspberry": "Raspberry Pi",
+            "vm": "Virtuelle Maschine"
+        },
         "role": {
             "serverWin": "Windows-Server",
             "workstationWin": "Windows-Arbeitsplatz",
@@ -1524,6 +1542,7 @@
             "services": "Netzwerkdienste",
             "lifecycle": "Lebenszyklus",
             "peripherals": "Monitore & Drucker",
+            "tools": "Werkzeuge",
             "supplies": "Verbrauchsmaterial"
         },
         "noHardware": "Noch keine Hardwaredaten. Ein Scan dieses Geräts mit Zugangsdaten sammelt sie.",

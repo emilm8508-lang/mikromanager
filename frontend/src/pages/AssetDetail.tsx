@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -12,11 +12,12 @@ import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
 
-type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions'
+type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions' | 'tools'
 
 function tabsFor(a: Detail): TabKey[] {
   const tabs = baseTabs(a)
-  return hasActions(a) ? [...tabs, 'actions'] : tabs
+  const withTools = a.ip && a.type !== 'monitor' ? [...tabs, 'tools' as TabKey] : tabs
+  return hasActions(a) ? [...withTools, 'actions'] : withTools
 }
 
 function baseTabs(a: Detail): TabKey[] {
@@ -357,6 +358,51 @@ function Peripherals({ a }: { a: Detail }) {
   )
 }
 
+// ping / traceroute / port scan of this device, run by the agent, the output arriving as it is produced
+function NetTools({ a }: { a: Detail }) {
+  const { t } = useTranslation()
+  const [job, setJob] = useState<{ id: string; tool: string } | null>(null)
+  const [lines, setLines] = useState<string[]>([])
+  const [done, setDone] = useState(true)
+  const [ports, setPorts] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  useEffect(() => {
+    if (!job) return
+    let live = true, since = 0
+    const tick = async () => {
+      try {
+        const r = await assetsApi.toolOutput(job.id, since)
+        if (!live) return
+        since = r.next
+        if (r.lines.length) setLines(l => [...l, ...r.lines])
+        if (r.done) { setDone(true); return }
+      } catch { if (live) { setDone(true); return } }
+      if (live) setTimeout(tick, 900)
+    }
+    void tick()
+    return () => { live = false }
+  }, [job])
+  const run = async (tool: 'ping' | 'traceroute' | 'portscan') => {
+    setErr(null); setLines([]); setDone(false)
+    try { const r = await assetsApi.tool(a.id, tool, tool === 'portscan' ? ports : undefined); setJob({ id: r.job, tool }) }
+    catch (e: any) { setDone(true); setErr(e?.response?.data?.detail ?? e?.message ?? String(e)) }
+  }
+  return (
+    <Section title={t('assets.tab.tools') as string}>
+      <p className="text-xs text-slate-500 mb-3">{t('assets.tools.hint', { ip: a.ip })}</p>
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <Button size="sm" variant="secondary" disabled={!done} onClick={() => run('ping')}>{t('assets.tools.ping')}</Button>
+        <Button size="sm" variant="secondary" disabled={!done} onClick={() => run('traceroute')}>{t('assets.tools.traceroute')}</Button>
+        <Button size="sm" variant="secondary" disabled={!done} onClick={() => run('portscan')}>{t('assets.tools.portscan')}</Button>
+        <input value={ports} onChange={e => setPorts(e.target.value)} placeholder={t('assets.tools.portsHint') as string} className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm w-60" />
+        {!done && <span className="text-xs text-slate-500 inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> {t('assets.tools.running')}</span>}
+      </div>
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-3 min-h-[8rem] max-h-[26rem] overflow-auto whitespace-pre-wrap">{lines.length ? lines.join('\n') : t('assets.tools.empty')}</pre>
+    </Section>
+  )
+}
+
 function Supplies({ a }: { a: Detail }) {
   const { t } = useTranslation()
   const p = a.hardware.printer as Record<string, any> | undefined
@@ -431,7 +477,7 @@ export function AssetDetail() {
               <p className="text-xs text-slate-600 font-mono truncate">{[a.ip, a.mac].filter(Boolean).join(' • ') || '—'}</p></div>
           </div>
           <dl className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            {fact(t('assets.assetType') as string, <TypePill type={a.type} role={a.role} />)}
+            {fact(t('assets.assetType') as string, <TypePill type={a.type} role={a.role} cls={a.dclass} />)}
             {fact(t('assets.manufacturer') as string, a.manufacturer)}
             {fact(t('assets.osVersion') as string, [a.os_name, a.os_version && !/^\s*10\.0/.test(a.os_version) ? a.os_version : null].filter(Boolean).join(' ') || null)}
             {fact(t('assets.model') as string, a.model)}
@@ -461,6 +507,7 @@ export function AssetDetail() {
           {active === 'vulns' && <RiskInsights a={a} />}
           {active === 'services' && <Services a={a} />}
           {active === 'peripherals' && <Peripherals a={a} />}
+          {active === 'tools' && <NetTools a={a} />}
           {active === 'supplies' && <Supplies a={a} />}
           {active === 'actions' && <AssetActions a={a} />}
         </div>

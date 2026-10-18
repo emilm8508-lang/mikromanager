@@ -144,6 +144,48 @@ def filter_answers(ports: Dict[str, List[int]], arp: Dict[str, str]) -> Dict[str
     return ports
 
 
+_PING_TTL = re.compile(r"ttl[=:]\s*(\d+)", re.I)
+
+
+async def _ttl_of(ip: str, sem: asyncio.Semaphore) -> Optional[int]:
+    """The TTL of one echo reply (64 / 128 / 255 minus the hops): the operating-system family it points to. None when it does not answer ping."""
+    cmd = ["ping", "-n", "1", "-w", "800", ip] if sys.platform == "win32" else ["ping", "-c", "1", "-W", "1", ip]
+    async with sem:
+        try:
+            p = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            data, _ = await asyncio.wait_for(p.communicate(), timeout=4)
+        except Exception:
+            return None
+    m = _PING_TTL.search(data.decode("utf-8", errors="ignore"))
+    return int(m.group(1)) if m else None
+
+
+async def enrich(entries: List[dict]) -> None:
+    """Adds what mDNS and ping tell about the hosts found: a name when nothing else gave one, the DNS-SD services (Apple devices, printers),
+    the TTL of a reply. In place; a failure of either leaves the entries as they were."""
+    loop = asyncio.get_event_loop()
+    try:
+        from services import mdns
+        found = await loop.run_in_executor(None, mdns.browse, 3.0)
+    except Exception as e:
+        print(f"[lan_sweep] mDNS browse failed: {e}")
+        found = {}
+    for e in entries:
+        m = found.get(e["ip"])
+        if m:
+            e["name"] = e.get("name") or m["name"]
+            e["mdns"] = m["services"][:8]
+            if m["apple"]:
+                e["apple"] = True
+            if m["printer"] and not e.get("hint"):
+                e["hint"] = "printer"
+    sem = asyncio.Semaphore(16)
+    ttls = await asyncio.gather(*(_ttl_of(e["ip"], sem) for e in entries), return_exceptions=True)
+    for e, t in zip(entries, ttls):
+        if isinstance(t, int):
+            e["ttl"] = t
+
+
 async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     """{"cidr", "label", "probed", "alive", "entries": [...]} or {"cidr", "skipped": reason}."""
     try:
@@ -247,6 +289,7 @@ async def sweep_all() -> dict:
                 results.append({"cidr": "routers' DHCP/ARP tables", "label": None, "probed": min(len(known), MAX_KNOWN_PROBES), "alive": len(extra)})
         except Exception as e:
             print(f"[lan_sweep] probing the routers' hosts failed: {e}")
+        await enrich(entries)
         _state.update(entries=entries, ranges=results, at=time.time())
         return {"ranges": results, "alive": len(entries)}
     finally:

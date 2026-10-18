@@ -78,7 +78,7 @@ def _asset_nodes(db, vulns: Dict[str, List[dict]]) -> Dict[int, dict]:
         refs = _jload(a.refs, {})
         worst, n = _vuln_marks(vulns.get(a.ip or "", []))
         nodes[a.id] = {"id": a.id, "name": a.name or a.ip or a.key, "type": a.asset_type, "role": a.role, "ip": a.ip, "mf": a.manufacturer, "md": a.model,
-                       "v": worst, "vn": n, "sub": None, "lvl": None, "_refs": refs, "_mac": racks._norm_mac(a.mac),
+                       "v": worst, "vn": n, "sub": None, "lvl": None, "cls": _jload(a.details, {}).get("_class"), "_refs": refs, "_mac": racks._norm_mac(a.mac),
                        "_macs": {m for m in [racks._norm_mac(a.mac)] + [racks._norm_mac(x.get("mac")) for x in (_jload(a.details, {}).get("network_adapters") or [])] if m},
                        "_host": (_jload(a.details, {}).get("host") or None) if a.asset_type == "virtual" else None}
     return nodes
@@ -316,5 +316,5 @@ def public_summary(data: Optional[dict] = None) -> Optional[dict]:
     d = data or _cache["data"]
     if not d:
         return None
-    return {"n": [[n["id"], n["name"], n["type"], n.get("ip"), n.get("v", 0), n.get("sub"), n.get("lvl")] for n in d["nodes"]],
+    return {"n": [[n["id"], n["name"], n["type"], n.get("ip"), n.get("v", 0), n.get("sub"), n.get("lvl"), n.get("cls")] for n in d["nodes"]],
             "e": [[e["a"], e["b"], e["k"], e.get("l") or ""] for e in d["edges"]], "at": d["at"]}

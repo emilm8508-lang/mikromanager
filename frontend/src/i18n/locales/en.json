@@ -1468,6 +1468,24 @@
             "server": "Servers (hardware)",
             "other": "Other"
         },
+        "tools": {
+            "hint": "The commands are run by the agent from the computer it runs on, against this device's address ({{ip}}).",
+            "ping": "Ping",
+            "traceroute": "Traceroute",
+            "portscan": "Port scan",
+            "portsHint": "ports, e.g. 80,443,8000-8100 (empty = common ones)",
+            "running": "running…",
+            "empty": "Pick a tool - the output appears here as it is produced."
+        },
+        "class": {
+            "gateway": "Gateway (WAN router)",
+            "router": "Router",
+            "switch": "Switch",
+            "ap": "Access point",
+            "apple": "Apple",
+            "raspberry": "Raspberry Pi",
+            "vm": "Virtual machine"
+        },
         "role": {
             "serverWin": "Windows server",
             "workstationWin": "Windows workstation",
@@ -1524,6 +1542,7 @@
             "services": "Network services",
             "lifecycle": "Lifecycle",
             "peripherals": "Monitors & printers",
+            "tools": "Tools",
             "supplies": "Supplies"
         },
         "noHardware": "No hardware data yet. A credentialed scan of this device collects it.",
