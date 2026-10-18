@@ -26,6 +26,7 @@ from models.database import SessionLocal, Asset, Device, DeviceLink
 from services import racks
 
 TTL = 300.0
+MAX_ACCESS_MACS = 48                    # a port with more MACs than this is not taken for an access port
 STALE_DAYS = 7
 _SEV = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 _cache: dict = {"at": 0.0, "data": None}
@@ -115,7 +116,7 @@ def _subnet_of(ip: Optional[str], known: List[ipaddress.IPv4Network]) -> Optiona
 
 
 def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: Optional[set] = None, nets_by_node: Optional[Dict[int, list]] = None,
-            wan: Optional[dict] = None) -> dict:
+            wan: Optional[dict] = None, adjacent: Optional[Dict[int, set]] = None) -> dict:
     """Subnets, the hubs for what has no port, the levels. Pure: works on the nodes / edges it is given."""
     routers = routers or set()
     nets_by_node = nets_by_node or {}
@@ -125,10 +126,11 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
 
     # who has a parent already (one edge into a client / infrastructure device); the rest are placed by subnet
     attached = {e["b"] for e in edges if e["k"] in ("client", "uplink", "vm")} | {e["a"] for e in edges if e["k"] in ("backbone",)} | {e["b"] for e in edges if e["k"] == "backbone"}
-    router_of_subnet: Dict[str, int] = {}
+    adjacent = adjacent or {}
+    claimants: Dict[str, set] = {}                       # subnet -> the routers that have an interface in it
     for rid in routers:
         for net in nets_by_node.get(rid, []):
-            router_of_subnet.setdefault(str(net), rid)
+            claimants.setdefault(str(net), set()).add(rid)
     hubs: Dict[str, dict] = {}
     for i, n in list(nodes.items()):
         if i in attached or i in routers:
@@ -138,9 +140,22 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
         sub = n["sub"]
         if not sub:
             continue
-        rid = router_of_subnet.get(sub)
+        # Which router is it under? A subnet alone is not evidence - two sites often use the same numbering (192.168.1.0/24 at both ends of a
+        # tunnel) and a router's interface in "its" 192.168.1.0/24 says nothing about a host of the other site. The evidence is that the router's own
+        # DHCP leases / ARP table list the host (it is on that router's segment); only when there is a single router at all is the subnet enough.
+        rid, how = None, ""
+        seen_by = {r for r in adjacent.get(i, set()) if r in routers and r != i}
+        if len(seen_by) > 1:
+            both = [r for r in seen_by if r in claimants.get(sub, set())]
+            seen_by = set(both) if both else seen_by
+        if len(seen_by) == 1:
+            rid, how = next(iter(seen_by)), "ARP/DHCP"
+        elif len(routers) == 1:
+            only = next(iter(routers))
+            if only in claimants.get(sub, set()) and only != i:
+                rid, how = only, "subnet"
         if rid is not None and rid != i:
-            edges.append({"a": rid, "b": i, "k": "l3", "l": sub})
+            edges.append({"a": rid, "b": i, "k": "l3", "l": f"{how} · {sub}"})
         else:
             hub = hubs.setdefault(sub, {"id": f"sub:{sub}", "name": sub, "type": "subnet", "role": None, "ip": None, "mf": None, "md": None, "v": 0, "vn": 0, "sub": sub, "lvl": None})
             edges.append({"a": hub["id"], "b": i, "k": "l3", "l": ""})
@@ -264,6 +279,8 @@ async def _full() -> dict:
         if not cands:
             continue
         _cnt, sw, port, vlan = min(cands)
+        if _cnt > MAX_ACCESS_MACS:
+            continue                                  # that many MACs behind a port is a trunk / a tunnel / another site, not where this host is plugged in
         edges.append({"a": sw, "b": i, "k": "uplink" if i in infra else "client", "l": f"{port}" + (f" · VLAN {vlan}" if vlan else "")})
     # virtual machines under their Hyper-V host
     by_name = {n["name"].casefold(): i for i, n in nodes.items() if n["type"] in ("windows", "server") and n["name"]}
@@ -286,7 +303,22 @@ async def _full() -> dict:
                 routers.add(aid)
     except Exception:
         pass
-    return _finish(nodes, edges, partial=False, routers=routers, nets_by_node=nets_by_node, wan=wan)
+    # which router's DHCP leases / ARP table lists which asset: the evidence that a host is on that router's segment
+    adjacent: Dict[int, set] = {}
+    try:
+        by_ip = {n["ip"]: i for i, n in nodes.items() if n["ip"]}
+        by_name = {n["name"].casefold(): i for i, n in nodes.items() if n["name"] and n["_refs"].get("device_id")}
+        for e in directory:
+            i = by_ip.get(e.get("ip"))
+            if i is None:
+                continue
+            for dn in e.get("devices") or []:
+                r = by_name.get(str(dn).casefold())
+                if r is not None:
+                    adjacent.setdefault(i, set()).add(r)
+    except Exception:
+        pass
+    return _finish(nodes, edges, partial=False, routers=routers, nets_by_node=nets_by_node, wan=wan, adjacent=adjacent)
 
 
 async def _refresh() -> None:
