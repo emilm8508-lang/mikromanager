@@ -1508,6 +1508,8 @@
             "running": "en cours…",
             "empty": "Choisissez un outil - le résultat s'affiche ici au fur et à mesure."
         },
+        "via": "Passerelle (traceroute)",
+        "hops": "{{count}} sauts",
         "hintsBadge": "Équipement embarqué : un mot de passe d'usine est possible (détails sur la fiche)",
         "hintsTitle": "Attention : mot de passe d'usine possible",
         "hintsAdvice": "Ces équipements sont souvent livrés avec un identifiant et un mot de passe par défaut, et certains le restent. MikroManager n'essaie rien ici (ce serait une attaque contre l'équipement) : ce n'est qu'une piste : ouvrez le panneau de l'équipement, vérifiez à la main et définissez votre propre mot de passe ; désactivez les services inutiles.",

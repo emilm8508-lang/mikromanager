@@ -79,7 +79,7 @@ def _asset_nodes(db, vulns: Dict[str, List[dict]]) -> Dict[int, dict]:
         refs = _jload(a.refs, {})
         worst, n = _vuln_marks(vulns.get(a.ip or "", []))
         nodes[a.id] = {"id": a.id, "name": a.name or a.ip or a.key, "type": a.asset_type, "role": a.role, "ip": a.ip, "mf": a.manufacturer, "md": a.model,
-                       "v": worst, "vn": n, "sub": None, "lvl": None, "cls": _jload(a.details, {}).get("_class"), "_refs": refs, "_mac": racks._norm_mac(a.mac),
+                       "v": worst, "vn": n, "sub": None, "lvl": None, "cls": _jload(a.details, {}).get("_class"), "_via": _jload(a.details, {}).get("_via"), "_refs": refs, "_mac": racks._norm_mac(a.mac),
                        "_macs": {m for m in [racks._norm_mac(a.mac)] + [racks._norm_mac(x.get("mac")) for x in (_jload(a.details, {}).get("network_adapters") or [])] if m},
                        "_host": (_jload(a.details, {}).get("host") or None) if a.asset_type == "virtual" else None}
     return nodes
@@ -116,7 +116,7 @@ def _subnet_of(ip: Optional[str], known: List[ipaddress.IPv4Network]) -> Optiona
 
 
 def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: Optional[set] = None, nets_by_node: Optional[Dict[int, list]] = None,
-            wan: Optional[dict] = None, adjacent: Optional[Dict[int, set]] = None) -> dict:
+            wan: Optional[dict] = None, adjacent: Optional[Dict[int, set]] = None, routed: Optional[Dict[int, int]] = None) -> dict:
     """Subnets, the hubs for what has no port, the levels. Pure: works on the nodes / edges it is given."""
     routers = routers or set()
     nets_by_node = nets_by_node or {}
@@ -127,6 +127,7 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
     # who has a parent already (one edge into a client / infrastructure device); the rest are placed by subnet
     attached = {e["b"] for e in edges if e["k"] in ("client", "uplink", "vm")} | {e["a"] for e in edges if e["k"] in ("backbone",)} | {e["b"] for e in edges if e["k"] == "backbone"}
     adjacent = adjacent or {}
+    routed = routed or {}
     claimants: Dict[str, set] = {}                       # subnet -> the routers that have an interface in it
     for rid in routers:
         for net in nets_by_node.get(rid, []):
@@ -150,6 +151,8 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
             seen_by = set(both) if both else seen_by
         if len(seen_by) == 1:
             rid, how = next(iter(seen_by)), "ARP/DHCP"
+        elif i in routed and routed[i] != i:
+            rid, how = routed[i], "traceroute"                    # the last router on the path to it is its gateway
         elif len(routers) == 1:
             only = next(iter(routers))
             if only in claimants.get(sub, set()) and only != i:
@@ -318,7 +321,18 @@ async def _full() -> dict:
                     adjacent.setdefault(i, set()).add(r)
     except Exception:
         pass
-    return _finish(nodes, edges, partial=False, routers=routers, nets_by_node=nets_by_node, wan=wan, adjacent=adjacent)
+    # the last hop of a traceroute is a router's own address: an asset with that address, or an interface address of a router we read
+    owner = {n["ip"]: i for i, n in nodes.items() if n["ip"]}
+    for rid, nets in {i: snaps[i].get("addresses") for i in infra if snaps.get(i) and "ifaces" in snaps[i]}.items():
+        for a in nets or []:
+            try:
+                owner.setdefault(str(ipaddress.ip_interface(str(a.get("address") if isinstance(a, dict) else a)).ip), rid)
+            except ValueError:
+                pass
+    routed = {i: owner[n["_via"]] for i, n in nodes.items() if n.get("_via") in owner and owner[n["_via"]] != i}
+    for r in routed.values():
+        routers.add(r)
+    return _finish(nodes, edges, partial=False, routers=routers, nets_by_node=nets_by_node, wan=wan, adjacent=adjacent, routed=routed)
 
 
 async def _refresh() -> None:

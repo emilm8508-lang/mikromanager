@@ -186,6 +186,27 @@ async def enrich(entries: List[dict]) -> None:
             e["ttl"] = t
 
 
+async def _routes(entries: List[dict], max_traces: int = 20) -> None:
+    """Traceroute, one per /24 of the entries (not per host): the last router before the hosts is their gateway - `via` - and the number of
+    hops, written on the entries. For hosts that are not on the agent's own segment; a host that is the first hop (on-link) gets no `via`."""
+    from services import traceroute
+    groups: Dict[str, List[dict]] = {}
+    for e in entries:
+        groups.setdefault(".".join(e["ip"].split(".")[:3]), []).append(e)
+    sem = asyncio.Semaphore(3)
+
+    async def one(es: List[dict]):
+        async with sem:
+            r = await traceroute.trace(es[0]["ip"])
+        if r.get("hops"):
+            for e in es:
+                if r["via"]:
+                    e["via"] = r["via"]
+                e["hops"] = len(r["hops"])
+
+    await asyncio.gather(*(one(es) for es in list(groups.values())[:max_traces]), return_exceptions=True)
+
+
 async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     """{"cidr", "label", "probed", "alive", "entries": [...]} or {"cidr", "skipped": reason}."""
     try:
@@ -206,6 +227,14 @@ async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
     await asyncio.gather(*(probe(ip, p) for ip in ips for p in PROBE_PORTS))
     in_range = set(ips)
     arp = {ip: mac for ip, mac in (await _neighbours()).items() if ip in in_range}
+    from services import arp_scan
+    link = arp_scan.on_link(net)
+    asked = 0
+    if link:
+        # a real ARP request to every address: a host answers it whatever its firewall drops, and its MAC comes with the answer
+        answered = await arp_scan.scan(ips)
+        asked = len(answered)
+        arp.update(answered)
     ports = filter_answers(ports, arp)
     alive = sorted(set(ports) | set(arp), key=lambda i: [int(x) for x in i.split(".")])
 
@@ -224,7 +253,9 @@ async def sweep_range(cidr: str, label: Optional[str] = None) -> dict:
         p = sorted(ports.get(ip, []))
         entries.append({"name": nb or dns, "ip": ip, "mac": arp.get(ip), "sources": ["sweep"], "devices": [], "comment": None, "ports": p,
                         "hint": "windows" if (nb or set(p) & _WINDOWS_PORTS) else None})
-    return {"cidr": cidr, "label": label, "probed": len(ips), "alive": len(entries), "entries": entries}
+    if not link and entries:
+        await _routes(entries, max_traces=4)                     # a routed range: the path says which router it is behind
+    return {"cidr": cidr, "label": label, "probed": len(ips), "alive": len(entries), "entries": entries, "arp": asked, "on_link": link}
 
 
 async def probe_known(ips: List[str]) -> List[dict]:
@@ -258,6 +289,8 @@ async def probe_known(ips: List[str]) -> List[dict]:
         if p or nb or dns:
             entries.append({"name": nb or dns, "ip": ip, "mac": None, "sources": ["sweep"], "devices": [], "comment": None, "ports": p,
                             "hint": "windows" if (nb or set(p) & _WINDOWS_PORTS) else None})
+    if entries:
+        await _routes(entries)
     return entries
 
 

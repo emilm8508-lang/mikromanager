@@ -1508,6 +1508,8 @@
             "running": "running…",
             "empty": "Pick a tool - the output appears here as it is produced."
         },
+        "via": "Gateway (traceroute)",
+        "hops": "{{count}} hops",
         "hintsBadge": "Embedded device - a factory password is possible (details on the card)",
         "hintsTitle": "Note: a factory password is possible",
         "hintsAdvice": "Such devices are often shipped with a default login and password, and some stay that way. MikroManager tries nothing here (that would be an attack on the device) - this is only a hint: open the device's panel, check by hand and set your own password; switch off services you do not need.",

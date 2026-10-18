@@ -1508,6 +1508,8 @@
             "running": "en curso…",
             "empty": "Elija una herramienta: el resultado aparece aquí a medida que se produce."
         },
+        "via": "Puerta de enlace (traceroute)",
+        "hops": "{{count}} saltos",
         "hintsBadge": "Dispositivo embebido: es posible una contraseña de fábrica (detalles en la ficha)",
         "hintsTitle": "Atención: posible contraseña de fábrica",
         "hintsAdvice": "Estos dispositivos suelen venir con usuario y contraseña por defecto, y algunos se quedan así. MikroManager no prueba nada aquí (sería un ataque al dispositivo): es solo una pista: abra el panel del dispositivo, compruébelo a mano y ponga su propia contraseña; desactive los servicios que no necesite.",

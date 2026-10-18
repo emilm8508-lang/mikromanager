@@ -164,7 +164,7 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         if not e.get("ip"):
             continue
         r = rec(e["ip"])
-        r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"))
+        r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"), via=e.get("via"), hops=e.get("hops"))
     ports_by_ip: Dict[str, set] = {}
     text_by_ip: Dict[str, str] = {}
     stale_scan = now - timedelta(days=VULN_HOST_MAX_AGE_DAYS)
@@ -415,7 +415,7 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
-            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl") or r.get("hints") is not None:
+            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl") or r.get("hints") is not None or r.get("via"):
                 d = _jload(a.details, {})
                 if r.get("host_name"):
                     d["host"] = r["host_name"]
@@ -426,6 +426,8 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                     d.pop("_class")                              # what said so no longer does
                 if r.get("ttl"):
                     d["_ttl"] = int(r["ttl"])
+                if r.get("via"):
+                    d["_via"], d["_hops"] = r["via"], r.get("hops")        # the gateway of a host in a routed range (traceroute)
                 if r.get("hints"):
                     d["_hints"] = r["hints"]
                 else:
@@ -576,7 +578,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
-        "location": a.location_override or locate(a.ip), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [],
+        "location": a.location_override or locate(a.ip), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [], "via": _jload(a.details, {}).get("_via"), "hops": _jload(a.details, {}).get("_hops"),
         "lifecycle": lc["status"], "lifecycle_product": lc["product"], "eol": lc["eol"],
         "vulns": _vuln_counts(fnd), "risk": round(_risk(fnd), 1),
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),

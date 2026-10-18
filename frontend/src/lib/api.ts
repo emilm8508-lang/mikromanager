@@ -1072,6 +1072,8 @@ export interface AssetRow {
   role: 'server' | 'workstation' | null
   dclass?: string | null            // gateway / router / switch / ap / apple / raspberry / vm
   hints?: string[]                  // embedded device kinds often left on a factory password (ilo, printer, camera ...)
+  via?: string | null               // the gateway of a host in a routed range (the last hop of a traceroute)
+  hops?: number | null
   manufacturer: string | null
   model: string | null
   serial: string | null

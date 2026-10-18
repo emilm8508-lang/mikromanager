@@ -486,6 +486,7 @@ export function AssetDetail() {
           <dl className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             {fact(t('assets.assetType') as string, <TypePill type={a.type} role={a.role} cls={a.dclass} />)}
             {fact(t('assets.manufacturer') as string, a.manufacturer)}
+            {a.via && fact(t('assets.via') as string, `${a.via}${a.hops ? ` (${t('assets.hops', { count: a.hops })})` : ''}`)}
             {fact(t('assets.osVersion') as string, [a.os_name, a.os_version && !/^\s*10\.0/.test(a.os_version) ? a.os_version : null].filter(Boolean).join(' ') || null)}
             {fact(t('assets.model') as string, a.model)}
             {fact(t('assets.serial') as string, a.serial)}

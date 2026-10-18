@@ -1666,6 +1666,8 @@
             "running": "trwa…",
             "empty": "Wybierz narzędzie - wynik pojawia się tutaj na bieżąco."
         },
+        "via": "Brama (traceroute)",
+        "hops": "{{count}} przeskoków",
         "hintsBadge": "Urządzenie wbudowane - możliwe fabryczne hasło (szczegóły na karcie)",
         "hintsTitle": "Uwaga: możliwe fabryczne hasło",
         "hintsAdvice": "Takie urządzenia są często dostarczane z domyślnym loginem i hasłem, a część zostaje tak skonfigurowana. MikroManager niczego tu nie próbuje (to byłby atak na urządzenie) - to tylko wskazówka: otwórz panel urządzenia, sprawdź ręcznie i ustaw własne hasło; jeśli się da, wyłącz niepotrzebne usługi.",

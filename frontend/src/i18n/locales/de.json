@@ -1508,6 +1508,8 @@
             "running": "läuft…",
             "empty": "Werkzeug wählen - die Ausgabe erscheint hier laufend."
         },
+        "via": "Gateway (Traceroute)",
+        "hops": "{{count}} Hops",
         "hintsBadge": "Eingebettetes Gerät - ein Werkspasswort ist möglich (Details auf der Karte)",
         "hintsTitle": "Hinweis: Werkspasswort möglich",
         "hintsAdvice": "Solche Geräte werden oft mit Standard-Login und -Passwort ausgeliefert, und einige bleiben so. MikroManager probiert hier nichts aus (das wäre ein Angriff auf das Gerät) - es ist nur ein Hinweis: Oberfläche des Geräts öffnen, von Hand prüfen und ein eigenes Passwort setzen; nicht benötigte Dienste abschalten.",
