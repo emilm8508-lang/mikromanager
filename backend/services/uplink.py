@@ -53,6 +53,7 @@ _state = {
     "buffered_count": 0,
     "total_sent": 0,
     "total_failed": 0,
+    "last_status": None,         # HTTP status of the last attempt that got an answer (413 = the report was too large)
     "building_since": None,      # a report is being put together (the sections are awaited one by one) - set while it lasts
     "last_build_sec": None,      # how long the last report took to build
 }
@@ -602,10 +603,56 @@ async def _build_snapshot() -> dict:
     }
 
 
+# Sections that Central reads only from the plaintext metadata of the envelope (never from the decrypted snapshot). With end-to-end
+# encryption they used to travel twice - once in the metadata and once, base64-encoded (x 1.33), inside the ciphertext: a few hundred KB of
+# racks made a big client's report cross the relay's 2 MB limit (HTTP 413 "payload too large", every report refused).
+_META_ONLY = ("racks_status", "assets_status")
+MAX_BODY_BYTES = int(os.environ.get("MIKROTIK_UPLINK_MAX_BYTES", str(1_900_000)))      # the relay refuses more than 2 MB
+# What may be cut down, in this order (least important first), when a report is still too big: the lists inside are halved, then dropped.
+_TRIM_ORDER = ("racks_status", "assets_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
+
+
+def _halve(v):
+    """A smaller copy of a section: lists are cut to half their length, dicts are cut inside."""
+    if isinstance(v, list):
+        return v[:len(v) // 2]
+    if isinstance(v, dict):
+        return {k: _halve(x) if isinstance(x, (list, dict)) else x for k, x in v.items()}
+    return v
+
+
+def _fit(snapshot: dict) -> dict:
+    """The snapshot cut down until its request body fits MAX_BODY_BYTES (unchanged when it already does)."""
+    body, _h = _build_request_body_raw(snapshot)
+    if len(body) <= MAX_BODY_BYTES:
+        return snapshot
+    snap = dict(snapshot)
+    trimmed = []
+    for key in _TRIM_ORDER:
+        for _ in range(4):
+            if len(body) <= MAX_BODY_BYTES:
+                break
+            if snap.get(key) in (None, [], {}):
+                break
+            snap[key] = _halve(snap[key])
+            trimmed.append(key)
+            body, _h = _build_request_body_raw(snap)
+        if len(body) <= MAX_BODY_BYTES:
+            break
+    print(f"[uplink] report was {len(_build_request_body_raw(snapshot)[0]) // 1024} KB, over the {MAX_BODY_BYTES // 1024} KB the relay accepts: "
+          f"cut down to {len(body) // 1024} KB ({', '.join(dict.fromkeys(trimmed)) or 'nothing left to cut'})")
+    return snap
+
+
 def _build_request_body(snapshot: dict) -> tuple:
+    return _build_request_body_raw(_fit(snapshot))
+
+
+def _build_request_body_raw(snapshot: dict) -> tuple:
     """Build the request body (encrypted if enc_key configured) and HMAC headers.
     Returns (body_bytes, headers_dict)."""
-    plaintext = json.dumps(snapshot, separators=(",", ":")).encode("utf-8")
+    inner = {k: v for k, v in snapshot.items() if k not in _META_ONLY} if _config["enc_key"] else snapshot
+    plaintext = json.dumps(inner, separators=(",", ":")).encode("utf-8")
 
     if _config["enc_key"]:
         # E2E encryption: AES-256-GCM with random 12-byte nonce.
@@ -687,6 +734,7 @@ async def _send_one(snapshot: dict) -> bool:
     body, headers = _build_request_body(snapshot)
     timeout = aiohttp.ClientTimeout(total=20)
     _state["last_attempt"] = datetime.utcnow().isoformat()
+    _state["last_status"] = None
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(_config["url"], data=body, headers=headers) as resp:
@@ -707,6 +755,7 @@ async def _send_one(snapshot: dict) -> bool:
                     return True
                 resp_body = await resp.text()
                 _state["last_error"] = f"HTTP {resp.status}: {resp_body[:200]}"
+                _state["last_status"] = resp.status
                 _state["total_failed"] += 1
                 return False
     except asyncio.TimeoutError:
@@ -1211,6 +1260,9 @@ async def _loop():
                 head = _buffer[0]
                 if await _send_one(head):
                     _buffer.pop(0)
+                elif _state.get("last_status") == 413:
+                    _buffer.pop(0)           # too big for the relay: sending the same report again can never work - drop it, try the next
+                    print("[uplink] dropped a report the relay refused as too large")
                 else:
                     break  # keep buffered, retry next cycle
 

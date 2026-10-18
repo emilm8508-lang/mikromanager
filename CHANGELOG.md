@@ -2,6 +2,9 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 2.90 — 2026-10-18
+- Reports refused with "HTTP 413 payload too large". The relay accepts at most 2 MB per report, and a big client's report (sanmed, ~1.8 MB) crossed it once the racks were added - every report was refused (17 sent, 93 failed, 50 buffered). Three changes: (1) the two sections Central reads only from the envelope's plaintext metadata - `racks_status` and `assets_status` - are no longer also put inside the encrypted part, where they travelled a second time as base64 (x 1.33); (2) a report that would still exceed `MIKROTIK_UPLINK_MAX_BYTES` (default 1.9 MB) is cut down before it is sent - the least important big sections first (racks, assets, host monitoring details, findings ...), their lists halved, then dropped - and the log says what was cut; (3) a report the relay refuses as too large is dropped instead of being retried for ever (it could never succeed and filled the buffer of 50 reports); the uplink status shows the last HTTP status as `last_status`. Update the agent; the buffered reports are dropped on their own.
+
 ## 2.89 — 2026-10-18
 - ServiceDesk: "'list' object has no attribute 'get'" in the connection test. ServiceDesk Plus sends the `response_status` of its answers as an object for some calls and as a one-element array for others (the list of requests, which the test reads); the test and the ticket creation assumed an object and broke on the array although the connection and the key were fine. One reader now handles both (`_status_of` in `services/servicedesk_client.py`).
 
