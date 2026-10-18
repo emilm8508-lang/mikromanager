@@ -14,6 +14,7 @@
                 "assetsOverview": "Przegląd zasobów",
                 "racks": "Szafy rackowe",
                 "netmap": "Mapa całej sieci",
+                "traffic": "Analizator ruchu",
                 "assetsList": "Lista zasobów",
                 "groupSystems": "Systemy",
                 "groupNetwork": "Sieć",
@@ -1334,6 +1335,30 @@
             "dhcp_ip_changed": "Dzierżawa adresu wygasła lub została zwolniona, a adres hosta mógł się zmienić. Rozważ stałą rezerwację adresu (static lease) dla tego hosta.",
             "firewall_block": "Reguła firewalla odrzucała ruch tego hosta w czasie przerwy. Sprawdź, czy to zamierzone."
         }
+    },
+    "traffic": {
+        "title": "Analizator ruchu",
+        "subtitle": "Kto z kim rozmawia przez router, teraz: przepływy z RouterOS Torch dla wybranego interfejsu, odświeżane co kilka sekund. Nic nie jest zmieniane na routerze, a komputer agenta niczego nie przechwytuje.",
+        "noRouters": "Brak routera MikroTik z zapisanym poświadczeniem - analizator pyta router (Torch).",
+        "goCredentials": "Dodaj poświadczenie",
+        "window": "okno {{s}} s",
+        "start": "Start",
+        "stop": "Stop",
+        "filter": "Filtr (IP, nazwa, port, usługa)…",
+        "allProtocols": "wszystkie protokoły",
+        "ifacesFailed": "Router nie podał listy interfejsów - sprawdź połączenie i poświadczenie.",
+        "total": "Cały ruch",
+        "topTalkers": "Najwięcej ruchu (urządzenia)",
+        "dblHint": "Dwuklik - karta zasobu",
+        "legend": "↑ wysyła (pomarańczowy), ↓ odbiera (niebieski)",
+        "protocols": "Protokoły",
+        "services": "Usługi",
+        "src": "Źródło",
+        "dst": "Cel",
+        "proto": "Protokół",
+        "port": "Usługa",
+        "none": "Brak przepływów w tym oknie.",
+        "counts": "Pokazano {{shown}} z {{total}} przepływów"
     },
     "netmap": {
         "title": "Mapa całej sieci",

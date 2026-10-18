@@ -14,6 +14,7 @@
                 "assetsOverview": "Vue d'ensemble du parc",
                 "racks": "Baies serveurs",
                 "netmap": "Carte de tout le réseau",
+                "traffic": "Analyseur de trafic",
                 "assetsList": "Liste du parc",
                 "groupSystems": "Systèmes",
                 "groupNetwork": "Réseau",
@@ -1176,6 +1177,30 @@
             "dhcp_ip_changed": "Le bail de l'adresse a expiré ou été libéré et l'adresse de l'hôte a pu changer. Envisagez une réservation fixe (static lease) pour cet hôte.",
             "firewall_block": "Une règle du pare-feu rejetait le trafic de cet hôte pendant la coupure. Vérifiez si c'est voulu."
         }
+    },
+    "traffic": {
+        "title": "Analyseur de trafic",
+        "subtitle": "Qui parle à qui à travers un routeur, maintenant : les flux que RouterOS Torch signale pour l'interface choisie, actualisés toutes les quelques secondes. Rien n'est modifié sur le routeur et l'ordinateur de l'agent ne capture rien.",
+        "noRouters": "Aucun routeur MikroTik avec identifiant enregistré : l'analyseur interroge le routeur (Torch).",
+        "goCredentials": "Ajouter un identifiant",
+        "window": "fenêtre de {{s}} s",
+        "start": "Démarrer",
+        "stop": "Arrêter",
+        "filter": "Filtre (IP, nom, port, service)…",
+        "allProtocols": "tous les protocoles",
+        "ifacesFailed": "Le routeur n'a pas renvoyé ses interfaces : vérifiez la connexion et l'identifiant.",
+        "total": "Tout le trafic",
+        "topTalkers": "Plus gros flux (équipements)",
+        "dblHint": "Double-clic : fiche de l'actif",
+        "legend": "↑ envoie (orange), ↓ reçoit (bleu)",
+        "protocols": "Protocoles",
+        "services": "Services",
+        "src": "Source",
+        "dst": "Destination",
+        "proto": "Protocole",
+        "port": "Service",
+        "none": "Aucun flux dans cette fenêtre.",
+        "counts": "{{shown}} flux affichés sur {{total}}"
     },
     "netmap": {
         "title": "Carte de tout le réseau",

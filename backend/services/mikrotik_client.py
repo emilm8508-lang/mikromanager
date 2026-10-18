@@ -657,6 +657,28 @@ class MikrotikClient:
         except Exception:
             return []
 
+    async def torch(self, interface: str, seconds: int = 3) -> list:
+        """/tool/torch on `interface` for `seconds`: every IP flow seen there (src-address, dst-address, ip-protocol, ports, tx / rx in bits per
+        second). REST first (RouterOS 7); the plain binary API when REST is not there. Read-only - Torch changes nothing on the router."""
+        params = {"interface": interface, "duration": f"{max(1, int(seconds))}s", "src-address": "0.0.0.0/0", "dst-address": "0.0.0.0/0",
+                  "ip-protocol": "any", "port": "any"}
+        try:
+            data = await self._rest_request("POST", "tool/torch", params)
+            return data if isinstance(data, list) else []
+        except Exception:
+            if self.api_port == 8729:
+                raise
+        loop = asyncio.get_event_loop()
+        _note_access("api", self.ip, "/tool/torch")
+
+        def _run():
+            api = _connect_and_login(self.ip, self.username, self.password, port=self.api_port, timeout=12, ssl_wrapper=None)
+            try:
+                return list(api("/tool/torch", **params))
+            finally:
+                api.close()
+        return await loop.run_in_executor(_API_EXECUTOR, _run)
+
     async def get_poe(self) -> dict:
         """PoE-out of the ports: {port: {"mode", "on", "status", "watts"}}. The mode (off / auto-on / forced-on) comes from
         /interface/ethernet/poe; whether a port really delivers power, and how much, from its monitor (REST only, best effort -

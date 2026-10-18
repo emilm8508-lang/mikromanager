@@ -5,6 +5,7 @@ import { Devices } from './pages/Devices'
 import { DeviceDetail } from './pages/DeviceDetail'
 import { NetworkMap } from './pages/NetworkMap'
 import { NetworkMapAll } from './pages/NetworkMapAll'
+import { Traffic } from './pages/Traffic'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
 import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/inventory/:id" element={<AssetDetail />} />
             <Route path="/racks" element={<Racks />} />
             <Route path="/netmap" element={<NetworkMapAll />} />
+            <Route path="/traffic" element={<Traffic />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />

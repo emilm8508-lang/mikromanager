@@ -1293,6 +1293,17 @@ export function netmapFromCentral(m: CentralNetMap): Pick<NetMap, 'nodes' | 'edg
   }
 }
 
+// ── Traffic analyzer (RouterOS Torch) ───────────────────────────────────────
+
+export interface TrafficFlow { src: string; dst: string; proto: string; sport: number | null; dport: number | null; service: string | null; tx: number; rx: number }
+export interface TrafficDevice { ip: string; up: number; down: number; flows: number; name: string | null; asset_id: number | null; type: string | null; local: boolean }
+export interface TrafficSample { flows: TrafficFlow[]; agg: { devices: TrafficDevice[]; protocols: Array<[string, number]>; services: Array<[string, number]> }; at: string; interface: string; seconds: number }
+export const trafficApi = {
+  devices: () => api.get<{ devices: Array<{ id: number; name: string; ip: string }> }>('/traffic/devices').then(r => r.data.devices),
+  interfaces: (id: number) => api.get<{ interfaces: string[] }>(`/traffic/interfaces/${id}`).then(r => r.data.interfaces),
+  sample: (device_id: number, iface: string, seconds = 3) => api.post<TrafficSample>('/traffic/sample', { device_id, interface: iface, seconds }).then(r => r.data),
+}
+
 export const inventoryApi = {
   get: () => api.get<InventoryOut>('/inventory').then(r => r.data),
 }

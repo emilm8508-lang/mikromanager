@@ -264,6 +264,7 @@ export function Sidebar() {
       item('/devices', t('nav.devices') as string, Server),
       item('/map', t('nav.map') as string, Network),
       item('/netmap', t('nav.netmap') as string, Waypoints),
+      item('/traffic', t('nav.traffic') as string, Activity),
       item('/scanner', t('nav.scanner') as string, Search),
       item('/logs', t('nav.logs') as string, ScrollText),
     ] },

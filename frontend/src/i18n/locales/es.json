@@ -14,6 +14,7 @@
                 "assetsOverview": "Resumen de activos",
                 "racks": "Racks",
                 "netmap": "Mapa de toda la red",
+                "traffic": "Analizador de tráfico",
                 "assetsList": "Lista de activos",
                 "groupSystems": "Sistemas",
                 "groupNetwork": "Red",
@@ -1176,6 +1177,30 @@
             "dhcp_ip_changed": "La concesión de la dirección expiró o fue liberada y la dirección del host pudo cambiar. Considere una reserva fija (static lease) para este host.",
             "firewall_block": "Una regla del firewall descartaba el tráfico de este host durante la caída. Compruebe si es intencionado."
         }
+    },
+    "traffic": {
+        "title": "Analizador de tráfico",
+        "subtitle": "Quién habla con quién a través de un router, ahora: los flujos que RouterOS Torch informa para la interfaz elegida, actualizados cada pocos segundos. No se cambia nada en el router y el equipo del agente no captura nada.",
+        "noRouters": "No hay un router MikroTik con credencial guardada: el analizador consulta al router (Torch).",
+        "goCredentials": "Añadir una credencial",
+        "window": "ventana de {{s}} s",
+        "start": "Iniciar",
+        "stop": "Detener",
+        "filter": "Filtro (IP, nombre, puerto, servicio)…",
+        "allProtocols": "todos los protocolos",
+        "ifacesFailed": "El router no devolvió sus interfaces: compruebe la conexión y la credencial.",
+        "total": "Todo el tráfico",
+        "topTalkers": "Mayor tráfico (dispositivos)",
+        "dblHint": "Doble clic: ficha del activo",
+        "legend": "↑ envía (naranja), ↓ recibe (azul)",
+        "protocols": "Protocolos",
+        "services": "Servicios",
+        "src": "Origen",
+        "dst": "Destino",
+        "proto": "Protocolo",
+        "port": "Servicio",
+        "none": "Sin flujos en esta ventana.",
+        "counts": "Mostrando {{shown}} de {{total}} flujos"
     },
     "netmap": {
         "title": "Mapa de toda la red",

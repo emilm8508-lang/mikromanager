@@ -14,6 +14,7 @@
                 "assetsOverview": "Bestandsübersicht",
                 "racks": "Serverschränke",
                 "netmap": "Gesamtnetz-Karte",
+                "traffic": "Verkehrsanalyse",
                 "assetsList": "Bestandsliste",
                 "groupSystems": "Systeme",
                 "groupNetwork": "Netzwerk",
@@ -1176,6 +1177,30 @@
             "dhcp_ip_changed": "Die Adress-Lease ist abgelaufen oder wurde freigegeben, die Adresse des Hosts kann sich geändert haben. Erwägen Sie eine feste Reservierung (Static Lease) für diesen Host.",
             "firewall_block": "Eine Firewall-Regel hat den Verkehr dieses Hosts während des Ausfalls verworfen. Prüfen Sie, ob das beabsichtigt ist."
         }
+    },
+    "traffic": {
+        "title": "Verkehrsanalyse",
+        "subtitle": "Wer mit wem über einen Router spricht, jetzt: die Flows, die RouterOS Torch für die gewählte Schnittstelle meldet, alle paar Sekunden aktualisiert. Am Router wird nichts geändert, der Agent-Rechner schneidet nichts mit.",
+        "noRouters": "Kein MikroTik-Router mit gespeicherten Zugangsdaten - die Analyse fragt den Router (Torch).",
+        "goCredentials": "Zugangsdaten hinzufügen",
+        "window": "{{s}} s Fenster",
+        "start": "Start",
+        "stop": "Stopp",
+        "filter": "Filter (IP, Name, Port, Dienst)…",
+        "allProtocols": "alle Protokolle",
+        "ifacesFailed": "Der Router lieferte keine Schnittstellenliste - Verbindung und Zugangsdaten prüfen.",
+        "total": "Gesamter Verkehr",
+        "topTalkers": "Meiste Daten (Geräte)",
+        "dblHint": "Doppelklick - Asset-Karte",
+        "legend": "↑ sendet (orange), ↓ empfängt (blau)",
+        "protocols": "Protokolle",
+        "services": "Dienste",
+        "src": "Quelle",
+        "dst": "Ziel",
+        "proto": "Protokoll",
+        "port": "Dienst",
+        "none": "Keine Flows in diesem Fenster.",
+        "counts": "{{shown}} von {{total}} Flows angezeigt"
     },
     "netmap": {
         "title": "Gesamtnetz-Karte",

@@ -14,6 +14,7 @@
                 "assetsOverview": "Overview",
                 "racks": "Server racks",
                 "netmap": "Whole-network map",
+                "traffic": "Traffic analyzer",
                 "assetsList": "Asset list",
                 "groupSystems": "Systems",
                 "groupNetwork": "Network",
@@ -1176,6 +1177,30 @@
             "dhcp_ip_changed": "The address lease expired or was released and the host's address may have changed. Consider a static lease reservation for this host.",
             "firewall_block": "A firewall rule was dropping this host's traffic during the outage. Check whether that is intended."
         }
+    },
+    "traffic": {
+        "title": "Traffic analyzer",
+        "subtitle": "Who talks to whom through a router, right now: the flows RouterOS Torch reports for the chosen interface, refreshed every few seconds. Nothing is changed on the router and the agent computer captures nothing.",
+        "noRouters": "No MikroTik router with a stored credential - the analyzer asks the router (Torch).",
+        "goCredentials": "Add a credential",
+        "window": "{{s}} s window",
+        "start": "Start",
+        "stop": "Stop",
+        "filter": "Filter (IP, name, port, service)…",
+        "allProtocols": "all protocols",
+        "ifacesFailed": "The router did not return its interfaces - check the connection and the credential.",
+        "total": "All traffic",
+        "topTalkers": "Top talkers (devices)",
+        "dblHint": "Double-click - asset card",
+        "legend": "↑ sends (orange), ↓ receives (blue)",
+        "protocols": "Protocols",
+        "services": "Services",
+        "src": "Source",
+        "dst": "Destination",
+        "proto": "Protocol",
+        "port": "Service",
+        "none": "No flows in this window.",
+        "counts": "Showing {{shown}} of {{total}} flows"
     },
     "netmap": {
         "title": "Whole-network map",
