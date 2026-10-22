@@ -39,6 +39,11 @@ POLL_MIN = int(os.environ.get("MIKROTIK_WAZUH_POLL_MIN", "5"))
 MIN_LEVEL = int(os.environ.get("MIKROTIK_WAZUH_MIN_LEVEL", "8"))
 
 _cache = {"data": [], "at": 0.0}
+# What the SOC layer gets (services/soc.py): every alert read this cycle - also the low-level ones of the signal groups and with the log line - until the
+# uplink takes it. The events returned to the uplink for Central / Telegram are only the ones from MIN_LEVEL up, as before.
+_soc_pending: List[dict] = []
+_SOC_PENDING_MAX = 2000
+_EXTRA = ("rule_id", "groups", "mitre", "tactics", "src_ip", "user", "location", "path", "cve", "package", "vuln_severity")
 
 
 def _load_state() -> dict:
@@ -97,7 +102,7 @@ async def collect_wazuh_events() -> List[dict]:
     # this app has no business replaying all of them as "new" the moment
     # it's configured.
     since = state.get("last_seen_at") or "now-1h"
-    alerts = await wazuh_client.list_recent_alerts(since_iso=since, min_level=MIN_LEVEL)
+    alerts = await wazuh_client.list_recent_alerts(since_iso=since, min_level=MIN_LEVEL, low_level=wazuh_client.LOW_LEVEL)
     if alerts is None:
         return []  # transient failure — keep the old watermark, retry next cycle
 
@@ -106,17 +111,26 @@ async def collect_wazuh_events() -> List[dict]:
     for a in alerts:
         ip = a.get("agent_ip")
         device_name = _resolve_local_name(ip) or a.get("agent_name") or "?"
-        events.append({
+        try:
+            level = int(a.get("rule_level") or 0)
+        except (TypeError, ValueError):
+            level = 0
+        ev = {
             "type": "wazuh_alert", "device_name": device_name, "ip": ip,
             "agent_name": a.get("agent_name"), "rule_level": a.get("rule_level"),
             "rule_description": a.get("rule_description"),
             "count": 1, "detected_at": datetime.utcnow().isoformat(),
-        })
-        try:
-            activity.record("wazuh_alert", device_name=device_name,
-                             rule_description=a.get("rule_description"), rule_level=a.get("rule_level"))
-        except Exception as e:
-            print(f"[wazuh_monitor] activity record error: {e}")
+            **{k: a[k] for k in _EXTRA if k in a},
+        }
+        if len(_soc_pending) < _SOC_PENDING_MAX:
+            _soc_pending.append({**ev, **({"full_log": a["full_log"]} if a.get("full_log") else {})})
+        if level >= MIN_LEVEL:
+            events.append(ev)
+            try:
+                activity.record("wazuh_alert", device_name=device_name,
+                                 rule_description=a.get("rule_description"), rule_level=a.get("rule_level"))
+            except Exception as e:
+                print(f"[wazuh_monitor] activity record error: {e}")
         latest_ts = a.get("timestamp") or latest_ts
 
     # Advance the watermark even when nothing new came back — the query
@@ -127,6 +141,13 @@ async def collect_wazuh_events() -> List[dict]:
     _save_state(state)
     _cache["data"] = events
     return events
+
+
+def take_soc_events() -> List[dict]:
+    """The alerts read since the last call, for the SOC layer (all levels the connector reads, with the log line); the list is emptied."""
+    out = list(_soc_pending)
+    _soc_pending.clear()
+    return out
 
 
 def public_summary() -> list:

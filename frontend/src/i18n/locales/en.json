@@ -1316,7 +1316,14 @@
             "vm_name": "Virtual machine",
             "src_ip": "Source address",
             "user": "Account",
-            "location": "Location"
+            "location": "Location",
+            "cve": "CVE",
+            "package": "Package",
+            "vuln_severity": "Vulnerability severity",
+            "tactics": "MITRE tactics",
+            "path": "Path",
+            "full_log": "Source log line",
+            "groups": "Rule groups"
         },
         "central": {
             "client": "Client",

@@ -133,7 +133,7 @@ function AlertDetail({ a, readOnly, onUpdate }: { a: SocAlert; readOnly: boolean
   const [owner, setOwner] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const ago = useAgo()
-  const facts = Object.entries(cur.detail || {}).filter(([k]) => k !== 'mitre' && k !== 'groups')
+  const facts = Object.entries(cur.detail || {}).filter(([k]) => k !== 'mitre')
   const fmt = (v: unknown) => Array.isArray(v) ? v.join(', ') : String(v)
   return (
     <div className="grid gap-4 md:grid-cols-2 px-4 py-3 bg-slate-50 border-t border-slate-200 text-sm">

@@ -328,9 +328,11 @@ async def _build_snapshot() -> dict:
     except Exception as e:
         print(f"[uplink] Check_MK monitor error: {e}")
 
+    soc_extra: list = []      # what only the SOC layer gets (all the Wazuh alerts, also the low-level ones, with the log line)
     try:
         from services import wazuh_monitor
         alert_events += await _bounded(wazuh_monitor.collect_wazuh_events())
+        soc_extra = wazuh_monitor.take_soc_events()
     except Exception as e:
         print(f"[uplink] Wazuh monitor error: {e}")
 
@@ -538,7 +540,7 @@ async def _build_snapshot() -> dict:
     # services/soc.py; Central gets the numbers and the open alerts in the plaintext metadata.
     try:
         from services import soc
-        soc.ingest(alert_events)
+        soc.ingest([e for e in alert_events if e.get("type") != "wazuh_alert"] + soc_extra)
         soc_status = soc.public_summary()
     except Exception as e:
         print(f"[uplink] soc error: {e}")

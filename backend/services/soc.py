@@ -85,7 +85,7 @@ _DETAIL_KEYS = ("tunnel_type", "tunnel_name", "iface", "interface", "service_nam
 _EVIDENCE_KEYS = ("sources", "users", "count", "window_sec", "threshold", "log_message", "log_time", "rule_level", "rule_id", "rule_description",
                   "agent_name", "plugin_output", "state_name", "status_name", "message", "sensor_name", "service", "tunnel_type", "tunnel_name",
                   "iface", "interface", "detail", "from_state", "to_state", "duration_sec", "description", "mount", "vm_name", "groups", "mitre",
-                  "src_ip", "user", "location", "full_log_hash")
+                  "src_ip", "user", "location", "path", "cve", "package", "vuln_severity", "tactics", "full_log")
 
 _last_housekeeping = [0.0]
 
@@ -124,9 +124,14 @@ def classify(e: dict) -> dict:
             lvl = int(e.get("rule_level") or 0)
         except (TypeError, ValueError):
             lvl = 0
-        sev = "critical" if lvl >= 13 else "high" if lvl >= 11 else "medium"
+        sev = "critical" if lvl >= 13 else "high" if lvl >= 11 else "medium" if lvl >= 8 else "low"
         if e.get("mitre"):
             mitre = ",".join(str(x) for x in (e["mitre"] if isinstance(e["mitre"], (list, tuple)) else [e["mitre"]]))[:120]
+        groups = [str(g) for g in (e.get("groups") or [])]
+        if "vulnerability-detector" in groups or e.get("cve"):
+            cat = "vulnerability"
+        elif any(g.startswith("authentication") or g in ("invalid_login", "adduser", "account_changed", "win_group_changed") for g in groups):
+            cat = "auth"
     source = "wazuh" if t.startswith("wazuh_") else "checkmk" if t.startswith("checkmk_") else "prtg" if t.startswith("prtg_") else "agent"
     return {"type": t, "family": fam, "kind": kind, "category": cat, "severity": sev, "mitre": mitre, "title": title, "source": source}
 
@@ -433,7 +438,8 @@ def public_summary() -> dict:
         for a in rows:
             r = _row(a, full=False)
             d = {k: v for k, v in r["detail"].items() if k in ("sources", "users", "rule_description", "rule_level", "service", "plugin_output", "message",
-                                                                 "tunnel_name", "iface", "sensor_name", "description", "state_name", "groups", "mitre")}
+                                                                 "tunnel_name", "iface", "sensor_name", "description", "state_name", "groups", "mitre",
+                                                                 "cve", "package", "vuln_severity", "src_ip", "user", "tactics")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
                            "device": a.device_name, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d})

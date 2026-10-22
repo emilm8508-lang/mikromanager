@@ -1316,7 +1316,14 @@
             "vm_name": "Virtuelle Maschine",
             "src_ip": "Quelladresse",
             "user": "Konto",
-            "location": "Ort"
+            "location": "Ort",
+            "cve": "CVE",
+            "package": "Paket",
+            "vuln_severity": "Schweregrad der Schwachstelle",
+            "tactics": "MITRE-Taktiken",
+            "path": "Pfad",
+            "full_log": "Quell-Logzeile",
+            "groups": "Regelgruppen"
         },
         "central": {
             "client": "Kunde",

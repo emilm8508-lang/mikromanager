@@ -45,6 +45,12 @@ _config = {
 
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wazuh.json")
 
+# Rule groups that tell something to a SOC even at a low rule level (a single failed login, a changed file, a new account ...): alerts of these
+# groups are read from LOW_LEVEL upwards, everything else from the caller's min_level (see list_recent_alerts).
+LOW_LEVEL = int(os.environ.get("MIKROTIK_WAZUH_LOW_LEVEL", "5"))
+SIGNAL_GROUPS = ("authentication_failed", "authentication_failures", "invalid_login", "adduser", "account_changed", "win_group_changed",
+                 "syscheck", "rootcheck", "web_scan", "attack", "exploit_attempt", "vulnerability-detector", "audit_command", "policy_changed")
+
 
 def is_configured() -> bool:
     return bool(_config["indexer_url"] and _config["indexer_username"] and _config["indexer_password"])
@@ -132,12 +138,51 @@ async def test_connection() -> dict:
         return {"ok": False, "error": str(e)}
 
 
-async def list_recent_alerts(since_iso: str, min_level: int, size: int = 500) -> Optional[list]:
+def _d(x) -> dict:
+    return x if isinstance(x, dict) else {}
+
+
+def _list(x) -> list:
+    if x is None:
+        return []
+    return [str(i) for i in (x if isinstance(x, (list, tuple)) else [x]) if i not in (None, "")]
+
+
+def parse_alert(src: dict) -> Optional[dict]:
+    """One indexer document -> the fields the SOC uses. Defensive: Wazuh's document shape differs by version, ruleset and decoder (`data` may
+    be missing or a plain string, Windows events carry their fields under data.win.eventdata); anything that is not there is simply left out."""
+    ts = src.get("@timestamp")
+    if not ts:
+        return None
+    agent, rule, data = _d(src.get("agent")), _d(src.get("rule")), _d(src.get("data"))
+    mitre, win = _d(rule.get("mitre")), _d(_d(data.get("win")).get("eventdata"))
+    vuln = _d(data.get("vulnerability"))
+    user = data.get("dstuser") or data.get("srcuser") or win.get("targetUserName") or win.get("subjectUserName")
+    out = {
+        "timestamp": ts,
+        "agent_id": agent.get("id"), "agent_name": agent.get("name"), "agent_ip": agent.get("ip"),
+        "rule_level": rule.get("level"), "rule_description": rule.get("description"), "rule_id": rule.get("id"),
+        "groups": _list(rule.get("groups"))[:8],
+        "mitre": _list(mitre.get("id"))[:6], "tactics": _list(mitre.get("tactic"))[:4],
+        "src_ip": data.get("srcip") or win.get("ipAddress") or None,
+        "user": user if isinstance(user, str) and user not in ("-", "") else None,
+        "location": src.get("location") if isinstance(src.get("location"), str) else None,
+        "path": _d(src.get("syscheck")).get("path"),
+        "cve": vuln.get("cve") or None, "package": _d(vuln.get("package")).get("name"), "vuln_severity": vuln.get("severity"),
+        "full_log": str(src.get("full_log") or "")[:300] or None,
+    }
+    return {k: v for k, v in out.items() if v not in (None, "", [])}
+
+
+async def list_recent_alerts(since_iso: str, min_level: int, size: int = 500, low_level: Optional[int] = None) -> Optional[list]:
     """POST {indexer_url}/wazuh-alerts-*/_search — every alert (rule match)
     newer than since_iso (an absolute ISO8601 timestamp, or OpenSearch date
     math like "now-1h" for a first-ever poll) at or above min_level, oldest
     first (so the caller can safely advance its watermark to the LAST
     item's timestamp without gaps).
+
+    With `low_level` below `min_level`, alerts of SIGNAL_GROUPS are read from that lower level (they are told apart from the rest by their
+    own `rule_level`, kept in the result).
 
     Defensive per-document parsing — Wazuh's exact document shape can vary
     slightly by version/ruleset, so a malformed hit is skipped rather than
@@ -149,12 +194,18 @@ async def list_recent_alerts(since_iso: str, min_level: int, size: int = 500) ->
     if not is_configured():
         return None
     url = _config["indexer_url"].rstrip("/") + "/wazuh-alerts-*/_search"
+    level_clause: dict = {"range": {"rule.level": {"gte": min_level}}}
+    if low_level is not None and low_level < min_level:
+        level_clause = {"bool": {"minimum_should_match": 1, "should": [
+            level_clause,
+            {"bool": {"filter": [{"range": {"rule.level": {"gte": low_level}}}, {"terms": {"rule.groups": list(SIGNAL_GROUPS)}}]}},
+        ]}}
     body = {
         "size": max(1, min(size, 1000)),
         "sort": [{"@timestamp": "asc"}],
         "query": {"bool": {"filter": [
             {"range": {"@timestamp": {"gt": since_iso}}},
-            {"range": {"rule.level": {"gte": min_level}}},
+            level_clause,
         ]}},
     }
     connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
@@ -173,20 +224,12 @@ async def list_recent_alerts(since_iso: str, min_level: int, size: int = 500) ->
         src = hit.get("_source") if isinstance(hit, dict) else None
         if not isinstance(src, dict):
             continue
-        ts = src.get("@timestamp")
-        if not ts:
-            continue
-        agent = src.get("agent") or {}
-        rule = src.get("rule") or {}
-        out.append({
-            "timestamp": ts,
-            "agent_id": agent.get("id"),
-            "agent_name": agent.get("name"),
-            "agent_ip": agent.get("ip"),
-            "rule_level": rule.get("level"),
-            "rule_description": rule.get("description"),
-            "rule_id": rule.get("id"),
-        })
+        try:
+            a = parse_alert(src)
+        except Exception:
+            a = None                 # one odd document must not cost the whole batch
+        if a:
+            out.append(a)
     return out
 
 
