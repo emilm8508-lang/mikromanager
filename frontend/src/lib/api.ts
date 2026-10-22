@@ -1295,6 +1295,42 @@ export function netmapFromCentral(m: CentralNetMap): Pick<NetMap, 'nodes' | 'edg
   }
 }
 
+// ── SOC ───────────────────────────────────────────────────────────────────────
+
+export type SocSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical'
+export type SocStatus = 'new' | 'ack' | 'in_progress' | 'false_positive' | 'closed'
+export const SOC_SEVERITIES: SocSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
+export const SOC_STATUSES: SocStatus[] = ['new', 'ack', 'in_progress', 'false_positive', 'closed']
+export interface SocAlert {
+  id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null
+  device_name: string | null; ip?: string | null; asset_id?: number | null; status: SocStatus; owner: string | null; count: number; mitre: string | null
+  first_seen: string; last_seen: string; closed_at?: string | null; closed_by?: string | null
+  detail: Record<string, any>; note?: string | null; log?: Array<{ t: string; who: string; a: string; v?: unknown }>
+}
+export interface SocStats {
+  open: number; new: number; in_progress: number; by_severity: Record<SocSeverity, number>; by_category: Record<string, number>
+  top_devices?: Array<{ name: string; n: number }>; opened_24h: number; closed_24h: number; false_positive_7d: number; mttr_hours: number | null
+  opened_daily: Array<{ t: string; n: number }>; oldest_new_hours: number | null
+}
+export interface SocQuery { status?: string; severity?: string; category?: string; source?: string; q?: string; limit?: number; offset?: number }
+export const socApi = {
+  alerts: (p: SocQuery) => api.get<{ total: number; items: SocAlert[] }>('/soc/alerts', { params: p }).then(r => r.data),
+  alert: (id: number) => api.get<SocAlert>(`/soc/alerts/${id}`).then(r => r.data),
+  update: (body: { ids: number[]; status?: SocStatus; owner?: string | null; note?: string | null; set_owner?: boolean; set_note?: boolean }) =>
+    api.post<{ changed: number }>('/soc/alerts/update', body).then(r => r.data),
+  stats: () => api.get<SocStats>('/soc/stats').then(r => r.data),
+}
+// what Central receives (compact; no internal addresses): the numbers and the open alerts, worst first
+export interface CentralSoc {
+  at: string | null; stats: SocStats | null
+  alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; status: SocStatus
+                  owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any> }>
+}
+export function socFromCentral(s: CentralSoc): SocAlert[] {
+  return s.alerts.map(a => ({ id: a.id, rule: a.rule, source: a.source, category: a.category, severity: a.severity, title: a.title, device_name: a.device,
+                              status: a.status, owner: a.owner, count: a.count, mitre: a.mitre, first_seen: a.first, last_seen: a.last, detail: a.detail }))
+}
+
 // ── Traffic analyzer (RouterOS Torch) ───────────────────────────────────────
 
 export interface TrafficFlow { src: string; dst: string; proto: string; sport: number | null; dport: number | null; service: string | null; tx: number; rx: number }
@@ -2799,6 +2835,8 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
   topologyStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; map: CentralNetMap | null }> }>('topology_status_all'),
+  socStatusAll: () =>
+    centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; soc: CentralSoc | null }> }>('soc_status_all'),
   racksStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; racks: { racks: CentralRack[]; ops: CentralRackOp[] } | null }> }>('racks_status_all'),
   requestRackOp: (tenant: string, op: string) =>

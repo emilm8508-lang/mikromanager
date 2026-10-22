@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -268,6 +268,7 @@ export function Sidebar() {
   const agentNav: NavEntry[] = [
     item('/', t('nav.dashboard') as string, LayoutDashboard),
     item('/security-summary', t('nav.securitySummary') as string, PieChart),
+    item('/soc', t('nav.soc') as string, Siren),
     { key: 'systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/mikrotik', t('nav.mikrotik') as string, Router),
       item('/linux', t('nav.linuxHosts') as string, TerminalSquare),
@@ -311,6 +312,7 @@ export function Sidebar() {
   const centralNav: NavEntry[] = [
     item('/central', t('nav.central') as string, Cloud),
     item('/central/security', t('nav.securitySummary') as string, PieChart),
+    item('/central/soc', t('nav.soc') as string, Siren),
     { key: 'c-systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/central/fleet', t('fleetCentral.navLabel') as string, Router),
       item('/central/hosts', t('centralHosts.navLabel') as string, TerminalSquare),

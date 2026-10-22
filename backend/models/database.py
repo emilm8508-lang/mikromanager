@@ -458,6 +458,37 @@ class ServiceDeskTicket(Base):
     note = Column(Text, nullable=True)                       # what happened at closing (resolution text, or why only "resolved")
 
 
+class SocAlert(Base):
+    """One alert of the SOC layer (services/soc.py): what the detectors and the connected systems (Wazuh, Checkmk, PRTG, the agent's own
+    monitors and rules) reported, merged into one row per thing and kept through its life - new -> ack -> in_progress -> closed /
+    false_positive. A repeat of the same thing (same `fingerprint`) while the alert is open adds to `count` instead of making a new row;
+    a recovery event closes it by itself. `log` is the trail of who did what and when (JSON list)."""
+    __tablename__ = "soc_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fingerprint = Column(String, nullable=False, index=True)        # family|device|detail - what makes two events the same alert
+    rule = Column(String, nullable=False, index=True)               # the event type or rule id ("failed_logins", "wazuh_alert", "rule.new_device")
+    source = Column(String, nullable=False, default="agent")        # agent | wazuh | checkmk | prtg | rules
+    category = Column(String, nullable=False, default="other", index=True)   # auth | availability | detection | network | hardware | resource | vulnerability | system | other
+    severity = Column(String, nullable=False, default="low")        # info | low | medium | high | critical
+    rank = Column(Integer, nullable=False, default=1, index=True)   # numeric severity, for sorting
+    title = Column(String, nullable=True)                           # English fallback; the page translates by `rule`
+    device_name = Column(String, nullable=True, index=True)
+    ip = Column(String, nullable=True)
+    asset_id = Column(Integer, nullable=True, index=True)           # the inventory asset it is about, when it could be matched
+    detail = Column(Text, nullable=True)                            # JSON evidence (sources, users, rule description, plugin output ...)
+    status = Column(String, nullable=False, default="new", index=True)       # new | ack | in_progress | false_positive | closed
+    owner = Column(String, nullable=True)
+    note = Column(Text, nullable=True)
+    count = Column(Integer, nullable=False, default=1)
+    mitre = Column(String, nullable=True)                           # ATT&CK technique ids, comma-separated
+    first_seen = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    last_seen = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    closed_at = Column(DateTime, nullable=True)
+    closed_by = Column(String, nullable=True)                       # a user name, or "auto: recovered" / "auto: stale"
+    log = Column(Text, nullable=True)                               # JSON [{t, who, a, v}]
+
+
 class VulnDaily(Base):
     """One row per day: how many open vulnerabilities (per severity) and vulnerable assets there were - the history behind the
     "vulnerable assets over time" chart (services/assets.py record_vuln_day). The vulnerability data itself keeps no history."""

@@ -13,6 +13,7 @@
                 "securitySummary": "Synthèse de sécurité",
                 "assetsOverview": "Vue d'ensemble du parc",
                 "racks": "Baies serveurs",
+                "soc": "SOC",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1182,6 +1183,173 @@
             "dhcp_pool_exhausted": "Le serveur DHCP n'a pas pu attribuer d'adresse. Agrandissez la plage d'adresses ou raccourcissez la durée du bail.",
             "dhcp_ip_changed": "Le bail de l'adresse a expiré ou été libéré et l'adresse de l'hôte a pu changer. Envisagez une réservation fixe (static lease) pour cet hôte.",
             "firewall_block": "Une règle du pare-feu rejetait le trafic de cet hôte pendant la coupure. Vérifiez si c'est voulu."
+        }
+    },
+    "soc": {
+        "title": "SOC — alertes",
+        "subtitle": "Alertes des détecteurs de l'agent et des systèmes connectés (Wazuh, Checkmk, PRTG, les moniteurs) : une alerte par événement, avec un statut que l'analyste fait avancer.",
+        "centralIntro": "Les alertes des clients. Chaque agent détecte et traite lui-même, la Centrale affiche les résultats : en haut l'aperçu de tous les clients, dessous la file ouverte du client choisi (lecture seule ; les alertes se traitent sur l'agent).",
+        "centralNoData": "Aucun agent n'a encore envoyé de données SOC (mettre les agents à jour en 2.99).",
+        "empty": "Aucune alerte pour ces filtres.",
+        "shown": "{{shown}} affichées sur {{total}}.",
+        "tab": {
+            "open": "Ouvertes",
+            "closed": "Fermées",
+            "all": "Toutes",
+            "new": "Nouvelles"
+        },
+        "kpi": {
+            "open": "Ouvertes",
+            "new": "Nouvelles",
+            "critHigh": "Critiques + élevées",
+            "opened24": "Ouvertes en 24 h",
+            "closed24": "Fermées en 24 h",
+            "mttr": "Temps moyen de résolution",
+            "mttrHint": "De l'apparition de l'alerte à sa fermeture par un analyste (7 derniers jours ; les alertes closes d'elles-mêmes ne comptent pas).",
+            "week": "Nouvelles alertes, 7 jours",
+            "oldestHint": "L'alerte non traitée la plus ancienne attend depuis {{h}} h"
+        },
+        "filter": {
+            "allSeverities": "Toutes les gravités",
+            "allCategories": "Toutes les catégories",
+            "allSources": "Toutes les sources",
+            "search": "Rechercher (équipement, règle, texte)"
+        },
+        "severity": {
+            "critical": "Critique",
+            "high": "Élevée",
+            "medium": "Moyenne",
+            "low": "Faible",
+            "info": "Info"
+        },
+        "status": {
+            "new": "Nouvelle",
+            "ack": "Acquittée",
+            "in_progress": "En cours",
+            "false_positive": "Faux positif",
+            "closed": "Fermée"
+        },
+        "category": {
+            "auth": "Authentification",
+            "detection": "Détection",
+            "availability": "Disponibilité",
+            "network": "Réseau",
+            "hardware": "Matériel",
+            "resource": "Ressources",
+            "vulnerability": "Vulnérabilités",
+            "system": "Système",
+            "other": "Autres"
+        },
+        "source": {
+            "agent": "Agent",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "rules": "Règles"
+        },
+        "col": {
+            "severity": "Gravité",
+            "alert": "Alerte",
+            "device": "Équipement",
+            "count": "Fois",
+            "last": "Dernière fois",
+            "status": "Statut"
+        },
+        "bulk": {
+            "selected": "Sélectionnées : {{count}}",
+            "ack": "Acquitter",
+            "take": "Prendre en charge",
+            "close": "Fermer",
+            "falsePositive": "Faux positif",
+            "reopen": "Rouvrir",
+            "clear": "Désélectionner"
+        },
+        "detail": {
+            "evidence": "Détails",
+            "first": "Première fois",
+            "last": "Dernière fois",
+            "closed": "Fermée",
+            "mitre": "MITRE ATT&CK",
+            "owner": "Responsable",
+            "save": "Enregistrer",
+            "note": "Note de l'analyste",
+            "saveNote": "Enregistrer la note",
+            "trail": "Historique"
+        },
+        "trail": {
+            "opened": "ouverte",
+            "escalated": "gravité relevée",
+            "status": "statut",
+            "owner": "responsable",
+            "note": "note",
+            "recovered": "rétablie",
+            "stale": "expirée (sans récidive)"
+        },
+        "field": {
+            "sources": "Sources (adresses)",
+            "users": "Comptes",
+            "count": "Événements",
+            "window_sec": "Fenêtre (s)",
+            "threshold": "Seuil",
+            "log_message": "Entrée du journal",
+            "log_time": "Heure de l'entrée",
+            "rule_level": "Niveau de la règle",
+            "rule_id": "Id de la règle",
+            "rule_description": "Règle",
+            "agent_name": "Agent",
+            "plugin_output": "Sortie de la sonde",
+            "state_name": "État",
+            "status_name": "État",
+            "message": "Message",
+            "sensor_name": "Sonde",
+            "service": "Service",
+            "tunnel_type": "Type de tunnel",
+            "tunnel_name": "Tunnel",
+            "iface": "Interface",
+            "interface": "Interface",
+            "detail": "Détails",
+            "from_state": "État précédent",
+            "to_state": "Nouvel état",
+            "duration_sec": "Durée (s)",
+            "description": "Description",
+            "mount": "Volume",
+            "vm_name": "Machine virtuelle",
+            "src_ip": "Adresse source",
+            "user": "Compte",
+            "location": "Lieu"
+        },
+        "central": {
+            "client": "Client",
+            "lastReport": "Dernier rapport",
+            "stale": "Données de {{when}} (l'agent ne remonte plus)",
+            "cut": "Les alertes les plus urgentes sont affichées (limite 80) ; la file complète est sur l'agent."
+        },
+        "rule": {
+            "failed_logins": "Échecs de connexion répétés",
+            "device_rebooted": "L'équipement a redémarré",
+            "device_log_critical": "Entrées critiques dans le journal de l'équipement",
+            "wan_ip_changed": "L'adresse WAN a changé",
+            "wan_down": "Lien WAN coupé",
+            "tunnel_down": "Tunnel coupé",
+            "host_service_down": "Service arrêté",
+            "hostmon_host_down": "L'hôte ne répond pas",
+            "idrac_unreachable": "iDRAC injoignable",
+            "idrac_health_degraded": "État matériel du serveur dégradé",
+            "interface_errors": "Erreurs sur l'interface",
+            "interface_overload": "Interface surchargée",
+            "memory_high": "Utilisation mémoire élevée",
+            "disk_space_low": "Espace disque faible",
+            "hyperv_vm_down": "Machine virtuelle arrêtée",
+            "hyperv_host_down": "Hôte Hyper-V injoignable",
+            "hyperv_vm_no_heartbeat": "VM sans heartbeat",
+            "hyperv_snapshot_old": "Ancien snapshot de VM",
+            "hyperv_replication_problem": "Problème de réplication d'une VM",
+            "hyperv_host_pressure": "Hôte Hyper-V sous charge",
+            "vuln_overdue": "Analyse de vulnérabilités en retard",
+            "wazuh_alert": "Alerte Wazuh",
+            "prtg_sensor_down": "Sonde PRTG en défaut",
+            "checkmk_service_problem": "Problème de service Checkmk",
+            "checkmk_host_down": "Hôte Checkmk arrêté"
         }
     },
     "traffic": {

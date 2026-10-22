@@ -13,6 +13,7 @@
                 "securitySummary": "Security summary",
                 "assetsOverview": "Overview",
                 "racks": "Server racks",
+                "soc": "SOC",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1182,6 +1183,173 @@
             "dhcp_pool_exhausted": "The DHCP server could not assign an address. Enlarge the address pool or shorten the lease time.",
             "dhcp_ip_changed": "The address lease expired or was released and the host's address may have changed. Consider a static lease reservation for this host.",
             "firewall_block": "A firewall rule was dropping this host's traffic during the outage. Check whether that is intended."
+        }
+    },
+    "soc": {
+        "title": "SOC — alerts",
+        "subtitle": "Alerts from the agent's detectors and the connected systems (Wazuh, Checkmk, PRTG, the monitors): one alert per event, with a status the analyst moves forward.",
+        "centralIntro": "The alerts of the clients. Every agent detects and triages on its own side, Central shows the results: an overview of all clients on top, the open queue of the chosen one below (read-only; the alerts are worked on the agent).",
+        "centralNoData": "No agent has sent SOC data yet (agents must be updated to 2.99).",
+        "empty": "No alerts for these filters.",
+        "shown": "Showing {{shown}} of {{total}}.",
+        "tab": {
+            "open": "Open",
+            "closed": "Closed",
+            "all": "All",
+            "new": "New"
+        },
+        "kpi": {
+            "open": "Open",
+            "new": "New",
+            "critHigh": "Critical + high",
+            "opened24": "Opened in 24 h",
+            "closed24": "Closed in 24 h",
+            "mttr": "Avg. time to resolve",
+            "mttrHint": "From the alert appearing to an analyst closing it (last 7 days; alerts that closed by themselves are not counted).",
+            "week": "New alerts, 7 days",
+            "oldestHint": "The oldest unhandled alert has been waiting {{h}} h"
+        },
+        "filter": {
+            "allSeverities": "All severities",
+            "allCategories": "All categories",
+            "allSources": "All sources",
+            "search": "Search (device, rule, text)"
+        },
+        "severity": {
+            "critical": "Critical",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low",
+            "info": "Info"
+        },
+        "status": {
+            "new": "New",
+            "ack": "Acknowledged",
+            "in_progress": "In progress",
+            "false_positive": "False positive",
+            "closed": "Closed"
+        },
+        "category": {
+            "auth": "Authentication",
+            "detection": "Detection",
+            "availability": "Availability",
+            "network": "Network",
+            "hardware": "Hardware",
+            "resource": "Resources",
+            "vulnerability": "Vulnerabilities",
+            "system": "System",
+            "other": "Other"
+        },
+        "source": {
+            "agent": "Agent",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "rules": "Rules"
+        },
+        "col": {
+            "severity": "Severity",
+            "alert": "Alert",
+            "device": "Device",
+            "count": "Times",
+            "last": "Last seen",
+            "status": "Status"
+        },
+        "bulk": {
+            "selected": "Selected: {{count}}",
+            "ack": "Acknowledge",
+            "take": "Take",
+            "close": "Close",
+            "falsePositive": "False positive",
+            "reopen": "Reopen",
+            "clear": "Clear"
+        },
+        "detail": {
+            "evidence": "Details",
+            "first": "First seen",
+            "last": "Last seen",
+            "closed": "Closed",
+            "mitre": "MITRE ATT&CK",
+            "owner": "Owner",
+            "save": "Save",
+            "note": "Analyst's note",
+            "saveNote": "Save note",
+            "trail": "History"
+        },
+        "trail": {
+            "opened": "opened",
+            "escalated": "severity raised",
+            "status": "status",
+            "owner": "owner",
+            "note": "note",
+            "recovered": "recovered",
+            "stale": "expired (did not recur)"
+        },
+        "field": {
+            "sources": "Sources (addresses)",
+            "users": "Accounts",
+            "count": "Events",
+            "window_sec": "Window (s)",
+            "threshold": "Threshold",
+            "log_message": "Log entry",
+            "log_time": "Entry time",
+            "rule_level": "Rule level",
+            "rule_id": "Rule id",
+            "rule_description": "Rule",
+            "agent_name": "Agent",
+            "plugin_output": "Sensor output",
+            "state_name": "State",
+            "status_name": "State",
+            "message": "Message",
+            "sensor_name": "Sensor",
+            "service": "Service",
+            "tunnel_type": "Tunnel type",
+            "tunnel_name": "Tunnel",
+            "iface": "Interface",
+            "interface": "Interface",
+            "detail": "Details",
+            "from_state": "Previous state",
+            "to_state": "New state",
+            "duration_sec": "Duration (s)",
+            "description": "Description",
+            "mount": "Volume",
+            "vm_name": "Virtual machine",
+            "src_ip": "Source address",
+            "user": "Account",
+            "location": "Location"
+        },
+        "central": {
+            "client": "Client",
+            "lastReport": "Last report",
+            "stale": "Data from {{when}} (the agent is not reporting)",
+            "cut": "The most urgent alerts are shown (limit 80); the full queue is on the agent."
+        },
+        "rule": {
+            "failed_logins": "Repeated failed logins",
+            "device_rebooted": "Device rebooted",
+            "device_log_critical": "Critical entries in the device log",
+            "wan_ip_changed": "WAN address changed",
+            "wan_down": "WAN link down",
+            "tunnel_down": "Tunnel down",
+            "host_service_down": "Service not running",
+            "hostmon_host_down": "Host not answering",
+            "idrac_unreachable": "iDRAC unreachable",
+            "idrac_health_degraded": "Server hardware health degraded",
+            "interface_errors": "Interface errors",
+            "interface_overload": "Interface overloaded",
+            "memory_high": "Memory use high",
+            "disk_space_low": "Disk space low",
+            "hyperv_vm_down": "Virtual machine stopped",
+            "hyperv_host_down": "Hyper-V host unreachable",
+            "hyperv_vm_no_heartbeat": "VM without heartbeat",
+            "hyperv_snapshot_old": "Old VM snapshot",
+            "hyperv_replication_problem": "VM replication problem",
+            "hyperv_host_pressure": "Hyper-V host under pressure",
+            "vuln_overdue": "Vulnerability scan overdue",
+            "wazuh_alert": "Wazuh alert",
+            "prtg_sensor_down": "PRTG sensor down",
+            "checkmk_service_problem": "Checkmk service problem",
+            "checkmk_host_down": "Checkmk host down"
         }
     },
     "traffic": {

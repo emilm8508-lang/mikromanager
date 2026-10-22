@@ -534,6 +534,16 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] security summary error: {e}")
         security_stats = None
 
+    # The SOC layer: every alert event becomes an alert with a life of its own (merged while it repeats, closed by its recovery event) - see
+    # services/soc.py; Central gets the numbers and the open alerts in the plaintext metadata.
+    try:
+        from services import soc
+        soc.ingest(alert_events)
+        soc_status = soc.public_summary()
+    except Exception as e:
+        print(f"[uplink] soc error: {e}")
+        soc_status = None
+
     # Outages that should open (and, when they end, close) a ServiceDesk Plus ticket - see services/servicedesk_tickets.py
     try:
         from services import servicedesk_tickets
@@ -602,6 +612,7 @@ async def _build_snapshot() -> dict:
         "assets_status": assets_status,
         "racks_status": racks_status,
         "topology_status": topology_status,
+        "soc_status": soc_status,
         "dell_servers_status": dell_servers_status,
         "routers_status": routers_status,
         "wan_link_status": wan_link_status,
@@ -616,10 +627,10 @@ async def _build_snapshot() -> dict:
 # Sections that Central reads only from the plaintext metadata of the envelope (never from the decrypted snapshot). With end-to-end
 # encryption they used to travel twice - once in the metadata and once, base64-encoded (x 1.33), inside the ciphertext: a few hundred KB of
 # racks made a big client's report cross the relay's 2 MB limit (HTTP 413 "payload too large", every report refused).
-_META_ONLY = ("racks_status", "assets_status", "topology_status")
+_META_ONLY = ("racks_status", "assets_status", "topology_status", "soc_status")
 MAX_BODY_BYTES = int(os.environ.get("MIKROTIK_UPLINK_MAX_BYTES", str(1_900_000)))      # the relay refuses more than 2 MB
 # What may be cut down, in this order (least important first), when a report is still too big: the lists inside are halved, then dropped.
-_TRIM_ORDER = ("topology_status", "racks_status", "assets_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
+_TRIM_ORDER = ("topology_status", "racks_status", "assets_status", "soc_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
 
 
 def _halve(v):
@@ -703,6 +714,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             "assets_status": snapshot.get("assets_status"),
             "racks_status": snapshot.get("racks_status"),
             "topology_status": snapshot.get("topology_status"),
+            "soc_status": snapshot.get("soc_status"),
             "dell_servers_status": snapshot.get("dell_servers_status", []),
             "routers_status": snapshot.get("routers_status", []),
             "wan_link_status": snapshot.get("wan_link_status", []),

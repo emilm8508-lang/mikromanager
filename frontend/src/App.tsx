@@ -6,6 +6,8 @@ import { DeviceDetail } from './pages/DeviceDetail'
 import { NetworkMap } from './pages/NetworkMap'
 import { NetworkMapAll } from './pages/NetworkMapAll'
 import { Traffic } from './pages/Traffic'
+import { Soc } from './pages/Soc'
+import { CentralSoc } from './pages/CentralSoc'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
 import { Scanner } from './pages/Scanner'
 import { Credentials } from './pages/Credentials'
@@ -74,6 +76,8 @@ export default function App() {
             <Route path="/racks" element={<Racks />} />
             <Route path="/netmap" element={<NetworkMapAll />} />
             <Route path="/traffic" element={<Traffic />} />
+            <Route path="/soc" element={<Soc />} />
+            <Route path="/central/soc" element={<CentralSoc />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />
