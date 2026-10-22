@@ -17,6 +17,7 @@
                 "groupSoc": "SOC",
                 "socAlerts": "Alertes",
                 "socRules": "Règles de détection",
+                "socRisk": "Risque des équipements",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1392,6 +1393,34 @@
             "new_vuln": "Une CVE critique ou élevée que l'hôte n'avait pas avant : une nouvelle CVE pour ce qui y tourne, ou un nouvel hôte qui en a une.",
             "mac_changed": "Une adresse appartient maintenant à une autre carte réseau qu'avant : un équipement remplacé, une adresse DHCP réutilisée ou de l'ARP spoofing.",
             "compliance_regression": "Un contrôle de configuration qui passait échoue maintenant : un paramètre modifié ou une politique affaiblie."
+        },
+        "risk": {
+            "title": "Risque des équipements",
+            "subtitle": "Quels équipements sont les plus mal en point et pourquoi : alertes ouvertes, vulnérabilités, système hors support, mises à jour manquantes, contrôles de durcissement en échec, services risqués et équipements au mot de passe d'usine possible, réunis en un seul nombre (100 au maximum).",
+            "empty": "Aucun équipement n'a rien à son passif pour l'instant.",
+            "centralTitle": "Équipements les plus à risque",
+            "scored": "Évalués : {{n}}",
+            "col": {
+                "asset": "Équipement",
+                "score": "Note",
+                "why": "Pourquoi"
+            },
+            "level": {
+                "critical": "Critique",
+                "high": "Élevé",
+                "medium": "Moyen",
+                "low": "Faible"
+            },
+            "factor": {
+                "alerts": "Alertes ouvertes : {{n}}",
+                "vuln": "Vulnérabilités critiques et élevées : {{n}}",
+                "lifecycle": "Système hors support ou bientôt",
+                "patches": "Mises à jour en attente : {{n}}",
+                "hardening": "Contrôles de durcissement en échec : {{n}}",
+                "exposure": "Services risqués : {{n}}",
+                "hints": "Mot de passe d'usine possible",
+                "blind": "Sans identifiants, vu seulement passivement"
+            }
         }
     },
     "traffic": {

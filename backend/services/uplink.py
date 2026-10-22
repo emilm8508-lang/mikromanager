@@ -547,6 +547,11 @@ async def _build_snapshot() -> dict:
         except Exception as e:
             print(f"[uplink] soc rules error: {e}")
         soc_status = soc.public_summary()
+        try:
+            from services import soc_risk
+            soc_status["risk"] = await _bounded(soc_risk.public_summary())          # the worst devices and why, for Central's top list
+        except Exception as e:
+            print(f"[uplink] soc risk error: {e}")
     except Exception as e:
         print(f"[uplink] soc error: {e}")
         soc_status = None

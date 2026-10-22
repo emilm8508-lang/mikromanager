@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Siren } from 'lucide-react'
 import { centralApi, centralConfig, socFromCentral, type CentralSoc as CentralSocData } from '../lib/api'
-import { SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAULT, useAgo, type SocFilterState } from '../components/SocBits'
+import { RiskTable, RISK_LEVELS, SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAULT, useAgo, type SocFilterState } from '../components/SocBits'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; soc: CentralSocData }
@@ -91,6 +91,15 @@ export function CentralSoc() {
               <SocFilters f={f} set={setF} tabs={['open', 'new']} />
               <SocTable alerts={alerts} readOnly empty={t('soc.empty') as string} />
               {part.soc.alerts.length >= 80 && <p className="text-xs text-slate-400">{t('soc.central.cut')}</p>}
+              {part.soc.risk && part.soc.risk.top.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h2 className="text-base font-semibold text-slate-900">{t('soc.risk.centralTitle')}</h2>
+                    <span className="text-xs text-slate-400">{t('soc.risk.scored', { n: part.soc.risk.scored })} · {RISK_LEVELS.map(l => `${t(`soc.risk.level.${l.key}`)}: ${part.soc!.risk!.levels[l.key] ?? 0}`).join(' · ')}</span>
+                  </div>
+                  <RiskTable rows={part.soc.risk.top.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors.map(([k, pts, n]) => ({ k, pts, n })) }))} empty={t('soc.risk.empty') as string} />
+                </div>
+              )}
             </>
           )}
         </>

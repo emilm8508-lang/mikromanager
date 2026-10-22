@@ -17,6 +17,7 @@
                 "groupSoc": "SOC",
                 "socAlerts": "Alerty",
                 "socRules": "Reguły detekcji",
+                "socRisk": "Ryzyko zasobów",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1550,6 +1551,34 @@
             "new_vuln": "Krytyczna lub wysoka podatność, której host wcześniej nie miał: nowa luka dla tego, co tam działa, albo nowy host z luką.",
             "mac_changed": "Adres należy teraz do innej karty sieciowej niż wcześniej: wymienione urządzenie, ponownie użyty adres DHCP albo ARP spoofing.",
             "compliance_regression": "Test konfiguracji, który przechodził, teraz nie przechodzi: zmienione ustawienie albo osłabiona polityka."
+        },
+        "risk": {
+            "title": "Ryzyko zasobów",
+            "subtitle": "Które urządzenia są w najgorszej sytuacji i dlaczego: otwarte alerty, podatności, system poza wsparciem, brakujące aktualizacje, nieudane testy utwardzenia, ryzykowne usługi i urządzenia z możliwym fabrycznym hasłem, zsumowane w jedną liczbę (maks. 100).",
+            "empty": "Żadne urządzenie nie ma teraz nic na swoim koncie.",
+            "centralTitle": "Najbardziej zagrożone urządzenia",
+            "scored": "Ocenione: {{n}}",
+            "col": {
+                "asset": "Urządzenie",
+                "score": "Ocena",
+                "why": "Dlaczego"
+            },
+            "level": {
+                "critical": "Krytyczne",
+                "high": "Wysokie",
+                "medium": "Średnie",
+                "low": "Niskie"
+            },
+            "factor": {
+                "alerts": "Otwarte alerty: {{n}}",
+                "vuln": "Podatności krytyczne i wysokie: {{n}}",
+                "lifecycle": "System poza wsparciem lub u końca wsparcia",
+                "patches": "Oczekujące aktualizacje: {{n}}",
+                "hardening": "Nieudane testy utwardzenia: {{n}}",
+                "exposure": "Ryzykowne usługi: {{n}}",
+                "hints": "Możliwe fabryczne hasło",
+                "blind": "Brak poświadczeń, widoczne tylko pasywnie"
+            }
         }
     },
     "traffic": {

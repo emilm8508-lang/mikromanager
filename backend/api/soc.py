@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.auth import require_login
-from services import soc, soc_rules
+from services import soc, soc_rules, soc_risk
 
 router = APIRouter(prefix="/api/soc", tags=["soc"])
 
@@ -48,6 +48,16 @@ def update(body: AlertUpdate, user: dict = Depends(require_login)):
 @router.get("/stats")
 def stats():
     return soc.stats()
+
+
+@router.get("/risk")
+async def risk(limit: int = 300):
+    """Every active device with something wrong, the worst first: the score and the factors behind it."""
+    rows = await soc_risk.compute()
+    levels = {n: 0 for n, _ in soc_risk.LEVELS}
+    for r in rows:
+        levels[r["level"]] += 1
+    return {"levels": levels, "total": len(rows), "items": rows[:max(1, min(limit, 1000))]}
 
 
 class RuleToggle(BaseModel):

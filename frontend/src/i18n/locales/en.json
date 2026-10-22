@@ -17,6 +17,7 @@
                 "groupSoc": "SOC",
                 "socAlerts": "Alerts",
                 "socRules": "Detection rules",
+                "socRisk": "Asset risk",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1392,6 +1393,34 @@
             "new_vuln": "A critical or high CVE that was not on the host before: a new CVE for what runs there, or a new host that has one.",
             "mac_changed": "An address now belongs to another network card than before: a replaced device, a reused DHCP address, or ARP spoofing.",
             "compliance_regression": "A configuration check that passed now fails: a changed setting or a weakened policy."
+        },
+        "risk": {
+            "title": "Asset risk",
+            "subtitle": "Which devices are worst off and why: open alerts, vulnerabilities, an operating system out of support, missing updates, failed hardening checks, risky services and devices with a possible factory password, put together into one number (at most 100).",
+            "empty": "No device has anything against it right now.",
+            "centralTitle": "Devices at most risk",
+            "scored": "Scored: {{n}}",
+            "col": {
+                "asset": "Device",
+                "score": "Score",
+                "why": "Why"
+            },
+            "level": {
+                "critical": "Critical",
+                "high": "High",
+                "medium": "Medium",
+                "low": "Low"
+            },
+            "factor": {
+                "alerts": "Open alerts: {{n}}",
+                "vuln": "Critical and high vulnerabilities: {{n}}",
+                "lifecycle": "Operating system out of support or near its end",
+                "patches": "Pending updates: {{n}}",
+                "hardening": "Failed hardening checks: {{n}}",
+                "exposure": "Risky services: {{n}}",
+                "hints": "Possible factory password",
+                "blind": "No credentials, seen only passively"
+            }
         }
     },
     "traffic": {

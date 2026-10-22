@@ -17,6 +17,7 @@
                 "groupSoc": "SOC",
                 "socAlerts": "Alertas",
                 "socRules": "Reglas de detección",
+                "socRisk": "Riesgo de activos",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1392,6 +1393,34 @@
             "new_vuln": "Una CVE crítica o alta que el host no tenía antes: una CVE nueva para lo que corre allí, o un host nuevo que la tiene.",
             "mac_changed": "Una dirección pertenece ahora a otra tarjeta de red que antes: un dispositivo sustituido, una dirección DHCP reutilizada o ARP spoofing.",
             "compliance_regression": "Una comprobación de configuración que pasaba ahora falla: un ajuste cambiado o una política debilitada."
+        },
+        "risk": {
+            "title": "Riesgo de activos",
+            "subtitle": "Qué dispositivos están peor y por qué: alertas abiertas, vulnerabilidades, sistema operativo sin soporte, actualizaciones pendientes, comprobaciones de refuerzo fallidas, servicios de riesgo y dispositivos con posible contraseña de fábrica, reunidos en un número (máximo 100).",
+            "empty": "Ningún dispositivo tiene ahora nada en contra.",
+            "centralTitle": "Dispositivos con más riesgo",
+            "scored": "Evaluados: {{n}}",
+            "col": {
+                "asset": "Dispositivo",
+                "score": "Puntuación",
+                "why": "Por qué"
+            },
+            "level": {
+                "critical": "Crítico",
+                "high": "Alto",
+                "medium": "Medio",
+                "low": "Bajo"
+            },
+            "factor": {
+                "alerts": "Alertas abiertas: {{n}}",
+                "vuln": "Vulnerabilidades críticas y altas: {{n}}",
+                "lifecycle": "Sistema operativo sin soporte o cerca de perderlo",
+                "patches": "Actualizaciones pendientes: {{n}}",
+                "hardening": "Comprobaciones de refuerzo fallidas: {{n}}",
+                "exposure": "Servicios de riesgo: {{n}}",
+                "hints": "Posible contraseña de fábrica",
+                "blind": "Sin credenciales, visto solo de forma pasiva"
+            }
         }
     },
     "traffic": {

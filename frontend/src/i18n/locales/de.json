@@ -17,6 +17,7 @@
                 "groupSoc": "SOC",
                 "socAlerts": "Alarme",
                 "socRules": "Erkennungsregeln",
+                "socRisk": "Asset-Risiko",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1392,6 +1393,34 @@
             "new_vuln": "Eine kritische oder hohe CVE, die der Host vorher nicht hatte: eine neue CVE für das, was dort läuft, oder ein neuer Host mit einer.",
             "mac_changed": "Eine Adresse gehört jetzt zu einer anderen Netzwerkkarte als zuvor: ein ersetztes Gerät, eine wiederverwendete DHCP-Adresse oder ARP-Spoofing.",
             "compliance_regression": "Eine Konfigurationsprüfung, die bestanden war, schlägt jetzt fehl: eine geänderte Einstellung oder eine geschwächte Richtlinie."
+        },
+        "risk": {
+            "title": "Asset-Risiko",
+            "subtitle": "Welche Geräte am schlechtesten dastehen und warum: offene Alarme, Schwachstellen, nicht mehr unterstütztes Betriebssystem, fehlende Updates, fehlgeschlagene Härtungsprüfungen, riskante Dienste und Geräte mit möglichem Werkspasswort, zu einer Zahl zusammengefasst (höchstens 100).",
+            "empty": "Aktuell liegt gegen kein Gerät etwas vor.",
+            "centralTitle": "Am stärksten gefährdete Geräte",
+            "scored": "Bewertet: {{n}}",
+            "col": {
+                "asset": "Gerät",
+                "score": "Bewertung",
+                "why": "Warum"
+            },
+            "level": {
+                "critical": "Kritisch",
+                "high": "Hoch",
+                "medium": "Mittel",
+                "low": "Niedrig"
+            },
+            "factor": {
+                "alerts": "Offene Alarme: {{n}}",
+                "vuln": "Kritische und hohe Schwachstellen: {{n}}",
+                "lifecycle": "Betriebssystem ohne Support oder kurz davor",
+                "patches": "Ausstehende Updates: {{n}}",
+                "hardening": "Fehlgeschlagene Härtungsprüfungen: {{n}}",
+                "exposure": "Riskante Dienste: {{n}}",
+                "hints": "Mögliches Werkspasswort",
+                "blind": "Keine Zugangsdaten, nur passiv gesehen"
+            }
         }
     },
     "traffic": {

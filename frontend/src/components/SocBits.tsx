@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
-import { socApi, SOC_SEVERITIES, SOC_STATUSES, type SocAlert, type SocSeverity, type SocStats, type SocStatus } from '../lib/api'
-import { Pill } from './AssetBits'
+import { socApi, SOC_SEVERITIES, SOC_STATUSES, type AssetType, type SocAlert, type SocSeverity, type SocStats, type SocStatus } from '../lib/api'
+import { Pill, TypeIcon } from './AssetBits'
 import { cn } from '../lib/utils'
 
 // The pieces of the SOC pages shared by the agent (triage: acknowledge, take, close) and Central (the same queue, read-only).
@@ -240,6 +240,46 @@ export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, em
               </div>
             </div>
             {isOpen && <AlertDetail a={a} readOnly={readOnly} onUpdate={onUpdate} />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export const RISK_LEVELS = [
+  { key: 'critical', bar: 'bg-red-500', text: 'text-red-600' },
+  { key: 'high', bar: 'bg-orange-500', text: 'text-orange-600' },
+  { key: 'medium', bar: 'bg-amber-400', text: 'text-amber-600' },
+  { key: 'low', bar: 'bg-slate-400', text: 'text-slate-600' },
+]
+
+export interface RiskRowView { id: number; name: string; type: string; score: number; level: string; factors: Array<{ k: string; pts: number; n?: number | null }>; href?: string }
+
+/** Devices with their score and the reasons behind it (the factors, with their points). Used by the agent's page and by Central's top list. */
+export function RiskTable({ rows, empty }: { rows: RiskRowView[]; empty: string }) {
+  const { t } = useTranslation()
+  if (rows.length === 0) return <p className="text-sm text-slate-400 py-8 text-center">{empty}</p>
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
+      <div className="grid grid-cols-[minmax(0,1.3fr),9rem,minmax(0,3fr)] bg-slate-50 text-xs text-slate-500 px-4 py-2">
+        <div>{t('soc.risk.col.asset')}</div><div>{t('soc.risk.col.score')}</div><div>{t('soc.risk.col.why')}</div>
+      </div>
+      {rows.map(r => {
+        const lv = RISK_LEVELS.find(l => l.key === r.level) ?? RISK_LEVELS[3]
+        return (
+          <div key={r.id} className="grid grid-cols-[minmax(0,1.3fr),9rem,minmax(0,3fr)] items-center px-4 py-2 border-t border-slate-100 gap-x-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <TypeIcon type={(r.type as AssetType) ?? 'other'} size={15} />
+              {r.href ? <Link to={r.href} className="text-indigo-600 hover:underline truncate">{r.name}</Link> : <span className="truncate text-slate-900">{r.name}</span>}
+            </div>
+            <div className="flex items-center gap-2" title={t(`soc.risk.level.${r.level}`) as string}>
+              <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full rounded-full', lv.bar)} style={{ width: `${Math.min(100, r.score)}%` }} /></div>
+              <span className={cn('font-semibold tabular-nums', lv.text)}>{Math.round(r.score)}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {r.factors.map(f => <Pill key={f.k} tone="gray">{t(`soc.risk.factor.${f.k}`, { n: f.n ?? 0 })} <span className="text-slate-400">+{Math.round(f.pts)}</span></Pill>)}
+            </div>
           </div>
         )
       })}

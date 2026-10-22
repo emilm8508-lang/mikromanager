@@ -1313,11 +1313,17 @@ export interface SocStats {
   opened_daily: Array<{ t: string; n: number }>; oldest_new_hours: number | null
 }
 export interface SocQuery { status?: string; severity?: string; category?: string; source?: string; q?: string; limit?: number; offset?: number }
+export interface SocRiskRow {
+  id: number; name: string; ip: string | null; type: string; dclass: string | null; score: number; level: 'critical' | 'high' | 'medium' | 'low'
+  factors: Array<{ k: string; pts: number; n?: number }>
+}
+export interface SocRisk { levels: Record<string, number>; total: number; items: SocRiskRow[] }
 export interface SocRule {
   id: string; title: string; description: string; category: string; severity: string; mitre: string | null; interval_sec: number
   enabled: boolean; baselined: boolean; last_run: string | null; last_error: string | null; last_new: number | null; known: number
 }
 export const socApi = {
+  risk: (limit = 300) => api.get<SocRisk>('/soc/risk', { params: { limit } }).then(r => r.data),
   rules: () => api.get<SocRule[]>('/soc/rules').then(r => r.data),
   ruleToggle: (id: string, enabled: boolean) => api.post<{ ok: boolean }>(`/soc/rules/${id}`, { enabled }).then(r => r.data),
   ruleRun: (id: string) => api.post<Record<string, { findings?: number; new?: number; raised?: number; baseline?: boolean; error?: string }>>(`/soc/rules/${id}/run`).then(r => r.data),
@@ -1330,6 +1336,7 @@ export const socApi = {
 // what Central receives (compact; no internal addresses): the numbers and the open alerts, worst first
 export interface CentralSoc {
   at: string | null; stats: SocStats | null
+  risk?: { levels: Record<string, number>; scored: number; top: Array<{ id: number; name: string; type: string; score: number; level: string; factors: Array<[string, number, number | null]> }> }
   alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; status: SocStatus
                   owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any> }>
 }
