@@ -31,7 +31,7 @@ export function SocRisk() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('soc.filter.search') as string} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-56 ml-auto" />
         </div>
       )}
-      {risk.isLoading ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : <RiskTable rows={items.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors, href: `/inventory/${r.id}` }))} empty={t('soc.risk.empty') as string} />}
+      {risk.isLoading ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : <RiskTable rows={items.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors, ip: r.ip, loc: r.loc, href: `/inventory/${r.id}` }))} empty={t('soc.risk.empty') as string} />}
     </div>
   )
 }

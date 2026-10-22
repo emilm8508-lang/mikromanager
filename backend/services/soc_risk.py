@@ -100,20 +100,21 @@ async def compute() -> List[dict]:
         if r["type"] in IMPORTANT or r.get("dclass") in ("gateway", "router", "switch"):
             score *= 1.15
         score = round(min(100.0, score), 1)
-        out.append({"id": r["id"], "name": r["name"], "ip": r["ip"], "type": r["type"], "dclass": r.get("dclass"), "score": score,
+        out.append({"id": r["id"], "name": r["name"], "ip": r["ip"], "loc": r.get("location"), "type": r["type"], "dclass": r.get("dclass"), "score": score,
                     "level": level_of(score), "factors": factors})
     out.sort(key=lambda x: -x["score"])
     return out
 
 
 async def public_summary() -> dict:
-    """What Central gets: the level counts and the worst few devices with their factors - names and points, no addresses."""
+    """What Central gets: the level counts and the worst few devices with their factors, where each is (address, location) so the list can say which
+    host it means - the same the asset list in Central already carries."""
     rows = await compute()
     levels = {n: 0 for n, _ in LEVELS}
     for r in rows:
         levels[r["level"]] += 1
     return {
         "levels": levels, "scored": len(rows),
-        "top": [{"id": r["id"], "name": r["name"], "type": r["type"], "score": r["score"], "level": r["level"],
+        "top": [{"id": r["id"], "name": r["name"], "ip": r["ip"], "loc": r["loc"], "type": r["type"], "score": r["score"], "level": r["level"],
                  "factors": [[f["k"], f["pts"], f.get("n")] for f in r["factors"]]} for r in rows[:PUBLIC_TOP]],
     }

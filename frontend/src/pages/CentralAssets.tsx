@@ -9,7 +9,7 @@ import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2, Play, Power
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; assets: NonNullable<Awaited<ReturnType<typeof centralApi.assetsStatusAll>>['tenants'][number]['assets']> }
-type Row = AssetsPublicRow & { tenant: string }
+export type Row = AssetsPublicRow & { tenant: string }
 const LC_ORDER: Record<string, number> = { eol: 0, ending: 1, supported: 2, unknown: 3 }
 const PAGE = 50
 
@@ -22,7 +22,7 @@ const ago = (epoch: number | null) => {
 // Drawer with what Central knows about one device and the commands it may send to the agent for it (the same ones as on the
 // server boards: updates and restart for Linux / Windows hosts, firmware for Mikrotik routers). A command is queued at Central and
 // the agent carries it out on its next synchronisation.
-function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
+export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void }) {
   const { t } = useTranslation()
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)

@@ -188,9 +188,11 @@ function AlertDetail({ a, readOnly, onUpdate }: { a: SocAlert; readOnly: boolean
 }
 
 /** The queue. Agent: `readOnly` false with a status control per row and checkboxes for the bulk bar; Central: the same rows without controls. */
-export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, empty }: {
+export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, onOpenAsset, empty }: {
   alerts: SocAlert[]; readOnly: boolean; selected?: Set<number>; setSelected?: (s: Set<number>) => void
-  onUpdate?: (ids: number[], patch: Record<string, unknown>) => void; empty: string
+  onUpdate?: (ids: number[], patch: Record<string, unknown>) => void
+  onOpenAsset?: (assetId: number) => void          // Central: opens the device's drawer (details and commands) instead of a link to the agent's page
+  empty: string
 }) {
   const { t } = useTranslation()
   const ago = useAgo()
@@ -225,7 +227,8 @@ export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, em
                 {line && <div className="text-xs text-slate-500 truncate" title={line}>{line}</div>}
               </div>
               <div className="px-2 py-2 min-w-0 truncate" onClick={e => e.stopPropagation()}>
-                {a.device_name ? (a.asset_id && !readOnly ? <Link to={`/inventory/${a.asset_id}`} className="text-indigo-600 hover:underline">{a.device_name}</Link> : a.device_name) : '—'}
+                {a.device_name ? (a.asset_id && !readOnly ? <Link to={`/inventory/${a.asset_id}`} className="text-indigo-600 hover:underline">{a.device_name}</Link>
+                  : a.asset_id && onOpenAsset ? <button className="text-indigo-600 hover:underline" onClick={() => onOpenAsset(a.asset_id!)}>{a.device_name}</button> : a.device_name) : '—'}
                 <div className="text-[11px] text-slate-400 truncate">{t(`soc.source.${a.source}`, { defaultValue: a.source })} · {t(`soc.category.${a.category}`, { defaultValue: a.category })}</div>
               </div>
               <div className="px-2 py-2 text-right tabular-nums text-slate-600">{a.count}</div>
@@ -254,7 +257,10 @@ export const RISK_LEVELS = [
   { key: 'low', bar: 'bg-slate-400', text: 'text-slate-600' },
 ]
 
-export interface RiskRowView { id: number; name: string; type: string; score: number; level: string; factors: Array<{ k: string; pts: number; n?: number | null }>; href?: string }
+export interface RiskRowView {
+  id: number; name: string; type: string; score: number; level: string; factors: Array<{ k: string; pts: number; n?: number | null }>
+  ip?: string | null; loc?: string | null; href?: string; onOpen?: () => void
+}
 
 /** Devices with their score and the reasons behind it (the factors, with their points). Used by the agent's page and by Central's top list. */
 export function RiskTable({ rows, empty }: { rows: RiskRowView[]; empty: string }) {
@@ -271,7 +277,12 @@ export function RiskTable({ rows, empty }: { rows: RiskRowView[]; empty: string 
           <div key={r.id} className="grid grid-cols-[minmax(0,1.3fr),9rem,minmax(0,3fr)] items-center px-4 py-2 border-t border-slate-100 gap-x-3">
             <div className="flex items-center gap-2 min-w-0">
               <TypeIcon type={(r.type as AssetType) ?? 'other'} size={15} />
-              {r.href ? <Link to={r.href} className="text-indigo-600 hover:underline truncate">{r.name}</Link> : <span className="truncate text-slate-900">{r.name}</span>}
+              <div className="min-w-0">
+                {r.href ? <Link to={r.href} className="text-indigo-600 hover:underline truncate block">{r.name}</Link>
+                  : r.onOpen ? <button onClick={r.onOpen} className="text-indigo-600 hover:underline truncate block max-w-full text-left">{r.name}</button>
+                  : <span className="truncate block text-slate-900">{r.name}</span>}
+                {(r.ip || r.loc) && <div className="text-[11px] text-slate-400 truncate">{[r.ip, r.loc].filter(Boolean).join(' · ')}</div>}
+              </div>
             </div>
             <div className="flex items-center gap-2" title={t(`soc.risk.level.${r.level}`) as string}>
               <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full rounded-full', lv.bar)} style={{ width: `${Math.min(100, r.score)}%` }} /></div>

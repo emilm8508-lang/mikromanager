@@ -1314,7 +1314,7 @@ export interface SocStats {
 }
 export interface SocQuery { status?: string; severity?: string; category?: string; source?: string; q?: string; limit?: number; offset?: number }
 export interface SocRiskRow {
-  id: number; name: string; ip: string | null; type: string; dclass: string | null; score: number; level: 'critical' | 'high' | 'medium' | 'low'
+  id: number; name: string; ip: string | null; loc?: string | null; type: string; dclass: string | null; score: number; level: 'critical' | 'high' | 'medium' | 'low'
   factors: Array<{ k: string; pts: number; n?: number }>
 }
 export interface SocRisk { levels: Record<string, number>; total: number; items: SocRiskRow[] }
@@ -1336,12 +1336,12 @@ export const socApi = {
 // what Central receives (compact; no internal addresses): the numbers and the open alerts, worst first
 export interface CentralSoc {
   at: string | null; stats: SocStats | null
-  risk?: { levels: Record<string, number>; scored: number; top: Array<{ id: number; name: string; type: string; score: number; level: string; factors: Array<[string, number, number | null]> }> }
-  alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; status: SocStatus
+  risk?: { levels: Record<string, number>; scored: number; top: Array<{ id: number; name: string; ip?: string | null; loc?: string | null; type: string; score: number; level: string; factors: Array<[string, number, number | null]> }> }
+  alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; asset?: number | null; status: SocStatus
                   owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any> }>
 }
 export function socFromCentral(s: CentralSoc): SocAlert[] {
-  return s.alerts.map(a => ({ id: a.id, rule: a.rule, source: a.source, category: a.category, severity: a.severity, title: a.title, device_name: a.device,
+  return s.alerts.map(a => ({ id: a.id, rule: a.rule, source: a.source, category: a.category, severity: a.severity, title: a.title, device_name: a.device, asset_id: a.asset ?? null,
                               status: a.status, owner: a.owner, count: a.count, mitre: a.mitre, first_seen: a.first, last_seen: a.last, detail: a.detail }))
 }
 

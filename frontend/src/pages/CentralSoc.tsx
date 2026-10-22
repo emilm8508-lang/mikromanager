@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Siren } from 'lucide-react'
 import { centralApi, centralConfig, socFromCentral, type CentralSoc as CentralSocData } from '../lib/api'
 import { RiskTable, RISK_LEVELS, SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAULT, useAgo, type SocFilterState } from '../components/SocBits'
+import { AssetDrawer, type Row as AssetRow } from './CentralAssets'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; soc: CentralSocData }
@@ -17,6 +18,8 @@ export function CentralSoc() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [tenant, setTenant] = useState('')
+  const [assets, setAssets] = useState<Record<string, AssetRow[]>>({})       // the asset rows of every client: what a device's drawer is built from
+  const [open, setOpen] = useState<AssetRow | null>(null)
   const [f, setF] = useState<SocFilterState>(SOC_FILTER_DEFAULT)
 
   const reload = async () => {
@@ -25,6 +28,10 @@ export function CentralSoc() {
       setParts(r.tenants.filter(x => x.soc && x.soc.stats).map(x => ({ tenant: x.tenant, lastSeen: x.last_seen, soc: x.soc! })))
       setErr(null)
     } catch (e) { setErr((e as Error).message) } finally { setLoading(false) }
+    try {
+      const a = await centralApi.assetsStatusAll()
+      setAssets(Object.fromEntries(a.tenants.map(x => [x.tenant, (x.assets?.rows ?? []).map(r => ({ ...r, tenant: x.tenant }))])))
+    } catch { /* the drawer is a convenience: without the asset list the names are plain text */ }
   }
   useEffect(() => {
     if (!cfg) { setLoading(false); return }
@@ -40,6 +47,8 @@ export function CentralSoc() {
     return w(b) - w(a)
   }), [parts])
   const part = parts.find(p => p.tenant === tenant)
+  const assetRow = (id: number) => (assets[tenant] ?? []).find(r => r.id === id)
+  const opener = (id: number) => { const r = assetRow(id); return r ? () => setOpen(r) : undefined }
   const alerts = useMemo(() => {
     if (!part) return []
     const q = f.q.trim().toLowerCase()
@@ -89,7 +98,7 @@ export function CentralSoc() {
               </div>
               <SocKpis stats={part.soc.stats!} />
               <SocFilters f={f} set={setF} tabs={['open', 'new']} />
-              <SocTable alerts={alerts} readOnly empty={t('soc.empty') as string} />
+              <SocTable alerts={alerts} readOnly onOpenAsset={id => { const r = assetRow(id); if (r) setOpen(r) }} empty={t('soc.empty') as string} />
               {part.soc.alerts.length >= 80 && <p className="text-xs text-slate-400">{t('soc.central.cut')}</p>}
               {part.soc.risk && part.soc.risk.top.length > 0 && (
                 <div className="space-y-2 pt-2">
@@ -97,13 +106,14 @@ export function CentralSoc() {
                     <h2 className="text-base font-semibold text-slate-900">{t('soc.risk.centralTitle')}</h2>
                     <span className="text-xs text-slate-400">{t('soc.risk.scored', { n: part.soc.risk.scored })} · {RISK_LEVELS.map(l => `${t(`soc.risk.level.${l.key}`)}: ${part.soc!.risk!.levels[l.key] ?? 0}`).join(' · ')}</span>
                   </div>
-                  <RiskTable rows={part.soc.risk.top.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors.map(([k, pts, n]) => ({ k, pts, n })) }))} empty={t('soc.risk.empty') as string} />
+                  <RiskTable rows={part.soc.risk.top.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors.map(([k, pts, n]) => ({ k, pts, n })), ip: r.ip, loc: r.loc, onOpen: opener(r.id) }))} empty={t('soc.risk.empty') as string} />
                 </div>
               )}
             </>
           )}
         </>
       )}
+      {open && <AssetDrawer row={open} onClose={() => setOpen(null)} />}
     </div>
   )
 }

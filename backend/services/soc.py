@@ -454,7 +454,7 @@ def public_summary() -> dict:
                                                                  "tunnel_name", "iface", "sensor_name", "description", "state_name", "groups", "mitre",
                                                                  "cve", "package", "vuln_severity", "src_ip", "user", "tactics")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
-                           "device": a.device_name, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
+                           "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d})
         st.pop("top_devices", None)
         return {"at": _iso(now), "stats": st, "alerts": alerts}
