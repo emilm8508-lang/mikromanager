@@ -14,6 +14,9 @@
                 "assetsOverview": "Resumen de activos",
                 "racks": "Racks",
                 "soc": "SOC",
+                "groupSoc": "SOC",
+                "socAlerts": "Alertas",
+                "socRules": "Reglas de detección",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1356,7 +1359,39 @@
             "wazuh_alert": "Alerta de Wazuh",
             "prtg_sensor_down": "Sensor PRTG con problema",
             "checkmk_service_problem": "Problema de servicio en Checkmk",
-            "checkmk_host_down": "Host de Checkmk caído"
+            "checkmk_host_down": "Host de Checkmk caído",
+            "login_after_failures": "Inicio de sesión correcto tras intentos fallidos",
+            "rule": {
+                "new_device": "Dispositivo nuevo en la red",
+                "new_port": "Puerto abierto nuevo en un host",
+                "new_vuln": "Vulnerabilidad crítica o alta nueva",
+                "mac_changed": "La dirección la responde otra tarjeta de red",
+                "compliance_regression": "Una comprobación de refuerzo empezó a fallar"
+            }
+        },
+        "rules": {
+            "title": "Reglas de detección",
+            "subtitle": "Lo que el agente detecta por sí mismo con los datos que ya recoge. La primera ejecución de una regla solo recuerda el estado actual (no avisa de nada); después avisa una vez por cada cosa nueva; una alerta cerrada no vuelve.",
+            "col": {
+                "rule": "Regla",
+                "interval": "Intervalo",
+                "last": "Última ejecución",
+                "known": "Conocidos",
+                "enabled": "Activa"
+            },
+            "every": "cada {{min}} min",
+            "never": "aún no ejecutada",
+            "known": "{{n}} recordados",
+            "runNow": "Ejecutar ahora",
+            "baseline": "La primera ejecución guarda el estado actual como conocido y no avisa de nada.",
+            "lastNew": "Nuevos la última vez: {{n}}"
+        },
+        "ruledesc": {
+            "new_device": "Apareció en el inventario un dispositivo que nunca se había visto en la red. Cerrar la alerta lo aprueba.",
+            "new_port": "Un host con un conjunto conocido de puertos abiertos abrió uno nuevo; RDP, SMB, Telnet, bases de datos y similares se valoran más alto.",
+            "new_vuln": "Una CVE crítica o alta que el host no tenía antes: una CVE nueva para lo que corre allí, o un host nuevo que la tiene.",
+            "mac_changed": "Una dirección pertenece ahora a otra tarjeta de red que antes: un dispositivo sustituido, una dirección DHCP reutilizada o ARP spoofing.",
+            "compliance_regression": "Una comprobación de configuración que pasaba ahora falla: un ajuste cambiado o una política debilitada."
         }
     },
     "traffic": {

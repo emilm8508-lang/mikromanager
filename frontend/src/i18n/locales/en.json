@@ -14,6 +14,9 @@
                 "assetsOverview": "Overview",
                 "racks": "Server racks",
                 "soc": "SOC",
+                "groupSoc": "SOC",
+                "socAlerts": "Alerts",
+                "socRules": "Detection rules",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1356,7 +1359,39 @@
             "wazuh_alert": "Wazuh alert",
             "prtg_sensor_down": "PRTG sensor down",
             "checkmk_service_problem": "Checkmk service problem",
-            "checkmk_host_down": "Checkmk host down"
+            "checkmk_host_down": "Checkmk host down",
+            "login_after_failures": "Successful login after failed attempts",
+            "rule": {
+                "new_device": "New device on the network",
+                "new_port": "New open port on a host",
+                "new_vuln": "New critical or high vulnerability",
+                "mac_changed": "Address answered by a different network card",
+                "compliance_regression": "Hardening check started failing"
+            }
+        },
+        "rules": {
+            "title": "Detection rules",
+            "subtitle": "What the agent detects by itself from the data it already collects. A rule's first run only remembers the present state (it raises nothing), after that it raises one alert per new thing; a closed alert does not come back.",
+            "col": {
+                "rule": "Rule",
+                "interval": "Interval",
+                "last": "Last run",
+                "known": "Known",
+                "enabled": "Enabled"
+            },
+            "every": "every {{min}} min",
+            "never": "not run yet",
+            "known": "{{n}} remembered",
+            "runNow": "Run now",
+            "baseline": "The first run records the present state as known and reports nothing.",
+            "lastNew": "New last time: {{n}}"
+        },
+        "ruledesc": {
+            "new_device": "A device that has never been seen on the network appeared in the inventory. Closing the alert approves it.",
+            "new_port": "A host with a known set of open ports opened a new one; RDP, SMB, Telnet, databases and the like are rated higher.",
+            "new_vuln": "A critical or high CVE that was not on the host before: a new CVE for what runs there, or a new host that has one.",
+            "mac_changed": "An address now belongs to another network card than before: a replaced device, a reused DHCP address, or ARP spoofing.",
+            "compliance_regression": "A configuration check that passed now fails: a changed setting or a weakened policy."
         }
     },
     "traffic": {

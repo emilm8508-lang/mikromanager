@@ -1313,7 +1313,14 @@ export interface SocStats {
   opened_daily: Array<{ t: string; n: number }>; oldest_new_hours: number | null
 }
 export interface SocQuery { status?: string; severity?: string; category?: string; source?: string; q?: string; limit?: number; offset?: number }
+export interface SocRule {
+  id: string; title: string; description: string; category: string; severity: string; mitre: string | null; interval_sec: number
+  enabled: boolean; baselined: boolean; last_run: string | null; last_error: string | null; last_new: number | null; known: number
+}
 export const socApi = {
+  rules: () => api.get<SocRule[]>('/soc/rules').then(r => r.data),
+  ruleToggle: (id: string, enabled: boolean) => api.post<{ ok: boolean }>(`/soc/rules/${id}`, { enabled }).then(r => r.data),
+  ruleRun: (id: string) => api.post<Record<string, { findings?: number; new?: number; raised?: number; baseline?: boolean; error?: string }>>(`/soc/rules/${id}/run`).then(r => r.data),
   alerts: (p: SocQuery) => api.get<{ total: number; items: SocAlert[] }>('/soc/alerts', { params: p }).then(r => r.data),
   alert: (id: number) => api.get<SocAlert>(`/soc/alerts/${id}`).then(r => r.data),
   update: (body: { ids: number[]; status?: SocStatus; owner?: string | null; note?: string | null; set_owner?: boolean; set_note?: boolean }) =>

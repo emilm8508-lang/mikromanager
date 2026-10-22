@@ -268,7 +268,10 @@ export function Sidebar() {
   const agentNav: NavEntry[] = [
     item('/', t('nav.dashboard') as string, LayoutDashboard),
     item('/security-summary', t('nav.securitySummary') as string, PieChart),
-    item('/soc', t('nav.soc') as string, Siren),
+    { key: 'soc', label: t('nav.groupSoc') as string, icon: Siren, items: [
+      item('/soc', t('nav.socAlerts') as string, Siren),
+      item('/soc/rules', t('nav.socRules') as string, ListChecks),
+    ] },
     { key: 'systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/mikrotik', t('nav.mikrotik') as string, Router),
       item('/linux', t('nav.linuxHosts') as string, TerminalSquare),
@@ -418,7 +421,7 @@ export function Sidebar() {
                   <NavLink
                     key={to}
                     to={to}
-                    end={to === '/inventory'}
+                    end={to === '/inventory' || to === '/soc'}
                     className={({ isActive: a }) =>
                       cn(
                         'flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-colors',

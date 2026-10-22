@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.auth import require_login
-from services import soc
+from services import soc, soc_rules
 
 router = APIRouter(prefix="/api/soc", tags=["soc"])
 
@@ -48,3 +48,28 @@ def update(body: AlertUpdate, user: dict = Depends(require_login)):
 @router.get("/stats")
 def stats():
     return soc.stats()
+
+
+class RuleToggle(BaseModel):
+    enabled: bool
+
+
+@router.get("/rules")
+def rules():
+    """The agent's own detection rules: what each looks for, how often, whether it is on and what it found last."""
+    return soc_rules.list_rules()
+
+
+@router.post("/rules/{rule_id}")
+def rule_toggle(rule_id: str, body: RuleToggle):
+    if not soc_rules.set_enabled(rule_id, body.enabled):
+        raise HTTPException(404, "unknown rule")
+    return {"ok": True}
+
+
+@router.post("/rules/{rule_id}/run")
+async def rule_run(rule_id: str):
+    """Runs one rule now (the first run of a rule only records what is already there; it raises nothing)."""
+    if rule_id not in {r["id"] for r in soc_rules.list_rules()}:
+        raise HTTPException(404, "unknown rule")
+    return await soc_rules.run_due(only=rule_id, force=True)

@@ -14,6 +14,9 @@
                 "assetsOverview": "Bestandsübersicht",
                 "racks": "Serverschränke",
                 "soc": "SOC",
+                "groupSoc": "SOC",
+                "socAlerts": "Alarme",
+                "socRules": "Erkennungsregeln",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1356,7 +1359,39 @@
             "wazuh_alert": "Wazuh-Alarm",
             "prtg_sensor_down": "PRTG-Sensor gestört",
             "checkmk_service_problem": "Checkmk-Dienstproblem",
-            "checkmk_host_down": "Checkmk-Host ausgefallen"
+            "checkmk_host_down": "Checkmk-Host ausgefallen",
+            "login_after_failures": "Erfolgreiche Anmeldung nach fehlgeschlagenen Versuchen",
+            "rule": {
+                "new_device": "Neues Gerät im Netzwerk",
+                "new_port": "Neuer offener Port auf einem Host",
+                "new_vuln": "Neue kritische oder hohe Schwachstelle",
+                "mac_changed": "Adresse wird von anderer Netzwerkkarte beantwortet",
+                "compliance_regression": "Härtungsprüfung schlägt jetzt fehl"
+            }
+        },
+        "rules": {
+            "title": "Erkennungsregeln",
+            "subtitle": "Was der Agent selbst aus den ohnehin gesammelten Daten erkennt. Der erste Lauf einer Regel merkt sich nur den Ist-Zustand (meldet nichts), danach meldet sie einmal pro neuer Sache; ein geschlossener Alarm kommt nicht wieder.",
+            "col": {
+                "rule": "Regel",
+                "interval": "Intervall",
+                "last": "Letzter Lauf",
+                "known": "Bekannt",
+                "enabled": "Aktiv"
+            },
+            "every": "alle {{min}} Min.",
+            "never": "noch nicht gelaufen",
+            "known": "{{n}} gemerkt",
+            "runNow": "Jetzt ausführen",
+            "baseline": "Der erste Lauf speichert den Ist-Zustand als bekannt und meldet nichts.",
+            "lastNew": "Beim letzten Mal neu: {{n}}"
+        },
+        "ruledesc": {
+            "new_device": "Ein Gerät, das nie zuvor im Netzwerk gesehen wurde, ist im Inventar aufgetaucht. Das Schließen des Alarms genehmigt es.",
+            "new_port": "Ein Host mit bekannter Menge offener Ports hat einen neuen geöffnet; RDP, SMB, Telnet, Datenbanken u. Ä. werden höher bewertet.",
+            "new_vuln": "Eine kritische oder hohe CVE, die der Host vorher nicht hatte: eine neue CVE für das, was dort läuft, oder ein neuer Host mit einer.",
+            "mac_changed": "Eine Adresse gehört jetzt zu einer anderen Netzwerkkarte als zuvor: ein ersetztes Gerät, eine wiederverwendete DHCP-Adresse oder ARP-Spoofing.",
+            "compliance_regression": "Eine Konfigurationsprüfung, die bestanden war, schlägt jetzt fehl: eine geänderte Einstellung oder eine geschwächte Richtlinie."
         }
     },
     "traffic": {

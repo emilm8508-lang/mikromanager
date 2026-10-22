@@ -42,6 +42,7 @@ _TEXT_MAX = 300
 #           event    - a one-off thing: an alert that is merged while it repeats and closed as stale when it stops
 CATALOG: Dict[str, tuple] = {
     "failed_logins":              ("auth", "event", "auth", "medium", "T1110", "Repeated failed logins"),
+    "login_after_failures":       ("authok", "event", "auth", "high", "T1110", "Successful login after failed attempts"),
     "device_rebooted":            ("reboot", "event", "system", "low", None, "Device rebooted"),
     "device_log_critical":        ("devlog", "event", "system", "medium", None, "Critical entries in the device log"),
     "wan_ip_changed":             ("wanip", "event", "network", "low", None, "WAN address changed"),
@@ -88,6 +89,8 @@ _EVIDENCE_KEYS = ("sources", "users", "count", "window_sec", "threshold", "log_m
                   "src_ip", "user", "location", "path", "cve", "package", "vuln_severity", "tactics", "full_log")
 
 _last_housekeeping = [0.0]
+_seen_events: Dict[tuple, float] = {}      # (type, fingerprint, detected_at) of the events already taken in, so a repeated copy counts once
+_SEEN_KEEP_SEC = 4 * 3600
 
 
 def _now() -> datetime:
@@ -119,6 +122,8 @@ def classify(e: dict) -> dict:
         count = 1
     if t == "failed_logins" and count >= 20:
         sev = "high"
+    elif t == "login_after_failures" and count >= 5:
+        sev = "critical"
     elif t == "wazuh_alert":
         try:
             lvl = int(e.get("rule_level") or 0)
@@ -229,6 +234,9 @@ def ingest(events: List[dict], now: Optional[datetime] = None) -> dict:
     for the SOC only - they still go to Central the old way)."""
     now = now or _now()
     opened = updated = closed = 0
+    clock = time.time()
+    for k in [k for k, v in _seen_events.items() if clock - v > _SEEN_KEEP_SEC]:
+        del _seen_events[k]
     try:
         with SessionLocal() as db:
             for e in events or []:
@@ -237,6 +245,11 @@ def ingest(events: List[dict], now: Optional[datetime] = None) -> dict:
                 c = classify(e)
                 device = _device_of(e)
                 fp = fingerprint(c["family"], device, e)
+                if e.get("detected_at"):
+                    key = (c["type"], fp, str(e["detected_at"]))
+                    if key in _seen_events:
+                        continue
+                    _seen_events[key] = clock
                 if c["kind"] == "recovery":
                     closed += _close_recovered(db, fp, now, e)
                     continue

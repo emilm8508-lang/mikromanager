@@ -541,6 +541,11 @@ async def _build_snapshot() -> dict:
     try:
         from services import soc
         soc.ingest([e for e in alert_events if e.get("type") != "wazuh_alert"] + soc_extra)
+        try:
+            from services import soc_rules
+            await _bounded(soc_rules.run_due())                  # the agent's own detection rules (each at its own interval)
+        except Exception as e:
+            print(f"[uplink] soc rules error: {e}")
         soc_status = soc.public_summary()
     except Exception as e:
         print(f"[uplink] soc error: {e}")

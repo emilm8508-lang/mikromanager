@@ -14,6 +14,9 @@
                 "assetsOverview": "Przegląd zasobów",
                 "racks": "Szafy rackowe",
                 "soc": "SOC",
+                "groupSoc": "SOC",
+                "socAlerts": "Alerty",
+                "socRules": "Reguły detekcji",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1514,7 +1517,39 @@
             "wazuh_alert": "Alert Wazuh",
             "prtg_sensor_down": "Czujnik PRTG w problemie",
             "checkmk_service_problem": "Problem z usługą w Checkmk",
-            "checkmk_host_down": "Host w Checkmk nie działa"
+            "checkmk_host_down": "Host w Checkmk nie działa",
+            "login_after_failures": "Udane logowanie po nieudanych próbach",
+            "rule": {
+                "new_device": "Nowe urządzenie w sieci",
+                "new_port": "Nowy otwarty port na hoście",
+                "new_vuln": "Nowa krytyczna lub wysoka podatność",
+                "mac_changed": "Adres odpowiada inna karta sieciowa",
+                "compliance_regression": "Test utwardzenia zaczął się nie udawać"
+            }
+        },
+        "rules": {
+            "title": "Reguły detekcji",
+            "subtitle": "Co agent sam wykrywa na podstawie danych, które już zbiera. Pierwsze uruchomienie reguły tylko zapamiętuje stan obecny (nic nie alarmuje), potem reguła alarmuje raz na każdą nową rzecz; zamknięty alert nie wraca.",
+            "col": {
+                "rule": "Reguła",
+                "interval": "Co ile",
+                "last": "Ostatnie uruchomienie",
+                "known": "Znane",
+                "enabled": "Włączona"
+            },
+            "every": "co {{min}} min",
+            "never": "jeszcze nie uruchomiona",
+            "known": "{{n}} zapamiętanych",
+            "runNow": "Uruchom teraz",
+            "baseline": "Pierwsze uruchomienie zapisze stan obecny jako znany i nic nie zgłosi.",
+            "lastNew": "Ostatnio nowych: {{n}}"
+        },
+        "ruledesc": {
+            "new_device": "Do inwentarza trafiło urządzenie, którego nigdy wcześniej nie widziano w sieci. Zamknięcie alertu oznacza jego zatwierdzenie.",
+            "new_port": "Host ze znanym zestawem otwartych portów otworzył nowy; RDP, SMB, Telnet, bazy danych i podobne są oceniane wyżej.",
+            "new_vuln": "Krytyczna lub wysoka podatność, której host wcześniej nie miał: nowa luka dla tego, co tam działa, albo nowy host z luką.",
+            "mac_changed": "Adres należy teraz do innej karty sieciowej niż wcześniej: wymienione urządzenie, ponownie użyty adres DHCP albo ARP spoofing.",
+            "compliance_regression": "Test konfiguracji, który przechodził, teraz nie przechodzi: zmienione ustawienie albo osłabiona polityka."
         }
     },
     "traffic": {

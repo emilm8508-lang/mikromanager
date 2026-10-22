@@ -45,6 +45,10 @@ _scan_cache = {"data": [], "ts": 0.0}
 # scan doesn't have one type's fingerprints clobber the other's.
 _alerted_fingerprints: dict = {}
 _alerted_reboot_fingerprints: dict = {}
+_alerted_login_after: dict = {}
+# A login that succeeded from an address that had just failed this many times: the password was guessed (or the user was only clumsy - the
+# SOC page says which, this only reports it).
+LOGIN_AFTER_MIN = int(os.environ.get("MIKROMANAGER_ALERT_LOGIN_AFTER_FAILURES", "3"))
 
 
 FAILED_LOGIN_HINT_RE = re.compile(
@@ -68,6 +72,9 @@ REBOOT_HINT_RE = re.compile(
 )
 
 _BARE_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+
+# RouterOS: "user admin logged in from 192.168.88.5 via winbox"
+LOGIN_OK_RE = re.compile(r"user\s+(\S+)\s+logged\s+in\s+from\s+(\d{1,3}(?:\.\d{1,3}){3})", re.IGNORECASE)
 
 
 def _entry_is_recent(entry_time: Optional[str], window_sec: int, now: Optional[datetime] = None) -> bool:
@@ -173,6 +180,41 @@ async def _scan_device(device_id: int) -> List[dict]:
                 "threshold": THRESHOLD,
                 "detected_at": datetime.utcnow().isoformat(),
             })
+
+    # ── A login that succeeds after failed attempts from the same address ──────
+    by_src: dict = {}
+    for f in failed:
+        if f["source_ip"]:
+            by_src.setdefault(f["source_ip"], []).append(f)
+    for entry in logs:
+        msg = str(entry.get("message") or "")
+        m = LOGIN_OK_RE.search(msg)
+        if not m or not _entry_is_recent(entry.get("time"), WINDOW_SEC):
+            continue
+        # both times are bare HH:MM:SS of today (that is what _entry_is_recent accepts), so comparing them as text orders them
+        earlier = [f for f in by_src.get(m.group(2), []) if (f["time"] or "") <= entry["time"]]
+        if len(earlier) < LOGIN_AFTER_MIN:
+            continue
+        seen = _alerted_login_after.setdefault(device_id, set())
+        fp = (msg, entry.get("time"))
+        if fp in seen:
+            continue
+        if len(seen) > 200:
+            seen.clear()
+        seen.add(fp)
+        events.append({
+            "type": "login_after_failures",
+            "device_id": device_id,
+            "device_ip": device.ip,
+            "device_name": device_name,
+            "count": len(earlier),
+            "sources": [m.group(2)],
+            "users": [m.group(1)],
+            "log_message": msg,
+            "log_time": entry.get("time"),
+            "window_sec": WINDOW_SEC,
+            "detected_at": datetime.utcnow().isoformat(),
+        })
 
     # ── Device reboot ────────────────────────────────────────────────────
     reboots = []

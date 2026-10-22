@@ -14,6 +14,9 @@
                 "assetsOverview": "Vue d'ensemble du parc",
                 "racks": "Baies serveurs",
                 "soc": "SOC",
+                "groupSoc": "SOC",
+                "socAlerts": "Alertes",
+                "socRules": "Règles de détection",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1356,7 +1359,39 @@
             "wazuh_alert": "Alerte Wazuh",
             "prtg_sensor_down": "Sonde PRTG en défaut",
             "checkmk_service_problem": "Problème de service Checkmk",
-            "checkmk_host_down": "Hôte Checkmk arrêté"
+            "checkmk_host_down": "Hôte Checkmk arrêté",
+            "login_after_failures": "Connexion réussie après des tentatives échouées",
+            "rule": {
+                "new_device": "Nouvel équipement sur le réseau",
+                "new_port": "Nouveau port ouvert sur un hôte",
+                "new_vuln": "Nouvelle vulnérabilité critique ou élevée",
+                "mac_changed": "L'adresse est désormais celle d'une autre carte réseau",
+                "compliance_regression": "Un contrôle de durcissement échoue désormais"
+            }
+        },
+        "rules": {
+            "title": "Règles de détection",
+            "subtitle": "Ce que l'agent détecte lui-même à partir des données qu'il collecte déjà. Le premier passage d'une règle ne fait que mémoriser l'état actuel (rien n'est signalé), ensuite elle signale une fois par nouveauté ; une alerte fermée ne revient pas.",
+            "col": {
+                "rule": "Règle",
+                "interval": "Intervalle",
+                "last": "Dernière exécution",
+                "known": "Connus",
+                "enabled": "Active"
+            },
+            "every": "toutes les {{min}} min",
+            "never": "pas encore exécutée",
+            "known": "{{n}} mémorisés",
+            "runNow": "Exécuter maintenant",
+            "baseline": "La première exécution enregistre l'état actuel comme connu et ne signale rien.",
+            "lastNew": "Nouveaux la dernière fois : {{n}}"
+        },
+        "ruledesc": {
+            "new_device": "Un équipement jamais vu sur le réseau est apparu dans l'inventaire. Fermer l'alerte l'approuve.",
+            "new_port": "Un hôte dont les ports ouverts étaient connus en a ouvert un nouveau ; RDP, SMB, Telnet, bases de données et similaires sont jugés plus sévèrement.",
+            "new_vuln": "Une CVE critique ou élevée que l'hôte n'avait pas avant : une nouvelle CVE pour ce qui y tourne, ou un nouvel hôte qui en a une.",
+            "mac_changed": "Une adresse appartient maintenant à une autre carte réseau qu'avant : un équipement remplacé, une adresse DHCP réutilisée ou de l'ARP spoofing.",
+            "compliance_regression": "Un contrôle de configuration qui passait échoue maintenant : un paramètre modifié ou une politique affaiblie."
         }
     },
     "traffic": {
