@@ -1458,9 +1458,11 @@
         "mapAsOf": "Port layout from {{when}}",
         "mapNone": "The port layout is not ready yet (refresh in a moment)",
         "mapBuilding": "refreshing",
-        "mapHint": "The port comes from the switch's MAC table: no port means an unmanaged switch, Wi-Fi, or a host outside the switches that could be read.",
+        "mapHint": "The port comes from the switch's MAC table and Wi-Fi from the client registration of a MikroTik access point; no information means an unmanaged switch or another maker's access point.",
         "switchesNone": "No switches with readable ports.",
         "switchStats": "{{ports}} ports, {{hosts}} devices",
+        "switchStatsWifi": "{{ports}} ports, {{hosts}} devices, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
         "manyOnPort": "There are {{count}} devices on this port: a switch or an access point is behind it.",
         "noAccess": "No access. Ask the administrator for the link to this view, or log in.",
         "tooMany": "Too many failed attempts. Try again in a few minutes.",
@@ -1529,7 +1531,8 @@
             "uplink": "uplink",
             "client": "client port",
             "l3": "by subnet",
-            "vm": "virtual machine"
+            "vm": "virtual machine",
+            "wifi": "Wi-Fi"
         },
         "sev": {
             "1": "low",
@@ -1815,13 +1818,16 @@
                 "client": "switch port (from its MAC table)",
                 "uplink": "link to the parent device",
                 "l3": "same network, port unknown",
-                "vm": "virtualisation host"
+                "vm": "virtualisation host",
+                "wifi": "Wi-Fi (from the access point's client registration)"
             },
             "howArp": "by the router's ARP / DHCP tables",
             "howTrace": "by traceroute",
             "howSubnet": "by subnet",
             "none": "no data on where it is connected",
-            "noneHint": "The port comes from the switch's MAC table, so it needs a managed switch the agent can read (MikroTik, Cisco SB, SNMP). A host behind an unmanaged switch, or on Wi-Fi, will have no port."
+            "noneHint": "The port comes from the switch's MAC table (needs a managed switch the agent can read: MikroTik, Cisco SB, SNMP), and Wi-Fi from the client registration of a MikroTik access point. A host behind an unmanaged switch, or on another maker's access point, will have no place.",
+            "wifi": "Wi-Fi {{ssid}}",
+            "signal": "{{signal}} dBm"
         },
         "hintsBadge": "Embedded device - a factory password is possible (details on the card)",
         "hintsTitle": "Note: a factory password is possible",

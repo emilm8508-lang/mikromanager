@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Copy, Check, Cable, Server, Share2, ArrowLeft, RefreshCw, Search } from 'lucide-react'
+import { Copy, Check, Cable, Server, Share2, ArrowLeft, RefreshCw, Search, Wifi } from 'lucide-react'
 import { onsiteApi, onsiteKey, type OnsiteHost, type OnsiteMapState } from '../lib/api'
 import { SUPPORTED_LANGS } from '../i18n'
 import { TypeIcon, AttachCell, ago } from '../components/AssetBits'
@@ -108,7 +108,7 @@ function Devices({ hosts, map }: { hosts: OnsiteHost[]; map?: OnsiteMapState }) 
             </div>
             <div className="font-mono text-xs text-slate-700">{h.ip ? <CopyText text={h.ip} /> : '—'}</div>
             <div className="font-mono text-[11px] text-slate-500">{h.mac ? <CopyText text={h.mac} /> : '—'}</div>
-            <div><AttachCell at={h.attach} />{h.attach && !h.attach.port && <div className="text-[10px] text-slate-400">{t('onsite.noPort')}</div>}</div>
+            <div><AttachCell at={h.attach} />{h.attach && !h.attach.port && h.attach.kind !== 'wifi' && <div className="text-[10px] text-slate-400">{t('onsite.noPort')}</div>}</div>
             <div className="text-xs text-slate-700 break-words">{h.place ?? <span className="text-slate-300">—</span>}{h.location && <div className="text-[11px] text-slate-400">{h.location}</div>}</div>
             <div className="text-xs text-slate-500 whitespace-nowrap">{ago(h.last_seen_at)}</div>
           </div>
@@ -127,6 +127,7 @@ function Switches() {
   const ports = useQuery({ queryKey: ['onsite-switch', pick], queryFn: () => onsiteApi.switchPorts(pick!), enabled: pick != null })
   const needle = q.trim().toLowerCase()
   const rows = (ports.data?.ports ?? []).filter(p => !needle || p.port.toLowerCase().includes(needle) || p.devices.some(d => [d.name, d.ip, d.mac, d.place].some(v => (v ?? '').toLowerCase().includes(needle))))
+  const wifiRows = (ports.data?.wifi ?? []).map(g => ({ ...g, devices: g.devices.filter(d => !needle || [d.name, d.ip, d.mac, d.place, g.ssid].some(v => (v ?? '').toLowerCase().includes(needle))) })).filter(g => g.devices.length > 0)
   if (list.isLoading) return <p className="text-sm text-slate-500">{t('common.loading')}</p>
   if (!list.data?.items.length) return <div className="space-y-2"><MapNote map={list.data?.map} /><p className="text-sm text-slate-500">{t('onsite.switchesNone')}</p></div>
   return (
@@ -135,7 +136,7 @@ function Switches() {
         {list.data.items.map(s => (
           <button key={s.id} onClick={() => setPick(s.id)} className={cn('text-left border rounded-xl px-3 py-2 bg-white min-w-[10rem]', pick === s.id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 hover:bg-slate-50')}>
             <div className="flex items-center gap-1.5 font-medium text-slate-900 text-sm"><Server size={13} className="text-emerald-600" />{s.name}</div>
-            <div className="text-[11px] text-slate-500">{s.ip ?? ''} · {t('onsite.switchStats', { ports: s.ports, hosts: s.hosts })}</div>
+            <div className="text-[11px] text-slate-500">{s.ip ?? ''} · {s.wifi > 0 ? t('onsite.switchStatsWifi', { ports: s.ports, hosts: s.hosts, wifi: s.wifi }) : t('onsite.switchStats', { ports: s.ports, hosts: s.hosts })}</div>
             {s.place && <div className="text-[11px] text-slate-400">{s.place}</div>}
           </button>
         ))}
@@ -149,7 +150,7 @@ function Switches() {
       <MapNote map={ports.data?.map ?? list.data.map} />
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
         <div className="hidden md:grid grid-cols-[7rem,5rem,minmax(0,1fr)] bg-slate-50 text-xs text-slate-500 px-4 py-2 gap-x-3"><div>{t('onsite.col.port')}</div><div>VLAN</div><div>{t('onsite.col.devices')}</div></div>
-        {rows.length === 0 && <p className="p-6 text-center text-slate-400">{t('onsite.none')}</p>}
+        {rows.length === 0 && wifiRows.length === 0 && <p className="p-6 text-center text-slate-400">{t('onsite.none')}</p>}
         {rows.map(p => (
           <div key={p.port} className="grid md:grid-cols-[7rem,5rem,minmax(0,1fr)] gap-x-3 px-4 py-2.5 border-t border-slate-100 items-start">
             <div className="font-semibold text-slate-900 inline-flex items-center gap-1.5"><Cable size={13} className="text-slate-400" />{p.port}</div>
@@ -164,6 +165,24 @@ function Switches() {
                 </div>
               ))}
               {p.devices.length > 1 && <div className="text-[11px] text-amber-700">{t('onsite.manyOnPort', { count: p.devices.length })}</div>}
+            </div>
+          </div>
+        ))}
+        {wifiRows.map(g => (
+          <div key={`${g.ssid}/${g.iface}`} className="grid md:grid-cols-[7rem,5rem,minmax(0,1fr)] gap-x-3 px-4 py-2.5 border-t border-slate-100 items-start">
+            <div className="font-semibold text-slate-900 inline-flex items-center gap-1.5"><Wifi size={13} className="text-sky-500" />{t('onsite.wifi')}</div>
+            <div className="text-slate-500 text-xs pt-0.5">{g.iface}</div>
+            <div className="space-y-1.5 min-w-0">
+              <div className="text-xs font-medium text-slate-600">{g.ssid ?? '—'} · {g.devices.length}</div>
+              {g.devices.map(d => (
+                <div key={d.id} className="flex items-center gap-2 flex-wrap">
+                  <TypeIcon type={d.type} size={14} /><span className="font-medium text-slate-900">{d.name}</span>
+                  <span className="font-mono text-xs text-slate-600">{d.ip ? <CopyText text={d.ip} /> : null}</span>
+                  <span className="font-mono text-[11px] text-slate-400">{d.mac ? <CopyText text={d.mac} /> : null}</span>
+                  {d.signal != null && <span className="text-[11px] text-slate-400">{d.signal} dBm</span>}
+                  {d.place && <span className="text-xs text-slate-600">· {d.place}</span>}
+                </div>
+              ))}
             </div>
           </div>
         ))}

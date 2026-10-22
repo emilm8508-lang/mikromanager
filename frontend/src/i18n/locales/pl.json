@@ -1616,9 +1616,11 @@
         "mapAsOf": "Układ portów z {{when}}",
         "mapNone": "Układ portów nie jest jeszcze gotowy (odśwież za chwilę)",
         "mapBuilding": "trwa odświeżanie",
-        "mapHint": "Port wynika z tablicy MAC przełącznika: brak portu oznacza przełącznik niezarządzalny, Wi-Fi albo host spoza odczytanych przełączników.",
+        "mapHint": "Port wynika z tablicy MAC przełącznika, a Wi-Fi z rejestracji klientów punktu dostępowego MikroTik; brak informacji oznacza przełącznik niezarządzalny albo punkt dostępowy innego producenta.",
         "switchesNone": "Brak przełączników z odczytanymi portami.",
         "switchStats": "{{ports}} portów, {{hosts}} urządzeń",
+        "switchStatsWifi": "{{ports}} portów, {{hosts}} urządzeń, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
         "manyOnPort": "Na tym porcie jest {{count}} urządzeń: za portem jest przełącznik lub punkt dostępowy.",
         "noAccess": "Brak dostępu. Poproś administratora o link do tego widoku albo zaloguj się.",
         "tooMany": "Zbyt wiele nieudanych prób. Spróbuj ponownie za kilka minut.",
@@ -1687,7 +1689,8 @@
             "uplink": "uplink",
             "client": "port klienta",
             "l3": "wg podsieci",
-            "vm": "maszyna wirtualna"
+            "vm": "maszyna wirtualna",
+            "wifi": "Wi-Fi"
         },
         "sev": {
             "1": "niska",
@@ -1973,13 +1976,16 @@
                 "client": "port przełącznika (z tablicy MAC)",
                 "uplink": "łącze do urządzenia nadrzędnego",
                 "l3": "ta sama sieć, port nieznany",
-                "vm": "host wirtualizacji"
+                "vm": "host wirtualizacji",
+                "wifi": "Wi-Fi (z rejestracji klientów punktu dostępowego)"
             },
             "howArp": "wg tablic ARP / DHCP routera",
             "howTrace": "wg traceroute",
             "howSubnet": "wg podsieci",
             "none": "brak danych o miejscu podłączenia",
-            "noneHint": "Port ustala się z tablicy MAC przełącznika, więc wymaga zarządzalnego przełącznika, który agent umie odczytać (MikroTik, Cisco SB, SNMP). Host za niezarządzalnym przełącznikiem lub w Wi-Fi nie będzie miał portu."
+            "noneHint": "Port ustala się z tablicy MAC przełącznika (wymaga zarządzalnego przełącznika, który agent umie odczytać: MikroTik, Cisco SB, SNMP), a Wi-Fi z rejestracji klientów punktu dostępowego MikroTik. Host za niezarządzalnym przełącznikiem albo na punkcie dostępowym innego producenta nie będzie miał miejsca.",
+            "wifi": "Wi-Fi {{ssid}}",
+            "signal": "{{signal}} dBm"
         },
         "hintsBadge": "Urządzenie wbudowane - możliwe fabryczne hasło (szczegóły na karcie)",
         "hintsTitle": "Uwaga: możliwe fabryczne hasło",

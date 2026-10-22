@@ -14,7 +14,7 @@ import { isDark } from '../lib/theme'
 
 export type MapNodeType = AssetType | 'subnet' | 'internet'
 export interface MapNode { id: number | string; name: string; type: MapNodeType; role?: string | null; cls?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }
-export interface MapEdge { a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm'; l: string }
+export interface MapEdge { a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm' | 'wifi'; l: string }
 
 const SEV_COLOR = ['', '#2a78d6', '#c58b00', '#eb6834', '#d1342f']
 export const EDGE_STYLE: Record<MapEdge['k'], { color: string; width: number; dashes: boolean | number[] }> = {
@@ -23,6 +23,7 @@ export const EDGE_STYLE: Record<MapEdge['k'], { color: string; width: number; da
   client: { color: '#94a3b8', width: 1.3, dashes: false },
   l3: { color: '#b6bfcc', width: 1.2, dashes: [5, 5] },
   vm: { color: '#8b5cf6', width: 1.4, dashes: [2, 4] },
+  wifi: { color: '#0ea5e9', width: 1.4, dashes: [1, 4] },
 }
 const INFRA: MapNodeType[] = ['network', 'internet']
 

@@ -82,6 +82,7 @@ export function ago(iso: string | null | undefined): string {
 /** "sw-1 · ether3" - plain text of an attachment (search, CSV). */
 export function attachText(at?: AssetAttach | null): string {
   if (!at) return ''
+  if (at.kind === 'wifi') return `${at.to} · Wi-Fi ${at.ssid ?? at.iface ?? ''}`.trim()
   return at.port ? `${at.to} · ${at.port}${at.vlan ? ` · VLAN ${at.vlan}` : ''}` : at.to
 }
 
@@ -91,6 +92,14 @@ export function AttachCell({ at }: { at?: AssetAttach | null }) {
   if (!at) return <span className="text-slate-300">—</span>
   const how = at.how === 'ARP/DHCP' ? t('assets.attach.howArp') : at.how === 'traceroute' ? t('assets.attach.howTrace') : at.how === 'subnet' ? t('assets.attach.howSubnet') : ''
   const hint = [t(`assets.attach.kind.${at.kind}`), how].filter(Boolean).join(' · ')
+  if (at.kind === 'wifi') {
+    return (
+      <span className="text-xs text-slate-700 whitespace-nowrap" title={hint}>
+        {at.to} · <b className="font-medium">{t('assets.attach.wifi', { ssid: at.ssid ?? at.iface ?? '' })}</b>
+        {at.signal != null ? <span className="text-slate-400"> · {t('assets.attach.signal', { signal: at.signal })}</span> : null}
+      </span>
+    )
+  }
   if (!at.port) return <span className="text-xs text-slate-400 italic" title={hint}>{at.to}</span>
   return (
     <span className="text-xs text-slate-700 whitespace-nowrap" title={hint}>
@@ -110,11 +119,13 @@ export function AttachDetail({ at }: { at?: AssetAttach | null }) {
       <div className="text-sm text-slate-800">
         <Link to={`/inventory/${at.to_id}`} className="text-indigo-600 hover:underline">{at.to}</Link>
         {at.port && <> · <b>{t('assets.attach.port', { port: at.port })}</b></>}
+        {at.kind === 'wifi' && <> · <b>{t('assets.attach.wifi', { ssid: at.ssid ?? at.iface ?? '' })}</b></>}
         {at.vlan ? <span className="text-slate-500"> · {t('assets.attach.vlan', { vlan: at.vlan })}</span> : null}
+        {at.signal != null ? <span className="text-slate-500"> · {t('assets.attach.signal', { signal: at.signal })}</span> : null}
       </div>
       <div className="text-[11px] text-slate-400">{t(`assets.attach.kind.${at.kind}`)}{how ? ` · ${how}` : ''}</div>
       {at.shared ? <div className="text-[11px] text-amber-700">{t('assets.attach.shared', { count: at.shared })}</div> : null}
-      {!at.port && <div className="text-[11px] text-slate-400">{t('assets.attach.noneHint')}</div>}
+      {!at.port && at.kind !== 'wifi' && <div className="text-[11px] text-slate-400">{t('assets.attach.noneHint')}</div>}
     </div>
   )
 }

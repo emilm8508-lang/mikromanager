@@ -126,7 +126,7 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
         n["sub"] = _subnet_of(n["ip"], known)
 
     # who has a parent already (one edge into a client / infrastructure device); the rest are placed by subnet
-    attached = {e["b"] for e in edges if e["k"] in ("client", "uplink", "vm")} | {e["a"] for e in edges if e["k"] in ("backbone",)} | {e["b"] for e in edges if e["k"] == "backbone"}
+    attached = {e["b"] for e in edges if e["k"] in ("client", "uplink", "vm", "wifi")} | {e["a"] for e in edges if e["k"] in ("backbone",)} | {e["b"] for e in edges if e["k"] == "backbone"}
     adjacent = adjacent or {}
     routed = routed or {}
     claimants: Dict[str, set] = {}                       # subnet -> the routers that have an interface in it
@@ -201,7 +201,7 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
                 queue.append(other)
     for _ in range(4):                       # clients and hubs hang one below their parent; repeated so that hub -> client works out
         for e in edges:
-            if e["k"] in ("client", "l3", "vm") and e["a"] in level and e["b"] not in level:
+            if e["k"] in ("client", "l3", "vm", "wifi") and e["a"] in level and e["b"] not in level:
                 level[e["b"]] = level[e["a"]] + 1
     deepest = max(level.values(), default=1)
     for i, n in nodes.items():
@@ -244,6 +244,7 @@ async def _full() -> dict:
     nets_by_node: Dict[int, list] = {}
     routers: set = set()
     where: Dict[str, list] = {}
+    wifi_where: Dict[str, tuple] = {}         # MAC -> (the access point, the client's record): a client registered on a Wi-Fi interface
     seen_pairs = set()
     with SessionLocal() as db:
         resolver = racks._Resolver(db, directory)
@@ -255,6 +256,10 @@ async def _full() -> dict:
                 continue
             nets = _networks(snap.get("addresses") or [])
             nets_by_node[i] = nets
+            for c in racks.wifi_clients(snap):
+                best = wifi_where.get(c["mac"])
+                if best is None or (c["signal"] is not None and (best[1]["signal"] is None or c["signal"] > best[1]["signal"])):
+                    wifi_where[c["mac"]] = (i, c)           # a client seen by several access points (roaming): the one that hears it best
             if len({str(n) for n in nets}) >= 2 or (nodes[i]["_refs"].get("device_id") and (nodes[i]["mf"] or "").lower() == "mikrotik" and nets):
                 routers.add(i)
             for p in racks._ports_from_snapshot(snap, {}, resolver, ip_assets):
@@ -278,6 +283,13 @@ async def _full() -> dict:
     # computers (and infrastructure devices whose LLDP did not tell) on the access port of a switch
     for i, n in nodes.items():
         if i in infra and any(e["k"] == "backbone" and i in (e["a"], e["b"]) for e in edges):
+            continue
+        # a station registered on an access point is on Wi-Fi - whatever the switches upstream have learned about its MAC
+        wc = next((wifi_where[m] for m in n["_macs"] if m in wifi_where and wifi_where[m][0] != i), None) if i not in infra else None
+        if wc:
+            ap, c = wc
+            edges.append({"a": ap, "b": i, "k": "wifi", "l": " · ".join(x for x in (c["iface"], c["ssid"], f"{c['signal']} dBm" if c["signal"] is not None else None) if x),
+                          "port": None, "iface": c["iface"], "ssid": c["ssid"], "signal": c["signal"]})
             continue
         cands = [c for m in n["_macs"] for c in where.get(m, []) if c[1] != i]
         if not cands:
@@ -344,11 +356,12 @@ def _attach_from(data: dict) -> Dict[int, dict]:
     out: Dict[int, dict] = {}
     for e in data.get("edges", []):
         a, b = e.get("a"), e.get("b")
-        if e.get("k") not in ("client", "uplink", "l3", "vm") or not isinstance(a, int) or not isinstance(b, int) or a not in names:
+        if e.get("k") not in ("client", "uplink", "l3", "vm", "wifi") or not isinstance(a, int) or not isinstance(b, int) or a not in names:
             continue
         port = e.get("port")
         out[b] = {"to": names[a].get("name"), "to_id": a, "to_ip": names[a].get("ip"), "kind": e["k"], "port": port, "vlan": e.get("vlan"),
-                  "shared": max(0, int(e.get("cnt") or 1) - 1) if port else None, "how": e.get("how")}
+                  "shared": max(0, int(e.get("cnt") or 1) - 1) if port else None, "how": e.get("how"),
+                  "iface": e.get("iface"), "ssid": e.get("ssid"), "signal": e.get("signal")}
     return out
 
 
@@ -375,6 +388,18 @@ def ports_of(switch_id: int) -> List[dict]:
             p = ports.setdefault(at["port"], {"port": at["port"], "vlan": at.get("vlan"), "devices": []})
             p["devices"].append(aid)
     return sorted(ports.values(), key=lambda p: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", p["port"])])
+
+
+def wifi_of(ap_id: int) -> List[dict]:
+    """The Wi-Fi clients of one access point / router, by SSID: [{ssid, iface, devices: [(asset id, signal dBm)]}], the strongest first."""
+    groups: Dict[tuple, dict] = {}
+    for aid, at in _cache.get("attach", {}).items():
+        if at.get("kind") == "wifi" and at.get("to_id") == ap_id:
+            g = groups.setdefault((at.get("ssid") or "", at.get("iface") or ""), {"ssid": at.get("ssid"), "iface": at.get("iface"), "devices": []})
+            g["devices"].append((aid, at.get("signal")))
+    for g in groups.values():
+        g["devices"].sort(key=lambda d: -(d[1] if d[1] is not None else -999))
+    return sorted(groups.values(), key=lambda g: (g["ssid"] or "", g["iface"] or ""))
 
 
 async def _refresh() -> None:

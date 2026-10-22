@@ -1458,9 +1458,11 @@
         "mapAsOf": "Portzuordnung von {{when}}",
         "mapNone": "Die Portzuordnung ist noch nicht fertig (gleich neu laden)",
         "mapBuilding": "wird aktualisiert",
-        "mapHint": "Der Port stammt aus der MAC-Tabelle des Switches: kein Port bedeutet unverwalteter Switch, WLAN oder ein Host außerhalb der auslesbaren Switches.",
+        "mapHint": "Der Port stammt aus der MAC-Tabelle des Switches, das WLAN aus der Client-Registrierung eines MikroTik-Access-Points; keine Angabe heißt unverwalteter Switch oder Access Point eines anderen Herstellers.",
         "switchesNone": "Keine Switches mit auslesbaren Ports.",
         "switchStats": "{{ports}} Ports, {{hosts}} Geräte",
+        "switchStatsWifi": "{{ports}} Ports, {{hosts}} Geräte, WLAN: {{wifi}}",
+        "wifi": "WLAN",
         "manyOnPort": "An diesem Port hängen {{count}} Geräte: dahinter sitzt ein Switch oder Access Point.",
         "noAccess": "Kein Zugriff. Bitten Sie den Administrator um den Link zu dieser Ansicht oder melden Sie sich an.",
         "tooMany": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in einigen Minuten erneut.",
@@ -1529,7 +1531,8 @@
             "uplink": "Uplink",
             "client": "Client-Port",
             "l3": "nach Subnetz",
-            "vm": "virtuelle Maschine"
+            "vm": "virtuelle Maschine",
+            "wifi": "WLAN"
         },
         "sev": {
             "1": "niedrig",
@@ -1815,13 +1818,16 @@
                 "client": "Switch-Port (aus dessen MAC-Tabelle)",
                 "uplink": "Verbindung zum übergeordneten Gerät",
                 "l3": "gleiches Netz, Port unbekannt",
-                "vm": "Virtualisierungshost"
+                "vm": "Virtualisierungshost",
+                "wifi": "WLAN (aus der Client-Registrierung des Access Points)"
             },
             "howArp": "nach ARP-/DHCP-Tabellen des Routers",
             "howTrace": "nach Traceroute",
             "howSubnet": "nach Subnetz",
             "none": "keine Angaben, wo es angeschlossen ist",
-            "noneHint": "Der Port stammt aus der MAC-Tabelle des Switches, braucht also einen verwalteten Switch, den der Agent auslesen kann (MikroTik, Cisco SB, SNMP). Ein Host hinter einem unverwalteten Switch oder im WLAN hat keinen Port."
+            "noneHint": "Der Port stammt aus der MAC-Tabelle des Switches (verwalteter Switch, den der Agent auslesen kann: MikroTik, Cisco SB, SNMP), das WLAN aus der Client-Registrierung eines MikroTik-Access-Points. Ein Host hinter einem unverwalteten Switch oder an einem Access Point eines anderen Herstellers hat keinen Ort.",
+            "wifi": "WLAN {{ssid}}",
+            "signal": "{{signal}} dBm"
         },
         "hintsBadge": "Eingebettetes Gerät - ein Werkspasswort ist möglich (Details auf der Karte)",
         "hintsTitle": "Hinweis: Werkspasswort möglich",

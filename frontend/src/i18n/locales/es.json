@@ -1458,9 +1458,11 @@
         "mapAsOf": "Disposición de puertos de {{when}}",
         "mapNone": "La disposición de puertos aún no está lista (actualiza en un momento)",
         "mapBuilding": "actualizando",
-        "mapHint": "El puerto sale de la tabla MAC del switch: sin puerto significa switch no gestionable, Wi-Fi o un host fuera de los switches que se pudieron leer.",
+        "mapHint": "El puerto sale de la tabla MAC del switch y el Wi-Fi del registro de clientes de un punto de acceso MikroTik; sin información significa switch no gestionable o punto de acceso de otro fabricante.",
         "switchesNone": "No hay switches con puertos legibles.",
         "switchStats": "{{ports}} puertos, {{hosts}} dispositivos",
+        "switchStatsWifi": "{{ports}} puertos, {{hosts}} dispositivos, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
         "manyOnPort": "Hay {{count}} dispositivos en este puerto: detrás hay un switch o un punto de acceso.",
         "noAccess": "Sin acceso. Pide al administrador el enlace a esta vista o inicia sesión.",
         "tooMany": "Demasiados intentos fallidos. Inténtalo de nuevo en unos minutos.",
@@ -1529,7 +1531,8 @@
             "uplink": "uplink",
             "client": "puerto de cliente",
             "l3": "por subred",
-            "vm": "máquina virtual"
+            "vm": "máquina virtual",
+            "wifi": "Wi-Fi"
         },
         "sev": {
             "1": "baja",
@@ -1815,13 +1818,16 @@
                 "client": "puerto del switch (de su tabla MAC)",
                 "uplink": "enlace al dispositivo superior",
                 "l3": "misma red, puerto desconocido",
-                "vm": "host de virtualización"
+                "vm": "host de virtualización",
+                "wifi": "Wi-Fi (del registro de clientes del punto de acceso)"
             },
             "howArp": "según las tablas ARP / DHCP del router",
             "howTrace": "según traceroute",
             "howSubnet": "según la subred",
             "none": "sin datos de dónde está conectado",
-            "noneHint": "El puerto sale de la tabla MAC del switch, así que requiere un switch gestionable que el agente pueda leer (MikroTik, Cisco SB, SNMP). Un host tras un switch no gestionable o en Wi-Fi no tendrá puerto."
+            "noneHint": "El puerto sale de la tabla MAC del switch (requiere un switch gestionable que el agente pueda leer: MikroTik, Cisco SB, SNMP) y el Wi-Fi del registro de clientes de un punto de acceso MikroTik. Un host tras un switch no gestionable o en un punto de acceso de otro fabricante no tendrá lugar.",
+            "wifi": "Wi-Fi {{ssid}}",
+            "signal": "{{signal}} dBm"
         },
         "hintsBadge": "Dispositivo embebido: es posible una contraseña de fábrica (detalles en la ficha)",
         "hintsTitle": "Atención: posible contraseña de fábrica",

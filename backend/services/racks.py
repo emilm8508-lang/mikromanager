@@ -12,6 +12,7 @@ What makes it more than a drawing is that it is read live from the network gear:
 the Central relay receives (no credentials, no MAC tables - only names, ports and what is connected to what)."""
 import asyncio
 import json
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -366,9 +367,11 @@ async def _fetch_snapshot(device_id: int) -> Optional[dict]:
     ethernet = await step(client.get_ethernet, []) if hasattr(client, "get_ethernet") else []
     poe = await step(client.get_poe, {}) if hasattr(client, "get_poe") else {}
     addresses = await step(client.get_ip_addresses, []) if hasattr(client, "get_ip_addresses") else []        # the subnets it routes (the network map)
+    wifi = await step(client.get_wifi_overview, {}) if hasattr(client, "get_wifi_overview") else {}            # the clients on its Wi-Fi interfaces (where a Wi-Fi host is)
     if not ifaces:
         return {"error": "the device did not answer"}
-    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "poe": poe, "addresses": addresses, "vendor": vendor}
+    return {"ifaces": ifaces, "neighbors": neighbors, "bridge": bridge, "ethernet": ethernet, "poe": poe, "addresses": addresses, "vendor": vendor,
+            "wifi": wifi if (wifi or {}).get("registrations") else {}}
 
 
 async def _snapshot(device_id: int, fresh: bool = False) -> Optional[dict]:
@@ -463,6 +466,28 @@ def _ports_from_snapshot(snap: dict, stats: Dict[str, dict], resolver: _Resolver
         ports.append(port)
     ports.sort(key=lambda p: _port_key(p["name"]))
     return ports
+
+
+def wifi_clients(snap: dict) -> List[dict]:
+    """The stations registered on the Wi-Fi interfaces of a MikroTik router / access point: [{mac, iface, ssid, signal (dBm), uptime}]. Both Wi-Fi stacks
+    (the RouterOS 7 "wifi" package, the legacy "wireless" one) are read defensively - the names of the fields differ, anything unrecognised is left out."""
+    w = (snap or {}).get("wifi") or {}
+    ssid_of: Dict[str, Optional[str]] = {}
+    for r in w.get("interfaces") or []:
+        if isinstance(r, dict) and r.get("name"):
+            ssid_of[str(r["name"])] = r.get("configuration.ssid") or r.get("ssid") or None
+    out = []
+    for r in w.get("registrations") or []:
+        if not isinstance(r, dict):
+            continue
+        mac = _norm_mac(r.get("mac-address"))
+        if not mac:
+            continue
+        iface = str(r.get("interface") or "")
+        sig = r.get("signal") if r.get("signal") is not None else str(r.get("signal-strength") or "").split("@")[0]
+        m = re.search(r"-?\d+", str(sig))
+        out.append({"mac": mac, "iface": iface, "ssid": r.get("ssid") or ssid_of.get(iface), "signal": int(m.group()) if m else None, "uptime": r.get("uptime") or None})
+    return out
 
 
 def _port_key(name: str):

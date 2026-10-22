@@ -72,7 +72,8 @@ def _place(r: dict) -> dict:
     at = r.get("attach")
     return {"id": r["id"], "name": r["name"], "ip": r["ip"], "mac": r["mac"], "type": r["type"], "dclass": r.get("dclass"), "manufacturer": r["manufacturer"],
             "model": r["model"], "location": r["location"], "place": r.get("place"), "last_seen_at": r["last_seen_at"], "active": r["active"],
-            "attach": ({"to": at["to"], "to_id": at["to_id"], "port": at["port"], "vlan": at["vlan"], "shared": at["shared"], "kind": at["kind"], "how": at["how"]} if at else None)}
+            "attach": ({"to": at["to"], "to_id": at["to_id"], "port": at["port"], "vlan": at["vlan"], "shared": at["shared"], "kind": at["kind"], "how": at["how"],
+                        "iface": at.get("iface"), "ssid": at.get("ssid"), "signal": at.get("signal")} if at else None)}
 
 
 @router.get("/hosts")
@@ -89,11 +90,15 @@ async def switches(_ctx: dict = Depends(require_onsite)):
     rows = {r["id"]: r for r in await assets_svc.list_assets()}
     by_sw: Dict[int, dict] = {}
     for aid, a in att.items():
-        if a.get("port") and a.get("to_id") in rows and aid in rows:
-            s = by_sw.setdefault(a["to_id"], {"ports": set(), "hosts": 0})
-            s["ports"].add(a["port"])
-            s["hosts"] += 1
-    out = [{"id": sid, "name": rows[sid]["name"], "ip": rows[sid]["ip"], "ports": len(s["ports"]), "hosts": s["hosts"], "place": rows[sid].get("place")} for sid, s in by_sw.items()]
+        if a.get("to_id") in rows and aid in rows and (a.get("port") or a.get("kind") == "wifi"):
+            s = by_sw.setdefault(a["to_id"], {"ports": set(), "hosts": 0, "wifi": 0})
+            if a.get("kind") == "wifi":
+                s["wifi"] += 1
+            else:
+                s["ports"].add(a["port"])
+                s["hosts"] += 1
+    out = [{"id": sid, "name": rows[sid]["name"], "ip": rows[sid]["ip"], "ports": len(s["ports"]), "hosts": s["hosts"], "wifi": s["wifi"], "place": rows[sid].get("place")}
+           for sid, s in by_sw.items()]
     return {"items": sorted(out, key=lambda x: x["name"].lower()), "map": topology_map.map_state()}
 
 
@@ -108,7 +113,14 @@ async def switch(switch_id: int, _ctx: dict = Depends(require_onsite)):
     for p in topology_map.ports_of(switch_id):
         devs = [_place(rows[i]) for i in p["devices"] if i in rows]
         ports.append({"port": p["port"], "vlan": p["vlan"], "devices": sorted(devs, key=lambda d: d["name"].lower())})
-    return {"switch": {"id": sw["id"], "name": sw["name"], "ip": sw["ip"], "place": sw.get("place")}, "ports": ports, "map": topology_map.map_state()}
+    wifi = []
+    for g in topology_map.wifi_of(switch_id):
+        devs = []
+        for i, signal in g["devices"]:
+            if i in rows:
+                devs.append({**_place(rows[i]), "signal": signal})
+        wifi.append({"ssid": g["ssid"], "iface": g["iface"], "devices": devs})
+    return {"switch": {"id": sw["id"], "name": sw["name"], "ip": sw["ip"], "place": sw.get("place")}, "ports": ports, "wifi": wifi, "map": topology_map.map_state()}
 
 
 class ShareIn(BaseModel):

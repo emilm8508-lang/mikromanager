@@ -1458,9 +1458,11 @@
         "mapAsOf": "Répartition des ports du {{when}}",
         "mapNone": "La répartition des ports n'est pas encore prête (actualiser dans un instant)",
         "mapBuilding": "actualisation en cours",
-        "mapHint": "Le port vient de la table MAC du switch : pas de port signifie switch non administrable, Wi-Fi ou hôte hors des switches lisibles.",
+        "mapHint": "Le port vient de la table MAC du switch et le Wi-Fi de l'enregistrement des clients d'un point d'accès MikroTik ; pas d'information signifie switch non administrable ou point d'accès d'un autre fabricant.",
         "switchesNone": "Aucun switch aux ports lisibles.",
         "switchStats": "{{ports}} ports, {{hosts}} équipements",
+        "switchStatsWifi": "{{ports}} ports, {{hosts}} équipements, Wi-Fi : {{wifi}}",
+        "wifi": "Wi-Fi",
         "manyOnPort": "Il y a {{count}} équipements sur ce port : un switch ou un point d'accès se trouve derrière.",
         "noAccess": "Pas d'accès. Demandez à l'administrateur le lien de cette vue ou connectez-vous.",
         "tooMany": "Trop de tentatives échouées. Réessayez dans quelques minutes.",
@@ -1529,7 +1531,8 @@
             "uplink": "uplink",
             "client": "port client",
             "l3": "par sous-réseau",
-            "vm": "machine virtuelle"
+            "vm": "machine virtuelle",
+            "wifi": "Wi-Fi"
         },
         "sev": {
             "1": "faible",
@@ -1815,13 +1818,16 @@
                 "client": "port du switch (d'après sa table MAC)",
                 "uplink": "liaison vers l'équipement parent",
                 "l3": "même réseau, port inconnu",
-                "vm": "hôte de virtualisation"
+                "vm": "hôte de virtualisation",
+                "wifi": "Wi-Fi (d'après l'enregistrement des clients du point d'accès)"
             },
             "howArp": "d'après les tables ARP / DHCP du routeur",
             "howTrace": "d'après traceroute",
             "howSubnet": "d'après le sous-réseau",
             "none": "pas de données sur le raccordement",
-            "noneHint": "Le port vient de la table MAC du switch : il faut donc un switch administrable que l'agent sait lire (MikroTik, Cisco SB, SNMP). Un hôte derrière un switch non administrable ou en Wi-Fi n'aura pas de port."
+            "noneHint": "Le port vient de la table MAC du switch (il faut un switch administrable que l'agent sait lire : MikroTik, Cisco SB, SNMP) et le Wi-Fi de l'enregistrement des clients d'un point d'accès MikroTik. Un hôte derrière un switch non administrable ou sur le point d'accès d'un autre fabricant n'aura pas d'emplacement.",
+            "wifi": "Wi-Fi {{ssid}}",
+            "signal": "{{signal}} dBm"
         },
         "hintsBadge": "Équipement embarqué : un mot de passe d'usine est possible (détails sur la fiche)",
         "hintsTitle": "Attention : mot de passe d'usine possible",

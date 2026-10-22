@@ -1066,7 +1066,8 @@ export interface AssetVulnCounts { critical: number; high: number; medium: numbe
 // where an asset is plugged in, from the last map of the network: the port of a switch (its MAC was learned there), or - without a port - the router /
 // Hyper-V host it hangs under
 export interface AssetAttach {
-  to: string; to_id: number; to_ip?: string | null; kind: 'client' | 'uplink' | 'l3' | 'vm'; port: string | null; vlan: number | null
+  to: string; to_id: number; to_ip?: string | null; kind: 'client' | 'uplink' | 'l3' | 'vm' | 'wifi'; port: string | null; vlan: number | null
+  iface?: string | null; ssid?: string | null; signal?: number | null     // "wifi": the interface of the access point, the network and the signal (dBm) it hears the device with
   shared: number | null              // other MACs learned on the same port: something (a switch, an access point) is behind it
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
@@ -1290,7 +1291,7 @@ export const racksApi = {
 
 export interface NetMap {
   nodes: Array<{ id: number | string; name: string; type: AssetType | 'subnet' | 'internet'; role?: string | null; cls?: string | null; ip?: string | null; mf?: string | null; md?: string | null; v: number; vn?: number; sub: string | null; lvl: number | null }>
-  edges: Array<{ a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm'; l: string }>
+  edges: Array<{ a: number | string; b: number | string; k: 'backbone' | 'uplink' | 'client' | 'l3' | 'vm' | 'wifi'; l: string }>
   subnets: Array<{ cidr: string; n: number }>
   at: string; partial: boolean; building?: boolean
 }
@@ -1326,13 +1327,15 @@ export interface OnsiteMapState { at: string | null; building: boolean }
 export interface OnsiteHost {
   id: number; name: string; ip: string | null; mac: string | null; type: AssetType; dclass?: string | null; manufacturer: string | null; model: string | null
   location: string | null; place: string | null; last_seen_at: string | null; active: boolean
-  attach: { to: string; to_id: number; port: string | null; vlan: number | null; shared: number | null; kind: 'client' | 'uplink' | 'l3' | 'vm'; how: string | null } | null
+  attach: { to: string; to_id: number; port: string | null; vlan: number | null; shared: number | null; kind: 'client' | 'uplink' | 'l3' | 'vm' | 'wifi'; how: string | null
+            iface?: string | null; ssid?: string | null; signal?: number | null } | null
 }
 export interface OnsiteShare { enabled: boolean; key: string | null; admin: boolean }
 export const onsiteApi = {
   hosts: (all = false) => onsiteHttp.get<{ items: OnsiteHost[]; map: OnsiteMapState }>('/onsite/hosts', { params: { all } }).then(r => r.data),
-  switches: () => onsiteHttp.get<{ items: Array<{ id: number; name: string; ip: string | null; ports: number; hosts: number; place: string | null }>; map: OnsiteMapState }>('/onsite/switches').then(r => r.data),
-  switchPorts: (id: number) => onsiteHttp.get<{ switch: { id: number; name: string; ip: string | null; place: string | null }; ports: Array<{ port: string; vlan: number | null; devices: OnsiteHost[] }>; map: OnsiteMapState }>(`/onsite/switch/${id}`).then(r => r.data),
+  switches: () => onsiteHttp.get<{ items: Array<{ id: number; name: string; ip: string | null; ports: number; hosts: number; wifi: number; place: string | null }>; map: OnsiteMapState }>('/onsite/switches').then(r => r.data),
+  switchPorts: (id: number) => onsiteHttp.get<{ switch: { id: number; name: string; ip: string | null; place: string | null }; ports: Array<{ port: string; vlan: number | null; devices: OnsiteHost[] }>
+    wifi: Array<{ ssid: string | null; iface: string | null; devices: Array<OnsiteHost & { signal: number | null }> }>; map: OnsiteMapState }>(`/onsite/switch/${id}`).then(r => r.data),
   shareGet: () => onsiteHttp.get<OnsiteShare>('/onsite/share').then(r => r.data),
   shareSet: (body: { enabled?: boolean; regenerate?: boolean }) => onsiteHttp.post<OnsiteShare>('/onsite/share', body).then(r => r.data),
 }
