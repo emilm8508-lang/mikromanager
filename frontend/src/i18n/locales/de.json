@@ -18,6 +18,7 @@
                 "socAlerts": "Alarme",
                 "socRules": "Erkennungsregeln",
                 "socRisk": "Asset-Risiko",
+                "onsite": "Ansicht vor Ort",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1426,6 +1427,54 @@
             "more": "{{count}} weitere",
             "ports": "Offene Ports",
             "score": "Risikobewertung"
+        }
+    },
+    "onsite": {
+        "title": "Was ist wo angeschlossen",
+        "subtitle": "Nur-Lese-Ansicht: die Geräte, ihre Adressen und der Switch-Port, an dem sie hängen.",
+        "back": "Zurück zur Anwendung",
+        "tab": {
+            "devices": "Geräte",
+            "switches": "Switches"
+        },
+        "search": "Suchen: Name, IP, MAC, Ort, Port",
+        "searchPort": "Port, Name, IP oder MAC suchen",
+        "allSwitches": "Alle Switches",
+        "allTypes": "Alle Typen",
+        "showInactive": "Inaktive anzeigen",
+        "count": "Geräte: {{count}}",
+        "none": "Nichts gefunden.",
+        "noPort": "keine Portangabe",
+        "col": {
+            "name": "Gerät",
+            "ip": "IP-Adresse",
+            "mac": "MAC-Adresse",
+            "attached": "Angeschlossen an",
+            "place": "Ort",
+            "seen": "Gesehen",
+            "port": "Port",
+            "devices": "Geräte am Port"
+        },
+        "mapAsOf": "Portzuordnung von {{when}}",
+        "mapNone": "Die Portzuordnung ist noch nicht fertig (gleich neu laden)",
+        "mapBuilding": "wird aktualisiert",
+        "mapHint": "Der Port stammt aus der MAC-Tabelle des Switches: kein Port bedeutet unverwalteter Switch, WLAN oder ein Host außerhalb der auslesbaren Switches.",
+        "switchesNone": "Keine Switches mit auslesbaren Ports.",
+        "switchStats": "{{ports}} Ports, {{hosts}} Geräte",
+        "manyOnPort": "An diesem Port hängen {{count}} Geräte: dahinter sitzt ein Switch oder Access Point.",
+        "noAccess": "Kein Zugriff. Bitten Sie den Administrator um den Link zu dieser Ansicht oder melden Sie sich an.",
+        "tooMany": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in einigen Minuten erneut.",
+        "copy": "Kopieren",
+        "share": {
+            "title": "Diese Ansicht teilen",
+            "on": "an",
+            "off": "aus",
+            "intro": "Der Link gibt Nur-Lese-Einblick, was wo angeschlossen ist (ohne Schwachstellen, Passwörter und Befehle) und braucht keine Anmeldung. Er funktioniert überall, wo dieser Agent erreichbar ist (meist im lokalen Netz). Er kann jederzeit abgeschaltet oder ersetzt werden.",
+            "enable": "Teilen einschalten",
+            "disable": "Teilen ausschalten",
+            "regenerate": "Neuer Schlüssel",
+            "regenerateConfirm": "Neuen Schlüssel erzeugen? Der bisherige Link funktioniert dann nicht mehr.",
+            "warning": "Wer diesen Link hat, sieht die Geräteliste des Netzes. Nur an eine vertrauenswürdige Person weitergeben; die Verbindung zum Agenten ist unverschlüsselt, wenn er ohne HTTPS läuft."
         }
     },
     "traffic": {

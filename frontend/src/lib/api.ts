@@ -1307,6 +1307,36 @@ export function netmapFromCentral(m: CentralNetMap): Pick<NetMap, 'nodes' | 'edg
   }
 }
 
+// ── On-site view ──────────────────────────────────────────────────────────────
+
+// Its own client without the "401 -> reload the page" of `api`: the page is also opened by a visitor with a key, and must say "no access" instead of reloading.
+const onsiteHttp = axios.create({ baseURL: '/api', withCredentials: true })
+const ONSITE_KEY = 'mm_onsite_key'
+export const onsiteKey = {
+  get: (): string | null => { try { return sessionStorage.getItem(ONSITE_KEY) } catch { return null } },
+  /** The key of a shared link is in its # part (never sent to a server, never in a log): kept for this tab. */
+  takeFromHash: () => {
+    const m = /[#&]k=([^&]+)/.exec(window.location.hash)
+    if (m) { try { sessionStorage.setItem(ONSITE_KEY, decodeURIComponent(m[1])) } catch { /* storage unavailable */ } }
+  },
+}
+onsiteHttp.interceptors.request.use(cfg => { const k = onsiteKey.get(); if (k) cfg.headers.set('X-Onsite-Key', k); return cfg })
+
+export interface OnsiteMapState { at: string | null; building: boolean }
+export interface OnsiteHost {
+  id: number; name: string; ip: string | null; mac: string | null; type: AssetType; dclass?: string | null; manufacturer: string | null; model: string | null
+  location: string | null; place: string | null; last_seen_at: string | null; active: boolean
+  attach: { to: string; to_id: number; port: string | null; vlan: number | null; shared: number | null; kind: 'client' | 'uplink' | 'l3' | 'vm'; how: string | null } | null
+}
+export interface OnsiteShare { enabled: boolean; key: string | null; admin: boolean }
+export const onsiteApi = {
+  hosts: (all = false) => onsiteHttp.get<{ items: OnsiteHost[]; map: OnsiteMapState }>('/onsite/hosts', { params: { all } }).then(r => r.data),
+  switches: () => onsiteHttp.get<{ items: Array<{ id: number; name: string; ip: string | null; ports: number; hosts: number; place: string | null }>; map: OnsiteMapState }>('/onsite/switches').then(r => r.data),
+  switchPorts: (id: number) => onsiteHttp.get<{ switch: { id: number; name: string; ip: string | null; place: string | null }; ports: Array<{ port: string; vlan: number | null; devices: OnsiteHost[] }>; map: OnsiteMapState }>(`/onsite/switch/${id}`).then(r => r.data),
+  shareGet: () => onsiteHttp.get<OnsiteShare>('/onsite/share').then(r => r.data),
+  shareSet: (body: { enabled?: boolean; regenerate?: boolean }) => onsiteHttp.post<OnsiteShare>('/onsite/share', body).then(r => r.data),
+}
+
 // ── SOC ───────────────────────────────────────────────────────────────────────
 
 export type SocSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical'

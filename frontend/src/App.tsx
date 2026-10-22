@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './pages/Dashboard'
 import { Devices } from './pages/Devices'
@@ -9,6 +9,7 @@ import { Traffic } from './pages/Traffic'
 import { Soc } from './pages/Soc'
 import { SocRules } from './pages/SocRules'
 import { SocRisk } from './pages/SocRisk'
+import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
 import { Scanner } from './pages/Scanner'
@@ -50,6 +51,8 @@ import { Security } from './pages/Security'
 import { AuthGate } from './pages/Login'
 
 export default function App() {
+  // the on-site view is standalone (no menu, no login screen of its own): a logged-in user or a visitor with the key of a shared link
+  if (useLocation().pathname === '/onsite') return <OnSite />
   return (
     <AuthGate>
       <div className="flex h-screen overflow-hidden">

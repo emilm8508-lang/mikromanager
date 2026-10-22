@@ -18,6 +18,7 @@
                 "socAlerts": "Alerts",
                 "socRules": "Detection rules",
                 "socRisk": "Asset risk",
+                "onsite": "On-site view",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1426,6 +1427,54 @@
             "more": "{{count}} more",
             "ports": "Open ports",
             "score": "Risk score"
+        }
+    },
+    "onsite": {
+        "title": "What is connected where",
+        "subtitle": "Read-only view: the devices, their addresses and the switch port they are plugged into.",
+        "back": "Back to the application",
+        "tab": {
+            "devices": "Devices",
+            "switches": "Switches"
+        },
+        "search": "Search: name, IP, MAC, place, port",
+        "searchPort": "Search a port, name, IP or MAC",
+        "allSwitches": "All switches",
+        "allTypes": "All types",
+        "showInactive": "Show inactive",
+        "count": "Devices: {{count}}",
+        "none": "Nothing found.",
+        "noPort": "no port information",
+        "col": {
+            "name": "Device",
+            "ip": "IP address",
+            "mac": "MAC address",
+            "attached": "Connected to",
+            "place": "Place",
+            "seen": "Seen",
+            "port": "Port",
+            "devices": "Devices on the port"
+        },
+        "mapAsOf": "Port layout from {{when}}",
+        "mapNone": "The port layout is not ready yet (refresh in a moment)",
+        "mapBuilding": "refreshing",
+        "mapHint": "The port comes from the switch's MAC table: no port means an unmanaged switch, Wi-Fi, or a host outside the switches that could be read.",
+        "switchesNone": "No switches with readable ports.",
+        "switchStats": "{{ports}} ports, {{hosts}} devices",
+        "manyOnPort": "There are {{count}} devices on this port: a switch or an access point is behind it.",
+        "noAccess": "No access. Ask the administrator for the link to this view, or log in.",
+        "tooMany": "Too many failed attempts. Try again in a few minutes.",
+        "copy": "Copy",
+        "share": {
+            "title": "Share this view",
+            "on": "on",
+            "off": "off",
+            "intro": "The link gives read-only insight into what is connected where (no vulnerabilities, passwords or commands) and needs no login. It works wherever this agent can be reached (usually the local network). It can be switched off or replaced at any time.",
+            "enable": "Switch sharing on",
+            "disable": "Switch sharing off",
+            "regenerate": "New key",
+            "regenerateConfirm": "Generate a new key? The current link will stop working.",
+            "warning": "Whoever has this link can see the list of the network's devices. Pass it on to a trusted person only; the connection to the agent is not encrypted when the agent runs without HTTPS."
         }
     },
     "traffic": {

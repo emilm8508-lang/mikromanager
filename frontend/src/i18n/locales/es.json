@@ -18,6 +18,7 @@
                 "socAlerts": "Alertas",
                 "socRules": "Reglas de detección",
                 "socRisk": "Riesgo de activos",
+                "onsite": "Vista en el sitio",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1426,6 +1427,54 @@
             "more": "{{count}} más",
             "ports": "Puertos abiertos",
             "score": "Puntuación de riesgo"
+        }
+    },
+    "onsite": {
+        "title": "Qué está conectado dónde",
+        "subtitle": "Vista de solo lectura: los dispositivos, sus direcciones y el puerto del switch al que están conectados.",
+        "back": "Volver a la aplicación",
+        "tab": {
+            "devices": "Dispositivos",
+            "switches": "Switches"
+        },
+        "search": "Buscar: nombre, IP, MAC, lugar, puerto",
+        "searchPort": "Buscar puerto, nombre, IP o MAC",
+        "allSwitches": "Todos los switches",
+        "allTypes": "Todos los tipos",
+        "showInactive": "Mostrar inactivos",
+        "count": "Dispositivos: {{count}}",
+        "none": "No se encontró nada.",
+        "noPort": "sin información de puerto",
+        "col": {
+            "name": "Dispositivo",
+            "ip": "Dirección IP",
+            "mac": "Dirección MAC",
+            "attached": "Conectado a",
+            "place": "Lugar",
+            "seen": "Visto",
+            "port": "Puerto",
+            "devices": "Dispositivos en el puerto"
+        },
+        "mapAsOf": "Disposición de puertos de {{when}}",
+        "mapNone": "La disposición de puertos aún no está lista (actualiza en un momento)",
+        "mapBuilding": "actualizando",
+        "mapHint": "El puerto sale de la tabla MAC del switch: sin puerto significa switch no gestionable, Wi-Fi o un host fuera de los switches que se pudieron leer.",
+        "switchesNone": "No hay switches con puertos legibles.",
+        "switchStats": "{{ports}} puertos, {{hosts}} dispositivos",
+        "manyOnPort": "Hay {{count}} dispositivos en este puerto: detrás hay un switch o un punto de acceso.",
+        "noAccess": "Sin acceso. Pide al administrador el enlace a esta vista o inicia sesión.",
+        "tooMany": "Demasiados intentos fallidos. Inténtalo de nuevo en unos minutos.",
+        "copy": "Copiar",
+        "share": {
+            "title": "Compartir esta vista",
+            "on": "activado",
+            "off": "desactivado",
+            "intro": "El enlace da acceso de solo lectura a qué está conectado dónde (sin vulnerabilidades, contraseñas ni comandos) y no requiere iniciar sesión. Funciona donde se pueda alcanzar este agente (normalmente la red local). Se puede desactivar o sustituir en cualquier momento.",
+            "enable": "Activar el uso compartido",
+            "disable": "Desactivar el uso compartido",
+            "regenerate": "Nueva clave",
+            "regenerateConfirm": "¿Generar una clave nueva? El enlace actual dejará de funcionar.",
+            "warning": "Quien tenga este enlace ve la lista de dispositivos de la red. Pásalo solo a una persona de confianza; la conexión con el agente no está cifrada si el agente funciona sin HTTPS."
         }
     },
     "traffic": {

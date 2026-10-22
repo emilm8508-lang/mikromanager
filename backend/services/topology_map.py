@@ -352,6 +352,12 @@ def _attach_from(data: dict) -> Dict[int, dict]:
     return out
 
 
+def map_state() -> dict:
+    """How fresh the placement is: when the last full map was built and whether a rebuild is running (for pages that say "as of ...")."""
+    d = _cache.get("data")
+    return {"at": d.get("at") if d else None, "building": bool(_task and not _task.done())}
+
+
 def attach_of(asset_id: int) -> Optional[dict]:
     """Where an asset is attached according to the last full map (None when unknown or no map has been built yet)."""
     return _cache.get("attach", {}).get(asset_id)
