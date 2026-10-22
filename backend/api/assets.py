@@ -136,6 +136,7 @@ class AssetEdit(BaseModel):
     role: Optional[str] = None
     name: Optional[str] = None
     location_override: Optional[str] = None
+    place: Optional[str] = None
     notes: Optional[str] = None
     manual_groups: Optional[List[str]] = None
 

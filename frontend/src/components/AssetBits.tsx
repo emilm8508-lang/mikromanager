@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import type { AssetLifecycle, AssetScanLevel, AssetType, AssetVulnCounts } from '../lib/api'
+import { Link } from 'react-router-dom'
+import type { AssetAttach, AssetLifecycle, AssetScanLevel, AssetType, AssetVulnCounts } from '../lib/api'
 import { cn } from '../lib/utils'
 import { Monitor, Terminal, Router, Printer, Layers, Server, HelpCircle, Camera, Smartphone, Tv, AlertTriangle, CheckCircle2, ShieldCheck, Radio, Eye } from 'lucide-react'
 
@@ -74,4 +75,46 @@ export function ago(iso: string | null | undefined): string {
   if (min < 90) return `${min} min`
   const h = Math.round(min / 60)
   return h < 48 ? `${h} h` : `${Math.round(h / 24)} d`
+}
+
+// ── Where it is plugged in ───────────────────────────────────────────────────
+
+/** "sw-1 · ether3" - plain text of an attachment (search, CSV). */
+export function attachText(at?: AssetAttach | null): string {
+  if (!at) return ''
+  return at.port ? `${at.to} · ${at.port}${at.vlan ? ` · VLAN ${at.vlan}` : ''}` : at.to
+}
+
+/** One line for the lists: switch and port, or - when only the router / host is known - just that, greyed. */
+export function AttachCell({ at }: { at?: AssetAttach | null }) {
+  const { t } = useTranslation()
+  if (!at) return <span className="text-slate-300">—</span>
+  const how = at.how === 'ARP/DHCP' ? t('assets.attach.howArp') : at.how === 'traceroute' ? t('assets.attach.howTrace') : at.how === 'subnet' ? t('assets.attach.howSubnet') : ''
+  const hint = [t(`assets.attach.kind.${at.kind}`), how].filter(Boolean).join(' · ')
+  if (!at.port) return <span className="text-xs text-slate-400 italic" title={hint}>{at.to}</span>
+  return (
+    <span className="text-xs text-slate-700 whitespace-nowrap" title={hint}>
+      {at.to} · <b className="font-medium">{t('assets.attach.port', { port: at.port })}</b>{at.vlan ? <span className="text-slate-400"> · {t('assets.attach.vlan', { vlan: at.vlan })}</span> : null}
+      {at.shared ? <span className="ml-1 text-amber-600" title={t('assets.attach.shared', { count: at.shared }) as string}>+{at.shared}</span> : null}
+    </span>
+  )
+}
+
+/** The card's version: the device it hangs on (a link to its card), the port, what that means, and how sure the agent is. */
+export function AttachDetail({ at }: { at?: AssetAttach | null }) {
+  const { t } = useTranslation()
+  if (!at) return <span className="text-slate-500 text-sm" title={t('assets.attach.noneHint') as string}>{t('assets.attach.none')}</span>
+  const how = at.how === 'ARP/DHCP' ? t('assets.attach.howArp') : at.how === 'traceroute' ? t('assets.attach.howTrace') : at.how === 'subnet' ? t('assets.attach.howSubnet') : ''
+  return (
+    <div className="space-y-0.5">
+      <div className="text-sm text-slate-800">
+        <Link to={`/inventory/${at.to_id}`} className="text-indigo-600 hover:underline">{at.to}</Link>
+        {at.port && <> · <b>{t('assets.attach.port', { port: at.port })}</b></>}
+        {at.vlan ? <span className="text-slate-500"> · {t('assets.attach.vlan', { vlan: at.vlan })}</span> : null}
+      </div>
+      <div className="text-[11px] text-slate-400">{t(`assets.attach.kind.${at.kind}`)}{how ? ` · ${how}` : ''}</div>
+      {at.shared ? <div className="text-[11px] text-amber-700">{t('assets.attach.shared', { count: at.shared })}</div> : null}
+      {!at.port && <div className="text-[11px] text-slate-400">{t('assets.attach.noneHint')}</div>}
+    </div>
+  )
 }

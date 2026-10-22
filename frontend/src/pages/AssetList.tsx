@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetRow, type AssetType } from '../lib/api'
-import { TypeIcon, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
+import { TypeIcon, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, AttachCell, attachText, ago } from '../components/AssetBits'
 import { AssetBulkBar } from '../components/AssetActions'
 import { Button } from '../components/ui/Button'
 import { Boxes, Download, ChevronUp, ChevronDown } from 'lucide-react'
@@ -15,7 +15,7 @@ function csvSafe(v: unknown): string {
   return `"${(s && ['=', '+', '-', '@', '\t', '\r'].includes(s[0]) ? "'" + s : s).replace(/"/g, '""')}"`
 }
 
-type SortKey = 'name' | 'type' | 'vulns' | 'lifecycle' | 'ip' | 'location' | 'seen'
+type SortKey = 'name' | 'type' | 'vulns' | 'lifecycle' | 'ip' | 'location' | 'attach' | 'place' | 'seen'
 const LC_ORDER: Record<string, number> = { eol: 0, ending: 1, supported: 2, unknown: 3 }
 const ipKey = (ip: string | null) => (ip ? ip.split('.').map(p => p.padStart(3, '0')).join('.') : '~')
 
@@ -52,7 +52,7 @@ export function AssetList() {
       && (vuln === 'all' || (vuln === 'any' ? a.vulns.total > 0 : vuln === 'none' ? a.vulns.total === 0 : a.vulns[vuln as 'critical' | 'high'] > 0))
       && (level === 'all' || a.scan_level === level)
       && (group === 'all' || a.groups.includes(group))
-      && (!needle || [a.name, a.ip, a.mac, a.manufacturer, a.model, a.serial, a.os_name, a.location].some(v => (v ?? '').toLowerCase().includes(needle))))
+      && (!needle || [a.name, a.ip, a.mac, a.manufacturer, a.model, a.serial, a.os_name, a.location, a.place, attachText(a.attach)].some(v => (v ?? '').toLowerCase().includes(needle))))
     const val = (a: AssetRow): string | number => {
       switch (sort.key) {
         case 'name': return a.name.toLowerCase()
@@ -61,6 +61,8 @@ export function AssetList() {
         case 'lifecycle': return LC_ORDER[a.lifecycle]
         case 'ip': return ipKey(a.ip)
         case 'location': return (a.location ?? '~').toLowerCase()
+        case 'attach': return (attachText(a.attach) || '~').toLowerCase()
+        case 'place': return (a.place ?? '~').toLowerCase()
         case 'seen': return -(a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0)
       }
     }
@@ -79,9 +81,9 @@ export function AssetList() {
   )
 
   const exportCsv = () => {
-    const head = ['name', 'type', 'role', 'ip', 'mac', 'manufacturer', 'model', 'serial', 'os', 'os_version', 'location', 'lifecycle', 'eol', 'vuln_critical', 'vuln_high', 'vuln_medium', 'vuln_low', 'scan_level', 'groups', 'first_seen', 'last_seen']
+    const head = ['name', 'type', 'role', 'ip', 'mac', 'manufacturer', 'model', 'serial', 'os', 'os_version', 'location', 'place', 'attached_to', 'port', 'vlan', 'lifecycle', 'eol', 'vuln_critical', 'vuln_high', 'vuln_medium', 'vuln_low', 'scan_level', 'groups', 'first_seen', 'last_seen']
     const lines = [head.map(csvSafe).join(',')]
-    for (const a of rows) lines.push([a.name, a.type, a.role, a.ip, a.mac, a.manufacturer, a.model, a.serial, a.os_name, a.os_version, a.location, a.lifecycle, a.eol,
+    for (const a of rows) lines.push([a.name, a.type, a.role, a.ip, a.mac, a.manufacturer, a.model, a.serial, a.os_name, a.os_version, a.location, a.place, a.attach?.to, a.attach?.port, a.attach?.vlan, a.lifecycle, a.eol,
       a.vulns.critical, a.vulns.high, a.vulns.medium, a.vulns.low, a.scan_level, a.groups.join('; '), a.first_seen_at, a.last_seen_at].map(csvSafe).join(','))
     const el = document.createElement('a')
     el.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }))
@@ -155,6 +157,7 @@ export function AssetList() {
                   onChange={e => setPicked(prev => { const n = new Set(prev); shown.forEach(a => e.target.checked ? n.add(a.id) : n.delete(a.id)); return n })} /></th>
                 {th('name', t('assets.colName') as string, 'px-4')}{th('type', t('assets.colType') as string)}{th('vulns', t('assets.colVulns') as string)}
                 {th('lifecycle', t('assets.colLifecycle') as string)}{th('ip', t('assets.colIp') as string)}{th('location', t('assets.colLocation') as string)}
+                {th('attach', t('assets.colAttach') as string)}{th('place', t('assets.colPlace') as string)}
                 <th className="font-normal">{t('assets.colScan')}</th>{th('seen', t('assets.colLastSeen') as string, 'pr-4')}
               </tr></thead>
               <tbody>
@@ -173,6 +176,8 @@ export function AssetList() {
                     <td><LifecyclePill status={a.lifecycle} /></td>
                     <td className="font-mono text-xs text-slate-600">{a.ip ?? '—'}</td>
                     <td className="text-xs text-slate-600">{a.location ?? '—'}</td>
+                    <td><AttachCell at={a.attach} /></td>
+                    <td className="text-xs text-slate-600 max-w-[12rem] truncate" title={a.place ?? undefined}>{a.place ?? '—'}</td>
                     <td><ScanLevelPill level={a.scan_level} /></td>
                     <td className="pr-4 text-xs text-slate-500 whitespace-nowrap">{ago(a.last_seen_at)}</td>
                   </tr>

@@ -1578,7 +1578,12 @@
                 "exposure": "Ryzykowne usługi: {{n}}",
                 "hints": "Możliwe fabryczne hasło",
                 "blind": "Brak poświadczeń, widoczne tylko pasywnie"
-            }
+            },
+            "problemsTitle": "Problemy tego urządzenia",
+            "noDetail": "Brak zgłoszonych problemów dla tego urządzenia (albo jest poza 60 najbardziej zagrożonymi, dla których agent przysyła szczegóły).",
+            "more": "jeszcze {{count}}",
+            "ports": "Otwarte porty",
+            "score": "Ocena ryzyka"
         }
     },
     "traffic": {
@@ -1907,6 +1912,26 @@
         },
         "via": "Brama (traceroute)",
         "hops": "{{count}} przeskoków",
+        "colAttach": "Podłączony do",
+        "colPlace": "Miejsce fizyczne",
+        "place": "Miejsce fizyczne",
+        "placePlaceholder": "np. pokój 12, biurko przy oknie, gniazdo A-14",
+        "attach": {
+            "port": "port {{port}}",
+            "vlan": "VLAN {{vlan}}",
+            "shared": "Na tym porcie jest jeszcze {{count}} innych urządzeń: za portem może być przełącznik lub punkt dostępowy.",
+            "kind": {
+                "client": "port przełącznika (z tablicy MAC)",
+                "uplink": "łącze do urządzenia nadrzędnego",
+                "l3": "ta sama sieć, port nieznany",
+                "vm": "host wirtualizacji"
+            },
+            "howArp": "wg tablic ARP / DHCP routera",
+            "howTrace": "wg traceroute",
+            "howSubnet": "wg podsieci",
+            "none": "brak danych o miejscu podłączenia",
+            "noneHint": "Port ustala się z tablicy MAC przełącznika, więc wymaga zarządzalnego przełącznika, który agent umie odczytać (MikroTik, Cisco SB, SNMP). Host za niezarządzalnym przełącznikiem lub w Wi-Fi nie będzie miał portu."
+        },
         "hintsBadge": "Urządzenie wbudowane - możliwe fabryczne hasło (szczegóły na karcie)",
         "hintsTitle": "Uwaga: możliwe fabryczne hasło",
         "hintsAdvice": "Takie urządzenia są często dostarczane z domyślnym loginem i hasłem, a część zostaje tak skonfigurowana. MikroManager niczego tu nie próbuje (to byłby atak na urządzenie) - to tylko wskazówka: otwórz panel urządzenia, sprawdź ręcznie i ustaw własne hasło; jeśli się da, wyłącz niepotrzebne usługi.",

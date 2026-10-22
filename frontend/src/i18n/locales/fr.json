@@ -1420,7 +1420,12 @@
                 "exposure": "Services risqués : {{n}}",
                 "hints": "Mot de passe d'usine possible",
                 "blind": "Sans identifiants, vu seulement passivement"
-            }
+            },
+            "problemsTitle": "Problèmes de cet équipement",
+            "noDetail": "Aucun problème signalé pour cet équipement (ou il n'est pas parmi les 60 plus exposés dont l'agent envoie le détail).",
+            "more": "{{count}} de plus",
+            "ports": "Ports ouverts",
+            "score": "Note de risque"
         }
     },
     "traffic": {
@@ -1749,6 +1754,26 @@
         },
         "via": "Passerelle (traceroute)",
         "hops": "{{count}} sauts",
+        "colAttach": "Raccordé à",
+        "colPlace": "Emplacement physique",
+        "place": "Emplacement physique",
+        "placePlaceholder": "p. ex. salle 12, bureau près de la fenêtre, prise A-14",
+        "attach": {
+            "port": "port {{port}}",
+            "vlan": "VLAN {{vlan}}",
+            "shared": "Il y a {{count}} autres équipements sur ce port : un switch ou un point d'accès peut se trouver derrière.",
+            "kind": {
+                "client": "port du switch (d'après sa table MAC)",
+                "uplink": "liaison vers l'équipement parent",
+                "l3": "même réseau, port inconnu",
+                "vm": "hôte de virtualisation"
+            },
+            "howArp": "d'après les tables ARP / DHCP du routeur",
+            "howTrace": "d'après traceroute",
+            "howSubnet": "d'après le sous-réseau",
+            "none": "pas de données sur le raccordement",
+            "noneHint": "Le port vient de la table MAC du switch : il faut donc un switch administrable que l'agent sait lire (MikroTik, Cisco SB, SNMP). Un hôte derrière un switch non administrable ou en Wi-Fi n'aura pas de port."
+        },
         "hintsBadge": "Équipement embarqué : un mot de passe d'usine est possible (détails sur la fiche)",
         "hintsTitle": "Attention : mot de passe d'usine possible",
         "hintsAdvice": "Ces équipements sont souvent livrés avec un identifiant et un mot de passe par défaut, et certains le restent. MikroManager n'essaie rien ici (ce serait une attaque contre l'équipement) : ce n'est qu'une piste : ouvrez le panneau de l'équipement, vérifiez à la main et définissez votre propre mot de passe ; désactivez les services inutiles.",

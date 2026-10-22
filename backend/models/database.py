@@ -411,6 +411,7 @@ class Asset(Base):
     os_name = Column(String, nullable=True)
     os_version = Column(String, nullable=True)
     location_override = Column(String, nullable=True)
+    place = Column(String, nullable=True)                          # where it physically is, as written by the operator: room, desk, wall socket / patch panel port
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
     scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
@@ -1273,6 +1274,12 @@ def _migrate_add_columns():
                               ("packages_json", "TEXT"), ("wifi_json", "TEXT"), ("fleet_checked_at", "DATETIME")):
                 if name not in dev_cols:
                     conn.execute(text(f"ALTER TABLE devices ADD COLUMN {name} {ddl}"))
+
+    if "assets" in inspector.get_table_names():
+        as_cols = {c["name"] for c in inspector.get_columns("assets")}
+        if "place" not in as_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN place VARCHAR"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

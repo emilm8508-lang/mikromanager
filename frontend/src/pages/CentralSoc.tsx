@@ -4,6 +4,7 @@ import { Siren } from 'lucide-react'
 import { centralApi, centralConfig, socFromCentral, type CentralSoc as CentralSocData } from '../lib/api'
 import { RiskTable, RISK_LEVELS, SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAULT, useAgo, type SocFilterState } from '../components/SocBits'
 import { AssetDrawer, type Row as AssetRow } from './CentralAssets'
+import { TenantBadge } from '../components/ui/TenantBadge'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; soc: CentralSocData }
@@ -93,7 +94,7 @@ export function CentralSoc() {
           {part && (
             <>
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-base font-semibold text-slate-900">{part.tenant}</h2>
+                <h2 className="text-base font-semibold text-slate-900"><TenantBadge tenant={part.tenant} withDot /></h2>
                 {stale && <span className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded px-2 py-0.5">{t('soc.central.stale', { when: ago(part.soc.at) })}</span>}
               </div>
               <SocKpis stats={part.soc.stats!} />
@@ -103,10 +104,10 @@ export function CentralSoc() {
               {part.soc.risk && part.soc.risk.top.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h2 className="text-base font-semibold text-slate-900">{t('soc.risk.centralTitle')}</h2>
+                    <h2 className="text-base font-semibold text-slate-900 inline-flex items-center gap-2">{t('soc.risk.centralTitle')} <TenantBadge tenant={part.tenant} withDot /></h2>
                     <span className="text-xs text-slate-400">{t('soc.risk.scored', { n: part.soc.risk.scored })} · {RISK_LEVELS.map(l => `${t(`soc.risk.level.${l.key}`)}: ${part.soc!.risk!.levels[l.key] ?? 0}`).join(' · ')}</span>
                   </div>
-                  <RiskTable rows={part.soc.risk.top.map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors.map(([k, pts, n]) => ({ k, pts, n })), ip: r.ip, loc: r.loc, onOpen: opener(r.id) }))} empty={t('soc.risk.empty') as string} />
+                  <RiskTable rows={part.soc.risk.top.slice(0, 15).map(r => ({ id: r.id, name: r.name, type: r.type, score: r.score, level: r.level, factors: r.factors.map(([k, pts, n, items]) => ({ k, pts, n, items })), ip: r.ip, loc: r.loc, tenant: part.tenant, services: r.services, onOpen: opener(r.id) }))} empty={t('soc.risk.empty') as string} />
                 </div>
               )}
             </>

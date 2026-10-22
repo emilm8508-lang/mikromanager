@@ -16,6 +16,7 @@ The readings of the devices can be slow (unreachable routers time out), so `get_
 it in the background; until the first one is ready, a quick map from the database alone (assets + stored links) is returned (`partial`)."""
 import asyncio
 import ipaddress
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -29,7 +30,7 @@ TTL = 300.0
 MAX_ACCESS_MACS = 48                    # a port with more MACs than this is not taken for an access port
 STALE_DAYS = 7
 _SEV = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
-_cache: dict = {"at": 0.0, "data": None}
+_cache: dict = {"at": 0.0, "data": None, "attach": {}}
 _task: Optional[asyncio.Task] = None
 
 
@@ -158,7 +159,7 @@ def _finish(nodes: Dict[int, dict], edges: List[dict], partial: bool, routers: O
             if only in claimants.get(sub, set()) and only != i:
                 rid, how = only, "subnet"
         if rid is not None and rid != i:
-            edges.append({"a": rid, "b": i, "k": "l3", "l": f"{how} · {sub}"})
+            edges.append({"a": rid, "b": i, "k": "l3", "l": f"{how} · {sub}", "how": how})
         else:
             hub = hubs.setdefault(sub, {"id": f"sub:{sub}", "name": sub, "type": "subnet", "role": None, "ip": None, "mf": None, "md": None, "v": 0, "vn": 0, "sub": sub, "lvl": None})
             edges.append({"a": hub["id"], "b": i, "k": "l3", "l": ""})
@@ -284,7 +285,8 @@ async def _full() -> dict:
         _cnt, sw, port, vlan = min(cands)
         if _cnt > MAX_ACCESS_MACS:
             continue                                  # that many MACs behind a port is a trunk / a tunnel / another site, not where this host is plugged in
-        edges.append({"a": sw, "b": i, "k": "uplink" if i in infra else "client", "l": f"{port}" + (f" · VLAN {vlan}" if vlan else "")})
+        edges.append({"a": sw, "b": i, "k": "uplink" if i in infra else "client", "l": f"{port}" + (f" · VLAN {vlan}" if vlan else ""),
+                      "port": port, "vlan": vlan, "cnt": _cnt})         # cnt: how many MACs the switch has learned on that port (more than one: something is behind it)
     # virtual machines under their Hyper-V host
     by_name = {n["name"].casefold(): i for i, n in nodes.items() if n["type"] in ("windows", "server") and n["name"]}
     for i, n in nodes.items():
@@ -335,12 +337,55 @@ async def _full() -> dict:
     return _finish(nodes, edges, partial=False, routers=routers, nets_by_node=nets_by_node, wan=wan, adjacent=adjacent, routed=routed)
 
 
+def _attach_from(data: dict) -> Dict[int, dict]:
+    """asset id -> where it is attached, from the edges of a built map: the port of a switch (the MAC was learned there), or - without a port - the router
+    that has it on its segment (ARP / DHCP / traceroute), or the Hyper-V host of a VM. Hubs of "no evidence" are not a place and are left out."""
+    names = {n["id"]: n for n in data.get("nodes", [])}
+    out: Dict[int, dict] = {}
+    for e in data.get("edges", []):
+        a, b = e.get("a"), e.get("b")
+        if e.get("k") not in ("client", "uplink", "l3", "vm") or not isinstance(a, int) or not isinstance(b, int) or a not in names:
+            continue
+        port = e.get("port")
+        out[b] = {"to": names[a].get("name"), "to_id": a, "to_ip": names[a].get("ip"), "kind": e["k"], "port": port, "vlan": e.get("vlan"),
+                  "shared": max(0, int(e.get("cnt") or 1) - 1) if port else None, "how": e.get("how")}
+    return out
+
+
+def attach_of(asset_id: int) -> Optional[dict]:
+    """Where an asset is attached according to the last full map (None when unknown or no map has been built yet)."""
+    return _cache.get("attach", {}).get(asset_id)
+
+
+def attachments() -> Dict[int, dict]:
+    return _cache.get("attach", {})
+
+
+def ports_of(switch_id: int) -> List[dict]:
+    """The ports of one switch / router that have something learned on them: [{port, vlan, devices: [asset ids]}], by port name."""
+    ports: Dict[str, dict] = {}
+    for aid, at in _cache.get("attach", {}).items():
+        if at.get("to_id") == switch_id and at.get("port"):
+            p = ports.setdefault(at["port"], {"port": at["port"], "vlan": at.get("vlan"), "devices": []})
+            p["devices"].append(aid)
+    return sorted(ports.values(), key=lambda p: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", p["port"])])
+
+
 async def _refresh() -> None:
     try:
-        _cache["data"] = await _full()
+        data = await _full()
+        _cache["data"] = data
+        _cache["attach"] = _attach_from(data)
     except Exception as e:
         print(f"[topology_map] build error: {e}")
     _cache["at"] = time.time()
+
+
+def kick() -> None:
+    """Starts a rebuild of the map in the background when the last one is older than TTL; never waits and never builds the quick map."""
+    global _task
+    if (_cache["data"] is None or time.time() - _cache["at"] > TTL) and (_task is None or _task.done()):
+        _task = asyncio.create_task(_refresh())
 
 
 async def get_map(force: bool = False) -> dict:

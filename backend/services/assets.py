@@ -571,6 +571,15 @@ def _groups(a: Asset) -> List[str]:
     return g + [t for t in _jload(a.manual_groups, []) if t not in g]
 
 
+def _attach(asset_id: int) -> Optional[dict]:
+    """Where the asset is plugged in (switch + port), as the last map of the network says - see services/topology_map.py."""
+    try:
+        from services import topology_map
+        return topology_map.attach_of(asset_id)
+    except Exception:
+        return None
+
+
 def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
     fnd = vulns.get(a.ip or "", [])
     lc = asset_lifecycle.lifecycle(a.os_name, a.os_version)
@@ -578,7 +587,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
-        "location": a.location_override or locate(a.ip), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [], "via": _jload(a.details, {}).get("_via"), "hops": _jload(a.details, {}).get("_hops"),
+        "location": a.location_override or locate(a.ip), "place": a.place, "attach": _attach(a.id), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [], "via": _jload(a.details, {}).get("_via"), "hops": _jload(a.details, {}).get("_hops"),
         "lifecycle": lc["status"], "lifecycle_product": lc["product"], "eol": lc["eol"],
         "vulns": _vuln_counts(fnd), "risk": round(_risk(fnd), 1),
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),
@@ -588,6 +597,11 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
 
 
 async def list_assets() -> List[dict]:
+    try:
+        from services import topology_map
+        topology_map.kick()                      # the placement of the hosts comes from the map; it is refreshed in the background, never waited for
+    except Exception:
+        pass
     vulns = await _vulns_by_ip()
     now = datetime.utcnow()
     with SessionLocal() as db:
@@ -651,6 +665,11 @@ async def public_summary() -> dict:
         row = {"id": r["id"], "n": r["name"], "ip": r["ip"], "t": r["type"], "r": r["role"], "mf": r["manufacturer"], "md": r["model"], "os": r["os_name"],
                "lc": r["lifecycle"], "v": [v["critical"], v["high"], v["medium"], v["low"]], "loc": r["location"], "sl": r["scan_level"],
                "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None}
+        if r.get("place"):
+            row["pl"] = r["place"]
+        at = r.get("attach")
+        if at:
+            row["at"] = [at["to"], at.get("port"), at.get("vlan"), at.get("shared"), at["kind"]]        # switch, port, VLAN, other MACs on the port, how it is known
         # What Central may ask the agent to do with it (the same commands as on the server boards): only ids and flags, no details.
         refs = r["refs"]
         if refs.get("linux_host_id") in lin:
@@ -808,6 +827,8 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             a.name = (fields["name"] or "").strip()[:128] or a.name
         if "location_override" in fields:
             a.location_override = (fields["location_override"] or "").strip()[:128] or None
+        if "place" in fields:
+            a.place = (fields["place"] or "").strip()[:128] or None
         if "notes" in fields:
             a.notes = (fields["notes"] or "").strip()[:2000] or None
         if "asset_type" in fields or "role" in fields:

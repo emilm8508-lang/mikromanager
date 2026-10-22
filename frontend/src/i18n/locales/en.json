@@ -1420,7 +1420,12 @@
                 "exposure": "Risky services: {{n}}",
                 "hints": "Possible factory password",
                 "blind": "No credentials, seen only passively"
-            }
+            },
+            "problemsTitle": "Problems of this device",
+            "noDetail": "No problems reported for this device (or it is outside the 60 most exposed ones the agent sends the detail for).",
+            "more": "{{count}} more",
+            "ports": "Open ports",
+            "score": "Risk score"
         }
     },
     "traffic": {
@@ -1749,6 +1754,26 @@
         },
         "via": "Gateway (traceroute)",
         "hops": "{{count}} hops",
+        "colAttach": "Connected to",
+        "colPlace": "Physical place",
+        "place": "Physical place",
+        "placePlaceholder": "e.g. room 12, desk by the window, socket A-14",
+        "attach": {
+            "port": "port {{port}}",
+            "vlan": "VLAN {{vlan}}",
+            "shared": "There are {{count}} more devices on this port: a switch or an access point may be behind it.",
+            "kind": {
+                "client": "switch port (from its MAC table)",
+                "uplink": "link to the parent device",
+                "l3": "same network, port unknown",
+                "vm": "virtualisation host"
+            },
+            "howArp": "by the router's ARP / DHCP tables",
+            "howTrace": "by traceroute",
+            "howSubnet": "by subnet",
+            "none": "no data on where it is connected",
+            "noneHint": "The port comes from the switch's MAC table, so it needs a managed switch the agent can read (MikroTik, Cisco SB, SNMP). A host behind an unmanaged switch, or on Wi-Fi, will have no port."
+        },
         "hintsBadge": "Embedded device - a factory password is possible (details on the card)",
         "hintsTitle": "Note: a factory password is possible",
         "hintsAdvice": "Such devices are often shipped with a default login and password, and some stay that way. MikroManager tries nothing here (that would be an attack on the device) - this is only a hint: open the device's panel, check by hand and set your own password; switch off services you do not need.",

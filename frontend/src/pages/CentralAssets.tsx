@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
+import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralRiskDevice, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
 import { Button } from '../components/ui/Button'
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Pill } from '../components/AssetBits'
 import { SeverityPill } from '../components/VulnViews'
+import { RiskDetail, RISK_LEVELS } from '../components/SocBits'
+import { TenantBadge } from '../components/ui/TenantBadge'
 import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2, Play, Power, PowerOff, Camera } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -38,6 +40,16 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
     }).catch(() => live && setFindings([]))
     return () => { live = false }
   }, [row.tenant, row.ip])
+  // what is wrong with the device and what it is made of (the agent sends the detail for its most exposed devices): from the SOC part of the snapshot
+  const [risk, setRisk] = useState<CentralRiskDevice | null | undefined>(undefined)
+  useEffect(() => {
+    let live = true
+    centralApi.socStatusAll().then(r => {
+      if (!live) return
+      setRisk(r.tenants.find(tn => tn.tenant === row.tenant)?.soc?.risk?.top.find(d => d.id === row.id) ?? null)
+    }).catch(() => live && setRisk(null))
+    return () => { live = false }
+  }, [row.tenant, row.id])
   const send = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key); setMsg(null)
     try { await fn(); setMsg({ ok: true, text: t('assetsCentral.requested') as string }) }
@@ -57,11 +69,14 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
     <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-slate-50 shadow-2xl overflow-y-auto p-4 space-y-3" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold text-slate-900 truncate inline-flex items-center gap-2"><TypeIcon type={row.t as AssetType} size={20} />{row.n}</h3>
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-slate-900 truncate inline-flex items-center gap-2"><TypeIcon type={row.t as AssetType} size={20} />{row.n}</h3>
+            <div className="mt-0.5"><TenantBadge tenant={row.tenant} withDot /></div>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800" aria-label="close"><X size={18} /></button>
         </div>
         <dl className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          {fact(t('assetsCentral.client') as string, row.tenant)}
+          {fact(t('assetsCentral.client') as string, <TenantBadge tenant={row.tenant} withDot />)}
           {fact(t('assets.colIp') as string, <span className="font-mono">{row.ip ?? '—'}</span>)}
           {fact(t('assets.colType') as string, <TypePill type={row.t} role={row.r} />)}
           {fact(t('assets.manufacturer') as string, [row.mf, row.md].filter(Boolean).join(' · ') || null)}
@@ -69,10 +84,24 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
           {fact(t('assets.colLifecycle') as string, <LifecyclePill status={row.lc} />)}
           {fact(t('assets.colVulns') as string, row.v.some(n => n > 0) ? <VulnPill v={{ critical: row.v[0], high: row.v[1], medium: row.v[2], low: row.v[3], total: row.v[0] + row.v[1] + row.v[2] + row.v[3] }} /> : <span className="text-emerald-700">{t('assets.noVulns')}</span>)}
           {fact(t('assets.colLocation') as string, row.loc)}
+          {fact(t('assets.place') as string, row.pl)}
+          {fact(t('assets.colAttach') as string, row.at ? [row.at[0], row.at[1] ? t('assets.attach.port', { port: row.at[1] }) : null, row.at[2] ? t('assets.attach.vlan', { vlan: row.at[2] }) : null].filter(Boolean).join(' · ') + (row.at[3] ? `  (+${row.at[3]})` : '') : null)}
           {fact(t('assets.colScan') as string, <ScanLevelPill level={row.sl} />)}
           {fact(t('assets.colLastSeen') as string, ago(row.seen))}
         </dl>
         <p className="text-[11px] text-slate-400">{t('assetsCentral.drawerNote')}</p>
+
+        <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+          <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100 flex items-center gap-2">
+            {t('soc.risk.problemsTitle')}
+            {risk && <span className={cn('ml-auto text-sm font-bold tabular-nums', RISK_LEVELS.find(l => l.key === risk.level)?.text)} title={t('soc.risk.score') as string}>{Math.round(risk.score)}</span>}
+          </h4>
+          <div className="p-3">
+            {risk === undefined ? <p className="text-sm text-slate-400">{t('common.loading')}</p>
+              : risk === null ? <p className="text-sm text-slate-500">{t('soc.risk.noDetail')}</p>
+              : <RiskDetail factors={risk.factors.map(([k, pts, n, items]) => ({ k, pts, n, items }))} services={risk.services} />}
+          </div>
+        </section>
 
         {findings && findings.length > 0 && (
           <section className="bg-white border border-slate-200 rounded-xl shadow-sm">

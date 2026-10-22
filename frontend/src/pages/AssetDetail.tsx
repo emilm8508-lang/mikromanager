@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut } from '../lib/api'
-import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, ago } from '../components/AssetBits'
+import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, AttachDetail, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
 import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
 import { AssetActions, hasActions } from '../components/AssetActions'
@@ -123,16 +123,17 @@ function Overview({ a }: { a: Detail }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [location, setLocation] = useState(a.location_override ?? '')
+  const [place, setPlace] = useState(a.place ?? '')
   const [notes, setNotes] = useState(a.notes ?? '')
   const [tags, setTags] = useState<string[]>(a.manual_groups)
   const [tag, setTag] = useState('')
   const [kind, setKind] = useState(a.override.type ?? 'auto')
   const [role, setRole] = useState(a.override.role ?? 'auto')
   const save = useMutation({
-    mutationFn: () => assetsApi.update(a.id, { location_override: location, notes, manual_groups: tags, asset_type: kind, role }),
+    mutationFn: () => assetsApi.update(a.id, { location_override: location, place, notes, manual_groups: tags, asset_type: kind, role }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset', a.id] }); qc.invalidateQueries({ queryKey: ['assets'] }); qc.invalidateQueries({ queryKey: ['asset-summary'] }) },
   })
-  const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
+  const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || place !== (a.place ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
   return (
     <div className="space-y-4">
       {a.type === 'monitor' && (a.installed_on ?? []).length > 0 && (
@@ -170,6 +171,9 @@ function Overview({ a }: { a: Detail }) {
           </div>
           <label className="block"><span className="text-xs text-slate-500">{t('assets.location')}</span>
             <input value={location} onChange={e => setLocation(e.target.value)} placeholder={a.location && !a.location_override ? a.location : (t('assets.locationPlaceholder') as string)}
+              className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5" maxLength={128} /></label>
+          <label className="block"><span className="text-xs text-slate-500">{t('assets.place')}</span>
+            <input value={place} onChange={e => setPlace(e.target.value)} placeholder={t('assets.placePlaceholder') as string}
               className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5" maxLength={128} /></label>
           <div>
             <span className="text-xs text-slate-500">{t('assets.tags')}</span>
@@ -491,6 +495,8 @@ export function AssetDetail() {
             {fact(t('assets.model') as string, a.model)}
             {fact(t('assets.serial') as string, a.serial)}
             {fact(t('assets.location') as string, a.location)}
+            {fact(t('assets.place') as string, a.place)}
+            {fact(t('assets.colAttach') as string, <AttachDetail at={a.attach} />)}
             {a.parent && fact(t('assets.parentHost') as string, a.parent)}
             {fact(t('assets.groups') as string, a.groups.length ? <span className="flex flex-wrap gap-1">{a.groups.map(g => <Pill key={g}>{t(`assets.group.${g}`, { defaultValue: g }) as string}</Pill>)}</span> : null)}
             {fact(t('assets.osLifecycle') as string, <span className="flex flex-col gap-0.5 items-start"><LifecyclePill status={a.lifecycle} days={a.lifecycle_detail.days_left} />{a.lifecycle_product && <span className="text-[11px] text-slate-400">{a.lifecycle_product}</span>}</span>)}

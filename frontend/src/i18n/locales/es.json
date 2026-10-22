@@ -1420,7 +1420,12 @@
                 "exposure": "Servicios de riesgo: {{n}}",
                 "hints": "Posible contraseña de fábrica",
                 "blind": "Sin credenciales, visto solo de forma pasiva"
-            }
+            },
+            "problemsTitle": "Problemas de este dispositivo",
+            "noDetail": "Sin problemas reportados para este dispositivo (o está fuera de los 60 más expuestos de los que el agente envía el detalle).",
+            "more": "{{count}} más",
+            "ports": "Puertos abiertos",
+            "score": "Puntuación de riesgo"
         }
     },
     "traffic": {
@@ -1749,6 +1754,26 @@
         },
         "via": "Puerta de enlace (traceroute)",
         "hops": "{{count}} saltos",
+        "colAttach": "Conectado a",
+        "colPlace": "Lugar físico",
+        "place": "Lugar físico",
+        "placePlaceholder": "p. ej. sala 12, mesa junto a la ventana, roseta A-14",
+        "attach": {
+            "port": "puerto {{port}}",
+            "vlan": "VLAN {{vlan}}",
+            "shared": "Hay {{count}} dispositivos más en este puerto: detrás puede haber un switch o un punto de acceso.",
+            "kind": {
+                "client": "puerto del switch (de su tabla MAC)",
+                "uplink": "enlace al dispositivo superior",
+                "l3": "misma red, puerto desconocido",
+                "vm": "host de virtualización"
+            },
+            "howArp": "según las tablas ARP / DHCP del router",
+            "howTrace": "según traceroute",
+            "howSubnet": "según la subred",
+            "none": "sin datos de dónde está conectado",
+            "noneHint": "El puerto sale de la tabla MAC del switch, así que requiere un switch gestionable que el agente pueda leer (MikroTik, Cisco SB, SNMP). Un host tras un switch no gestionable o en Wi-Fi no tendrá puerto."
+        },
         "hintsBadge": "Dispositivo embebido: es posible una contraseña de fábrica (detalles en la ficha)",
         "hintsTitle": "Atención: posible contraseña de fábrica",
         "hintsAdvice": "Estos dispositivos suelen venir con usuario y contraseña por defecto, y algunos se quedan así. MikroManager no prueba nada aquí (sería un ataque al dispositivo): es solo una pista: abra el panel del dispositivo, compruébelo a mano y ponga su propia contraseña; desactive los servicios que no necesite.",

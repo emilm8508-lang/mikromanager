@@ -1063,6 +1063,14 @@ export type AssetScanLevel = 'credentialed' | 'snmp' | 'passive'
 
 export interface AssetVulnCounts { critical: number; high: number; medium: number; low: number; total: number }
 
+// where an asset is plugged in, from the last map of the network: the port of a switch (its MAC was learned there), or - without a port - the router /
+// Hyper-V host it hangs under
+export interface AssetAttach {
+  to: string; to_id: number; to_ip?: string | null; kind: 'client' | 'uplink' | 'l3' | 'vm'; port: string | null; vlan: number | null
+  shared: number | null              // other MACs learned on the same port: something (a switch, an access point) is behind it
+  how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
+}
+
 export interface AssetRow {
   id: number
   name: string
@@ -1080,6 +1088,8 @@ export interface AssetRow {
   os_name: string | null
   os_version: string | null
   location: string | null
+  place?: string | null              // where it physically is (room, desk, socket), as written by the operator
+  attach?: AssetAttach | null
   groups: string[]
   scan_level: AssetScanLevel
   lifecycle: AssetLifecycle
@@ -1112,6 +1122,8 @@ export interface AssetSummary {
 // What an agent sends to Central about its assets: numbers and compact rows, never serial numbers or MAC addresses
 export interface AssetsPublicRow {
   id?: number; n: string; ip: string | null; t: AssetType; r: 'server' | 'workstation' | null; mf: string | null; md: string | null; os: string | null
+  pl?: string | null                                           // physical place, as written by the operator
+  at?: [string, string | null, number | null, number | null, string]   // attached to: [device, port, VLAN, other MACs on the port, how it is known]
   lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
   // what Central may ask the agent to do with the device (ids and flags only)
   x?: { k: 'linux' | 'windows' | 'device' | 'vm'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean; st?: string | null }
@@ -1174,7 +1186,7 @@ export const assetsApi = {
   vulnHistory: (days = 90) => api.get<{ points: Array<{ day: string; assets: number; critical: number; high: number; medium: number; low: number }> }>('/assets/vuln-history', { params: { days } }).then(r => r.data),
   scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
   scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
-  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; notes?: string | null; manual_groups?: string[] }) =>
+  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; place?: string | null; notes?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
   tool: (id: number, tool: 'ping' | 'traceroute' | 'portscan', ports?: string) => api.post<{ job: string }>(`/assets/${id}/tools`, { tool, ports }).then(r => r.data),
@@ -1313,9 +1325,16 @@ export interface SocStats {
   opened_daily: Array<{ t: string; n: number }>; oldest_new_hours: number | null
 }
 export interface SocQuery { status?: string; severity?: string; category?: string; source?: string; q?: string; limit?: number; offset?: number }
+// what a risk factor is made of: strings (a service "3389 RDP", a check, a CVE, a hint key) or - for alerts - {s: severity, r: rule, t: title}
+export type SocRiskItem = string | { s: string; r: string; t: string | null }
+export interface SocRiskFactor { k: string; pts: number; n?: number | null; items?: SocRiskItem[] | null }
 export interface SocRiskRow {
   id: number; name: string; ip: string | null; loc?: string | null; type: string; dclass: string | null; score: number; level: 'critical' | 'high' | 'medium' | 'low'
-  factors: Array<{ k: string; pts: number; n?: number }>
+  factors: SocRiskFactor[]; services?: string[]
+}
+export interface CentralRiskDevice {
+  id: number; name: string; ip?: string | null; loc?: string | null; type: string; score: number; level: string
+  factors: Array<[string, number, number | null, SocRiskItem[] | null]>; services?: string[]
 }
 export interface SocRisk { levels: Record<string, number>; total: number; items: SocRiskRow[] }
 export interface SocRule {
@@ -1336,7 +1355,7 @@ export const socApi = {
 // what Central receives (compact; no internal addresses): the numbers and the open alerts, worst first
 export interface CentralSoc {
   at: string | null; stats: SocStats | null
-  risk?: { levels: Record<string, number>; scored: number; top: Array<{ id: number; name: string; ip?: string | null; loc?: string | null; type: string; score: number; level: string; factors: Array<[string, number, number | null]> }> }
+  risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; asset?: number | null; status: SocStatus
                   owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any> }>
 }

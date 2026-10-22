@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
-import { socApi, SOC_SEVERITIES, SOC_STATUSES, type AssetType, type SocAlert, type SocSeverity, type SocStats, type SocStatus } from '../lib/api'
+import { socApi, SOC_SEVERITIES, SOC_STATUSES, type AssetType, type SocAlert, type SocRiskFactor, type SocRiskItem, type SocSeverity, type SocStats, type SocStatus } from '../lib/api'
 import { Pill, TypeIcon } from './AssetBits'
 import { cn } from '../lib/utils'
 
@@ -258,39 +258,88 @@ export const RISK_LEVELS = [
 ]
 
 export interface RiskRowView {
-  id: number; name: string; type: string; score: number; level: string; factors: Array<{ k: string; pts: number; n?: number | null }>
-  ip?: string | null; loc?: string | null; href?: string; onOpen?: () => void
+  id: number; name: string; type: string; score: number; level: string; factors: SocRiskFactor[]
+  ip?: string | null; loc?: string | null; tenant?: string; services?: string[] | null; href?: string; onOpen?: () => void
 }
 
-/** Devices with their score and the reasons behind it (the factors, with their points). Used by the agent's page and by Central's top list. */
+function RiskItem({ factor, item }: { factor: string; item: SocRiskItem }) {
+  const { t } = useTranslation()
+  if (typeof item !== 'string') return <span className="inline-flex items-center gap-1.5"><SevBadge s={item.s as SocSeverity} /><span>{alertTitle(t as never, { rule: item.r, title: item.t })}</span></span>
+  if (factor === 'hints') return <span>{t(`assets.hint.${item}`, { defaultValue: item })}</span>
+  if (factor === 'patches' && item === 'reboot') return <span>{t('assets.act.rebootRequired')}</span>
+  if (item.startsWith('CVE-')) return <a href={`https://nvd.nist.gov/vuln/detail/${item.split(' ')[0]}`} target="_blank" rel="noreferrer" className="font-mono text-indigo-600 hover:underline">{item}</a>
+  return <span className="font-mono">{item}</span>
+}
+
+/** Everything behind a device's score: each factor with its points and what it is made of (which services, checks, CVEs, alerts), then its open ports. */
+export function RiskDetail({ factors, services }: { factors: SocRiskFactor[]; services?: string[] | null }) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2">
+      {factors.map(f => (
+        <div key={f.k} className="border border-slate-200 rounded-lg bg-white">
+          <div className="flex items-center gap-2 px-3 py-1.5 text-sm">
+            <b className="font-medium text-slate-900">{t(`soc.risk.factor.${f.k}`, { n: f.n ?? 0 })}</b>
+            <span className="ml-auto text-xs text-slate-400">+{Math.round(f.pts)}</span>
+          </div>
+          {f.items && f.items.length > 0 && (
+            <ul className="px-3 pb-2 text-xs text-slate-600 space-y-0.5">
+              {f.items.map((it, i) => <li key={i}><RiskItem factor={f.k} item={it} /></li>)}
+              {typeof f.n === 'number' && f.n > f.items.length && <li className="text-slate-400">… {t('soc.risk.more', { count: f.n - f.items.length })}</li>}
+            </ul>
+          )}
+        </div>
+      ))}
+      {services && services.length > 0 && (
+        <div className="border border-slate-200 rounded-lg bg-white">
+          <div className="px-3 py-1.5 text-sm font-medium text-slate-900">{t('soc.risk.ports')} ({services.length})</div>
+          <ul className="px-3 pb-2 text-xs text-slate-600 font-mono space-y-0.5 max-h-48 overflow-y-auto">{services.map((x, i) => <li key={i}>{x}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Devices with their score and the reasons behind it. A row opens into the detail of every factor (the chips only say how many). */
 export function RiskTable({ rows, empty }: { rows: RiskRowView[]; empty: string }) {
   const { t } = useTranslation()
+  const [open, setOpen] = useState<number | null>(null)
   if (rows.length === 0) return <p className="text-sm text-slate-400 py-8 text-center">{empty}</p>
+  const cols = 'grid-cols-[1.25rem,minmax(0,1.3fr),9rem,minmax(0,3fr)]'
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
-      <div className="grid grid-cols-[minmax(0,1.3fr),9rem,minmax(0,3fr)] bg-slate-50 text-xs text-slate-500 px-4 py-2">
-        <div>{t('soc.risk.col.asset')}</div><div>{t('soc.risk.col.score')}</div><div>{t('soc.risk.col.why')}</div>
+      <div className={cn('grid bg-slate-50 text-xs text-slate-500 px-4 py-2 gap-x-3', cols)}>
+        <div /><div>{t('soc.risk.col.asset')}</div><div>{t('soc.risk.col.score')}</div><div>{t('soc.risk.col.why')}</div>
       </div>
       {rows.map(r => {
         const lv = RISK_LEVELS.find(l => l.key === r.level) ?? RISK_LEVELS[3]
+        const isOpen = open === r.id
         return (
-          <div key={r.id} className="grid grid-cols-[minmax(0,1.3fr),9rem,minmax(0,3fr)] items-center px-4 py-2 border-t border-slate-100 gap-x-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <TypeIcon type={(r.type as AssetType) ?? 'other'} size={15} />
-              <div className="min-w-0">
-                {r.href ? <Link to={r.href} className="text-indigo-600 hover:underline truncate block">{r.name}</Link>
-                  : r.onOpen ? <button onClick={r.onOpen} className="text-indigo-600 hover:underline truncate block max-w-full text-left">{r.name}</button>
-                  : <span className="truncate block text-slate-900">{r.name}</span>}
-                {(r.ip || r.loc) && <div className="text-[11px] text-slate-400 truncate">{[r.ip, r.loc].filter(Boolean).join(' · ')}</div>}
+          <div key={r.id} className="border-t border-slate-100">
+            <div className={cn('grid items-center px-4 py-2 gap-x-3 cursor-pointer hover:bg-slate-50', cols)} onClick={() => setOpen(isOpen ? null : r.id)}>
+              <div className="text-slate-400">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
+              <div className="flex items-center gap-2 min-w-0" onClick={e => e.stopPropagation()}>
+                <TypeIcon type={(r.type as AssetType) ?? 'other'} size={15} />
+                <div className="min-w-0">
+                  {r.href ? <Link to={r.href} className="text-indigo-600 hover:underline truncate block">{r.name}</Link>
+                    : r.onOpen ? <button onClick={r.onOpen} className="text-indigo-600 hover:underline truncate block max-w-full text-left">{r.name}</button>
+                    : <span className="truncate block text-slate-900">{r.name}</span>}
+                  {(r.ip || r.loc || r.tenant) && <div className="text-[11px] text-slate-400 truncate">{[r.ip, r.loc, r.tenant].filter(Boolean).join(' · ')}</div>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2" title={t(`soc.risk.level.${r.level}`) as string}>
+                <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full rounded-full', lv.bar)} style={{ width: `${Math.min(100, r.score)}%` }} /></div>
+                <span className={cn('font-semibold tabular-nums', lv.text)}>{Math.round(r.score)}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {r.factors.map(f => {
+                  // which services is the one thing worth saying in the chip itself
+                  const names = f.k === 'exposure' && f.items ? (f.items as string[]).slice(0, 4).map(x => x.split(' ').slice(1).join(' ') || x).join(', ') : ''
+                  return <Pill key={f.k} tone="gray">{t(`soc.risk.factor.${f.k}`, { n: f.n ?? 0 })}{names ? ` (${names}${(f.n ?? 0) > 4 ? ', …' : ''})` : ''} <span className="text-slate-400">+{Math.round(f.pts)}</span></Pill>
+                })}
               </div>
             </div>
-            <div className="flex items-center gap-2" title={t(`soc.risk.level.${r.level}`) as string}>
-              <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full rounded-full', lv.bar)} style={{ width: `${Math.min(100, r.score)}%` }} /></div>
-              <span className={cn('font-semibold tabular-nums', lv.text)}>{Math.round(r.score)}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {r.factors.map(f => <Pill key={f.k} tone="gray">{t(`soc.risk.factor.${f.k}`, { n: f.n ?? 0 })} <span className="text-slate-400">+{Math.round(f.pts)}</span></Pill>)}
-            </div>
+            {isOpen && <div className="px-4 pb-3 pl-10 bg-slate-50 border-t border-slate-100"><div className="pt-3"><RiskDetail factors={r.factors} services={r.services} /></div></div>}
           </div>
         )
       })}

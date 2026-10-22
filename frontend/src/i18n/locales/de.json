@@ -1420,7 +1420,12 @@
                 "exposure": "Riskante Dienste: {{n}}",
                 "hints": "Mögliches Werkspasswort",
                 "blind": "Keine Zugangsdaten, nur passiv gesehen"
-            }
+            },
+            "problemsTitle": "Probleme dieses Geräts",
+            "noDetail": "Keine Probleme für dieses Gerät gemeldet (oder es gehört nicht zu den 60 gefährdetsten, für die der Agent Details sendet).",
+            "more": "{{count}} weitere",
+            "ports": "Offene Ports",
+            "score": "Risikobewertung"
         }
     },
     "traffic": {
@@ -1749,6 +1754,26 @@
         },
         "via": "Gateway (Traceroute)",
         "hops": "{{count}} Hops",
+        "colAttach": "Angeschlossen an",
+        "colPlace": "Physischer Ort",
+        "place": "Physischer Ort",
+        "placePlaceholder": "z. B. Raum 12, Schreibtisch am Fenster, Dose A-14",
+        "attach": {
+            "port": "Port {{port}}",
+            "vlan": "VLAN {{vlan}}",
+            "shared": "An diesem Port hängen noch {{count}} weitere Geräte: dahinter kann ein Switch oder Access Point sitzen.",
+            "kind": {
+                "client": "Switch-Port (aus dessen MAC-Tabelle)",
+                "uplink": "Verbindung zum übergeordneten Gerät",
+                "l3": "gleiches Netz, Port unbekannt",
+                "vm": "Virtualisierungshost"
+            },
+            "howArp": "nach ARP-/DHCP-Tabellen des Routers",
+            "howTrace": "nach Traceroute",
+            "howSubnet": "nach Subnetz",
+            "none": "keine Angaben, wo es angeschlossen ist",
+            "noneHint": "Der Port stammt aus der MAC-Tabelle des Switches, braucht also einen verwalteten Switch, den der Agent auslesen kann (MikroTik, Cisco SB, SNMP). Ein Host hinter einem unverwalteten Switch oder im WLAN hat keinen Port."
+        },
         "hintsBadge": "Eingebettetes Gerät - ein Werkspasswort ist möglich (Details auf der Karte)",
         "hintsTitle": "Hinweis: Werkspasswort möglich",
         "hintsAdvice": "Solche Geräte werden oft mit Standard-Login und -Passwort ausgeliefert, und einige bleiben so. MikroManager probiert hier nichts aus (das wäre ein Angriff auf das Gerät) - es ist nur ein Hinweis: Oberfläche des Geräts öffnen, von Hand prüfen und ein eigenes Passwort setzen; nicht benötigte Dienste abschalten.",
