@@ -27,7 +27,7 @@ export function VulnSources() {
     <div className="bg-white border border-slate-200 rounded-xl">
       <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-800 text-left" onClick={() => setOpen(!open)}>
         {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}<KeyRound size={14} className="text-indigo-600" /> {t('vuln.sources.title')}
-        {nvd && <Pill tone={nvd.configured ? 'green' : 'amber'}>{nvd.configured ? t('vuln.sources.keyOk') : t('vuln.sources.keyNone')}</Pill>}
+        {nvd && <Pill tone={nvd.mode === 'keyless' ? 'amber' : 'green'}>{t(`vuln.sources.mode_${nvd.mode}`)}</Pill>}
         {failing && <Pill tone="red">{t('vuln.sources.failing')}</Pill>}
       </button>
       {(open || failing) && nvd && (
@@ -40,6 +40,14 @@ export function VulnSources() {
             </div>
           )}
           <p className="text-slate-600">{t('vuln.sources.intro')}</p>
+          <p className="text-xs text-slate-700"><b>{t('vuln.sources.modeLabel')}:</b> {t(`vuln.sources.mode_${nvd.mode}`)}</p>
+          {nvd.mode !== 'local' && nvd.central && (
+            <p className="text-xs text-slate-500">
+              {nvd.central.url_set ? t('vuln.sources.centralStats', { central: nvd.central.via_central, cached: nvd.central.cache_hits, direct: nvd.central.fallbacks }) : t('vuln.sources.centralNone')}
+              {nvd.central.no_key ? ` · ${t('vuln.sources.centralNoKey')}` : ''}{nvd.central.down ? ` · ${t('vuln.sources.centralDown')}` : ''}
+              {nvd.central.last_error && (nvd.central.no_key || nvd.central.down) ? <span className="block font-mono text-red-700 break-words">{nvd.central.last_error}</span> : null}
+            </p>
+          )}
           <p className="text-xs text-slate-500">{t('vuln.sources.state', { source: nvd.source ? t(`vuln.sources.src_${nvd.source}`) : t('vuln.sources.src_none'), sec: nvd.interval_sec })}</p>
           <div className="flex gap-2 flex-wrap items-center">
             <input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} placeholder={t('vuln.sources.placeholder') as string}

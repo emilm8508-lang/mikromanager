@@ -314,6 +314,21 @@
                       "alreadyRunning":  "Déjà en cours"
                   },
     "central":  {
+        "nvd": {
+            "title": "Clé NVD pour les agents",
+            "set": "définie",
+            "notSet": "non définie",
+            "intro": "Une clé NVD de l'organisation, conservée uniquement dans la base de la Centrale. Les agents demandent leurs données NVD à la Centrale (requête signée comme un rapport) : ils utilisent la clé sans la posséder. La Centrale retient les réponses (un produit interrogé par plusieurs clients ne coûte qu'une requête à NVD) et respecte la limite de NVD pour tous à la fois. Sans clé dans la Centrale, les agents interrogent NVD eux-mêmes, lentement.",
+            "meta": "Définie par : {{by}}, {{when}}",
+            "placeholder": "Clé API NVD (UUID)",
+            "checking": "Vérification…",
+            "save": "Enregistrer et vérifier",
+            "clear": "Supprimer la clé",
+            "clearConfirm": "Supprimer la clé ? Les agents reviennent aux requêtes lentes sans clé.",
+            "getKey": "Obtenir une clé gratuite",
+            "usage": "24 dernières heures : {{total}} requêtes d'agents, {{upstream}} vers NVD ({{cached}} % depuis le cache)",
+            "note": "La clé ne peut pas être relue depuis l'application, seulement remplacée ou supprimée. NVD lie une clé à un demandeur : c'est la clé de votre organisation et la Centrale effectue les requêtes des clients en son nom. Nécessite le fichier ovh/nvd.php téléversé."
+        },
                     "title":  "Tableau de bord central",
                     "subtitle":  "Vue agrégée de tous les clients via serveur relais",
                     "tabViewer":  "Viewer (laptop)",
@@ -699,7 +714,15 @@
             "exploitNever": "pas encore récupéré",
             "exploitFailing": "Échec de la récupération : {{error}}",
             "refresh": "Récupérer maintenant",
-            "refreshing": "Récupération…"
+            "refreshing": "Récupération…",
+            "modeLabel": "Requêtes vers NVD",
+            "mode_local": "avec la clé de cet agent",
+            "mode_central": "via la Centrale (clé de l'organisation, l'agent ne l'a pas)",
+            "mode_keyless": "directement, sans clé (lent)",
+            "centralStats": "Via la Centrale : {{central}} requêtes, dont {{cached}} depuis son cache ; directement vers NVD : {{direct}}",
+            "centralNone": "Cet agent n'est pas relié à la Centrale (pas d'adresse de rapport) : il interroge NVD lui-même.",
+            "centralNoKey": "La Centrale n'a pas encore de clé NVD : à définir dans la Centrale",
+            "centralDown": "La Centrale ne répond pas aux requêtes NVD (nvd.php est-il téléversé ?)"
         },
         "title": "Scanner de vulnérabilités",
         "subtitle": "Détection passive des vulnérabilités connues (CVE) sur tout le réseau — aucune exploitation, aucune tentative de connexion.",

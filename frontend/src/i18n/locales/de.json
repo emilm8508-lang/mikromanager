@@ -314,6 +314,21 @@
                       "alreadyRunning":  "Bereits aktiv"
                   },
     "central":  {
+        "nvd": {
+            "title": "NVD-Schlüssel für die Agenten",
+            "set": "gesetzt",
+            "notSet": "nicht gesetzt",
+            "intro": "Ein NVD-Schlüssel der Organisation, nur in der Datenbank der Zentrale gespeichert. Die Agenten fragen die Zentrale nach ihren NVD-Daten (Anfrage wie ein Bericht signiert), nutzen den Schlüssel also, ohne ihn zu besitzen. Die Zentrale merkt sich die Antworten (ein von vielen Kunden abgefragtes Produkt ist eine Anfrage an NVD) und hält das NVD-Limit für alle zugleich ein. Ohne Schlüssel in der Zentrale fragen die Agenten NVD selbst, langsam.",
+            "meta": "Gesetzt von: {{by}}, {{when}}",
+            "placeholder": "NVD-API-Schlüssel (UUID)",
+            "checking": "Prüfe…",
+            "save": "Speichern und prüfen",
+            "clear": "Schlüssel entfernen",
+            "clearConfirm": "Schlüssel entfernen? Die Agenten kehren zu langsamen Anfragen ohne Schlüssel zurück.",
+            "getKey": "Kostenlosen Schlüssel holen",
+            "usage": "Letzte 24 h: {{total}} Agentenanfragen, {{upstream}} gingen an NVD ({{cached}}% aus dem Cache)",
+            "note": "Der Schlüssel lässt sich in der Anwendung nicht auslesen, nur ersetzen oder entfernen. NVD bindet einen Schlüssel an einen Antragsteller: hier ist es der Schlüssel Ihrer Organisation, die Zentrale führt die Anfragen der Kunden in ihrem Namen aus. Erfordert die hochgeladene Datei ovh/nvd.php."
+        },
                     "title":  "Zentrales Dashboard",
                     "subtitle":  "Aggregierte Ansicht aller Kunden über Relay-Server",
                     "tabViewer":  "Viewer (Laptop)",
@@ -699,7 +714,15 @@
             "exploitNever": "noch nicht abgerufen",
             "exploitFailing": "Abruf fehlgeschlagen: {{error}}",
             "refresh": "Jetzt abrufen",
-            "refreshing": "Rufe ab…"
+            "refreshing": "Rufe ab…",
+            "modeLabel": "Anfragen an NVD",
+            "mode_local": "mit dem Schlüssel dieses Agenten",
+            "mode_central": "über die Zentrale (Schlüssel der Organisation, der Agent hat ihn nicht)",
+            "mode_keyless": "direkt, ohne Schlüssel (langsam)",
+            "centralStats": "Über die Zentrale: {{central}} Anfragen, davon {{cached}} aus ihrem Cache; direkt an NVD: {{direct}}",
+            "centralNone": "Dieser Agent ist nicht mit der Zentrale verbunden (keine Berichtsadresse) und fragt NVD selbst.",
+            "centralNoKey": "Die Zentrale hat noch keinen NVD-Schlüssel: in der Zentrale setzen",
+            "centralDown": "Die Zentrale beantwortet keine NVD-Anfragen (ist nvd.php hochgeladen?)"
         },
         "title": "Schwachstellen-Scanner",
         "subtitle": "Passive Erkennung bekannter Schwachstellen (CVE) im gesamten Netzwerk — keine Exploits, keine Login-Versuche.",

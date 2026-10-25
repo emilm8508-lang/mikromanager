@@ -326,3 +326,18 @@ CREATE TABLE IF NOT EXISTS fleet_groups (
     UNIQUE KEY uniq_tenant_name (tenant, name),
     INDEX idx_tenant (tenant)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- NVD proxy (nvd.php) - created by the script itself on first use; listed here for reference.
+-- The organisation's NVD API key lives in central_settings (name = 'nvd_api_key'); no endpoint returns it.
+CREATE TABLE IF NOT EXISTS central_settings (
+    name VARCHAR(64) NOT NULL PRIMARY KEY, value TEXT NULL, updated_at DATETIME NULL, updated_by VARCHAR(64) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS nvd_cache (
+    cache_key CHAR(40) NOT NULL PRIMARY KEY, body MEDIUMTEXT NOT NULL, fetched_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS nvd_usage (
+    usage_day DATE NOT NULL, tenant VARCHAR(64) NOT NULL, requests INT NOT NULL DEFAULT 0, upstream INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (usage_day, tenant)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

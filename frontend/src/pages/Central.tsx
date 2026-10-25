@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertsPanel, MonitoringPanel } from './CentralAlerts'
 import { UsersPanel } from './CentralUsers'
 import { Modal } from '../components/ui/Modal'
+import { NvdKeyPanel } from '../components/NvdKeyPanel'
 
 function formatAge(sec: number | null): string {
   if (sec === null || sec === undefined) return '—'
@@ -1949,6 +1950,7 @@ function ViewerPanel() {
 
       <KeyBackupPanel />
       <FullConfigTransferPanel />
+      <NvdKeyPanel />
 
       <EncryptedTenantsPanel />
 

@@ -17,6 +17,7 @@ _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vuln_s
 _state = {"nvd_key": ""}                 # plaintext in memory, encrypted on disk
 NVD_INTERVAL_KEY = 1.2                   # seconds between requests with a key (NVD: 50 per 30 s)
 NVD_INTERVAL_NOKEY = 6.5                 # without one (NVD: 5 per 30 s)
+NVD_INTERVAL_CENTRAL = 0.05              # through Central: it keeps NVD's spacing for all agents itself, and answers repeated lookups from its cache
 
 
 def _load() -> None:
@@ -46,13 +47,34 @@ def nvd_key() -> str:
     return _state["nvd_key"] or os.environ.get("MIKROTIK_NVD_API_KEY", "")
 
 
+def nvd_mode() -> str:
+    """Where the scanner's NVD lookups go: "local" (a key of this agent), "central" (the organisation's key, kept in Central - the agent never has it) or
+    "keyless" (NVD directly without a key: slow)."""
+    if nvd_key():
+        return "local"
+    from services import nvd_central
+    return "central" if nvd_central.available() else "keyless"
+
+
+def nvd_backend():
+    """What the scanner calls for NVD (searchCPE / searchCVE): nvdlib itself with a key of this agent, else the Central-first backend (which asks NVD
+    directly, keyless, whenever Central cannot help)."""
+    if nvd_key():
+        import nvdlib
+        return nvdlib
+    from services import nvd_central
+    return nvd_central.backend
+
+
 def nvd_interval() -> float:
-    return NVD_INTERVAL_KEY if nvd_key() else NVD_INTERVAL_NOKEY
+    mode = nvd_mode()
+    return NVD_INTERVAL_KEY if mode == "local" else NVD_INTERVAL_CENTRAL if mode == "central" else NVD_INTERVAL_NOKEY
 
 
 def status() -> dict:
+    from services import nvd_central
     src = "app" if _state["nvd_key"] else "env" if os.environ.get("MIKROTIK_NVD_API_KEY") else None
-    return {"nvd": {"configured": src is not None, "source": src, "interval_sec": nvd_interval()}}
+    return {"nvd": {"configured": src is not None, "source": src, "interval_sec": nvd_interval(), "mode": nvd_mode(), "central": nvd_central.status()}}
 
 
 def set_nvd_key(key: Optional[str]) -> dict:

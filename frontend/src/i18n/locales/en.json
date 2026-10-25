@@ -314,6 +314,21 @@
                       "alreadyRunning":  "Already running"
                   },
     "central":  {
+        "nvd": {
+            "title": "NVD key for the agents",
+            "set": "set",
+            "notSet": "not set",
+            "intro": "One NVD key for the organisation, kept only in the Central database. The agents ask Central for their NVD data (a request signed like a report), so they use the key without having it. Central remembers the answers (one product asked by many clients is one request to NVD) and keeps NVD's limit for all of them at once. Without a key in Central the agents ask NVD themselves, slowly.",
+            "meta": "Set by: {{by}}, {{when}}",
+            "placeholder": "NVD API key (UUID)",
+            "checking": "Checking…",
+            "save": "Save and check",
+            "clear": "Remove key",
+            "clearConfirm": "Remove the key? The agents go back to slow lookups without a key.",
+            "getKey": "Get a free key",
+            "usage": "Last 24 h: {{total}} agent requests, {{upstream}} went to NVD ({{cached}}% from the cache)",
+            "note": "The key cannot be read back from the application, only replaced or removed. NVD ties a key to one requester: this is your organisation's key and Central makes the clients' lookups on its behalf. Needs ovh/nvd.php uploaded."
+        },
                     "title":  "Central dashboard",
                     "subtitle":  "Aggregated view of all customers via relay server",
                     "tabViewer":  "Viewer (laptop)",
@@ -699,7 +714,15 @@
             "exploitNever": "not fetched yet",
             "exploitFailing": "Could not fetch: {{error}}",
             "refresh": "Fetch now",
-            "refreshing": "Fetching…"
+            "refreshing": "Fetching…",
+            "modeLabel": "Lookups to NVD",
+            "mode_local": "with this agent's key",
+            "mode_central": "through Central (the organisation's key; the agent does not have it)",
+            "mode_keyless": "directly, without a key (slow)",
+            "centralStats": "Through Central: {{central}} requests, {{cached}} of them from its cache; directly to NVD: {{direct}}",
+            "centralNone": "This agent is not connected to Central (no reporting address), so it asks NVD itself.",
+            "centralNoKey": "Central has no NVD key yet: set it in Central",
+            "centralDown": "Central does not answer NVD lookups (is nvd.php uploaded?)"
         },
         "title": "Vulnerability Scanner",
         "subtitle": "Passive detection of known vulnerabilities (CVE) across the whole network — no exploitation, no login attempts.",

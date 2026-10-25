@@ -980,8 +980,16 @@ export interface VulnPackageOut {
   last_seen: string | null
 }
 
+// the organisation's NVD key kept in Central (ovh/nvd.php): whether it is set, who set it, and the use of it in the last 24 hours per client
+export interface CentralNvdStatus {
+  configured: boolean; updated_at: string | null; updated_by: string | null; cache_entries: number
+  usage: Array<{ tenant: string; requests: number; upstream: number }>
+}
+
 export interface VulnSettings {
-  nvd: { configured: boolean; source: 'app' | 'env' | null; interval_sec: number
+  nvd: { configured: boolean; source: 'app' | 'env' | null; interval_sec: number; mode: 'local' | 'central' | 'keyless'
+         central: { url_set: boolean; available: boolean; no_key: boolean; down: boolean; last_error: string | null; last_error_at: string | null; last_ok_at: string | null
+                    via_central: number; cache_hits: number; fallbacks: number }
          health?: { ok: number; errors: number; last_error: string | null; last_error_at: string | null; last_ok_at: string | null } }
   exploit?: { kev_count: number; kev_at: string | null; epss_count: number; error: string | null; error_at: string | null }
 }
@@ -2468,13 +2476,14 @@ export const centralConfig = {
 async function centralRequest<T>(
   action: string,
   params: Record<string, string> = {},
-  opts: { method?: 'GET' | 'POST' | 'DELETE'; body?: any } = {},
+  opts: { method?: 'GET' | 'POST' | 'DELETE'; body?: any; file?: string } = {},
 ): Promise<T> {
   const cfg = centralConfig.load()
   if (!cfg) throw new Error('Central not configured')
 
   const url = new URL('/api/system/central-proxy', window.location.origin)
-  url.searchParams.set('upstream', cfg.apiUrl)
+  // `file`: another script of the same Central (e.g. nvd.php) next to the API one
+  url.searchParams.set('upstream', opts.file ? cfg.apiUrl.replace(/\/[^/]*$/, `/${opts.file}`) : cfg.apiUrl)
   url.searchParams.set('action', action)
   // URLSearchParams.set(k, undefined) stringifies to the literal "undefined"
   // rather than omitting the param — callers routinely pass `x || undefined`
@@ -2915,6 +2924,9 @@ export const centralApi = {
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; devices: CentralFirewallDeviceStatus[] }> }>('firewall_status_all'),
   topologyStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; map: CentralNetMap | null }> }>('topology_status_all'),
+  nvdStatus: () => centralRequest<CentralNvdStatus>('status', {}, { file: 'nvd.php' }),
+  nvdKeySet: (key: string) => centralRequest<CentralNvdStatus>('key_set', {}, { method: 'POST', body: { key }, file: 'nvd.php' }),
+  nvdKeyClear: () => centralRequest<CentralNvdStatus>('key_clear', {}, { method: 'POST', file: 'nvd.php' }),
   socStatusAll: () =>
     centralRequest<{ tenants: Array<{ tenant: string; last_seen: string | null; soc: CentralSoc | null }> }>('soc_status_all'),
   racksStatusAll: () =>

@@ -317,6 +317,21 @@
                       "alreadyRunning":  "Już trwa"
                   },
     "central":  {
+        "nvd": {
+            "title": "Klucz NVD dla agentów",
+            "set": "ustawiony",
+            "notSet": "nie ustawiony",
+            "intro": "Jeden klucz NVD organizacji, przechowywany tylko w bazie Centrali. Agenci pytają Centralę o dane z NVD (zapytaniem podpisanym jak raport), więc używają klucza, ale go nie mają. Centrala pamięta odpowiedzi (jeden produkt zapytany przez wielu klientów to jedno zapytanie do NVD) i pilnuje limitu NVD dla wszystkich naraz. Bez klucza w Centrali agenci pytają NVD sami, wolno.",
+            "meta": "Ustawił: {{by}}, {{when}}",
+            "placeholder": "Klucz API NVD (UUID)",
+            "checking": "Sprawdzam…",
+            "save": "Zapisz i sprawdź",
+            "clear": "Usuń klucz",
+            "clearConfirm": "Usunąć klucz? Agenci wrócą do wolnych zapytań bez klucza.",
+            "getKey": "Załóż darmowy klucz",
+            "usage": "Ostatnie 24 h: {{total}} zapytań agentów, do NVD poszło {{upstream}} ({{cached}}% z pamięci podręcznej)",
+            "note": "Klucza nie da się odczytać z aplikacji, tylko zastąpić lub usunąć. NVD przypisuje klucz do jednego zgłaszającego: tu jest to klucz Twojej organizacji, a zapytania klientów wykonuje Centrala w jej imieniu. Wymaga wgrania pliku ovh/nvd.php."
+        },
                     "title":  "Centralny dashboard",
                     "subtitle":  "Zbiorczy widok wszystkich klientów przez serwer pośredniczący",
                     "tabViewer":  "Viewer (laptop)",
@@ -857,7 +872,15 @@
             "exploitNever": "jeszcze nie pobrano",
             "exploitFailing": "Nie udało się pobrać: {{error}}",
             "refresh": "Pobierz teraz",
-            "refreshing": "Pobieram…"
+            "refreshing": "Pobieram…",
+            "modeLabel": "Zapytania do NVD",
+            "mode_local": "kluczem tego agenta",
+            "mode_central": "przez Centralę (klucz organizacji, agent go nie ma)",
+            "mode_keyless": "bezpośrednio, bez klucza (wolno)",
+            "centralStats": "Przez Centralę: {{central}} zapytań, w tym {{cached}} z jej pamięci podręcznej; bezpośrednio do NVD: {{direct}}",
+            "centralNone": "Ten agent nie jest połączony z Centralą (brak adresu raportowania), więc pyta NVD sam.",
+            "centralNoKey": "Centrala nie ma jeszcze klucza NVD: ustaw go w Centrali",
+            "centralDown": "Centrala nie odpowiada na zapytania NVD (czy plik nvd.php jest wgrany?)"
         },
         "title": "Skaner podatności",
         "subtitle": "Pasywne wykrywanie znanych podatności (CVE) w całej sieci — bez prób ataku ani logowania.",

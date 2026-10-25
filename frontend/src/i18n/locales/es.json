@@ -314,6 +314,21 @@
                       "alreadyRunning":  "Ya en ejecución"
                   },
     "central":  {
+        "nvd": {
+            "title": "Clave NVD para los agentes",
+            "set": "configurada",
+            "notSet": "no configurada",
+            "intro": "Una clave NVD de la organización, guardada solo en la base de datos de la Central. Los agentes piden a la Central sus datos de NVD (petición firmada como un informe), así que usan la clave sin tenerla. La Central recuerda las respuestas (un producto consultado por muchos clientes es una sola petición a NVD) y respeta el límite de NVD para todos a la vez. Sin clave en la Central, los agentes consultan NVD por sí mismos, despacio.",
+            "meta": "Configurada por: {{by}}, {{when}}",
+            "placeholder": "Clave API de NVD (UUID)",
+            "checking": "Comprobando…",
+            "save": "Guardar y comprobar",
+            "clear": "Quitar clave",
+            "clearConfirm": "¿Quitar la clave? Los agentes vuelven a las consultas lentas sin clave.",
+            "getKey": "Obtener una clave gratuita",
+            "usage": "Últimas 24 h: {{total}} peticiones de agentes, {{upstream}} fueron a NVD ({{cached}}% desde la caché)",
+            "note": "La clave no se puede leer desde la aplicación, solo sustituir o quitar. NVD asocia una clave a un solicitante: esta es la clave de su organización y la Central hace las consultas de los clientes en su nombre. Requiere subir ovh/nvd.php."
+        },
                     "title":  "Panel central",
                     "subtitle":  "Vista agregada de todos los clientes vía servidor relay",
                     "tabViewer":  "Viewer (laptop)",
@@ -699,7 +714,15 @@
             "exploitNever": "aún no descargado",
             "exploitFailing": "No se pudo descargar: {{error}}",
             "refresh": "Descargar ahora",
-            "refreshing": "Descargando…"
+            "refreshing": "Descargando…",
+            "modeLabel": "Consultas a NVD",
+            "mode_local": "con la clave de este agente",
+            "mode_central": "a través de la Central (clave de la organización; el agente no la tiene)",
+            "mode_keyless": "directamente, sin clave (lento)",
+            "centralStats": "A través de la Central: {{central}} consultas, {{cached}} de ellas desde su caché; directamente a NVD: {{direct}}",
+            "centralNone": "Este agente no está conectado a la Central (sin dirección de informes), así que consulta NVD por sí mismo.",
+            "centralNoKey": "La Central aún no tiene clave de NVD: configúrala en la Central",
+            "centralDown": "La Central no responde a las consultas de NVD (¿está subido nvd.php?)"
         },
         "title": "Escáner de vulnerabilidades",
         "subtitle": "Detección pasiva de vulnerabilidades conocidas (CVE) en toda la red — sin explotación, sin intentos de inicio de sesión.",

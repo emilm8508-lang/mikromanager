@@ -1254,7 +1254,7 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
 
     Raises NvdUnavailable when NVD could not be asked and nothing was found: before, every failure was swallowed and the empty result was cached
     for NVD_CACHE_DAYS as "clean" - a week without findings after one bad network moment (or for good behind a TLS-inspecting proxy)."""
-    import nvdlib
+    nvdlib = vuln_settings.nvd_backend()            # nvdlib with this agent's key, or Central (the organisation's key) with NVD directly as the fallback
     key = vuln_settings.nvd_key() or None
     errors: list = []
 
@@ -1311,7 +1311,7 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
 
 def _nvd_cve_sync(cve_id: str) -> Optional[dict]:
     """Blocking: one CVE by its id (the score and severity NVD gives it). NvdUnavailable when NVD cannot be asked."""
-    import nvdlib
+    nvdlib = vuln_settings.nvd_backend()
     try:
         r = nvdlib.searchCVE(cveId=cve_id, key=vuln_settings.nvd_key() or None) or []
     except Exception as e:
