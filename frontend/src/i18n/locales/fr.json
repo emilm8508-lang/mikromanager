@@ -705,6 +705,7 @@
             "src_app": "saisie dans l'application",
             "src_env": "d'une variable d'environnement",
             "src_none": "aucune",
+            "src_central":  "dans la centrale (clé de l'organisation)",
             "placeholder": "Clé API NVD (UUID)",
             "checking": "Vérification…",
             "save": "Enregistrer et vérifier",

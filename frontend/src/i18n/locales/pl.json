@@ -863,6 +863,7 @@
             "src_app": "wpisany w aplikacji",
             "src_env": "ze zmiennej środowiskowej",
             "src_none": "brak",
+            "src_central":  "w Centrali (klucz organizacji)",
             "placeholder": "Klucz API NVD (UUID)",
             "checking": "Sprawdzam…",
             "save": "Zapisz i sprawdź",

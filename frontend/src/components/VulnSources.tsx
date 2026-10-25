@@ -48,7 +48,7 @@ export function VulnSources() {
               {nvd.central.last_error && (nvd.central.no_key || nvd.central.down) ? <span className="block font-mono text-red-700 break-words">{nvd.central.last_error}</span> : null}
             </p>
           )}
-          <p className="text-xs text-slate-500">{t('vuln.sources.state', { source: nvd.source ? t(`vuln.sources.src_${nvd.source}`) : t('vuln.sources.src_none'), sec: nvd.interval_sec })}</p>
+          <p className="text-xs text-slate-500">{t('vuln.sources.state', { source: nvd.source ? t(`vuln.sources.src_${nvd.source}`) : nvd.mode === 'central' ? t('vuln.sources.src_central') : t('vuln.sources.src_none'), sec: nvd.interval_sec })}</p>
           <div className="flex gap-2 flex-wrap items-center">
             <input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} placeholder={t('vuln.sources.placeholder') as string}
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-80 font-mono" />

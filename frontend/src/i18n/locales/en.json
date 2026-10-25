@@ -705,6 +705,7 @@
             "src_app": "entered in the application",
             "src_env": "from an environment variable",
             "src_none": "none",
+            "src_central":  "in Central (the organisation's key)",
             "placeholder": "NVD API key (UUID)",
             "checking": "Checking…",
             "save": "Save and check",
