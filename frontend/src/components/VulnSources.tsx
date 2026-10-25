@@ -17,7 +17,9 @@ export function VulnSources() {
   const [open, setOpen] = useState(false)
   const [key, setKey] = useState('')
   const save = useMutation({ mutationFn: (body: { nvd_key?: string; clear_nvd_key?: boolean }) => vulnApi.saveSettings(body), onSuccess: () => { setKey(''); void qc.invalidateQueries({ queryKey: ['vuln-settings'] }) } })
+  const refresh = useMutation({ mutationFn: vulnApi.refreshExploit, onSuccess: () => { void qc.invalidateQueries({ queryKey: ['vuln-settings'] }); void qc.invalidateQueries({ queryKey: ['vuln-findings'] }) } })
   const nvd = q.data?.nvd
+  const ex = q.data?.exploit
   const h = nvd?.health
   const failing = !!h && h.errors > 0 && !!h.last_error_at && (!h.last_ok_at || h.last_error_at > h.last_ok_at)
   const err = save.isError ? ((save.error as { response?: { data?: { detail?: string } }; message: string }).response?.data?.detail ?? (save.error as Error).message) : null
@@ -48,6 +50,17 @@ export function VulnSources() {
           </div>
           {err && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 break-words">{err}</div>}
           <p className="text-[11px] text-slate-400">{t('vuln.sources.note')}</p>
+          {ex && (
+            <div className="border-t border-slate-100 pt-3 space-y-1.5">
+              <div className="font-medium text-slate-800">{t('vuln.sources.exploitTitle')}</div>
+              <p className="text-xs text-slate-500">{t('vuln.sources.exploitIntro')}</p>
+              <div className="flex items-center gap-3 flex-wrap text-xs text-slate-600">
+                <span>{ex.kev_at ? t('vuln.sources.exploitState', { count: ex.kev_count, when: ago(ex.kev_at), epss: ex.epss_count }) : t('vuln.sources.exploitNever')}</span>
+                <Button size="sm" variant="secondary" disabled={refresh.isPending} onClick={() => refresh.mutate()}>{refresh.isPending ? t('vuln.sources.refreshing') : t('vuln.sources.refresh')}</Button>
+              </div>
+              {ex.error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 break-words">{t('vuln.sources.exploitFailing', { error: ex.error })}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>

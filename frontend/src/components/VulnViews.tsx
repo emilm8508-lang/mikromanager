@@ -20,9 +20,25 @@ const uniqueIps = (f: VulnFindingOut) => [...new Set(f.affected.map(a => a.ip))]
 const sevKey = (s: string | null) => (s ?? 'LOW').toLowerCase() as 'critical' | 'high' | 'medium' | 'low'
 
 /** Risk score (CVSS) as a coloured pill with a dot, like the severity it belongs to. */
+/** "KEV" when the CVE is exploited in attacks now (CISA), and its EPSS (probability of exploitation in 30 days) when that is not negligible. */
+export function ExploitPills({ kev, epss, due }: { kev?: boolean; epss?: number | null; due?: string | null }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      {kev && <Pill tone="red" className="font-bold"><span title={t('vuln.sources.kevTitle', { due: due ?? '—' }) as string}>KEV</span></Pill>}
+      {epss != null && epss >= 0.1 && <Pill tone="orange"><span title={t('vuln.sources.epssTitle', { pct: Math.round(epss * 100) }) as string}>EPSS {Math.round(epss * 100)}%</span></Pill>}
+    </>
+  )
+}
+
 export function ScorePill({ f }: { f: VulnFindingOut }) {
   const sev = (f.severity ?? 'LOW') as keyof typeof SEV_TONE
-  return <Pill tone={SEV_TONE[sev] ?? 'blue'} icon={<i className={cn('w-2 h-2 rounded-full inline-block', SEV_DOT[sev] ?? SEV_DOT.LOW)} />}>{f.cvss_score != null ? f.cvss_score.toFixed(1) : '—'}</Pill>
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      <Pill tone={SEV_TONE[sev] ?? 'blue'} icon={<i className={cn('w-2 h-2 rounded-full inline-block', SEV_DOT[sev] ?? SEV_DOT.LOW)} />}>{f.cvss_score != null ? f.cvss_score.toFixed(1) : '—'}</Pill>
+      <ExploitPills kev={f.kev} epss={f.epss} due={f.kev_due} />
+    </span>
+  )
 }
 
 export function SeverityPill({ severity }: { severity: string | null }) {

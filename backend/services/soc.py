@@ -452,7 +452,7 @@ def public_summary() -> dict:
             r = _row(a, full=False)
             d = {k: v for k, v in r["detail"].items() if k in ("sources", "users", "rule_description", "rule_level", "service", "plugin_output", "message",
                                                                  "tunnel_name", "iface", "sensor_name", "description", "state_name", "groups", "mitre",
-                                                                 "cve", "package", "vuln_severity", "src_ip", "user", "tactics")}
+                                                                 "cve", "package", "vuln_severity", "src_ip", "user", "tactics", "exploited", "epss")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
                            "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d})

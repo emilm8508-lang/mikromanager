@@ -126,14 +126,21 @@ async def _rule_new_vuln(ctx: dict) -> List[dict]:
     """A critical or high vulnerability that was not on the host before (a new CVE, or a new host with one)."""
     from services import vuln_scan
     out = []
-    for h in await vuln_scan.hosts_with_findings(severities=frozenset({"CRITICAL", "HIGH"})):
+    for h in await vuln_scan.hosts_with_findings(severities=frozenset({"CRITICAL", "HIGH", "MEDIUM"})):
         for f in h["findings"]:
             if (f.get("status") or "open") not in ("open", "in_progress"):
                 continue
+            kev = bool(f.get("kev"))
+            if f["severity"] not in ("CRITICAL", "HIGH") and not kev:
+                continue                                  # a medium one only when it is being exploited in attacks
+            detail = {"ip": h["ip"], "cve": f["cve_id"], "vuln_severity": f["severity"], "cvss": f.get("cvss_score"),
+                      "product": f.get("product"), "version": f.get("version"), "description": (f.get("summary") or "")[:240]}
+            if kev:
+                detail["exploited"] = "CISA KEV"
+            if f.get("epss"):
+                detail["epss"] = f"{round(f['epss'] * 100)}%"
             out.append({"fp": f"{h['ip']}|{f['cve_id']}", "device": h.get("device_name") or h["ip"], "ip": h["ip"],
-                        "severity": "high" if f["severity"] == "CRITICAL" else "medium",
-                        "detail": {"ip": h["ip"], "cve": f["cve_id"], "vuln_severity": f["severity"], "cvss": f.get("cvss_score"),
-                                   "product": f.get("product"), "version": f.get("version"), "description": (f.get("summary") or "")[:240]}})
+                        "severity": "critical" if kev else "high" if f["severity"] == "CRITICAL" else "medium", "detail": detail})
     return out
 
 

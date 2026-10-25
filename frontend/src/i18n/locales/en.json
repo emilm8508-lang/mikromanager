@@ -13,12 +13,12 @@
                 "securitySummary": "Security summary",
                 "assetsOverview": "Overview",
                 "racks": "Server racks",
+                "onsite": "On-site view",
                 "soc": "SOC",
                 "groupSoc": "SOC",
                 "socAlerts": "Alerts",
                 "socRules": "Detection rules",
                 "socRisk": "Asset risk",
-                "onsite": "On-site view",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -690,7 +690,16 @@
             "save": "Save and check",
             "remove": "Remove key",
             "getKey": "Get a free key",
-            "note": "The key is stored encrypted on the agent. NVD ties it to one requester: for the agents of different clients it is better to request a separate key (it is free)."
+            "note": "The key is stored encrypted on the agent. NVD ties it to one requester: for the agents of different clients it is better to request a separate key (it is free).",
+            "kevTitle": "Exploited in attacks now (CISA KEV). CISA remediation deadline: {{due}}",
+            "epssTitle": "EPSS: probability of exploitation within 30 days: {{pct}}%",
+            "exploitTitle": "Vulnerabilities exploited in attacks (CISA KEV) and their likelihood (EPSS)",
+            "exploitIntro": "The data is free and needs no key. The KEV mark says the flaw is used in real attacks: at equal severity it is listed higher, raises the device's risk score, and a new one (even a medium one) raises an alert in the SOC.",
+            "exploitState": "KEV: {{count}} entries, catalog from {{when}} · EPSS: {{epss}} CVEs",
+            "exploitNever": "not fetched yet",
+            "exploitFailing": "Could not fetch: {{error}}",
+            "refresh": "Fetch now",
+            "refreshing": "Fetching…"
         },
         "title": "Vulnerability Scanner",
         "subtitle": "Passive detection of known vulnerabilities (CVE) across the whole network — no exploitation, no login attempts.",
@@ -1211,6 +1220,56 @@
             "firewall_block": "A firewall rule was dropping this host's traffic during the outage. Check whether that is intended."
         }
     },
+    "onsite": {
+        "title": "What is connected where",
+        "subtitle": "Read-only view: the devices, their addresses and the switch port they are plugged into.",
+        "back": "Back to the application",
+        "tab": {
+            "devices": "Devices",
+            "switches": "Switches"
+        },
+        "search": "Search: name, IP, MAC, place, port",
+        "searchPort": "Search a port, name, IP or MAC",
+        "allSwitches": "All switches",
+        "allTypes": "All types",
+        "showInactive": "Show inactive",
+        "count": "Devices: {{count}}",
+        "none": "Nothing found.",
+        "noPort": "no port information",
+        "col": {
+            "name": "Device",
+            "ip": "IP address",
+            "mac": "MAC address",
+            "attached": "Connected to",
+            "place": "Place",
+            "seen": "Seen",
+            "port": "Port",
+            "devices": "Devices on the port"
+        },
+        "mapAsOf": "Port layout from {{when}}",
+        "mapNone": "The port layout is not ready yet (refresh in a moment)",
+        "mapBuilding": "refreshing",
+        "mapHint": "The port comes from the switch's MAC table and Wi-Fi from the client registration of a MikroTik access point; no information means an unmanaged switch or another maker's access point.",
+        "switchesNone": "No switches with readable ports.",
+        "switchStats": "{{ports}} ports, {{hosts}} devices",
+        "switchStatsWifi": "{{ports}} ports, {{hosts}} devices, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
+        "manyOnPort": "There are {{count}} devices on this port: a switch or an access point is behind it.",
+        "noAccess": "No access. Ask the administrator for the link to this view, or log in.",
+        "tooMany": "Too many failed attempts. Try again in a few minutes.",
+        "copy": "Copy",
+        "share": {
+            "title": "Share this view",
+            "on": "on",
+            "off": "off",
+            "intro": "The link gives read-only insight into what is connected where (no vulnerabilities, passwords or commands) and needs no login. It works wherever this agent can be reached (usually the local network). It can be switched off or replaced at any time.",
+            "enable": "Switch sharing on",
+            "disable": "Switch sharing off",
+            "regenerate": "New key",
+            "regenerateConfirm": "Generate a new key? The current link will stop working.",
+            "warning": "Whoever has this link can see the list of the network's devices. Pass it on to a trusted person only; the connection to the agent is not encrypted when the agent runs without HTTPS."
+        }
+    },
     "soc": {
         "title": "SOC — alerts",
         "subtitle": "Alerts from the agent's detectors and the connected systems (Wazuh, Checkmk, PRTG, the monitors): one alert per event, with a status the analyst moves forward.",
@@ -1349,7 +1408,9 @@
             "tactics": "MITRE tactics",
             "path": "Path",
             "full_log": "Source log line",
-            "groups": "Rule groups"
+            "groups": "Rule groups",
+            "exploited": "Exploited in attacks",
+            "epss": "EPSS"
         },
         "central": {
             "client": "Client",
@@ -1441,63 +1502,14 @@
                 "hardening": "Failed hardening checks: {{n}}",
                 "exposure": "Risky services: {{n}}",
                 "hints": "Possible factory password",
-                "blind": "No credentials, seen only passively"
+                "blind": "No credentials, seen only passively",
+                "kev": "Vulnerabilities exploited in attacks: {{n}}"
             },
             "problemsTitle": "Problems of this device",
             "noDetail": "No problems reported for this device (or it is outside the 60 most exposed ones the agent sends the detail for).",
             "more": "{{count}} more",
             "ports": "Open ports",
             "score": "Risk score"
-        }
-    },
-    "onsite": {
-        "title": "What is connected where",
-        "subtitle": "Read-only view: the devices, their addresses and the switch port they are plugged into.",
-        "back": "Back to the application",
-        "tab": {
-            "devices": "Devices",
-            "switches": "Switches"
-        },
-        "search": "Search: name, IP, MAC, place, port",
-        "searchPort": "Search a port, name, IP or MAC",
-        "allSwitches": "All switches",
-        "allTypes": "All types",
-        "showInactive": "Show inactive",
-        "count": "Devices: {{count}}",
-        "none": "Nothing found.",
-        "noPort": "no port information",
-        "col": {
-            "name": "Device",
-            "ip": "IP address",
-            "mac": "MAC address",
-            "attached": "Connected to",
-            "place": "Place",
-            "seen": "Seen",
-            "port": "Port",
-            "devices": "Devices on the port"
-        },
-        "mapAsOf": "Port layout from {{when}}",
-        "mapNone": "The port layout is not ready yet (refresh in a moment)",
-        "mapBuilding": "refreshing",
-        "mapHint": "The port comes from the switch's MAC table and Wi-Fi from the client registration of a MikroTik access point; no information means an unmanaged switch or another maker's access point.",
-        "switchesNone": "No switches with readable ports.",
-        "switchStats": "{{ports}} ports, {{hosts}} devices",
-        "switchStatsWifi": "{{ports}} ports, {{hosts}} devices, Wi-Fi: {{wifi}}",
-        "wifi": "Wi-Fi",
-        "manyOnPort": "There are {{count}} devices on this port: a switch or an access point is behind it.",
-        "noAccess": "No access. Ask the administrator for the link to this view, or log in.",
-        "tooMany": "Too many failed attempts. Try again in a few minutes.",
-        "copy": "Copy",
-        "share": {
-            "title": "Share this view",
-            "on": "on",
-            "off": "off",
-            "intro": "The link gives read-only insight into what is connected where (no vulnerabilities, passwords or commands) and needs no login. It works wherever this agent can be reached (usually the local network). It can be switched off or replaced at any time.",
-            "enable": "Switch sharing on",
-            "disable": "Switch sharing off",
-            "regenerate": "New key",
-            "regenerateConfirm": "Generate a new key? The current link will stop working.",
-            "warning": "Whoever has this link can see the list of the network's devices. Pass it on to a trusted person only; the connection to the agent is not encrypted when the agent runs without HTTPS."
         }
     },
     "traffic": {

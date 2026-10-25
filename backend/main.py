@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets
+from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel
 
 
 @asynccontextmanager
@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
     hyperv_manage.start()
     assets_svc.start()
     servicedesk_tickets.start()
+    exploit_intel.start()
     asset_scan_svc.start()
     lan_sweep_svc.start()
     try:
@@ -96,6 +97,7 @@ async def lifespan(app: FastAPI):
         hyperv_manage.stop()
         assets_svc.stop()
         servicedesk_tickets.stop()
+        exploit_intel.stop()
         asset_scan_svc.stop()
         lan_sweep_svc.stop()
 

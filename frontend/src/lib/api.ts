@@ -839,6 +839,8 @@ export interface CentralVulnFinding {
   version: string
   status: string
   note: string | null
+  kev?: boolean
+  epss?: number | null
 }
 
 export interface CentralVulnHostFindings {
@@ -963,6 +965,10 @@ export interface VulnFindingOut {
   first_seen_at: string | null
   due_date: string | null
   overdue: boolean
+  kev?: boolean                     // exploited in attacks now (CISA KEV)
+  kev_due?: string | null
+  ransomware?: boolean
+  epss?: number | null              // probability (0-1) of exploitation in the next 30 days (FIRST EPSS)
 }
 
 export interface VulnPackageOut {
@@ -977,11 +983,13 @@ export interface VulnPackageOut {
 export interface VulnSettings {
   nvd: { configured: boolean; source: 'app' | 'env' | null; interval_sec: number
          health?: { ok: number; errors: number; last_error: string | null; last_error_at: string | null; last_ok_at: string | null } }
+  exploit?: { kev_count: number; kev_at: string | null; epss_count: number; error: string | null; error_at: string | null }
 }
 export const vulnApi = {
   status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
   settings: () => api.get<VulnSettings>('/vuln/settings').then(r => r.data),
   saveSettings: (body: { nvd_key?: string; clear_nvd_key?: boolean }) => api.put<VulnSettings>('/vuln/settings', body).then(r => r.data),
+  refreshExploit: () => api.post<NonNullable<VulnSettings['exploit']>>('/vuln/exploit-intel/refresh').then(r => r.data),
   packages: (params?: { host_id?: number; q?: string }) =>
     api.get<VulnPackageOut[]>('/vuln/packages', { params }).then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),

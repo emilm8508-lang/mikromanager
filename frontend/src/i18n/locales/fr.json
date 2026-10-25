@@ -13,12 +13,12 @@
                 "securitySummary": "Synthèse de sécurité",
                 "assetsOverview": "Vue d'ensemble du parc",
                 "racks": "Baies serveurs",
+                "onsite": "Vue sur site",
                 "soc": "SOC",
                 "groupSoc": "SOC",
                 "socAlerts": "Alertes",
                 "socRules": "Règles de détection",
                 "socRisk": "Risque des équipements",
-                "onsite": "Vue sur site",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -690,7 +690,16 @@
             "save": "Enregistrer et vérifier",
             "remove": "Supprimer la clé",
             "getKey": "Obtenir une clé gratuite",
-            "note": "La clé est stockée chiffrée sur l'agent. NVD la lie à un demandeur : pour les agents de clients différents, mieux vaut demander une clé distincte (c'est gratuit)."
+            "note": "La clé est stockée chiffrée sur l'agent. NVD la lie à un demandeur : pour les agents de clients différents, mieux vaut demander une clé distincte (c'est gratuit).",
+            "kevTitle": "Exploitée dans des attaques actuellement (CISA KEV). Échéance de correction CISA : {{due}}",
+            "epssTitle": "EPSS : probabilité d'exploitation sous 30 jours : {{pct}}%",
+            "exploitTitle": "Vulnérabilités exploitées dans des attaques (CISA KEV) et leur probabilité (EPSS)",
+            "exploitIntro": "Les données sont gratuites et sans clé. Le repère KEV indique que la faille est utilisée dans de vraies attaques : à gravité égale elle est plus haut dans la liste, relève la note de risque de l'équipement, et une nouvelle (même moyenne) déclenche une alerte dans le SOC.",
+            "exploitState": "KEV : {{count}} entrées, catalogue du {{when}} · EPSS : {{epss}} CVE",
+            "exploitNever": "pas encore récupéré",
+            "exploitFailing": "Échec de la récupération : {{error}}",
+            "refresh": "Récupérer maintenant",
+            "refreshing": "Récupération…"
         },
         "title": "Scanner de vulnérabilités",
         "subtitle": "Détection passive des vulnérabilités connues (CVE) sur tout le réseau — aucune exploitation, aucune tentative de connexion.",
@@ -1211,6 +1220,56 @@
             "firewall_block": "Une règle du pare-feu rejetait le trafic de cet hôte pendant la coupure. Vérifiez si c'est voulu."
         }
     },
+    "onsite": {
+        "title": "Ce qui est branché où",
+        "subtitle": "Vue en lecture seule : les équipements, leurs adresses et le port du switch auquel ils sont branchés.",
+        "back": "Retour à l'application",
+        "tab": {
+            "devices": "Équipements",
+            "switches": "Switches"
+        },
+        "search": "Rechercher : nom, IP, MAC, lieu, port",
+        "searchPort": "Rechercher un port, un nom, une IP ou une MAC",
+        "allSwitches": "Tous les switches",
+        "allTypes": "Tous les types",
+        "showInactive": "Afficher les inactifs",
+        "count": "Équipements : {{count}}",
+        "none": "Rien trouvé.",
+        "noPort": "pas d'information de port",
+        "col": {
+            "name": "Équipement",
+            "ip": "Adresse IP",
+            "mac": "Adresse MAC",
+            "attached": "Raccordé à",
+            "place": "Lieu",
+            "seen": "Vu",
+            "port": "Port",
+            "devices": "Équipements sur le port"
+        },
+        "mapAsOf": "Répartition des ports du {{when}}",
+        "mapNone": "La répartition des ports n'est pas encore prête (actualiser dans un instant)",
+        "mapBuilding": "actualisation en cours",
+        "mapHint": "Le port vient de la table MAC du switch et le Wi-Fi de l'enregistrement des clients d'un point d'accès MikroTik ; pas d'information signifie switch non administrable ou point d'accès d'un autre fabricant.",
+        "switchesNone": "Aucun switch aux ports lisibles.",
+        "switchStats": "{{ports}} ports, {{hosts}} équipements",
+        "switchStatsWifi": "{{ports}} ports, {{hosts}} équipements, Wi-Fi : {{wifi}}",
+        "wifi": "Wi-Fi",
+        "manyOnPort": "Il y a {{count}} équipements sur ce port : un switch ou un point d'accès se trouve derrière.",
+        "noAccess": "Pas d'accès. Demandez à l'administrateur le lien de cette vue ou connectez-vous.",
+        "tooMany": "Trop de tentatives échouées. Réessayez dans quelques minutes.",
+        "copy": "Copier",
+        "share": {
+            "title": "Partager cette vue",
+            "on": "activé",
+            "off": "désactivé",
+            "intro": "Le lien donne une vue en lecture seule de ce qui est branché où (sans vulnérabilités, mots de passe ni commandes) et ne demande pas de connexion. Il fonctionne partout où cet agent est joignable (en général le réseau local). On peut le désactiver ou le remplacer à tout moment.",
+            "enable": "Activer le partage",
+            "disable": "Désactiver le partage",
+            "regenerate": "Nouvelle clé",
+            "regenerateConfirm": "Générer une nouvelle clé ? Le lien actuel cessera de fonctionner.",
+            "warning": "Quiconque a ce lien voit la liste des équipements du réseau. Ne le transmettez qu'à une personne de confiance ; la connexion à l'agent n'est pas chiffrée si l'agent fonctionne sans HTTPS."
+        }
+    },
     "soc": {
         "title": "SOC — alertes",
         "subtitle": "Alertes des détecteurs de l'agent et des systèmes connectés (Wazuh, Checkmk, PRTG, les moniteurs) : une alerte par événement, avec un statut que l'analyste fait avancer.",
@@ -1349,7 +1408,9 @@
             "tactics": "Tactiques MITRE",
             "path": "Chemin",
             "full_log": "Ligne du journal source",
-            "groups": "Groupes de la règle"
+            "groups": "Groupes de la règle",
+            "exploited": "Exploitée dans des attaques",
+            "epss": "EPSS"
         },
         "central": {
             "client": "Client",
@@ -1441,63 +1502,14 @@
                 "hardening": "Contrôles de durcissement en échec : {{n}}",
                 "exposure": "Services risqués : {{n}}",
                 "hints": "Mot de passe d'usine possible",
-                "blind": "Sans identifiants, vu seulement passivement"
+                "blind": "Sans identifiants, vu seulement passivement",
+                "kev": "Vulnérabilités exploitées dans des attaques : {{n}}"
             },
             "problemsTitle": "Problèmes de cet équipement",
             "noDetail": "Aucun problème signalé pour cet équipement (ou il n'est pas parmi les 60 plus exposés dont l'agent envoie le détail).",
             "more": "{{count}} de plus",
             "ports": "Ports ouverts",
             "score": "Note de risque"
-        }
-    },
-    "onsite": {
-        "title": "Ce qui est branché où",
-        "subtitle": "Vue en lecture seule : les équipements, leurs adresses et le port du switch auquel ils sont branchés.",
-        "back": "Retour à l'application",
-        "tab": {
-            "devices": "Équipements",
-            "switches": "Switches"
-        },
-        "search": "Rechercher : nom, IP, MAC, lieu, port",
-        "searchPort": "Rechercher un port, un nom, une IP ou une MAC",
-        "allSwitches": "Tous les switches",
-        "allTypes": "Tous les types",
-        "showInactive": "Afficher les inactifs",
-        "count": "Équipements : {{count}}",
-        "none": "Rien trouvé.",
-        "noPort": "pas d'information de port",
-        "col": {
-            "name": "Équipement",
-            "ip": "Adresse IP",
-            "mac": "Adresse MAC",
-            "attached": "Raccordé à",
-            "place": "Lieu",
-            "seen": "Vu",
-            "port": "Port",
-            "devices": "Équipements sur le port"
-        },
-        "mapAsOf": "Répartition des ports du {{when}}",
-        "mapNone": "La répartition des ports n'est pas encore prête (actualiser dans un instant)",
-        "mapBuilding": "actualisation en cours",
-        "mapHint": "Le port vient de la table MAC du switch et le Wi-Fi de l'enregistrement des clients d'un point d'accès MikroTik ; pas d'information signifie switch non administrable ou point d'accès d'un autre fabricant.",
-        "switchesNone": "Aucun switch aux ports lisibles.",
-        "switchStats": "{{ports}} ports, {{hosts}} équipements",
-        "switchStatsWifi": "{{ports}} ports, {{hosts}} équipements, Wi-Fi : {{wifi}}",
-        "wifi": "Wi-Fi",
-        "manyOnPort": "Il y a {{count}} équipements sur ce port : un switch ou un point d'accès se trouve derrière.",
-        "noAccess": "Pas d'accès. Demandez à l'administrateur le lien de cette vue ou connectez-vous.",
-        "tooMany": "Trop de tentatives échouées. Réessayez dans quelques minutes.",
-        "copy": "Copier",
-        "share": {
-            "title": "Partager cette vue",
-            "on": "activé",
-            "off": "désactivé",
-            "intro": "Le lien donne une vue en lecture seule de ce qui est branché où (sans vulnérabilités, mots de passe ni commandes) et ne demande pas de connexion. Il fonctionne partout où cet agent est joignable (en général le réseau local). On peut le désactiver ou le remplacer à tout moment.",
-            "enable": "Activer le partage",
-            "disable": "Désactiver le partage",
-            "regenerate": "Nouvelle clé",
-            "regenerateConfirm": "Générer une nouvelle clé ? Le lien actuel cessera de fonctionner.",
-            "warning": "Quiconque a ce lien voit la liste des équipements du réseau. Ne le transmettez qu'à une personne de confiance ; la connexion à l'agent n'est pas chiffrée si l'agent fonctionne sans HTTPS."
         }
     },
     "traffic": {

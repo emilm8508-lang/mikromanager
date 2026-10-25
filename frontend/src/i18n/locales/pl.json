@@ -13,12 +13,12 @@
                 "securitySummary": "Podsumowanie bezpieczeństwa",
                 "assetsOverview": "Przegląd zasobów",
                 "racks": "Szafy rackowe",
+                "onsite": "Widok na miejscu",
                 "soc": "SOC",
                 "groupSoc": "SOC",
                 "socAlerts": "Alerty",
                 "socRules": "Reguły detekcji",
                 "socRisk": "Ryzyko zasobów",
-                "onsite": "Widok na miejscu",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -848,7 +848,16 @@
             "save": "Zapisz i sprawdź",
             "remove": "Usuń klucz",
             "getKey": "Załóż darmowy klucz",
-            "note": "Klucz jest przechowywany na agencie w postaci zaszyfrowanej. NVD przypisuje go do jednego zgłaszającego: dla agentów różnych klientów lepiej zażądać osobnego klucza (to bezpłatne)."
+            "note": "Klucz jest przechowywany na agencie w postaci zaszyfrowanej. NVD przypisuje go do jednego zgłaszającego: dla agentów różnych klientów lepiej zażądać osobnego klucza (to bezpłatne).",
+            "kevTitle": "Aktywnie wykorzystywana w atakach (CISA KEV). Termin łatania wg CISA: {{due}}",
+            "epssTitle": "EPSS: prawdopodobieństwo wykorzystania w ciągu 30 dni: {{pct}}%",
+            "exploitTitle": "Luki wykorzystywane w atakach (CISA KEV) i prawdopodobieństwo (EPSS)",
+            "exploitIntro": "Dane są darmowe i nie wymagają klucza. Znacznik KEV mówi, że luka jest używana w prawdziwych atakach: przy równej ważności jest wyżej na liście, podnosi ocenę ryzyka urządzenia, a nowa taka luka (nawet średnia) wywołuje alert w SOC.",
+            "exploitState": "KEV: {{count}} wpisów, katalog z {{when}} · EPSS: {{epss}} CVE",
+            "exploitNever": "jeszcze nie pobrano",
+            "exploitFailing": "Nie udało się pobrać: {{error}}",
+            "refresh": "Pobierz teraz",
+            "refreshing": "Pobieram…"
         },
         "title": "Skaner podatności",
         "subtitle": "Pasywne wykrywanie znanych podatności (CVE) w całej sieci — bez prób ataku ani logowania.",
@@ -1369,6 +1378,56 @@
             "firewall_block": "Reguła firewalla odrzucała ruch tego hosta w czasie przerwy. Sprawdź, czy to zamierzone."
         }
     },
+    "onsite": {
+        "title": "Co jest gdzie podłączone",
+        "subtitle": "Widok tylko do odczytu: urządzenia, ich adresy i port przełącznika, do którego są podłączone.",
+        "back": "Wróć do aplikacji",
+        "tab": {
+            "devices": "Urządzenia",
+            "switches": "Przełączniki"
+        },
+        "search": "Szukaj: nazwa, IP, MAC, miejsce, port",
+        "searchPort": "Szukaj portu, nazwy, IP lub MAC",
+        "allSwitches": "Wszystkie przełączniki",
+        "allTypes": "Wszystkie typy",
+        "showInactive": "Pokaż nieaktywne",
+        "count": "Urządzeń: {{count}}",
+        "none": "Nic nie znaleziono.",
+        "noPort": "brak informacji o porcie",
+        "col": {
+            "name": "Urządzenie",
+            "ip": "Adres IP",
+            "mac": "Adres MAC",
+            "attached": "Podłączony do",
+            "place": "Miejsce",
+            "seen": "Widziany",
+            "port": "Port",
+            "devices": "Urządzenia na porcie"
+        },
+        "mapAsOf": "Układ portów z {{when}}",
+        "mapNone": "Układ portów nie jest jeszcze gotowy (odśwież za chwilę)",
+        "mapBuilding": "trwa odświeżanie",
+        "mapHint": "Port wynika z tablicy MAC przełącznika, a Wi-Fi z rejestracji klientów punktu dostępowego MikroTik; brak informacji oznacza przełącznik niezarządzalny albo punkt dostępowy innego producenta.",
+        "switchesNone": "Brak przełączników z odczytanymi portami.",
+        "switchStats": "{{ports}} portów, {{hosts}} urządzeń",
+        "switchStatsWifi": "{{ports}} portów, {{hosts}} urządzeń, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
+        "manyOnPort": "Na tym porcie jest {{count}} urządzeń: za portem jest przełącznik lub punkt dostępowy.",
+        "noAccess": "Brak dostępu. Poproś administratora o link do tego widoku albo zaloguj się.",
+        "tooMany": "Zbyt wiele nieudanych prób. Spróbuj ponownie za kilka minut.",
+        "copy": "Kopiuj",
+        "share": {
+            "title": "Udostępnij ten widok",
+            "on": "włączone",
+            "off": "wyłączone",
+            "intro": "Link daje wgląd tylko do odczytu w to, co jest gdzie podłączone (bez podatności, haseł i poleceń) i nie wymaga logowania. Działa tam, gdzie osiągalny jest ten agent (zwykle w sieci lokalnej). Można go w każdej chwili wyłączyć albo wymienić.",
+            "enable": "Włącz udostępnianie",
+            "disable": "Wyłącz udostępnianie",
+            "regenerate": "Nowy klucz",
+            "regenerateConfirm": "Wygenerować nowy klucz? Dotychczasowy link przestanie działać.",
+            "warning": "Kto ma ten link, widzi listę urządzeń sieci. Przekaż go tylko zaufanej osobie; połączenie z agentem nie jest szyfrowane, jeśli agent działa bez HTTPS."
+        }
+    },
     "soc": {
         "title": "SOC — alerty",
         "subtitle": "Alerty z wykrywaczy agenta i podłączonych systemów (Wazuh, Checkmk, PRTG, monitory): jeden alert na zdarzenie, ze statusem, który przesuwa analityk.",
@@ -1507,7 +1566,9 @@
             "tactics": "Taktyki MITRE",
             "path": "Ścieżka",
             "full_log": "Wiersz logu źródłowego",
-            "groups": "Grupy reguły"
+            "groups": "Grupy reguły",
+            "exploited": "Wykorzystywana w atakach",
+            "epss": "EPSS"
         },
         "central": {
             "client": "Klient",
@@ -1599,63 +1660,14 @@
                 "hardening": "Nieudane testy utwardzenia: {{n}}",
                 "exposure": "Ryzykowne usługi: {{n}}",
                 "hints": "Możliwe fabryczne hasło",
-                "blind": "Brak poświadczeń, widoczne tylko pasywnie"
+                "blind": "Brak poświadczeń, widoczne tylko pasywnie",
+                "kev": "Luki wykorzystywane w atakach: {{n}}"
             },
             "problemsTitle": "Problemy tego urządzenia",
             "noDetail": "Brak zgłoszonych problemów dla tego urządzenia (albo jest poza 60 najbardziej zagrożonymi, dla których agent przysyła szczegóły).",
             "more": "jeszcze {{count}}",
             "ports": "Otwarte porty",
             "score": "Ocena ryzyka"
-        }
-    },
-    "onsite": {
-        "title": "Co jest gdzie podłączone",
-        "subtitle": "Widok tylko do odczytu: urządzenia, ich adresy i port przełącznika, do którego są podłączone.",
-        "back": "Wróć do aplikacji",
-        "tab": {
-            "devices": "Urządzenia",
-            "switches": "Przełączniki"
-        },
-        "search": "Szukaj: nazwa, IP, MAC, miejsce, port",
-        "searchPort": "Szukaj portu, nazwy, IP lub MAC",
-        "allSwitches": "Wszystkie przełączniki",
-        "allTypes": "Wszystkie typy",
-        "showInactive": "Pokaż nieaktywne",
-        "count": "Urządzeń: {{count}}",
-        "none": "Nic nie znaleziono.",
-        "noPort": "brak informacji o porcie",
-        "col": {
-            "name": "Urządzenie",
-            "ip": "Adres IP",
-            "mac": "Adres MAC",
-            "attached": "Podłączony do",
-            "place": "Miejsce",
-            "seen": "Widziany",
-            "port": "Port",
-            "devices": "Urządzenia na porcie"
-        },
-        "mapAsOf": "Układ portów z {{when}}",
-        "mapNone": "Układ portów nie jest jeszcze gotowy (odśwież za chwilę)",
-        "mapBuilding": "trwa odświeżanie",
-        "mapHint": "Port wynika z tablicy MAC przełącznika, a Wi-Fi z rejestracji klientów punktu dostępowego MikroTik; brak informacji oznacza przełącznik niezarządzalny albo punkt dostępowy innego producenta.",
-        "switchesNone": "Brak przełączników z odczytanymi portami.",
-        "switchStats": "{{ports}} portów, {{hosts}} urządzeń",
-        "switchStatsWifi": "{{ports}} portów, {{hosts}} urządzeń, Wi-Fi: {{wifi}}",
-        "wifi": "Wi-Fi",
-        "manyOnPort": "Na tym porcie jest {{count}} urządzeń: za portem jest przełącznik lub punkt dostępowy.",
-        "noAccess": "Brak dostępu. Poproś administratora o link do tego widoku albo zaloguj się.",
-        "tooMany": "Zbyt wiele nieudanych prób. Spróbuj ponownie za kilka minut.",
-        "copy": "Kopiuj",
-        "share": {
-            "title": "Udostępnij ten widok",
-            "on": "włączone",
-            "off": "wyłączone",
-            "intro": "Link daje wgląd tylko do odczytu w to, co jest gdzie podłączone (bez podatności, haseł i poleceń) i nie wymaga logowania. Działa tam, gdzie osiągalny jest ten agent (zwykle w sieci lokalnej). Można go w każdej chwili wyłączyć albo wymienić.",
-            "enable": "Włącz udostępnianie",
-            "disable": "Wyłącz udostępnianie",
-            "regenerate": "Nowy klucz",
-            "regenerateConfirm": "Wygenerować nowy klucz? Dotychczasowy link przestanie działać.",
-            "warning": "Kto ma ten link, widzi listę urządzeń sieci. Przekaż go tylko zaufanej osobie; połączenie z agentem nie jest szyfrowane, jeśli agent działa bez HTTPS."
         }
     },
     "traffic": {

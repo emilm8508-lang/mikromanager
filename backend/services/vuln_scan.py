@@ -1616,7 +1616,11 @@ async def collect_overdue_alert_events() -> List[dict]:
 
 
 def _finding_brief(f: VulnFinding, remediation: Optional[VulnRemediation] = None) -> dict:
+    from services import exploit_intel
+    ex = exploit_intel.info(f.cve_id)
     return {"cve_id": f.cve_id, "severity": f.severity, "cvss_score": f.cvss_score,
+            # actively exploited (CISA KEV) and the probability of it (EPSS) - services/exploit_intel.py
+            "kev": ex["kev"], "epss": ex["epss"],
             "summary": f.summary, "ref_url": f.ref_url,
             # product/version identify WHICH VulnRemediation row a status
             # change applies to (its actual key, alongside cve_id) - needed

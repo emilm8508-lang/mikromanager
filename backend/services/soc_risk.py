@@ -6,6 +6,7 @@ asks the question the other way round: which devices are the worst off, and why?
 
   alerts       the open SOC alerts about the device (the weight follows their severity)
   vuln         open critical / high vulnerabilities
+  kev          open vulnerabilities that are being exploited in attacks right now (the CISA KEV catalog), whatever their CVSS
   lifecycle    an operating system out of support (or about to be)
   patches      pending updates and a reboot waiting (Windows / Linux hosts the agent manages)
   hardening    failed high / medium configuration checks
@@ -17,7 +18,7 @@ The score is the sum of the points (each factor capped, so one kind of problem c
 Every factor comes with its points AND what it is made of - which services, which checks, which CVEs, which alerts - so the page (and Central's drawer of the
 device) can say *what* is wrong, not only that something is.
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy import select
 
@@ -27,7 +28,7 @@ from services.soc_rules import RISKY_PORTS
 
 LEVELS = (("critical", 60), ("high", 40), ("medium", 20), ("low", 0))
 ALERT_POINTS = {"critical": 25, "high": 15, "medium": 7, "low": 2, "info": 0}
-CAPS = {"alerts": 50, "vuln": 30, "lifecycle": 15, "patches": 12, "hardening": 12, "exposure": 9, "hints": 6, "blind": 2}
+CAPS = {"alerts": 50, "vuln": 30, "kev": 16, "lifecycle": 15, "patches": 12, "hardening": 12, "exposure": 9, "hints": 6, "blind": 2}
 IMPORTANT = {"server", "network"}                 # asset types that matter more when they are in trouble
 PUBLIC_TOP = 60                                   # devices Central gets the detail of (its list shows the worst few; the device drawer looks the rest up here)
 MAX_ITEMS = 8
@@ -46,7 +47,7 @@ def _cut(s, n: int = 90) -> str:
     return str(s)[:n]
 
 
-def _factors(row: dict, alerts: List[dict], failed: List[dict], risky: List[int], patch: dict, cves: List[dict]) -> List[dict]:
+def _factors(row: dict, alerts: List[dict], failed: List[dict], risky: List[int], patch: dict, cves: List[dict], kev: Optional[List[str]] = None) -> List[dict]:
     out: List[dict] = []
 
     def add(k: str, pts: float, n=None, items=None):
@@ -65,6 +66,7 @@ def _factors(row: dict, alerts: List[dict], failed: List[dict], risky: List[int]
     cves = sorted(cves, key=lambda c: (_SEV_ORDER.get(c["severity"], 4), -(c.get("cvss_score") or 0)))
     add("vuln", 8 * v["critical"] + 3 * v["high"], v["critical"] + v["high"],
         [_cut(f"{c.get('cve_id') or '?'} · {c['severity']}" + (f" · {c['cvss_score']}" if c.get("cvss_score") else "")) for c in cves])
+    add("kev", 8 * len(kev or []), len(kev or []), list(kev or []))
     lc = row["lifecycle"]
     add("lifecycle", 15 if lc == "eol" else 5 if lc == "ending" else 0, None,
         [_cut(" · ".join(x for x in (row.get("lifecycle_product"), ("EOL " + row["eol"]) if row.get("eol") else None) if x))] if lc in ("eol", "ending") else None)
@@ -120,7 +122,8 @@ async def compute() -> List[dict]:
             + (failed.get(("mikrotik", refs["device_id"]), []) if "device_id" in refs else [])
         patch = lin.get(refs.get("linux_host_id")) or win.get(refs.get("windows_host_id")) or {}
         cves = [c for c in vulns_by_ip.get(r["ip"] or "", []) if (c.get("status") or "open") in ("open", "in_progress") and c.get("severity") in ("CRITICAL", "HIGH")]
-        factors = _factors(r, alerts, failed_list, risky_by_ip.get(r["ip"] or "", []), patch, cves)
+        kev = sorted({c["cve_id"] for c in vulns_by_ip.get(r["ip"] or "", []) if (c.get("status") or "open") in ("open", "in_progress") and c.get("kev") and c.get("cve_id")})
+        factors = _factors(r, alerts, failed_list, risky_by_ip.get(r["ip"] or "", []), patch, cves, kev)
         if not factors:
             continue
         score = sum(f["pts"] for f in factors)

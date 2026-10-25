@@ -13,12 +13,12 @@
                 "securitySummary": "Sicherheitsübersicht",
                 "assetsOverview": "Bestandsübersicht",
                 "racks": "Serverschränke",
+                "onsite": "Ansicht vor Ort",
                 "soc": "SOC",
                 "groupSoc": "SOC",
                 "socAlerts": "Alarme",
                 "socRules": "Erkennungsregeln",
                 "socRisk": "Asset-Risiko",
-                "onsite": "Ansicht vor Ort",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -690,7 +690,16 @@
             "save": "Speichern und prüfen",
             "remove": "Schlüssel entfernen",
             "getKey": "Kostenlosen Schlüssel holen",
-            "note": "Der Schlüssel wird verschlüsselt auf dem Agenten gespeichert. NVD bindet ihn an einen Antragsteller: für die Agenten verschiedener Kunden ist ein eigener Schlüssel besser (kostenlos)."
+            "note": "Der Schlüssel wird verschlüsselt auf dem Agenten gespeichert. NVD bindet ihn an einen Antragsteller: für die Agenten verschiedener Kunden ist ein eigener Schlüssel besser (kostenlos).",
+            "kevTitle": "Wird aktuell in Angriffen ausgenutzt (CISA KEV). CISA-Frist zur Behebung: {{due}}",
+            "epssTitle": "EPSS: Wahrscheinlichkeit der Ausnutzung innerhalb von 30 Tagen: {{pct}}%",
+            "exploitTitle": "In Angriffen ausgenutzte Schwachstellen (CISA KEV) und Wahrscheinlichkeit (EPSS)",
+            "exploitIntro": "Die Daten sind kostenlos und brauchen keinen Schlüssel. Die KEV-Markierung sagt, dass die Lücke in echten Angriffen genutzt wird: bei gleicher Schwere steht sie weiter oben, erhöht die Risikobewertung des Geräts, und eine neue (auch mittlere) löst einen Alarm im SOC aus.",
+            "exploitState": "KEV: {{count}} Einträge, Katalog von {{when}} · EPSS: {{epss}} CVEs",
+            "exploitNever": "noch nicht abgerufen",
+            "exploitFailing": "Abruf fehlgeschlagen: {{error}}",
+            "refresh": "Jetzt abrufen",
+            "refreshing": "Rufe ab…"
         },
         "title": "Schwachstellen-Scanner",
         "subtitle": "Passive Erkennung bekannter Schwachstellen (CVE) im gesamten Netzwerk — keine Exploits, keine Login-Versuche.",
@@ -1211,6 +1220,56 @@
             "firewall_block": "Eine Firewall-Regel hat den Verkehr dieses Hosts während des Ausfalls verworfen. Prüfen Sie, ob das beabsichtigt ist."
         }
     },
+    "onsite": {
+        "title": "Was ist wo angeschlossen",
+        "subtitle": "Nur-Lese-Ansicht: die Geräte, ihre Adressen und der Switch-Port, an dem sie hängen.",
+        "back": "Zurück zur Anwendung",
+        "tab": {
+            "devices": "Geräte",
+            "switches": "Switches"
+        },
+        "search": "Suchen: Name, IP, MAC, Ort, Port",
+        "searchPort": "Port, Name, IP oder MAC suchen",
+        "allSwitches": "Alle Switches",
+        "allTypes": "Alle Typen",
+        "showInactive": "Inaktive anzeigen",
+        "count": "Geräte: {{count}}",
+        "none": "Nichts gefunden.",
+        "noPort": "keine Portangabe",
+        "col": {
+            "name": "Gerät",
+            "ip": "IP-Adresse",
+            "mac": "MAC-Adresse",
+            "attached": "Angeschlossen an",
+            "place": "Ort",
+            "seen": "Gesehen",
+            "port": "Port",
+            "devices": "Geräte am Port"
+        },
+        "mapAsOf": "Portzuordnung von {{when}}",
+        "mapNone": "Die Portzuordnung ist noch nicht fertig (gleich neu laden)",
+        "mapBuilding": "wird aktualisiert",
+        "mapHint": "Der Port stammt aus der MAC-Tabelle des Switches, das WLAN aus der Client-Registrierung eines MikroTik-Access-Points; keine Angabe heißt unverwalteter Switch oder Access Point eines anderen Herstellers.",
+        "switchesNone": "Keine Switches mit auslesbaren Ports.",
+        "switchStats": "{{ports}} Ports, {{hosts}} Geräte",
+        "switchStatsWifi": "{{ports}} Ports, {{hosts}} Geräte, WLAN: {{wifi}}",
+        "wifi": "WLAN",
+        "manyOnPort": "An diesem Port hängen {{count}} Geräte: dahinter sitzt ein Switch oder Access Point.",
+        "noAccess": "Kein Zugriff. Bitten Sie den Administrator um den Link zu dieser Ansicht oder melden Sie sich an.",
+        "tooMany": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in einigen Minuten erneut.",
+        "copy": "Kopieren",
+        "share": {
+            "title": "Diese Ansicht teilen",
+            "on": "an",
+            "off": "aus",
+            "intro": "Der Link gibt Nur-Lese-Einblick, was wo angeschlossen ist (ohne Schwachstellen, Passwörter und Befehle) und braucht keine Anmeldung. Er funktioniert überall, wo dieser Agent erreichbar ist (meist im lokalen Netz). Er kann jederzeit abgeschaltet oder ersetzt werden.",
+            "enable": "Teilen einschalten",
+            "disable": "Teilen ausschalten",
+            "regenerate": "Neuer Schlüssel",
+            "regenerateConfirm": "Neuen Schlüssel erzeugen? Der bisherige Link funktioniert dann nicht mehr.",
+            "warning": "Wer diesen Link hat, sieht die Geräteliste des Netzes. Nur an eine vertrauenswürdige Person weitergeben; die Verbindung zum Agenten ist unverschlüsselt, wenn er ohne HTTPS läuft."
+        }
+    },
     "soc": {
         "title": "SOC — Alarme",
         "subtitle": "Alarme der Detektoren des Agenten und der angebundenen Systeme (Wazuh, Checkmk, PRTG, Monitore): ein Alarm pro Ereignis, mit einem Status, den der Analyst weiterschaltet.",
@@ -1349,7 +1408,9 @@
             "tactics": "MITRE-Taktiken",
             "path": "Pfad",
             "full_log": "Quell-Logzeile",
-            "groups": "Regelgruppen"
+            "groups": "Regelgruppen",
+            "exploited": "In Angriffen ausgenutzt",
+            "epss": "EPSS"
         },
         "central": {
             "client": "Kunde",
@@ -1441,63 +1502,14 @@
                 "hardening": "Fehlgeschlagene Härtungsprüfungen: {{n}}",
                 "exposure": "Riskante Dienste: {{n}}",
                 "hints": "Mögliches Werkspasswort",
-                "blind": "Keine Zugangsdaten, nur passiv gesehen"
+                "blind": "Keine Zugangsdaten, nur passiv gesehen",
+                "kev": "In Angriffen ausgenutzte Schwachstellen: {{n}}"
             },
             "problemsTitle": "Probleme dieses Geräts",
             "noDetail": "Keine Probleme für dieses Gerät gemeldet (oder es gehört nicht zu den 60 gefährdetsten, für die der Agent Details sendet).",
             "more": "{{count}} weitere",
             "ports": "Offene Ports",
             "score": "Risikobewertung"
-        }
-    },
-    "onsite": {
-        "title": "Was ist wo angeschlossen",
-        "subtitle": "Nur-Lese-Ansicht: die Geräte, ihre Adressen und der Switch-Port, an dem sie hängen.",
-        "back": "Zurück zur Anwendung",
-        "tab": {
-            "devices": "Geräte",
-            "switches": "Switches"
-        },
-        "search": "Suchen: Name, IP, MAC, Ort, Port",
-        "searchPort": "Port, Name, IP oder MAC suchen",
-        "allSwitches": "Alle Switches",
-        "allTypes": "Alle Typen",
-        "showInactive": "Inaktive anzeigen",
-        "count": "Geräte: {{count}}",
-        "none": "Nichts gefunden.",
-        "noPort": "keine Portangabe",
-        "col": {
-            "name": "Gerät",
-            "ip": "IP-Adresse",
-            "mac": "MAC-Adresse",
-            "attached": "Angeschlossen an",
-            "place": "Ort",
-            "seen": "Gesehen",
-            "port": "Port",
-            "devices": "Geräte am Port"
-        },
-        "mapAsOf": "Portzuordnung von {{when}}",
-        "mapNone": "Die Portzuordnung ist noch nicht fertig (gleich neu laden)",
-        "mapBuilding": "wird aktualisiert",
-        "mapHint": "Der Port stammt aus der MAC-Tabelle des Switches, das WLAN aus der Client-Registrierung eines MikroTik-Access-Points; keine Angabe heißt unverwalteter Switch oder Access Point eines anderen Herstellers.",
-        "switchesNone": "Keine Switches mit auslesbaren Ports.",
-        "switchStats": "{{ports}} Ports, {{hosts}} Geräte",
-        "switchStatsWifi": "{{ports}} Ports, {{hosts}} Geräte, WLAN: {{wifi}}",
-        "wifi": "WLAN",
-        "manyOnPort": "An diesem Port hängen {{count}} Geräte: dahinter sitzt ein Switch oder Access Point.",
-        "noAccess": "Kein Zugriff. Bitten Sie den Administrator um den Link zu dieser Ansicht oder melden Sie sich an.",
-        "tooMany": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in einigen Minuten erneut.",
-        "copy": "Kopieren",
-        "share": {
-            "title": "Diese Ansicht teilen",
-            "on": "an",
-            "off": "aus",
-            "intro": "Der Link gibt Nur-Lese-Einblick, was wo angeschlossen ist (ohne Schwachstellen, Passwörter und Befehle) und braucht keine Anmeldung. Er funktioniert überall, wo dieser Agent erreichbar ist (meist im lokalen Netz). Er kann jederzeit abgeschaltet oder ersetzt werden.",
-            "enable": "Teilen einschalten",
-            "disable": "Teilen ausschalten",
-            "regenerate": "Neuer Schlüssel",
-            "regenerateConfirm": "Neuen Schlüssel erzeugen? Der bisherige Link funktioniert dann nicht mehr.",
-            "warning": "Wer diesen Link hat, sieht die Geräteliste des Netzes. Nur an eine vertrauenswürdige Person weitergeben; die Verbindung zum Agenten ist unverschlüsselt, wenn er ohne HTTPS läuft."
         }
     },
     "traffic": {

@@ -13,7 +13,7 @@ from models.database import (
     SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, VulnRemediation, Device, Credential,
     LinuxHost, WindowsHost,
 )
-from services import vuln_scan, vuln_settings
+from services import vuln_scan, vuln_settings, exploit_intel
 from api.auth import require_login
 
 router = APIRouter(prefix="/api/vuln", tags=["vuln"])
@@ -34,9 +34,18 @@ class SettingsIn(BaseModel):
 @router.get("/settings")
 async def get_settings():
     """The state of the data-source settings (never the key itself) and how the questions to NVD have been going."""
+    from services import exploit_intel
     st = vuln_settings.status()
     st["nvd"]["health"] = vuln_scan.nvd_health()
+    st["exploit"] = exploit_intel.status()
     return st
+
+
+@router.post("/exploit-intel/refresh")
+async def refresh_exploit_intel():
+    """Fetches the CISA KEV catalog and the EPSS scores of the current findings now (they are refreshed by themselves every few hours)."""
+    from services import exploit_intel
+    return await exploit_intel.refresh(force=True)
 
 
 @router.put("/settings")
@@ -313,7 +322,9 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
         r = remediations.get((f.product, f.version, f.cve_id))
         due = vuln_scan.sla_due_date(f.severity, r.first_seen_at if r else None)
         status = r.status if r else "open"
+        ex = exploit_intel.info(f.cve_id)
         out.append({
+            "kev": ex["kev"], "kev_due": ex["kev_due"], "ransomware": ex["ransomware"], "epss": ex["epss"],
             "id": f.id, "product": f.product, "version": f.version,
             "cve_id": f.cve_id, "cvss_score": f.cvss_score, "severity": f.severity,
             "summary": f.summary, "published": f.published, "ref_url": f.ref_url,
@@ -330,6 +341,7 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
 
     out.sort(key=lambda x: (
         _SEVERITY_ORDER.get(x["severity"], 4),
+        not x["kev"],                      # within a severity, what is being exploited comes first
         -(x["cvss_score"] or 0),
     ))
     return out

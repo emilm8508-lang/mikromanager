@@ -13,12 +13,12 @@
                 "securitySummary": "Resumen de seguridad",
                 "assetsOverview": "Resumen de activos",
                 "racks": "Racks",
+                "onsite": "Vista en el sitio",
                 "soc": "SOC",
                 "groupSoc": "SOC",
                 "socAlerts": "Alertas",
                 "socRules": "Reglas de detección",
                 "socRisk": "Riesgo de activos",
-                "onsite": "Vista en el sitio",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -690,7 +690,16 @@
             "save": "Guardar y comprobar",
             "remove": "Quitar clave",
             "getKey": "Obtener una clave gratuita",
-            "note": "La clave se guarda cifrada en el agente. NVD la asocia a un solicitante: para los agentes de distintos clientes conviene pedir una clave aparte (es gratis)."
+            "note": "La clave se guarda cifrada en el agente. NVD la asocia a un solicitante: para los agentes de distintos clientes conviene pedir una clave aparte (es gratis).",
+            "kevTitle": "Explotada en ataques ahora (CISA KEV). Plazo de corrección de CISA: {{due}}",
+            "epssTitle": "EPSS: probabilidad de explotación en 30 días: {{pct}}%",
+            "exploitTitle": "Vulnerabilidades explotadas en ataques (CISA KEV) y su probabilidad (EPSS)",
+            "exploitIntro": "Los datos son gratuitos y no necesitan clave. La marca KEV indica que el fallo se usa en ataques reales: con la misma gravedad aparece más arriba, sube la puntuación de riesgo del dispositivo y una nueva (incluso media) genera una alerta en el SOC.",
+            "exploitState": "KEV: {{count}} entradas, catálogo de {{when}} · EPSS: {{epss}} CVE",
+            "exploitNever": "aún no descargado",
+            "exploitFailing": "No se pudo descargar: {{error}}",
+            "refresh": "Descargar ahora",
+            "refreshing": "Descargando…"
         },
         "title": "Escáner de vulnerabilidades",
         "subtitle": "Detección pasiva de vulnerabilidades conocidas (CVE) en toda la red — sin explotación, sin intentos de inicio de sesión.",
@@ -1211,6 +1220,56 @@
             "firewall_block": "Una regla del firewall descartaba el tráfico de este host durante la caída. Compruebe si es intencionado."
         }
     },
+    "onsite": {
+        "title": "Qué está conectado dónde",
+        "subtitle": "Vista de solo lectura: los dispositivos, sus direcciones y el puerto del switch al que están conectados.",
+        "back": "Volver a la aplicación",
+        "tab": {
+            "devices": "Dispositivos",
+            "switches": "Switches"
+        },
+        "search": "Buscar: nombre, IP, MAC, lugar, puerto",
+        "searchPort": "Buscar puerto, nombre, IP o MAC",
+        "allSwitches": "Todos los switches",
+        "allTypes": "Todos los tipos",
+        "showInactive": "Mostrar inactivos",
+        "count": "Dispositivos: {{count}}",
+        "none": "No se encontró nada.",
+        "noPort": "sin información de puerto",
+        "col": {
+            "name": "Dispositivo",
+            "ip": "Dirección IP",
+            "mac": "Dirección MAC",
+            "attached": "Conectado a",
+            "place": "Lugar",
+            "seen": "Visto",
+            "port": "Puerto",
+            "devices": "Dispositivos en el puerto"
+        },
+        "mapAsOf": "Disposición de puertos de {{when}}",
+        "mapNone": "La disposición de puertos aún no está lista (actualiza en un momento)",
+        "mapBuilding": "actualizando",
+        "mapHint": "El puerto sale de la tabla MAC del switch y el Wi-Fi del registro de clientes de un punto de acceso MikroTik; sin información significa switch no gestionable o punto de acceso de otro fabricante.",
+        "switchesNone": "No hay switches con puertos legibles.",
+        "switchStats": "{{ports}} puertos, {{hosts}} dispositivos",
+        "switchStatsWifi": "{{ports}} puertos, {{hosts}} dispositivos, Wi-Fi: {{wifi}}",
+        "wifi": "Wi-Fi",
+        "manyOnPort": "Hay {{count}} dispositivos en este puerto: detrás hay un switch o un punto de acceso.",
+        "noAccess": "Sin acceso. Pide al administrador el enlace a esta vista o inicia sesión.",
+        "tooMany": "Demasiados intentos fallidos. Inténtalo de nuevo en unos minutos.",
+        "copy": "Copiar",
+        "share": {
+            "title": "Compartir esta vista",
+            "on": "activado",
+            "off": "desactivado",
+            "intro": "El enlace da acceso de solo lectura a qué está conectado dónde (sin vulnerabilidades, contraseñas ni comandos) y no requiere iniciar sesión. Funciona donde se pueda alcanzar este agente (normalmente la red local). Se puede desactivar o sustituir en cualquier momento.",
+            "enable": "Activar el uso compartido",
+            "disable": "Desactivar el uso compartido",
+            "regenerate": "Nueva clave",
+            "regenerateConfirm": "¿Generar una clave nueva? El enlace actual dejará de funcionar.",
+            "warning": "Quien tenga este enlace ve la lista de dispositivos de la red. Pásalo solo a una persona de confianza; la conexión con el agente no está cifrada si el agente funciona sin HTTPS."
+        }
+    },
     "soc": {
         "title": "SOC — alertas",
         "subtitle": "Alertas de los detectores del agente y de los sistemas conectados (Wazuh, Checkmk, PRTG, los monitores): una alerta por evento, con un estado que el analista va avanzando.",
@@ -1349,7 +1408,9 @@
             "tactics": "Tácticas MITRE",
             "path": "Ruta",
             "full_log": "Línea del registro de origen",
-            "groups": "Grupos de la regla"
+            "groups": "Grupos de la regla",
+            "exploited": "Explotada en ataques",
+            "epss": "EPSS"
         },
         "central": {
             "client": "Cliente",
@@ -1441,63 +1502,14 @@
                 "hardening": "Comprobaciones de refuerzo fallidas: {{n}}",
                 "exposure": "Servicios de riesgo: {{n}}",
                 "hints": "Posible contraseña de fábrica",
-                "blind": "Sin credenciales, visto solo de forma pasiva"
+                "blind": "Sin credenciales, visto solo de forma pasiva",
+                "kev": "Vulnerabilidades explotadas en ataques: {{n}}"
             },
             "problemsTitle": "Problemas de este dispositivo",
             "noDetail": "Sin problemas reportados para este dispositivo (o está fuera de los 60 más expuestos de los que el agente envía el detalle).",
             "more": "{{count}} más",
             "ports": "Puertos abiertos",
             "score": "Puntuación de riesgo"
-        }
-    },
-    "onsite": {
-        "title": "Qué está conectado dónde",
-        "subtitle": "Vista de solo lectura: los dispositivos, sus direcciones y el puerto del switch al que están conectados.",
-        "back": "Volver a la aplicación",
-        "tab": {
-            "devices": "Dispositivos",
-            "switches": "Switches"
-        },
-        "search": "Buscar: nombre, IP, MAC, lugar, puerto",
-        "searchPort": "Buscar puerto, nombre, IP o MAC",
-        "allSwitches": "Todos los switches",
-        "allTypes": "Todos los tipos",
-        "showInactive": "Mostrar inactivos",
-        "count": "Dispositivos: {{count}}",
-        "none": "No se encontró nada.",
-        "noPort": "sin información de puerto",
-        "col": {
-            "name": "Dispositivo",
-            "ip": "Dirección IP",
-            "mac": "Dirección MAC",
-            "attached": "Conectado a",
-            "place": "Lugar",
-            "seen": "Visto",
-            "port": "Puerto",
-            "devices": "Dispositivos en el puerto"
-        },
-        "mapAsOf": "Disposición de puertos de {{when}}",
-        "mapNone": "La disposición de puertos aún no está lista (actualiza en un momento)",
-        "mapBuilding": "actualizando",
-        "mapHint": "El puerto sale de la tabla MAC del switch y el Wi-Fi del registro de clientes de un punto de acceso MikroTik; sin información significa switch no gestionable o punto de acceso de otro fabricante.",
-        "switchesNone": "No hay switches con puertos legibles.",
-        "switchStats": "{{ports}} puertos, {{hosts}} dispositivos",
-        "switchStatsWifi": "{{ports}} puertos, {{hosts}} dispositivos, Wi-Fi: {{wifi}}",
-        "wifi": "Wi-Fi",
-        "manyOnPort": "Hay {{count}} dispositivos en este puerto: detrás hay un switch o un punto de acceso.",
-        "noAccess": "Sin acceso. Pide al administrador el enlace a esta vista o inicia sesión.",
-        "tooMany": "Demasiados intentos fallidos. Inténtalo de nuevo en unos minutos.",
-        "copy": "Copiar",
-        "share": {
-            "title": "Compartir esta vista",
-            "on": "activado",
-            "off": "desactivado",
-            "intro": "El enlace da acceso de solo lectura a qué está conectado dónde (sin vulnerabilidades, contraseñas ni comandos) y no requiere iniciar sesión. Funciona donde se pueda alcanzar este agente (normalmente la red local). Se puede desactivar o sustituir en cualquier momento.",
-            "enable": "Activar el uso compartido",
-            "disable": "Desactivar el uso compartido",
-            "regenerate": "Nueva clave",
-            "regenerateConfirm": "¿Generar una clave nueva? El enlace actual dejará de funcionar.",
-            "warning": "Quien tenga este enlace ve la lista de dispositivos de la red. Pásalo solo a una persona de confianza; la conexión con el agente no está cifrada si el agente funciona sin HTTPS."
         }
     },
     "traffic": {

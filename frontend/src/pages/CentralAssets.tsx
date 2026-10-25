@@ -4,7 +4,7 @@ import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type C
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
 import { Button } from '../components/ui/Button'
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Pill } from '../components/AssetBits'
-import { SeverityPill } from '../components/VulnViews'
+import { SeverityPill, ExploitPills } from '../components/VulnViews'
 import { RiskDetail, RISK_LEVELS } from '../components/SocBits'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { Boxes, ArrowUp, ArrowDown, X, Download, RotateCcw, Loader2, Play, Power, PowerOff, Camera } from 'lucide-react'
@@ -109,7 +109,7 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
             <ul className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
               {findings.map(f => (
                 <li key={`${f.cve_id}:${f.product}:${f.version}`} className="px-4 py-2 text-sm flex items-center gap-2">
-                  <SeverityPill severity={f.severity} />
+                  <SeverityPill severity={f.severity} /><ExploitPills kev={f.kev} epss={f.epss} />
                   <a href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-blue-600 hover:underline">{f.cve_id}</a>
                   <span className="text-xs text-slate-500 truncate">{f.product} {f.version}</span>
                   <span className="ml-auto text-xs text-slate-400 shrink-0">{f.cvss_score ?? ''}</span>
