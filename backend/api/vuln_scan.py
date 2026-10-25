@@ -13,7 +13,7 @@ from models.database import (
     SessionLocal, VulnHost, VulnService, VulnPackage, VulnFinding, VulnRemediation, Device, Credential,
     LinuxHost, WindowsHost,
 )
-from services import vuln_scan
+from services import vuln_scan, vuln_settings
 from api.auth import require_login
 
 router = APIRouter(prefix="/api/vuln", tags=["vuln"])
@@ -24,6 +24,34 @@ _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 @router.get("/status")
 async def get_status():
     return vuln_scan.status()
+
+
+class SettingsIn(BaseModel):
+    nvd_key: Optional[str] = None          # a new NVD API key (checked with NVD before it is kept)
+    clear_nvd_key: bool = False            # remove the key entered in the application
+
+
+@router.get("/settings")
+async def get_settings():
+    """The state of the data-source settings (never the key itself) and how the questions to NVD have been going."""
+    st = vuln_settings.status()
+    st["nvd"]["health"] = vuln_scan.nvd_health()
+    return st
+
+
+@router.put("/settings")
+async def put_settings(body: SettingsIn):
+    if body.clear_nvd_key:
+        return vuln_settings.set_nvd_key(None)
+    if body.nvd_key is not None:
+        key = body.nvd_key.strip()
+        if not key:
+            raise HTTPException(400, "Wpisz klucz NVD")
+        why = await vuln_settings.check_nvd_key(key)
+        if why:
+            raise HTTPException(400, f"NVD nie przyjął klucza ({why})")
+        return vuln_settings.set_nvd_key(key)
+    return vuln_settings.status()
 
 
 @router.post("/run")

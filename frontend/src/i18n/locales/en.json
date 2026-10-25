@@ -671,6 +671,27 @@
         "empty": "No users"
     },
     "vuln": {
+        "sources": {
+            "title": "Vulnerability data sources",
+            "keyOk": "NVD key: set",
+            "keyNone": "NVD key: none",
+            "failing": "NVD unreachable",
+            "failingTitle": "The scan cannot see vulnerabilities: the latest requests to NVD failed.",
+            "failingBody": "While NVD cannot be reached (no internet, a firewall, an antivirus that replaces HTTPS certificates), results are not updated and what was known before stays as it is.",
+            "lastError": "Last error: {{when}}",
+            "lastOk": "last successful request: {{when}}",
+            "intro": "Vulnerabilities are looked up in NVD (NIST). Without a key NVD answers only a few requests per half minute, so the scan of a larger network takes very long; a free key makes it about ten times faster.",
+            "state": "Key: {{source}} · interval between requests: {{sec}} s",
+            "src_app": "entered in the application",
+            "src_env": "from an environment variable",
+            "src_none": "none",
+            "placeholder": "NVD API key (UUID)",
+            "checking": "Checking…",
+            "save": "Save and check",
+            "remove": "Remove key",
+            "getKey": "Get a free key",
+            "note": "The key is stored encrypted on the agent. NVD ties it to one requester: for the agents of different clients it is better to request a separate key (it is free)."
+        },
         "title": "Vulnerability Scanner",
         "subtitle": "Passive detection of known vulnerabilities (CVE) across the whole network — no exploitation, no login attempts.",
         "disclaimer": "This detects based on service banners, not a full credentialed audit — it won't check OS patch level without logging in. It finds real, exposed, vulnerable network service versions.",

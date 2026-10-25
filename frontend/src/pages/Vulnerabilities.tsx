@@ -6,6 +6,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
+import { VulnSources } from '../components/VulnSources'
 import { VulnOverview, VulnCveList, RemediationPanel, STATUSES } from '../components/VulnViews'
 import { cn } from '../lib/utils'
 import {
@@ -201,6 +202,7 @@ export function Vulnerabilities() {
       </div>
 
       <VulnScanStatusPanel />
+      <VulnSources />
 
       <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
         {(['overview', 'cves', 'hosts'] as const).map(k => (

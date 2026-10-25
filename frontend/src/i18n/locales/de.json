@@ -671,6 +671,27 @@
         "empty": "Keine Benutzer"
     },
     "vuln": {
+        "sources": {
+            "title": "Datenquellen für Schwachstellen",
+            "keyOk": "NVD-Schlüssel: vorhanden",
+            "keyNone": "NVD-Schlüssel: keiner",
+            "failing": "NVD nicht erreichbar",
+            "failingTitle": "Der Scan sieht keine Schwachstellen: die letzten Anfragen an NVD sind fehlgeschlagen.",
+            "failingBody": "Solange NVD nicht erreichbar ist (kein Internet, Firewall, ein Virenscanner, der HTTPS-Zertifikate ersetzt), werden die Ergebnisse nicht aktualisiert und bisher Bekanntes bleibt unverändert.",
+            "lastError": "Letzter Fehler: {{when}}",
+            "lastOk": "letzte erfolgreiche Anfrage: {{when}}",
+            "intro": "Schwachstellen werden in der NVD (NIST) gesucht. Ohne Schlüssel beantwortet NVD nur wenige Anfragen pro halber Minute, ein Scan eines größeren Netzes dauert daher sehr lange; ein kostenloser Schlüssel macht ihn etwa zehnmal schneller.",
+            "state": "Schlüssel: {{source}} · Abstand zwischen Anfragen: {{sec}} s",
+            "src_app": "in der Anwendung eingegeben",
+            "src_env": "aus einer Umgebungsvariablen",
+            "src_none": "keiner",
+            "placeholder": "NVD-API-Schlüssel (UUID)",
+            "checking": "Prüfe…",
+            "save": "Speichern und prüfen",
+            "remove": "Schlüssel entfernen",
+            "getKey": "Kostenlosen Schlüssel holen",
+            "note": "Der Schlüssel wird verschlüsselt auf dem Agenten gespeichert. NVD bindet ihn an einen Antragsteller: für die Agenten verschiedener Kunden ist ein eigener Schlüssel besser (kostenlos)."
+        },
         "title": "Schwachstellen-Scanner",
         "subtitle": "Passive Erkennung bekannter Schwachstellen (CVE) im gesamten Netzwerk — keine Exploits, keine Login-Versuche.",
         "disclaimer": "Erkennung basiert auf Service-Bannern, kein vollständiges Audit mit Anmeldedaten — prüft den Patch-Stand des Betriebssystems nicht ohne Login. Findet real exponierte, verwundbare Netzwerkdienst-Versionen.",

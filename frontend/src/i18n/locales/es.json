@@ -671,6 +671,27 @@
         "empty": "No hay usuarios"
     },
     "vuln": {
+        "sources": {
+            "title": "Fuentes de datos de vulnerabilidades",
+            "keyOk": "clave NVD: configurada",
+            "keyNone": "clave NVD: ninguna",
+            "failing": "NVD inaccesible",
+            "failingTitle": "El análisis no ve vulnerabilidades: las últimas consultas a NVD fallaron.",
+            "failingBody": "Mientras NVD no sea accesible (sin internet, un cortafuegos, un antivirus que sustituye los certificados HTTPS), los resultados no se actualizan y lo conocido antes queda como está.",
+            "lastError": "Último error: {{when}}",
+            "lastOk": "última consulta correcta: {{when}}",
+            "intro": "Las vulnerabilidades se buscan en NVD (NIST). Sin clave, NVD atiende pocas consultas cada medio minuto, por lo que el análisis de una red grande tarda mucho; una clave gratuita lo acelera unas diez veces.",
+            "state": "Clave: {{source}} · intervalo entre consultas: {{sec}} s",
+            "src_app": "introducida en la aplicación",
+            "src_env": "de una variable de entorno",
+            "src_none": "ninguna",
+            "placeholder": "Clave API de NVD (UUID)",
+            "checking": "Comprobando…",
+            "save": "Guardar y comprobar",
+            "remove": "Quitar clave",
+            "getKey": "Obtener una clave gratuita",
+            "note": "La clave se guarda cifrada en el agente. NVD la asocia a un solicitante: para los agentes de distintos clientes conviene pedir una clave aparte (es gratis)."
+        },
         "title": "Escáner de vulnerabilidades",
         "subtitle": "Detección pasiva de vulnerabilidades conocidas (CVE) en toda la red — sin explotación, sin intentos de inicio de sesión.",
         "disclaimer": "Esta detección se basa en banners de servicio, no es una auditoría completa con credenciales — no comprueba el nivel de parches del sistema sin iniciar sesión. Detecta versiones de servicios de red realmente expuestas y vulnerables.",

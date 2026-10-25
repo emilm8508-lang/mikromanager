@@ -974,8 +974,14 @@ export interface VulnPackageOut {
   last_seen: string | null
 }
 
+export interface VulnSettings {
+  nvd: { configured: boolean; source: 'app' | 'env' | null; interval_sec: number
+         health?: { ok: number; errors: number; last_error: string | null; last_error_at: string | null; last_ok_at: string | null } }
+}
 export const vulnApi = {
   status: () => api.get<VulnStatus>('/vuln/status').then(r => r.data),
+  settings: () => api.get<VulnSettings>('/vuln/settings').then(r => r.data),
+  saveSettings: (body: { nvd_key?: string; clear_nvd_key?: boolean }) => api.put<VulnSettings>('/vuln/settings', body).then(r => r.data),
   packages: (params?: { host_id?: number; q?: string }) =>
     api.get<VulnPackageOut[]>('/vuln/packages', { params }).then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),

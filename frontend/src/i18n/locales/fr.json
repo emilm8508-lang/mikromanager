@@ -671,6 +671,27 @@
         "empty": "Aucun utilisateur"
     },
     "vuln": {
+        "sources": {
+            "title": "Sources de données de vulnérabilités",
+            "keyOk": "clé NVD : présente",
+            "keyNone": "clé NVD : aucune",
+            "failing": "NVD injoignable",
+            "failingTitle": "L'analyse ne voit pas les vulnérabilités : les dernières requêtes vers NVD ont échoué.",
+            "failingBody": "Tant que NVD est injoignable (pas d'internet, un pare-feu, un antivirus qui remplace les certificats HTTPS), les résultats ne sont pas mis à jour et ce qui était connu reste tel quel.",
+            "lastError": "Dernière erreur : {{when}}",
+            "lastOk": "dernière requête réussie : {{when}}",
+            "intro": "Les vulnérabilités sont recherchées dans NVD (NIST). Sans clé, NVD ne répond qu'à quelques requêtes par demi-minute, l'analyse d'un grand réseau est donc très longue ; une clé gratuite l'accélère environ dix fois.",
+            "state": "Clé : {{source}} · intervalle entre requêtes : {{sec}} s",
+            "src_app": "saisie dans l'application",
+            "src_env": "d'une variable d'environnement",
+            "src_none": "aucune",
+            "placeholder": "Clé API NVD (UUID)",
+            "checking": "Vérification…",
+            "save": "Enregistrer et vérifier",
+            "remove": "Supprimer la clé",
+            "getKey": "Obtenir une clé gratuite",
+            "note": "La clé est stockée chiffrée sur l'agent. NVD la lie à un demandeur : pour les agents de clients différents, mieux vaut demander une clé distincte (c'est gratuit)."
+        },
         "title": "Scanner de vulnérabilités",
         "subtitle": "Détection passive des vulnérabilités connues (CVE) sur tout le réseau — aucune exploitation, aucune tentative de connexion.",
         "disclaimer": "Cette détection se base sur les bannières de service, pas un audit complet avec identifiants — elle ne vérifie pas le niveau de correctifs du système sans connexion. Elle détecte des versions de services réseau réellement exposées et vulnérables.",

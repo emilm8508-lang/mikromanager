@@ -829,6 +829,27 @@
         "empty": "Brak użytkowników"
     },
     "vuln": {
+        "sources": {
+            "title": "Źródła danych o podatnościach",
+            "keyOk": "klucz NVD: jest",
+            "keyNone": "klucz NVD: brak",
+            "failing": "NVD nieosiągalny",
+            "failingTitle": "Skan nie widzi podatności: ostatnie zapytania do NVD nie powiodły się.",
+            "failingBody": "Dopóki NVD jest nieosiągalny (brak internetu, zapora, program antywirusowy podmieniający certyfikaty HTTPS), wyniki nie są aktualizowane, a znane wcześniej zostają bez zmian.",
+            "lastError": "Ostatni błąd: {{when}}",
+            "lastOk": "ostatnie udane zapytanie: {{when}}",
+            "intro": "Podatności są szukane w bazie NVD (NIST). Bez klucza NVD odpowiada na kilka zapytań na pół minuty, więc skan większej sieci trwa bardzo długo; darmowy klucz przyspiesza to około dziesięciokrotnie.",
+            "state": "Klucz: {{source}} · odstęp między zapytaniami: {{sec}} s",
+            "src_app": "wpisany w aplikacji",
+            "src_env": "ze zmiennej środowiskowej",
+            "src_none": "brak",
+            "placeholder": "Klucz API NVD (UUID)",
+            "checking": "Sprawdzam…",
+            "save": "Zapisz i sprawdź",
+            "remove": "Usuń klucz",
+            "getKey": "Załóż darmowy klucz",
+            "note": "Klucz jest przechowywany na agencie w postaci zaszyfrowanej. NVD przypisuje go do jednego zgłaszającego: dla agentów różnych klientów lepiej zażądać osobnego klucza (to bezpłatne)."
+        },
         "title": "Skaner podatności",
         "subtitle": "Pasywne wykrywanie znanych podatności (CVE) w całej sieci — bez prób ataku ani logowania.",
         "disclaimer": "To wykrywanie na podstawie banerów usług, nie pełny audyt z poświadczeniami — nie sprawdzi poziomu łatek systemu bez logowania. Wykrywa realnie eksponowane, podatne wersje usług sieciowych.",

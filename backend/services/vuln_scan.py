@@ -69,10 +69,10 @@ from services import scanner as scan_svc
 # ── Config ────────────────────────────────────────────────────────────────
 SCAN_DAY = int(os.environ.get("MIKROTIK_VULN_SCAN_DAY", "6"))     # 0=Mon .. 6=Sun
 SCAN_HOUR = int(os.environ.get("MIKROTIK_VULN_SCAN_HOUR", "2"))   # local time, 24h
-NVD_API_KEY = os.environ.get("MIKROTIK_NVD_API_KEY", "")
 NVD_CACHE_DAYS = int(os.environ.get("MIKROTIK_NVD_CACHE_DAYS", "7"))
-# Free-tier NVD: ~5 requests / 30s without a key, ~50 / 30s with one.
-NVD_MIN_INTERVAL = 1.2 if NVD_API_KEY else 6.5
+# The NVD API key (free) and the request interval it allows (~5 requests / 30s without a key, ~50 / 30s with one) come from services/vuln_settings.py:
+# entered in the application (Vulnerabilities page), or the MIKROTIK_NVD_API_KEY environment variable as a fallback.
+from services import vuln_settings
 
 # Optional second CVE source — vulners.com via the official `vulners` pip
 # package (no external binary). Does proper CPE-based matching (more
@@ -1222,6 +1222,25 @@ def _cve_to_finding(cve) -> Optional[dict]:
     }
 
 
+class NvdUnavailable(Exception):
+    """NVD could not be asked (no network, a certificate problem, a refused key, a timeout ...): an empty answer then means "unknown", not "no
+    vulnerabilities" - it must not be remembered as a clean result."""
+
+
+_nvd_health = {"ok": 0, "errors": 0, "last_error": None, "last_error_at": None, "last_ok_at": None}
+
+
+def nvd_health() -> dict:
+    """How the questions to NVD have been going since the agent started - for the Vulnerabilities page (a scan that cannot reach NVD finds nothing)."""
+    return dict(_nvd_health)
+
+
+def _nvd_error(e: Exception) -> None:
+    _nvd_health["errors"] += 1
+    _nvd_health["last_error"] = f"{type(e).__name__}: {e}"[:300]
+    _nvd_health["last_error_at"] = datetime.utcnow().isoformat() + "Z"
+
+
 def _nvd_query_live_sync(product: str, version: str) -> list:
     """Blocking — run via loop.run_in_executor (nvdlib's HTTP client is
     synchronous, same convention as the SSH/WinRM identity checks in this
@@ -1231,14 +1250,23 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
     descriptions (misses CVEs whose description text doesn't happen to
     contain the product/version string verbatim). Falls back to a keyword
     search (the old behavior) only if no CPE could be found, so coverage
-    never gets worse than before, only better."""
-    import nvdlib
-    key = NVD_API_KEY or None
+    never gets worse than before, only better.
 
-    try:
-        candidates = nvdlib.searchCPE(keywordSearch=f"{product} {version}", key=key, limit=20) or []
-    except Exception:
-        candidates = []
+    Raises NvdUnavailable when NVD could not be asked and nothing was found: before, every failure was swallowed and the empty result was cached
+    for NVD_CACHE_DAYS as "clean" - a week without findings after one bad network moment (or for good behind a TLS-inspecting proxy)."""
+    import nvdlib
+    key = vuln_settings.nvd_key() or None
+    errors: list = []
+
+    def ask(fn, **kw):
+        try:
+            return fn(key=key, **kw) or []
+        except Exception as e:
+            errors.append(e)
+            _nvd_error(e)
+            return []
+
+    candidates = ask(nvdlib.searchCPE, keywordSearch=f"{product} {version}", limit=20)
     if not candidates:
         # The product+version combo can be over-specific for NVD's own CPE
         # dictionary title text (e.g. a device's tracked product string
@@ -1247,10 +1275,7 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
         # — retry with just the product name before giving up on CPE
         # matching entirely. Version filtering still happens below, so
         # this only widens the net, never picks a wrong-version CPE.
-        try:
-            candidates = nvdlib.searchCPE(keywordSearch=product, key=key, limit=20) or []
-        except Exception:
-            candidates = []
+        candidates = ask(nvdlib.searchCPE, keywordSearch=product, limit=20)
 
     cpe_name = None
     for c in candidates:
@@ -1263,16 +1288,10 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
 
     cves = []
     if cpe_name:
-        try:
-            cves = nvdlib.searchCVE(cpeName=cpe_name, key=key, limit=50) or []
-        except Exception:
-            cves = []
+        cves = ask(nvdlib.searchCVE, cpeName=cpe_name, limit=50)
 
     if not cves:
-        try:
-            cves = nvdlib.searchCVE(keywordSearch=f"{product} {version}", key=key, limit=20) or []
-        except Exception:
-            cves = []
+        cves = ask(nvdlib.searchCVE, keywordSearch=f"{product} {version}", limit=20)
 
     findings = []
     for cve in cves:
@@ -1282,6 +1301,11 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
             continue
         if f:
             findings.append(f)
+    if errors and not findings:
+        raise NvdUnavailable(f"{type(errors[-1]).__name__}: {errors[-1]}"[:300])
+    if not errors:
+        _nvd_health["ok"] += 1
+        _nvd_health["last_ok_at"] = datetime.utcnow().isoformat() + "Z"
     return findings
 
 
@@ -1290,7 +1314,7 @@ async def _nvd_query_live(product: str, version: str) -> list:
     raises — any failure just yields no findings for this (product,
     version), the rest of the scan continues normally."""
     global _nvd_last_call
-    wait = NVD_MIN_INTERVAL - (time.time() - _nvd_last_call)
+    wait = vuln_settings.nvd_interval() - (time.time() - _nvd_last_call)
     if wait > 0:
         await asyncio.sleep(wait)
     _nvd_last_call = time.time()
@@ -1298,6 +1322,8 @@ async def _nvd_query_live(product: str, version: str) -> list:
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(_EXECUTOR, _nvd_query_live_sync, product, version)
+    except NvdUnavailable:
+        raise                                       # the caller must not remember "nothing found" - it is "could not ask"
     except Exception as e:
         print(f"[vuln_scan] NVD query failed for {product} {version}: {e}")
         return []
@@ -1415,7 +1441,12 @@ async def _get_findings_for(db, product: str, version: str) -> list:
     if cached:
         return cached
 
-    live = await _nvd_query_live(product, version)
+    try:
+        live = await _nvd_query_live(product, version)
+    except NvdUnavailable as e:
+        # NVD cannot be reached: keep what is known (even if older than the cache time) and try again at the next scan, instead of caching "clean"
+        print(f"[vuln_scan] NVD unavailable for {product} {version}: {e}")
+        return db.execute(select(VulnFinding).where(VulnFinding.product == product, VulnFinding.version == version)).scalars().all()
     if VULNERS_API_KEY:
         try:
             live = live + await _vulners_query(product, version)
