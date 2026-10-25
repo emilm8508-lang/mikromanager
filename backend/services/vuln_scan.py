@@ -1309,6 +1309,30 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
     return findings
 
 
+def _nvd_cve_sync(cve_id: str) -> Optional[dict]:
+    """Blocking: one CVE by its id (the score and severity NVD gives it). NvdUnavailable when NVD cannot be asked."""
+    import nvdlib
+    try:
+        r = nvdlib.searchCVE(cveId=cve_id, key=vuln_settings.nvd_key() or None) or []
+    except Exception as e:
+        _nvd_error(e)
+        raise NvdUnavailable(f"{type(e).__name__}: {e}"[:300])
+    _nvd_health["ok"] += 1
+    _nvd_health["last_ok_at"] = datetime.utcnow().isoformat() + "Z"
+    return _cve_to_finding(r[0]) if r else None
+
+
+async def nvd_cve(cve_id: str) -> Optional[dict]:
+    """The finding-dict of one CVE from NVD, rate-limited like every other question to it; None when NVD does not know it; NvdUnavailable when it
+    could not be asked."""
+    global _nvd_last_call
+    wait = vuln_settings.nvd_interval() - (time.time() - _nvd_last_call)
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _nvd_last_call = time.time()
+    return await asyncio.get_event_loop().run_in_executor(_EXECUTOR, _nvd_cve_sync, cve_id)
+
+
 async def _nvd_query_live(product: str, version: str) -> list:
     """Live NVD lookup via nvdlib, rate-limited by NVD_MIN_INTERVAL. Never
     raises — any failure just yields no findings for this (product,
@@ -1667,6 +1691,17 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
             entry["findings"].extend(
                 _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
+
+        # the CVEs of the security updates a Windows host has not installed (services/windows_updates.py)
+        from services import windows_updates
+        for kb, hosts_missing in windows_updates.affected(db).items():
+            matches = findings_by_pv.get((windows_updates.PRODUCT, kb))
+            if not matches:
+                continue
+            for h in hosts_missing:
+                entry = by_ip.setdefault(h["ip"], {"ip": h["ip"], "device_name": h.get("device_name"), "findings": []})
+                entry["findings"].extend(
+                    _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
 
         out = []
         for entry in by_ip.values():

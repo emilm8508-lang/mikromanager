@@ -429,7 +429,10 @@ $searcher = $session.CreateUpdateSearcher()
 $result = $searcher.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
 $updates = @()
 foreach ($u in $result.Updates) {
-    $updates += [PSCustomObject]@{ Title = $u.Title; KB = ($u.KBArticleIDs -join ',') }
+    # the CVEs an update fixes (IUpdate2) and Microsoft's severity of it: what turns "N updates pending" into "these CVEs are not fixed here"
+    $cves = @(); try { $cves = @($u.CveIDs) } catch { }
+    $sev = $null; try { $sev = $u.MsrcSeverity } catch { }
+    $updates += [PSCustomObject]@{ Title = $u.Title; KB = ($u.KBArticleIDs -join ','); Cves = ($cves -join ','); Sev = $sev }
 }
 $updates | ConvertTo-Json -Compress
 """
@@ -463,7 +466,8 @@ def _check_updates_sync(ip: str, port: int, username: str, password: str, domain
         if isinstance(parsed, dict):
             parsed = [parsed]
         titles = [f"{u.get('Title', '?')}" + (f" (KB{u['KB']})" if u.get("KB") else "") for u in parsed]
-        return {"ok": True, "count": len(titles), "titles": titles[:MAX_TITLES]}
+        from services import windows_updates
+        return {"ok": True, "count": len(titles), "titles": titles[:MAX_TITLES], "updates": windows_updates.parse(parsed)}
     finally:
         vs._close_winrm(session)
 
@@ -482,7 +486,7 @@ async def _run_check(ip: str, port: int, username: str, password: str, domain: O
 
 
 def _persist_check_result(host_id: int, ok: bool, count: Optional[int] = None,
-                           titles: Optional[list] = None, error: Optional[str] = None) -> None:
+                           titles: Optional[list] = None, error: Optional[str] = None, updates: Optional[list] = None) -> None:
     with SessionLocal() as db:
         host = db.get(WindowsHost, host_id)
         if not host:
@@ -494,6 +498,10 @@ def _persist_check_result(host_id: int, ok: bool, count: Optional[int] = None,
             host.upgradable_count = count
             host.upgradable_titles = json.dumps(titles or [])
         db.commit()
+    if ok and updates is not None:
+        from services import windows_updates
+        windows_updates.sync(host_id, updates)            # the CVEs of the missing security updates become findings
+        windows_updates.start_enrich()                    # their real CVSS scores come from NVD in the background
 
 
 # Scheduled-task-as-SYSTEM install script — see module docstring for why
@@ -717,7 +725,7 @@ async def check_updates(host_id: int) -> dict:
 
     _jobs[host_id] = {"status": "done", "finished_at": datetime.utcnow().isoformat(), "ip": ip,
                        "upgradable_count": result["count"], "log": result["titles"][:50]}
-    _persist_check_result(host_id, ok=True, count=result["count"], titles=result["titles"])
+    _persist_check_result(host_id, ok=True, count=result["count"], titles=result["titles"], updates=result.get("updates") or [])
     return {"ok": True, "upgradable_count": result["count"]}
 
 
@@ -779,6 +787,8 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
                 host.upgradable_count = 0
                 host.upgradable_titles = json.dumps([])
                 db.commit()
+        from services import windows_updates
+        windows_updates.clear(host_id)                    # whatever it was missing is installed: those CVEs are gone from the host
 
         activity.record("windows_update_installed", host_id=host_id, ip=ip, identity=identity,
                          reason=reason, reboot_required=result["reboot_required"])

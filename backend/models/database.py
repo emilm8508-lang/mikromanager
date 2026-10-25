@@ -675,6 +675,7 @@ class WindowsHost(Base):
     last_upgrade_at = Column(DateTime, nullable=True)
     upgradable_count = Column(Integer, nullable=True)
     upgradable_titles = Column(Text, nullable=True)      # JSON list of update titles, capped
+    upgradable_updates = Column(Text, nullable=True)     # JSON [{kb, title, sev, n}] of the security updates (with CVEs) it is missing - services/windows_updates.py
     reboot_required = Column(Boolean, nullable=False, default=False)
     last_status = Column(String, nullable=True)           # "ok" | "error" | "timeout"
     last_error = Column(Text, nullable=True)
@@ -1328,6 +1329,8 @@ def _migrate_add_columns():
         with engine.begin() as conn:
             if "last_compliance_check_at" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN last_compliance_check_at DATETIME"))
+            if "upgradable_updates" not in wh_cols:
+                conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN upgradable_updates TEXT"))
             if "domain" not in wh_cols:
                 conn.execute(text("ALTER TABLE windows_hosts ADD COLUMN domain TEXT"))
             if "host_type" not in wh_cols:

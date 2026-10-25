@@ -233,6 +233,8 @@ def _recommend(finding: VulnFinding, affected: list, linux_by_ip: dict) -> str:
     prefix = "Priorytetowo: " if (finding.severity or "").upper() in ("CRITICAL", "HIGH") else ""
     ref = f"Sprawdź poprawkę: {finding.ref_url}. " if finding.ref_url else ""
     kinds = {a["kind"] for a in affected}
+    if "update" in kinds:
+        return f"{prefix}{ref}Zainstaluj aktualizację Windows {finding.version} (zakładka Windows → Zainstaluj aktualizacje, albo Windows Update na hoście)."
     if "device" in kinds:
         action = "Zaktualizuj RouterOS w zakładce Urządzenia."
     elif "package" in kinds:
@@ -292,6 +294,13 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
         affected_by_pv.setdefault((product, d.ros_version), []).append(
             {"kind": "device", "ip": d.ip, "port": None,
              "device_id": d.id, "device_name": d.identity or d.name})
+
+    # the CVEs of the security updates a Windows host has not installed (services/windows_updates.py)
+    from services import windows_updates
+    for kb, hosts_missing in windows_updates.affected(db).items():
+        for h in hosts_missing:
+            affected_by_pv.setdefault((windows_updates.PRODUCT, kb), []).append(
+                {"kind": "update", "ip": h["ip"], "port": None, "device_name": h.get("device_name")})
 
     now = datetime.utcnow()
     out = []
