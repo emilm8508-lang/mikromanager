@@ -2748,6 +2748,7 @@ export interface CentralRecentAction {
   status: 'queued' | 'delivered' | 'done' | 'failed'
   at: string
   detail?: string          // the message of the latest event of this command (e.g. why it failed)
+  id?: number              // failed commands only: the event to accept or reject (they stay listed until then)
 }
 
 export interface DeviceLogFetchResult {
@@ -3067,7 +3068,10 @@ export const centralApi = {
   // firmware upgrade, Linux/Windows apt-upgrade/restart, DRP doc
   // generation, Dell checks, ...) — see ovh/api.php's recent_actions.
   recentActions: (limit: number = 50) =>
-    centralRequest<{ actions: CentralRecentAction[] }>('recent_actions', { limit: String(limit) }),
+    centralRequest<{ actions: CentralRecentAction[]; pending_errors?: number }>('recent_actions', { limit: String(limit) }),
+  // accept or reject failed commands: only then do they leave the recent-actions list
+  ackActions: (ids: number[], decision: 'accepted' | 'rejected') =>
+    centralRequest<{ ok: boolean; acked: number }>('action_ack', {}, { method: 'POST', body: { ids, decision } }),
 
   async snapshot(tenant: string): Promise<any> {
     const data = await centralRequest<any>('snapshot', { tenant })

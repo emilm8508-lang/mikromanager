@@ -1418,17 +1418,41 @@ function activity_process(PDO $pdo, string $tenant, ?array $events): void {
         }
     }
 
-    // Cap history: keep 500 newest per tenant.
+    // Cap history: keep 500 newest per tenant. A failed command nobody has accepted or rejected yet is never cut (up to a year),
+    // however many newer events there are - the "Ostatnie działania" panel keeps it until it is dealt with.
+    action_acks_ensure($pdo);
+    $failed = action_failed_types();
+    $ph = implode(',', array_fill(0, count($failed), '?'));
     $stmt = $pdo->prepare(
-        'DELETE FROM activity_log
+        "DELETE FROM activity_log
          WHERE tenant = ?
            AND id NOT IN (
              SELECT id FROM (
                SELECT id FROM activity_log WHERE tenant = ? ORDER BY ts DESC LIMIT 500
              ) t
-           )'
+           )
+           AND NOT (event_type IN ($ph) AND ts > (NOW() - INTERVAL 365 DAY) AND id NOT IN (SELECT event_id FROM action_acks))"
     );
-    $stmt->execute([$tenant, $tenant]);
+    $stmt->execute(array_merge([$tenant, $tenant], $failed));
+}
+
+/** Failed-command events the "Ostatnie działania" panel keeps until the user accepts or rejects them. */
+function action_failed_types(): array {
+    return ['drp_doc_generate_failed', 'firmware_upgrade_failed', 'linux_apt_upgrade_failed', 'windows_update_failed', 'rack_op_failed'];
+}
+
+/** Accepted/rejected failed commands (activity_log.id); created on first use so no schema step is needed. */
+function action_acks_ensure(PDO $pdo): void {
+    static $done = false;
+    if ($done) return;
+    $pdo->exec('CREATE TABLE IF NOT EXISTS action_acks (
+        event_id INT NOT NULL PRIMARY KEY,
+        tenant VARCHAR(64) NOT NULL,
+        decision VARCHAR(16) NOT NULL,
+        acked_by VARCHAR(64) NULL,
+        acked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    $done = true;
 }
 
 

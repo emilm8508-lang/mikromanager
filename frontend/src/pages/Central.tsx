@@ -913,6 +913,7 @@ const ACTION_STATUS_BADGE: Record<string, { variant: 'gray' | 'blue' | 'green' |
 // action reports one, an agent-confirmed "done"/"failed").
 function RecentActionsPanel() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const [collapsed, setCollapsed] = useState(false)
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['central-recent-actions'],
@@ -920,6 +921,12 @@ function RecentActionsPanel() {
     refetchInterval: 15_000,
   })
   const actions = data?.actions ?? []
+  // failed commands stay listed (the server never cuts them) until accepted or rejected
+  const ack = useMutation({
+    mutationFn: ({ ids, decision }: { ids: number[]; decision: 'accepted' | 'rejected' }) => centralApi.ackActions(ids, decision),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['central-recent-actions'] }),
+  })
+  const pendingIds = actions.filter(a => a.status === 'failed' && a.id != null).map(a => a.id as number)
 
   return (
     <Card>
@@ -929,8 +936,13 @@ function RecentActionsPanel() {
             <Activity size={15} className="text-indigo-600" />
             {t('central.recentActionsTitle')}
             {actions.length > 0 && <Badge variant="gray">{actions.length}</Badge>}
+            {pendingIds.length > 0 && <Badge variant="red">{pendingIds.length} {t('central.recentActionsPending')}</Badge>}
           </h2>
           <div className="flex items-center gap-2">
+            {pendingIds.length > 1 && (
+              <button disabled={ack.isPending} onClick={() => ack.mutate({ ids: pendingIds, decision: 'accepted' })}
+                className="text-xs text-slate-500 hover:text-indigo-600 disabled:opacity-50">{t('central.recentActionsAcceptAll')}</button>
+            )}
             <button onClick={() => refetch()} className="text-slate-400 hover:text-indigo-600" title={t('common.refresh') as string}>
               <RefreshCw size={13} />
             </button>
@@ -950,6 +962,8 @@ function RecentActionsPanel() {
             <p className="px-5 py-4 text-center text-slate-500 text-sm">{t('central.recentActionsEmpty')}</p>
           ) : (
             <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+              {pendingIds.length > 0 && <p className="px-5 py-1.5 text-[11px] text-slate-500 bg-red-50">{t('central.recentActionsAckHint')}</p>}
+              {ack.error && <p className="px-5 py-1.5 text-xs text-red-600">{(ack.error as Error).message}</p>}
               {actions.map((a, i) => {
                 const badge = ACTION_STATUS_BADGE[a.status] ?? ACTION_STATUS_BADGE.queued
                 const Icon = badge.icon
@@ -965,6 +979,14 @@ function RecentActionsPanel() {
                       {t(`central.recentActionsStatus.${a.status}`)}
                     </Badge>
                     <span className="text-xs text-slate-400 shrink-0 w-14 text-right">{formatAge(Math.floor((Date.now() - new Date(a.at).getTime()) / 1000))}</span>
+                    {a.status === 'failed' && a.id != null && (
+                      <span className="flex gap-1 shrink-0">
+                        <button disabled={ack.isPending} onClick={() => ack.mutate({ ids: [a.id as number], decision: 'accepted' })}
+                          className="text-[11px] px-2 py-0.5 rounded border border-slate-300 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 disabled:opacity-50">{t('central.recentActionsAccept')}</button>
+                        <button disabled={ack.isPending} onClick={() => ack.mutate({ ids: [a.id as number], decision: 'rejected' })}
+                          className="text-[11px] px-2 py-0.5 rounded border border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-600 disabled:opacity-50">{t('central.recentActionsReject')}</button>
+                      </span>
+                    )}
                   </div>
                 )
               })}

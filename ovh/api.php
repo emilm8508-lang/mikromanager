@@ -2855,7 +2855,8 @@ try {
                 'device_logs_delivered',
             ];
             $ph = implode(',', array_fill(0, count($action_event_types), '?'));
-            $sql = "SELECT tenant, ts, event_type, message, details FROM activity_log WHERE event_type IN ($ph)";
+            action_acks_ensure($pdo);
+            $sql = "SELECT id, tenant, ts, event_type, message, details FROM activity_log WHERE event_type IN ($ph)";
             $params = $action_event_types;
             if ($identity['allowed_tenants'] !== null) {
                 if (empty($identity['allowed_tenants'])) {
@@ -2870,6 +2871,26 @@ try {
                 $stmt = $pdo->prepare($sql . ' ORDER BY ts DESC, id DESC LIMIT ' . ($limit * 3));
                 $stmt->execute($params);
                 $log_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // A failed command stays on the list until it is accepted or rejected, however old it is: the ones the newest-rows
+                // window above no longer reaches are added here (the log is not pruned past them either, see activity_process()).
+                $failed_types = action_failed_types();
+                $fph = implode(',', array_fill(0, count($failed_types), '?'));
+                $fsql = "SELECT id, tenant, ts, event_type, message, details FROM activity_log WHERE event_type IN ($fph)"
+                      . ' AND id NOT IN (SELECT event_id FROM action_acks)';
+                $fparams = $failed_types;
+                if ($identity['allowed_tenants'] !== null) {
+                    $fsql .= ' AND tenant IN (' . implode(',', array_fill(0, count($identity['allowed_tenants']), '?')) . ')';
+                    $fparams = array_merge($fparams, $identity['allowed_tenants']);
+                }
+                $stmt = $pdo->prepare($fsql . ' ORDER BY ts DESC, id DESC LIMIT 300');
+                $stmt->execute($fparams);
+                $have = [];
+                foreach ($log_rows as $lr) $have[(int)$lr['id']] = true;
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $lr) {
+                    if (!isset($have[(int)$lr['id']])) $log_rows[] = $lr;
+                }
+                usort($log_rows, function ($a, $b) { return [$b['ts'], (int)$b['id']] <=> [$a['ts'], (int)$a['id']]; });
             }
 
             // One line per command, whose status changes (queued -> delivered -> done / failed): the delivery event and the
@@ -2925,6 +2946,7 @@ try {
                         $delivered[$n]['status'] = $status;
                         $delivered[$n]['at'] = $r['ts'];
                         $delivered[$n]['detail'] = $r['message'];
+                        if ($failed) $delivered[$n]['id'] = (int)$r['id'];
                         $delivered[$n]['_open'] = false;
                         $matched = true;
                         break;
@@ -2932,14 +2954,63 @@ try {
                 }
                 if (!$matched) {
                     $delivered[] = ['tenant' => $r['tenant'], 'label' => isset($completion_of[$type]) ? $completion_of[$type][1] : $r['message'],
-                                    'target' => $target, 'status' => $status, 'at' => $r['ts'], 'detail' => $r['message'], '_kind' => $type, '_open' => false];
+                                    'target' => $target, 'status' => $status, 'at' => $r['ts'], 'detail' => $r['message'], '_kind' => $type, '_open' => false]
+                               + ($failed ? ['id' => (int)$r['id']] : []);
                 }
             }
             $delivered = array_map(function ($c) { unset($c['_kind'], $c['_open']); return $c; }, $delivered);
 
-            $all = array_merge($queued, $delivered);
-            usort($all, function ($a, $b) { return strtotime($b['at']) <=> strtotime($a['at']); });
-            echo json_encode(['actions' => array_slice($all, 0, $limit)]);
+            // failures already accepted/rejected leave the list; the others come first and are never cut by the limit
+            $acked = [];
+            $fail_ids = array_values(array_filter(array_map(function ($c) { return $c['id'] ?? null; }, $delivered)));
+            if ($fail_ids) {
+                $stmt = $pdo->prepare('SELECT event_id FROM action_acks WHERE event_id IN (' . implode(',', array_fill(0, count($fail_ids), '?')) . ')');
+                $stmt->execute($fail_ids);
+                $acked = array_flip(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
+            }
+            $open_failed = [];
+            $rest = $queued;
+            foreach ($delivered as $c) {
+                if (($c['status'] ?? '') === 'failed' && isset($c['id'])) {
+                    if (!isset($acked[$c['id']])) $open_failed[] = $c;
+                } else {
+                    $rest[] = $c;
+                }
+            }
+            $by_time = function ($a, $b) { return strtotime($b['at']) <=> strtotime($a['at']); };
+            usort($open_failed, $by_time);
+            usort($rest, $by_time);
+            echo json_encode(['actions' => array_merge($open_failed, array_slice($rest, 0, $limit)), 'pending_errors' => count($open_failed)]);
+            break;
+
+        case 'action_ack':
+            // Accept or reject failed commands (activity_log ids). Only then do they leave the "Ostatnie działania" list.
+            require_write($identity);
+            $data = json_decode((string)file_get_contents('php://input'), true);
+            if (!is_array($data)) $data = [];
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array)($data['ids'] ?? [])), function ($i) { return $i > 0; })));
+            $decision = (string)($data['decision'] ?? '');
+            if (!$ids || count($ids) > 300 || !in_array($decision, ['accepted', 'rejected'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ids and decision (accepted|rejected) required']);
+                break;
+            }
+            action_acks_ensure($pdo);
+            $stmt = $pdo->prepare('SELECT id, tenant, event_type, message FROM activity_log WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+            $stmt->execute($ids);
+            $failed_types = action_failed_types();
+            $done = 0;
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $ev) {
+                if (!in_array($ev['event_type'], $failed_types, true) || !tenant_allowed($identity, $ev['tenant'])) continue;
+                $pdo->prepare('INSERT IGNORE INTO action_acks (event_id, tenant, decision, acked_by) VALUES (?, ?, ?, ?)')
+                    ->execute([(int)$ev['id'], $ev['tenant'], $decision, $identity['username'] ?? null]);
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, ?, ?, ?)')
+                    ->execute([$ev['tenant'], 'action_error_' . $decision,
+                               ($decision === 'accepted' ? 'Błąd przyjęty: ' : 'Błąd odrzucony: ') . mb_substr($ev['message'], 0, 400),
+                               json_encode(['event_id' => (int)$ev['id'], 'by' => $identity['username'] ?? null])]);
+                $done++;
+            }
+            echo json_encode(['ok' => true, 'acked' => $done]);
             break;
 
         default:
