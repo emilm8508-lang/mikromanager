@@ -1394,6 +1394,23 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// syslog and SNMP traps (services/syslog_receiver.py)
+export interface SyslogRule {
+  id: string; name: string; pattern: string; severity: string; source: string; threshold: number; window_sec: number; enabled: boolean
+  builtin?: boolean; description?: string | null
+}
+export interface SyslogStatus {
+  settings: { enabled: boolean; syslog_port: number; trap_port: number; accept_unknown: boolean; store_info: boolean; communities: number; rules: SyslogRule[]; disabled: string[] }
+  listening: { syslog: boolean; trap: boolean }; errors: { syslog: string | null; trap: string | null }
+  stats: { received: number; stored: number; unknown: number; rate_dropped: number; bad: number; traps: number; v3: number; bad_community: number; since: string | null }
+  stored_24h: number; top_sources: Array<{ ip: string; n: number; name: string | null }>; unknown: Array<{ ip: string; n: number }>; rules: SyslogRule[]
+}
+export interface SyslogEventRow { id: number; at: string; ip: string; name: string | null; asset_id: number | null; host: string | null; app: string | null; severity: number; kind: string; message: string; raised: string[] }
+export const syslogApi = {
+  status: () => api.get<SyslogStatus>('/syslog/status').then(r => r.data),
+  save: (body: Record<string, unknown>) => api.put('/syslog/settings', body).then(r => r.data),
+  events: (p: { kind?: string; q?: string; max_severity?: number; ip?: string; limit?: number }) => api.get<{ total: number; items: SyslogEventRow[] }>('/syslog/events', { params: p }).then(r => r.data),
+}
 // business services (services/business_services.py)
 export interface BizBody { name: string; description: string | null; mode: 'all' | 'any' | 'min'; min_up: number | null; target: number | null; members: number[] }
 export interface BizMonth { uptime: number | null; down_min: number; target?: number; allowed_min?: number; left_min?: number; met?: boolean }
@@ -1450,6 +1467,7 @@ export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
+  syslog?: { on: boolean; listening: { syslog: boolean; trap: boolean }; stored_24h: number; sources: number; unknown: number; errors: string[] }
   services?: { ok: number; degraded: number; down: number
                items: Array<{ n: string; s: 'ok' | 'degraded' | 'down' | 'unknown'; since: string | null; up: number; total: number; missing: string[]; mode: string; min?: number | null; u30: number | null; month: BizMonth | null }> }
   alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; asset?: number | null; status: SocStatus

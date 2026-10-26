@@ -521,6 +521,24 @@ class AvailEvent(Base):
     detail = Column(String, nullable=True)
 
 
+class SyslogEvent(Base):
+    """A message of a device that was kept (services/syslog_receiver.py): syslog of severity notice or worse, every SNMP trap, and whatever raised an alert
+    (info too when asked for). 14 days, at most 30 000 rows."""
+    __tablename__ = "syslog_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    source_ip = Column(String, nullable=False, index=True)
+    asset_id = Column(Integer, nullable=True)
+    host = Column(String, nullable=True)                 # the host name the message says (traps: the agent address)
+    app = Column(String, nullable=True)                  # tag / RouterOS topics / the trap's name
+    facility = Column(Integer, nullable=True)
+    severity = Column(Integer, nullable=False, default=6)  # syslog 0 (emergency) .. 7 (debug)
+    kind = Column(String, nullable=False, default="syslog")   # syslog | trap
+    message = Column(Text, nullable=False)
+    raised = Column(String, nullable=True)               # the detections it raised an alert for, comma-separated
+
+
 class BizService(Base):
     """A business service (services/business_services.py): what people use - "e-mail", "accounting", "the shop" - defined as the equipment it needs.
     Its state follows from the availability of the members (all of them needed / any one is enough / at least N), its history gives the SLA."""

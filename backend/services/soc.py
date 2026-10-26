@@ -56,6 +56,7 @@ CATALOG: Dict[str, tuple] = {
     "asset_up":                   ("assetdown", "recovery", "availability", "high", None, "Device answering"),
     "bizservice_problem":         ("bizsvc", "problem", "availability", "medium", None, "Business service impaired"),
     "bizservice_ok":              ("bizsvc", "recovery", "availability", "medium", None, "Business service restored"),
+    "syslog.link_down":           ("syslink", "problem", "network", "medium", None, "Link down"),
     "hostmon_host_down":          ("hostmon", "problem", "availability", "medium", None, "Host not answering"),
     "hostmon_host_up":            ("hostmon", "recovery", "availability", "medium", None, "Host answering"),
     "idrac_unreachable":          ("idrac", "problem", "hardware", "high", None, "iDRAC unreachable"),

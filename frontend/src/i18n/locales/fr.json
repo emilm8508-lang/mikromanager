@@ -21,6 +21,7 @@
                 "socRisk": "Risque des équipements",
                 "avail": "Disponibilité",
                 "svc": "Services métier",
+                "syslog": "Syslog et traps SNMP",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1646,6 +1647,119 @@
             "availability": "Appareils qui ne répondent pas",
             "availNone": "Tous les appareils surveillés répondent ({{up}}).",
             "behind": "à cause de {{name}}"
+        }
+    },
+    "syslog": {
+        "title": "Syslog et traps SNMP",
+        "subtitle": "Événements des appareils qui ne peuvent pas faire tourner un agent : switchs, imprimantes, onduleurs, pare-feu. L'appareil envoie ce qu'il journalise (syslog) ou qu'un événement s'est produit (trap SNMP), et l'agent reconnaît ce qui compte et en fait des alertes.",
+        "status": {
+            "listening": "À l'écoute",
+            "off": "Désactivé",
+            "port": "UDP {{port}}",
+            "counts": "Reçus : {{received}} · enregistrés (24 h) : {{stored}} · traps : {{traps}}",
+            "dropped": "Rejetés : sources inconnues {{unknown}}, au-delà de la limite {{rate}}, mauvaise communauté SNMP {{community}}, SNMPv3 {{v3}}, illisibles {{bad}}"
+        },
+        "settings": {
+            "title": "Paramètres",
+            "enabled": "Recevoir syslog et traps",
+            "syslogPort": "Port syslog (UDP)",
+            "trapPort": "Port des traps SNMP (UDP)",
+            "acceptUnknown": "Accepter aussi les appareils inconnus (hors inventaire)",
+            "storeInfo": "Enregistrer aussi les messages d'information (beaucoup de données)",
+            "communities": "Communautés SNMP des traps (séparées par des virgules ; vide = toutes). Définies : {{count}}",
+            "communitiesPlaceholder": "une nouvelle liste remplace l'actuelle",
+            "save": "Enregistrer",
+            "saved": "Enregistré",
+            "portHint": "Les ports 514 et 162 demandent les droits administrateur (Linux) ; 5514 et 5162 conviennent."
+        },
+        "how": {
+            "title": "Comment orienter les appareils vers cet agent",
+            "intro": "Adresse de cet agent sur le réseau : {{host}}. L'appareil doit figurer à l'inventaire (ou autoriser les inconnus).",
+            "mikrotik": "MikroTik : /system logging action add name=mm target=remote remote={{host}} remote-port={{port}} bsd-syslog=yes, puis /system logging add topics=system,error,critical,warning,info action=mm",
+            "linux": "Linux (rsyslog) : ajoutez *.* @{{host}}:{{port}} dans /etc/rsyslog.d/mm.conf",
+            "cisco": "Cisco : logging host {{host}} (port par défaut) et logging trap informational",
+            "snmp": "Traps SNMP : indiquez {{host}}:{{trapPort}} comme destinataire des traps (v1 ou v2c)."
+        },
+        "unknown": {
+            "title": "Sources inconnues refusées",
+            "none": "Aucun expéditeur inconnu.",
+            "hint": "Ajoutez l'appareil à l'inventaire (scan réseau) ou autorisez les sources inconnues."
+        },
+        "rules": {
+            "title": "Détections",
+            "builtin": "intégrée",
+            "custom": "personnalisée",
+            "threshold": "{{n}} en {{sec}} s",
+            "addCustom": "Ajouter une règle personnalisée",
+            "name": "Nom",
+            "pattern": "Motif (expression régulière)",
+            "severity": "Gravité",
+            "source": "Source",
+            "sourceAny": "syslog et traps",
+            "sourceSyslog": "syslog",
+            "sourceTrap": "traps",
+            "thresholdLabel": "Fois",
+            "window": "en (s)",
+            "remove": "Supprimer",
+            "hint": "Le motif est appliqué au texte du message (sans tenir compte de la casse) ; un trap se lit « SNMP trap nom (OID) : variables »."
+        },
+        "events": {
+            "title": "Événements reçus",
+            "none": "Aucun événement.",
+            "search": "Chercher dans le texte",
+            "allKinds": "Syslog et traps",
+            "kindSyslog": "Syslog",
+            "kindTrap": "Traps",
+            "minSeverity": "À partir de la gravité",
+            "col": {
+                "time": "Heure",
+                "device": "Appareil",
+                "severity": "Gravité",
+                "source": "Source",
+                "message": "Texte"
+            },
+            "raised": "alerte"
+        },
+        "sev": {
+            "0": "urgence",
+            "1": "alerte",
+            "2": "critique",
+            "3": "erreur",
+            "4": "avertissement",
+            "5": "notice",
+            "6": "info",
+            "7": "debug",
+            "low": "Faible",
+            "medium": "Moyenne",
+            "high": "Élevée",
+            "critical": "Critique"
+        },
+        "central": {
+            "line": "Syslog et traps : {{state}} · événements (24 h) : {{n}} · appareils : {{sources}}",
+            "on": "activé",
+            "off": "désactivé"
+        },
+        "rule": {
+            "auth_failure": {
+                "name": "Échecs de connexion répétés (syslog)",
+                "desc": "Cinq échecs de connexion du même appareil en cinq minutes."
+            },
+            "config_change": {
+                "name": "Configuration modifiée",
+                "desc": "Un appareil journalise que sa configuration a été modifiée (RouterOS « changed by », Cisco CONFIG_I ; le sudo Linux n'en fait pas partie)."
+            },
+            "restart": {
+                "name": "Appareil redémarré",
+                "desc": "Un redémarrage ou un arrêt signalé par l'appareil lui-même."
+            },
+            "link": {
+                "name": "Lien coupé / rétabli",
+                "desc": "Un lien qui tombe (syslog ou trap linkDown) est une alerte de l'appareil jusqu'à l'arrivée du rétablissement."
+            },
+            "critical": {
+                "name": "Messages critiques",
+                "desc": "Tout ce que l'appareil journalise comme critique, alerte ou urgence."
+            }
         }
     },
     "traffic": {

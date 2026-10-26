@@ -21,6 +21,7 @@
                 "socRisk": "Riesgo de activos",
                 "avail": "Disponibilidad",
                 "svc": "Servicios de negocio",
+                "syslog": "Syslog y traps SNMP",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1646,6 +1647,119 @@
             "availability": "Dispositivos que no responden",
             "availNone": "Todos los dispositivos supervisados responden ({{up}}).",
             "behind": "por {{name}}"
+        }
+    },
+    "syslog": {
+        "title": "Syslog y traps SNMP",
+        "subtitle": "Eventos de dispositivos que no pueden ejecutar un agente: switches, impresoras, SAI, cortafuegos. El dispositivo envía lo que registra (syslog) o que ha ocurrido algo (trap SNMP), y el agente reconoce lo importante y lo convierte en alertas.",
+        "status": {
+            "listening": "Escuchando",
+            "off": "Desactivado",
+            "port": "UDP {{port}}",
+            "counts": "Recibidos: {{received}} · guardados (24 h): {{stored}} · traps: {{traps}}",
+            "dropped": "Descartados: fuentes desconocidas {{unknown}}, sobre el límite {{rate}}, comunidad SNMP errónea {{community}}, SNMPv3 {{v3}}, ilegibles {{bad}}"
+        },
+        "settings": {
+            "title": "Ajustes",
+            "enabled": "Recibir syslog y traps",
+            "syslogPort": "Puerto syslog (UDP)",
+            "trapPort": "Puerto de traps SNMP (UDP)",
+            "acceptUnknown": "Aceptar también de dispositivos desconocidos (fuera del inventario)",
+            "storeInfo": "Guardar también mensajes informativos (muchos datos)",
+            "communities": "Comunidades SNMP de traps (separadas por comas; vacío = cualquiera). Definidas: {{count}}",
+            "communitiesPlaceholder": "una lista nueva sustituye la actual",
+            "save": "Guardar",
+            "saved": "Guardado",
+            "portHint": "Los puertos 514 y 162 requieren permisos de administrador (Linux); sirven 5514 y 5162."
+        },
+        "how": {
+            "title": "Cómo dirigir los dispositivos a este agente",
+            "intro": "Dirección de este agente en la red: {{host}}. El dispositivo debe estar en el inventario (o permitir desconocidos).",
+            "mikrotik": "MikroTik: /system logging action add name=mm target=remote remote={{host}} remote-port={{port}} bsd-syslog=yes, luego /system logging add topics=system,error,critical,warning,info action=mm",
+            "linux": "Linux (rsyslog): añada *.* @{{host}}:{{port}} a /etc/rsyslog.d/mm.conf",
+            "cisco": "Cisco: logging host {{host}} (puerto por defecto) y logging trap informational",
+            "snmp": "Traps SNMP: indique {{host}}:{{trapPort}} como receptor de traps (v1 o v2c)."
+        },
+        "unknown": {
+            "title": "Fuentes desconocidas rechazadas",
+            "none": "Ningún remitente desconocido.",
+            "hint": "Añada el dispositivo al inventario (escaneo de red) o permita fuentes desconocidas."
+        },
+        "rules": {
+            "title": "Detecciones",
+            "builtin": "integrada",
+            "custom": "propia",
+            "threshold": "{{n}} en {{sec}} s",
+            "addCustom": "Añadir una regla propia",
+            "name": "Nombre",
+            "pattern": "Patrón (expresión regular)",
+            "severity": "Gravedad",
+            "source": "Fuente",
+            "sourceAny": "syslog y traps",
+            "sourceSyslog": "syslog",
+            "sourceTrap": "traps",
+            "thresholdLabel": "Veces",
+            "window": "en (s)",
+            "remove": "Quitar",
+            "hint": "El patrón se aplica al texto del mensaje (sin distinguir mayúsculas); un trap se lee «SNMP trap nombre (OID): variables»."
+        },
+        "events": {
+            "title": "Eventos recibidos",
+            "none": "Sin eventos.",
+            "search": "Buscar en el texto",
+            "allKinds": "Syslog y traps",
+            "kindSyslog": "Syslog",
+            "kindTrap": "Traps",
+            "minSeverity": "Desde gravedad",
+            "col": {
+                "time": "Hora",
+                "device": "Dispositivo",
+                "severity": "Gravedad",
+                "source": "Fuente",
+                "message": "Texto"
+            },
+            "raised": "alerta"
+        },
+        "sev": {
+            "0": "emergencia",
+            "1": "alerta",
+            "2": "crítico",
+            "3": "error",
+            "4": "aviso",
+            "5": "nota",
+            "6": "info",
+            "7": "depuración",
+            "low": "Baja",
+            "medium": "Media",
+            "high": "Alta",
+            "critical": "Crítica"
+        },
+        "central": {
+            "line": "Syslog y traps: {{state}} · eventos (24 h): {{n}} · dispositivos: {{sources}}",
+            "on": "activado",
+            "off": "desactivado"
+        },
+        "rule": {
+            "auth_failure": {
+                "name": "Inicios de sesión fallidos repetidos (syslog)",
+                "desc": "Cinco inicios de sesión fallidos del mismo dispositivo en cinco minutos."
+            },
+            "config_change": {
+                "name": "Configuración modificada",
+                "desc": "Un dispositivo registra que se cambió su configuración (RouterOS «changed by», Cisco CONFIG_I; el sudo de Linux no cuenta)."
+            },
+            "restart": {
+                "name": "Dispositivo reiniciado",
+                "desc": "Un reinicio o apagado notificado por el propio dispositivo."
+            },
+            "link": {
+                "name": "Enlace caído / levantado",
+                "desc": "Un enlace que cae (syslog o trap linkDown) es una alerta del dispositivo hasta que llega el aviso de que vuelve."
+            },
+            "critical": {
+                "name": "Mensajes críticos",
+                "desc": "Todo lo que el dispositivo registra como crítico, alerta o emergencia."
+            }
         }
     },
     "traffic": {

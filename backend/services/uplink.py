@@ -564,6 +564,8 @@ async def _build_snapshot() -> dict:
             from services import availability, business_services
             soc_status["availability"] = availability.public_summary()          # what is down / unreachable, for Central
             soc_status["services"] = business_services.public_summary()         # the business services and their SLA
+            from services import syslog_receiver
+            soc_status["syslog"] = syslog_receiver.public_summary()             # whether devices' syslog / traps are received
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:

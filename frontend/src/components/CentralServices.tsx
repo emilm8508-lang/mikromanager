@@ -9,10 +9,16 @@ export function CentralServices({ soc }: { soc: CentralSoc }) {
   const ago = useAgo()
   const svc = soc.services
   const av = soc.availability
-  if (!svc && !av) return null
+  if (!svc && !av && !soc.syslog) return null
   return (
     <div className="space-y-3 pt-2">
       <h2 className="text-base font-semibold text-slate-900">{t('svc.central.title')}</h2>
+      {soc.syslog && (
+        <p className="text-xs text-slate-500">
+          {t('syslog.central.line', { state: t(soc.syslog.on ? 'syslog.central.on' : 'syslog.central.off'), n: soc.syslog.stored_24h, sources: soc.syslog.sources })}
+          {soc.syslog.errors.length > 0 && <span className="text-red-600"> · {soc.syslog.errors.join(' · ')}</span>}
+        </p>
+      )}
       {svc && (
         svc.items.length === 0 ? <p className="text-sm text-slate-500">{t('svc.central.none')}</p> : (
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
