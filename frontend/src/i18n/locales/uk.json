@@ -421,6 +421,8 @@
                     "lastSent":  "Останній успіх",
                     "totalSent":  "Всього надіслано",
                     "failed":  "помилок",
+                    "failingSince": "Немає зв'язку з",
+                    "spoolDropped": "втрачено: {{n}}",
                     "buffered":  "У буфері",
                     "lastError":  "Остання помилка",
                     "sendNow":  "Надіслати зараз",

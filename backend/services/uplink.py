@@ -31,6 +31,7 @@ from services import alerts
 from services import edge_discovery
 from services import firmware_status
 from services import activity
+from services import uplink_spool
 from services import changelog
 
 
@@ -50,14 +51,14 @@ _state = {
     "last_sent": None,
     "last_attempt": None,
     "last_error": None,
-    "buffered_count": 0,
+    "buffered_count": 0,         # events waiting in the spool (services/uplink_spool.py) because Central could not take them
+    "failing_since": None,       # the first failed attempt of the current run of failures - Central unreachable since then
     "total_sent": 0,
     "total_failed": 0,
     "last_status": None,         # HTTP status of the last attempt that got an answer (413 = the report was too large)
     "building_since": None,      # a report is being put together (the sections are awaited one by one) - set while it lasts
     "last_build_sec": None,      # how long the last report took to build
 }
-_buffer = []
 _task: Optional[asyncio.Task] = None
 _log_fetch_results: list = []
 
@@ -110,6 +111,7 @@ def status() -> dict:
         "has_api_key": bool(_config["api_key"]),
         "has_enc_key": bool(_config["enc_key"]),  # E2E encryption active
         **_state,
+        "spool": uplink_spool.stats(),
     }
 
 
@@ -1280,49 +1282,61 @@ def _central_groups_enabled() -> bool:
     return os.environ.get("MIKROTIK_CENTRAL_GROUPS_ENABLED", "1").strip().lower() not in ("0", "false", "no")
 
 
+async def _deliver(snapshot: dict) -> bool:
+    """One attempt to send a report. The events that could not be delivered before (the spool) go in front of this report's own; they leave the spool only
+    when the report is accepted, and the report's own events enter it when it is not - so nothing a failed attempt carried is lost, also over a restart."""
+    waiting_alerts, waiting_activity = uplink_spool.peek()
+    own_alerts = list(snapshot.get("alert_events") or [])
+    own_activity = list(snapshot.get("activity_events") or [])
+    snapshot["alert_events"] = waiting_alerts + own_alerts
+    snapshot["activity_events"] = waiting_activity + own_activity
+    ok = await _send_one(snapshot)
+    if ok:
+        uplink_spool.ack(len(waiting_alerts), len(waiting_activity))
+        _state["failing_since"] = None
+    else:
+        if _state.get("failing_since") is None:
+            _state["failing_since"] = _state.get("last_attempt")
+        if _state.get("last_status") == 413 and (waiting_alerts or waiting_activity):
+            # the relay refused the report as too large: the backlog was part of the reason, and sending it again can never work - give that chunk up
+            uplink_spool.ack(len(waiting_alerts), len(waiting_activity))
+            uplink_spool.note_dropped(len(waiting_alerts) + len(waiting_activity))
+            print("[uplink] gave up a chunk of waiting events the relay refused as too large")
+        uplink_spool.add(own_alerts, own_activity)
+        for entry in snapshot.get("log_fetch_results") or []:                 # the answers to a request for a device's log are one-off as well
+            if len(_log_fetch_results) < 20:
+                _log_fetch_results.append(entry)
+    s = uplink_spool.stats()
+    _state["buffered_count"] = s["alerts"] + s["activity"]
+    return ok
+
+
+async def _cycle() -> bool:
+    """Builds a report and sends it (with the waiting events); True when Central took it."""
+    _state["building_since"] = datetime.utcnow().isoformat() + "Z"
+    t_build = time.time()
+    try:
+        snapshot = await _build_snapshot()
+    finally:
+        _state["building_since"] = None
+    _state["last_build_sec"] = round(time.time() - t_build, 1)
+    return await _deliver(snapshot)
+
+
 async def send_now() -> dict:
     """Manually trigger one send. Returns result + status."""
-    snapshot = await _build_snapshot()
-    success = await _send_one(snapshot)
-    if not success:
-        _buffer.append(snapshot)
-        _state["buffered_count"] = len(_buffer)
+    success = await _cycle()
     return {"success": success, "status": status()}
 
 
 async def _loop():
-    global _buffer
     # Wait one interval before first try
     while True:
         try:
             await asyncio.sleep(_config["interval_sec"])
             if not is_configured():
                 continue
-
-            _state["building_since"] = datetime.utcnow().isoformat() + "Z"
-            t_build = time.time()
-            try:
-                snapshot = await _build_snapshot()
-            finally:
-                _state["building_since"] = None
-            _state["last_build_sec"] = round(time.time() - t_build, 1)
-            _buffer.append(snapshot)
-
-            # Try to drain buffer oldest-first
-            while _buffer:
-                head = _buffer[0]
-                if await _send_one(head):
-                    _buffer.pop(0)
-                elif _state.get("last_status") == 413:
-                    _buffer.pop(0)           # too big for the relay: sending the same report again can never work - drop it, try the next
-                    print("[uplink] dropped a report the relay refused as too large")
-                else:
-                    break  # keep buffered, retry next cycle
-
-            # Cap buffer
-            if len(_buffer) > 50:
-                _buffer = _buffer[-50:]
-            _state["buffered_count"] = len(_buffer)
+            await _cycle()
         except asyncio.CancelledError:
             break
         except Exception as e:

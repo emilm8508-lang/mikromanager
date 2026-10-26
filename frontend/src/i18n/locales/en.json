@@ -421,6 +421,8 @@
                     "lastSent":  "Last success",
                     "totalSent":  "Total sent",
                     "failed":  "failed",
+                    "failingSince": "Unreachable since",
+                    "spoolDropped": "lost: {{n}}",
                     "buffered":  "Buffered",
                     "lastError":  "Last error",
                     "sendNow":  "Send now",

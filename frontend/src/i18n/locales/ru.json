@@ -421,6 +421,8 @@
                     "lastSent":  "Последний успех",
                     "totalSent":  "Всего отправлено",
                     "failed":  "ошибок",
+                    "failingSince": "Нет связи с",
+                    "spoolDropped": "потеряно: {{n}}",
                     "buffered":  "В буфере",
                     "lastError":  "Последняя ошибка",
                     "sendNow":  "Отправить сейчас",

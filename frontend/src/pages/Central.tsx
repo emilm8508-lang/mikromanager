@@ -177,7 +177,13 @@ function UplinkPanel() {
               {status?.buffered_count ? (
                 <>
                   <span className="text-slate-500">{t('central.buffered')}:</span>
-                  <span className="text-amber-700">{status.buffered_count}</span>
+                  <span className="text-amber-700">{status.buffered_count}{status.spool?.dropped ? ` (${t('central.spoolDropped', { n: status.spool.dropped })})` : ''}</span>
+                </>
+              ) : null}
+              {status?.failing_since ? (
+                <>
+                  <span className="text-slate-500">{t('central.failingSince')}:</span>
+                  <span className="text-red-700">{new Date(status.failing_since + 'Z').toLocaleString()}</span>
                 </>
               ) : null}
               {status?.last_error && (

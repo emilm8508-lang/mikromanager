@@ -316,7 +316,9 @@ export interface UplinkStatus {
   last_sent: string | null
   last_attempt: string | null
   last_error: string | null
-  buffered_count: number
+  buffered_count: number          // events waiting in the on-disk spool because Central could not take them
+  failing_since?: string | null   // Central unreachable since then
+  spool?: { alerts: number; activity: number; since: string | null; dropped: number }
   total_sent: number
   total_failed: number
 }

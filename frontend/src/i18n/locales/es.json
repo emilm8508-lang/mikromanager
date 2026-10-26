@@ -421,6 +421,8 @@
                     "lastSent":  "Último éxito",
                     "totalSent":  "Total enviado",
                     "failed":  "fallidos",
+                    "failingSince": "Sin conexión desde",
+                    "spoolDropped": "perdidos: {{n}}",
                     "buffered":  "En buffer",
                     "lastError":  "Último error",
                     "sendNow":  "Enviar ahora",
