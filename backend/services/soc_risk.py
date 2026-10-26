@@ -86,7 +86,7 @@ async def compute() -> List[dict]:
     rows = [r for r in await assets_svc.list_assets() if r["active"]]
     vulns_by_ip = await assets_svc._vulns_by_ip()
     with SessionLocal() as db:
-        open_alerts = db.execute(select(SocAlert.asset_id, SocAlert.device_name, SocAlert.severity, SocAlert.rule, SocAlert.title).where(SocAlert.status.in_(soc.OPEN))).all()
+        open_alerts = db.execute(select(SocAlert.asset_id, SocAlert.device_name, SocAlert.severity, SocAlert.rule, SocAlert.title).where(SocAlert.status.in_(soc.OPEN), SocAlert.root_asset_id.is_(None))).all()
         failed: Dict[tuple, List[dict]] = {}
         for r in db.execute(select(ComplianceCheckResult).where(ComplianceCheckResult.passed.is_(False))).scalars().all():
             if (r.severity or "").lower() in ("high", "medium"):

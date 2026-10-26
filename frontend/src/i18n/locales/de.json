@@ -19,6 +19,7 @@
                 "socAlerts": "Alarme",
                 "socRules": "Erkennungsregeln",
                 "socRisk": "Asset-Risiko",
+                "avail": "Verfügbarkeit",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1438,6 +1439,7 @@
             "path": "Pfad",
             "full_log": "Quell-Logzeile",
             "groups": "Regelgruppen",
+            "correlated": "Folge des Ausfalls von {{name}}",
             "exploited": "In Angriffen ausgenutzt",
             "epss": "EPSS"
         },
@@ -1455,6 +1457,7 @@
             "wan_down": "WAN-Verbindung ausgefallen",
             "tunnel_down": "Tunnel ausgefallen",
             "host_service_down": "Dienst läuft nicht",
+            "asset_down": "Gerät antwortet nicht",
             "hostmon_host_down": "Host antwortet nicht",
             "idrac_unreachable": "iDRAC nicht erreichbar",
             "idrac_health_degraded": "Hardwarezustand des Servers verschlechtert",
@@ -1540,6 +1543,41 @@
             "ports": "Offene Ports",
             "score": "Risikobewertung"
         }
+    },
+    "avail": {
+        "title": "Geräteverfügbarkeit",
+        "subtitle": "Ob die Geräte antworten, seit wann und wie lange sie weg waren. Ein Gerät hinter einem ausgefallenen Switch ist „nicht erreichbar“: die Folge eines Fehlers, kein eigener Fehler.",
+        "state": {
+            "up": "Läuft",
+            "down": "Antwortet nicht",
+            "unreachable": "Nicht erreichbar"
+        },
+        "counts": "Läuft: {{up}} · antwortet nicht: {{down}} · nicht erreichbar: {{unreachable}}",
+        "col": {
+            "device": "Gerät",
+            "state": "Zustand",
+            "since": "Seit",
+            "cause": "Ursache",
+            "watch": "Überwachung"
+        },
+        "cause": "wegen {{name}}",
+        "watch": {
+            "auto": "automatisch",
+            "on": "immer",
+            "off": "aus"
+        },
+        "watchHint": "Automatisch: Netzwerkgeräte, Server und alles, woran etwas angeschlossen ist. Ein Arbeitsplatz lässt sich von Hand hinzufügen.",
+        "empty": "Noch keine Geräte überwacht. Sie erscheinen, sobald Inventar und Netzwerkkarte bereit sind.",
+        "lastCheck": "Letzte Prüfung: {{when}}",
+        "runNow": "Jetzt prüfen",
+        "outages": "Ausfälle der letzten {{days}} Tage",
+        "outagesNone": "Keine Ausfälle in diesem Zeitraum.",
+        "outageDown": "antwortete nicht",
+        "outageUnreachable": "nicht erreichbar (wegen {{cause}})",
+        "ongoing": "läuft",
+        "affected": "Hinter diesem Gerät nicht erreichbar ({{count}})",
+        "uptime": "Verfügbarkeit",
+        "note": "Prüfung jede Minute: Antwort auf Ping oder auf einen von einigen TCP-Ports. Die Verfügbarkeit zählt ab der ersten Prüfung; ein Ausfall ist die Zeit ohne Antwort, auch als nicht erreichbar."
     },
     "traffic": {
         "title": "Verkehrsanalyse",

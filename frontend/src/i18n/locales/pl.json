@@ -19,6 +19,7 @@
                 "socAlerts": "Alerty",
                 "socRules": "Reguły detekcji",
                 "socRisk": "Ryzyko zasobów",
+                "avail": "Dostępność",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1596,6 +1597,7 @@
             "path": "Ścieżka",
             "full_log": "Wiersz logu źródłowego",
             "groups": "Grupy reguły",
+            "correlated": "Skutek awarii: {{name}}",
             "exploited": "Wykorzystywana w atakach",
             "epss": "EPSS"
         },
@@ -1613,6 +1615,7 @@
             "wan_down": "Łącze WAN nie działa",
             "tunnel_down": "Tunel nie działa",
             "host_service_down": "Usługa nie działa",
+            "asset_down": "Urządzenie nie odpowiada",
             "hostmon_host_down": "Host nie odpowiada",
             "idrac_unreachable": "iDRAC nieosiągalny",
             "idrac_health_degraded": "Pogorszony stan sprzętu serwera",
@@ -1698,6 +1701,41 @@
             "ports": "Otwarte porty",
             "score": "Ocena ryzyka"
         }
+    },
+    "avail": {
+        "title": "Dostępność urządzeń",
+        "subtitle": "Czy urządzenia odpowiadają, od kiedy i jak długo ich nie było. Urządzenie za przełącznikiem, który nie działa, jest „nieosiągalne”: to skutek jednej awarii, a nie osobna awaria.",
+        "state": {
+            "up": "Działa",
+            "down": "Nie odpowiada",
+            "unreachable": "Nieosiągalne"
+        },
+        "counts": "Działa: {{up}} · nie odpowiada: {{down}} · nieosiągalne: {{unreachable}}",
+        "col": {
+            "device": "Urządzenie",
+            "state": "Stan",
+            "since": "Od",
+            "cause": "Przyczyna",
+            "watch": "Monitorowanie"
+        },
+        "cause": "przez {{name}}",
+        "watch": {
+            "auto": "automatycznie",
+            "on": "zawsze",
+            "off": "wyłączone"
+        },
+        "watchHint": "Automatycznie: urządzenia sieciowe, serwery i wszystko, do czego coś jest podłączone. Stację roboczą można dodać ręcznie.",
+        "empty": "Brak monitorowanych urządzeń. Pojawią się, gdy inwentarz i mapa sieci będą gotowe.",
+        "lastCheck": "Ostatnie sprawdzenie: {{when}}",
+        "runNow": "Sprawdź teraz",
+        "outages": "Przerwy w ostatnich {{days}} dniach",
+        "outagesNone": "Brak przerw w tym okresie.",
+        "outageDown": "nie odpowiadało",
+        "outageUnreachable": "nieosiągalne (przez {{cause}})",
+        "ongoing": "trwa",
+        "affected": "Za tym urządzeniem nieosiągalne ({{count}})",
+        "uptime": "Dostępność",
+        "note": "Sprawdzenie co minutę: odpowiedź na ping albo na jeden z portów TCP. Dostępność liczona od pierwszego sprawdzenia, przerwa to czas niedostępności, także nieosiągalności."
     },
     "traffic": {
         "title": "Analizator ruchu",

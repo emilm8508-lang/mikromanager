@@ -19,6 +19,7 @@
                 "socAlerts": "Alertas",
                 "socRules": "Reglas de detección",
                 "socRisk": "Riesgo de activos",
+                "avail": "Disponibilidad",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1438,6 +1439,7 @@
             "path": "Ruta",
             "full_log": "Línea del registro de origen",
             "groups": "Grupos de la regla",
+            "correlated": "Consecuencia de la caída de {{name}}",
             "exploited": "Explotada en ataques",
             "epss": "EPSS"
         },
@@ -1455,6 +1457,7 @@
             "wan_down": "Enlace WAN caído",
             "tunnel_down": "Túnel caído",
             "host_service_down": "Servicio detenido",
+            "asset_down": "El dispositivo no responde",
             "hostmon_host_down": "El host no responde",
             "idrac_unreachable": "iDRAC inaccesible",
             "idrac_health_degraded": "Estado del hardware del servidor degradado",
@@ -1540,6 +1543,41 @@
             "ports": "Puertos abiertos",
             "score": "Puntuación de riesgo"
         }
+    },
+    "avail": {
+        "title": "Disponibilidad de los dispositivos",
+        "subtitle": "Si los dispositivos responden, desde cuándo y cuánto tiempo estuvieron caídos. Un dispositivo tras un switch caído está «inalcanzable»: consecuencia de una sola avería, no una avería aparte.",
+        "state": {
+            "up": "Funciona",
+            "down": "No responde",
+            "unreachable": "Inalcanzable"
+        },
+        "counts": "Funcionan: {{up}} · no responden: {{down}} · inalcanzables: {{unreachable}}",
+        "col": {
+            "device": "Dispositivo",
+            "state": "Estado",
+            "since": "Desde",
+            "cause": "Causa",
+            "watch": "Supervisión"
+        },
+        "cause": "por {{name}}",
+        "watch": {
+            "auto": "automática",
+            "on": "siempre",
+            "off": "desactivada"
+        },
+        "watchHint": "Automática: equipos de red, servidores y todo aquello a lo que hay algo conectado. Un puesto de trabajo se puede añadir a mano.",
+        "empty": "Aún no se supervisa ningún dispositivo. Aparecerán cuando el inventario y el mapa de red estén listos.",
+        "lastCheck": "Última comprobación: {{when}}",
+        "runNow": "Comprobar ahora",
+        "outages": "Interrupciones en los últimos {{days}} días",
+        "outagesNone": "Sin interrupciones en este período.",
+        "outageDown": "no respondía",
+        "outageUnreachable": "inalcanzable (por {{cause}})",
+        "ongoing": "en curso",
+        "affected": "Inalcanzables tras este dispositivo ({{count}})",
+        "uptime": "Disponibilidad",
+        "note": "Comprobación cada minuto: respuesta a ping o a uno de varios puertos TCP. La disponibilidad cuenta desde la primera comprobación; una interrupción es el tiempo caído o inalcanzable."
     },
     "traffic": {
         "title": "Analizador de tráfico",

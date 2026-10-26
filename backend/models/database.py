@@ -412,6 +412,7 @@ class Asset(Base):
     os_version = Column(String, nullable=True)
     location_override = Column(String, nullable=True)
     place = Column(String, nullable=True)                          # where it physically is, as written by the operator: room, desk, wall socket / patch panel port
+    monitor = Column(Integer, nullable=True)                       # availability monitoring (services/availability.py): 1 on, 0 off, NULL = automatic (network gear, servers, anything others hang on)
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
     scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
@@ -488,6 +489,36 @@ class SocAlert(Base):
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String, nullable=True)                       # a user name, or "auto: recovered" / "auto: stale"
     log = Column(Text, nullable=True)                               # JSON [{t, who, a, v}]
+    root_asset_id = Column(Integer, nullable=True, index=True)      # an availability alert of something behind a device that is down itself: that device (services/availability.py)
+    root_name = Column(String, nullable=True)
+
+
+class AvailState(Base):
+    """The current reachability of one monitored asset (services/availability.py): up | down (it does not answer and what it hangs on does)
+    | unreachable (it does not answer because the device it hangs on - switch, access point, router, Hyper-V host - is down)."""
+    __tablename__ = "avail_state"
+
+    asset_id = Column(Integer, primary_key=True)
+    state = Column(String, nullable=False, default="up")
+    since = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_check = Column(DateTime, nullable=True)
+    first_check = Column(DateTime, nullable=False, default=datetime.utcnow)     # the start of the observation: uptime is counted from here
+    alerted = Column(Boolean, nullable=False, default=False)                  # a down alert was raised and its recovery is still to be reported
+    root_asset_id = Column(Integer, nullable=True)                              # unreachable: the device that is down
+    detail = Column(String, nullable=True)                                      # how it was last checked ("ping OK", "TCP 443 open", why it failed)
+
+
+class AvailEvent(Base):
+    """One change of state of a monitored asset: the history the uptime and the outage list are computed from (kept 400 days)."""
+    __tablename__ = "avail_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, nullable=False, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    state = Column(String, nullable=False)                      # the state it changed TO
+    root_asset_id = Column(Integer, nullable=True)
+    root_name = Column(String, nullable=True)
+    detail = Column(String, nullable=True)
 
 
 class VulnDaily(Base):
@@ -1281,6 +1312,17 @@ def _migrate_add_columns():
         if "place" not in as_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE assets ADD COLUMN place VARCHAR"))
+        if "monitor" not in as_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN monitor INTEGER"))
+
+    if "soc_alerts" in inspector.get_table_names():
+        sa_cols = {c["name"] for c in inspector.get_columns("soc_alerts")}
+        with engine.begin() as conn:
+            if "root_asset_id" not in sa_cols:
+                conn.execute(text("ALTER TABLE soc_alerts ADD COLUMN root_asset_id INTEGER"))
+            if "root_name" not in sa_cols:
+                conn.execute(text("ALTER TABLE soc_alerts ADD COLUMN root_name VARCHAR"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

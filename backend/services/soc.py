@@ -52,6 +52,8 @@ CATALOG: Dict[str, tuple] = {
     "tunnel_up":                  ("tunnel", "recovery", "availability", "high", None, "Tunnel up"),
     "host_service_down":          ("service", "problem", "availability", "medium", None, "Service not running"),
     "host_service_up":            ("service", "recovery", "availability", "medium", None, "Service running"),
+    "asset_down":                 ("assetdown", "problem", "availability", "high", None, "Device not answering"),
+    "asset_up":                   ("assetdown", "recovery", "availability", "high", None, "Device answering"),
     "hostmon_host_down":          ("hostmon", "problem", "availability", "medium", None, "Host not answering"),
     "hostmon_host_up":            ("hostmon", "recovery", "availability", "medium", None, "Host answering"),
     "idrac_unreachable":          ("idrac", "problem", "hardware", "high", None, "iDRAC unreachable"),
@@ -86,7 +88,7 @@ _DETAIL_KEYS = ("tunnel_type", "tunnel_name", "iface", "interface", "service_nam
 _EVIDENCE_KEYS = ("sources", "users", "count", "window_sec", "threshold", "log_message", "log_time", "rule_level", "rule_id", "rule_description",
                   "agent_name", "plugin_output", "state_name", "status_name", "message", "sensor_name", "service", "tunnel_type", "tunnel_name",
                   "iface", "interface", "detail", "from_state", "to_state", "duration_sec", "description", "mount", "vm_name", "groups", "mitre",
-                  "src_ip", "user", "location", "path", "cve", "package", "vuln_severity", "tactics", "full_log")
+                  "src_ip", "user", "location", "path", "cve", "package", "vuln_severity", "tactics", "full_log", "affected")
 
 _last_housekeeping = [0.0]
 _seen_events: Dict[tuple, float] = {}      # (type, fingerprint, detected_at) of the events already taken in, so a repeated copy counts once
@@ -191,6 +193,21 @@ def _asset_id(db, ip: Optional[str], name: Optional[str]) -> Optional[int]:
     return None
 
 
+def _correlate(db, row: SocAlert, now: datetime) -> None:
+    """An availability alert about something behind a device that is down (per services/availability.py) is a consequence of that device's
+    fault: it is marked with it (the page shows it as such and the risk score does not count it twice)."""
+    if row.root_asset_id or row.category != "availability" or row.rule == "asset_down" or not row.asset_id:
+        return
+    try:
+        from services import availability
+        root = availability.upstream_down(db, row.asset_id)
+    except Exception:
+        root = None
+    if root:
+        row.root_asset_id, row.root_name = root
+        _log(row, "auto", "correlated", root[1], now)
+
+
 def _upsert(db, *, fp: str, rule: str, source: str, category: str, severity: str, title: str, device: Optional[str], ip: Optional[str],
             detail: dict, count: int, mitre: Optional[str], now: datetime, asset_id: Optional[int] = None) -> str:
     """One alert for one fingerprint: the open one (or the false positive) gets the occurrence added, otherwise a new one is opened."""
@@ -208,6 +225,7 @@ def _upsert(db, *, fp: str, rule: str, source: str, category: str, severity: str
             _log(row, "auto", "escalated", severity, now)
         if ip and not row.ip:
             row.ip = ip
+        _correlate(db, row, now)
         return "updated"
     if asset_id is None:
         asset_id = _asset_id(db, ip, device)
@@ -215,6 +233,7 @@ def _upsert(db, *, fp: str, rule: str, source: str, category: str, severity: str
                    device_name=(device or None), ip=ip, asset_id=asset_id, detail=json.dumps(detail, ensure_ascii=False) if detail else None,
                    status="new", count=max(1, count), mitre=mitre, first_seen=now, last_seen=now)
     _log(row, "auto", "opened", severity, now)
+    _correlate(db, row, now)
     db.add(row)
     db.flush()                       # the session does not autoflush: a repeat in the same batch must find this row
     return "opened"
@@ -258,7 +277,8 @@ def ingest(events: List[dict], now: Optional[datetime] = None) -> dict:
                 except (TypeError, ValueError):
                     count = 1
                 r = _upsert(db, fp=fp, rule=c["type"], source=c["source"], category=c["category"], severity=c["severity"], title=c["title"],
-                            device=device, ip=e.get("ip") or e.get("device_ip"), detail=_evidence(e), count=count, mitre=c["mitre"], now=now)
+                            device=device, ip=e.get("ip") or e.get("device_ip"), detail=_evidence(e), count=count, mitre=c["mitre"], now=now,
+                            asset_id=e.get("asset_id") if isinstance(e.get("asset_id"), int) else None)
                 opened += r == "opened"
                 updated += r == "updated"
             db.commit()
@@ -353,7 +373,7 @@ def _row(a: SocAlert, full: bool = True) -> dict:
         "id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
         "device_name": a.device_name, "ip": a.ip, "asset_id": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count,
         "mitre": a.mitre, "first_seen": _iso(a.first_seen), "last_seen": _iso(a.last_seen), "closed_at": _iso(a.closed_at), "closed_by": a.closed_by,
-        "detail": detail,
+        "detail": detail, "root_asset_id": a.root_asset_id, "root_name": a.root_name,
     }
     if full:
         out["note"] = a.note
@@ -455,7 +475,7 @@ def public_summary() -> dict:
                                                                  "cve", "package", "vuln_severity", "src_ip", "user", "tactics", "exploited", "epss")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
                            "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
-                           "mitre": a.mitre, "detail": d})
+                           "mitre": a.mitre, "detail": d, "root": a.root_name})
         st.pop("top_devices", None)
         return {"at": _iso(now), "stats": st, "alerts": alerts}
     except Exception as e:

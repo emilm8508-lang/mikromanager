@@ -19,6 +19,7 @@
                 "socAlerts": "Alertes",
                 "socRules": "Règles de détection",
                 "socRisk": "Risque des équipements",
+                "avail": "Disponibilité",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1438,6 +1439,7 @@
             "path": "Chemin",
             "full_log": "Ligne du journal source",
             "groups": "Groupes de la règle",
+            "correlated": "Conséquence de la panne de {{name}}",
             "exploited": "Exploitée dans des attaques",
             "epss": "EPSS"
         },
@@ -1455,6 +1457,7 @@
             "wan_down": "Lien WAN coupé",
             "tunnel_down": "Tunnel coupé",
             "host_service_down": "Service arrêté",
+            "asset_down": "L'appareil ne répond pas",
             "hostmon_host_down": "L'hôte ne répond pas",
             "idrac_unreachable": "iDRAC injoignable",
             "idrac_health_degraded": "État matériel du serveur dégradé",
@@ -1540,6 +1543,41 @@
             "ports": "Ports ouverts",
             "score": "Note de risque"
         }
+    },
+    "avail": {
+        "title": "Disponibilité des appareils",
+        "subtitle": "Si les appareils répondent, depuis quand et combien de temps ils ont été absents. Un appareil derrière un switch en panne est « injoignable » : la conséquence d'une seule panne, pas une panne distincte.",
+        "state": {
+            "up": "Actif",
+            "down": "Ne répond pas",
+            "unreachable": "Injoignable"
+        },
+        "counts": "Actifs : {{up}} · ne répondent pas : {{down}} · injoignables : {{unreachable}}",
+        "col": {
+            "device": "Appareil",
+            "state": "État",
+            "since": "Depuis",
+            "cause": "Cause",
+            "watch": "Surveillance"
+        },
+        "cause": "à cause de {{name}}",
+        "watch": {
+            "auto": "automatique",
+            "on": "toujours",
+            "off": "désactivée"
+        },
+        "watchHint": "Automatique : équipements réseau, serveurs et tout ce à quoi quelque chose est raccordé. Un poste de travail peut être ajouté à la main.",
+        "empty": "Aucun appareil surveillé pour l'instant. Ils apparaîtront quand l'inventaire et la carte réseau seront prêts.",
+        "lastCheck": "Dernière vérification : {{when}}",
+        "runNow": "Vérifier maintenant",
+        "outages": "Interruptions des {{days}} derniers jours",
+        "outagesNone": "Aucune interruption sur cette période.",
+        "outageDown": "ne répondait pas",
+        "outageUnreachable": "injoignable (à cause de {{cause}})",
+        "ongoing": "en cours",
+        "affected": "Injoignables derrière cet appareil ({{count}})",
+        "uptime": "Disponibilité",
+        "note": "Vérification chaque minute : réponse au ping ou à l'un de quelques ports TCP. La disponibilité compte depuis la première vérification ; une interruption est le temps hors service ou injoignable."
     },
     "traffic": {
         "title": "Analyseur de trafic",

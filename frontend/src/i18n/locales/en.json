@@ -19,6 +19,7 @@
                 "socAlerts": "Alerts",
                 "socRules": "Detection rules",
                 "socRisk": "Asset risk",
+                "avail": "Availability",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1438,6 +1439,7 @@
             "path": "Path",
             "full_log": "Source log line",
             "groups": "Rule groups",
+            "correlated": "Consequence of: {{name}}",
             "exploited": "Exploited in attacks",
             "epss": "EPSS"
         },
@@ -1455,6 +1457,7 @@
             "wan_down": "WAN link down",
             "tunnel_down": "Tunnel down",
             "host_service_down": "Service not running",
+            "asset_down": "Device not answering",
             "hostmon_host_down": "Host not answering",
             "idrac_unreachable": "iDRAC unreachable",
             "idrac_health_degraded": "Server hardware health degraded",
@@ -1540,6 +1543,41 @@
             "ports": "Open ports",
             "score": "Risk score"
         }
+    },
+    "avail": {
+        "title": "Device availability",
+        "subtitle": "Whether the devices answer, since when, and how long they were away. A device behind a switch that is down is \"unreachable\": a consequence of one fault, not a separate fault.",
+        "state": {
+            "up": "Up",
+            "down": "Not answering",
+            "unreachable": "Unreachable"
+        },
+        "counts": "Up: {{up}} · not answering: {{down}} · unreachable: {{unreachable}}",
+        "col": {
+            "device": "Device",
+            "state": "State",
+            "since": "Since",
+            "cause": "Cause",
+            "watch": "Monitoring"
+        },
+        "cause": "because of {{name}}",
+        "watch": {
+            "auto": "automatic",
+            "on": "always",
+            "off": "off"
+        },
+        "watchHint": "Automatic: network gear, servers and everything something else is attached to. A workstation can be added by hand.",
+        "empty": "No devices are monitored yet. They appear once the inventory and the network map are ready.",
+        "lastCheck": "Last check: {{when}}",
+        "runNow": "Check now",
+        "outages": "Outages in the last {{days}} days",
+        "outagesNone": "No outages in this period.",
+        "outageDown": "not answering",
+        "outageUnreachable": "unreachable (because of {{cause}})",
+        "ongoing": "ongoing",
+        "affected": "Unreachable behind this device ({{count}})",
+        "uptime": "Availability",
+        "note": "Checked every minute: an answer to ping or to one of a few TCP ports. Availability counts from the first check; an outage is the time it was down or unreachable."
     },
     "traffic": {
         "title": "Traffic analyzer",

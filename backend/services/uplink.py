@@ -305,6 +305,12 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] host services alert events error: {e}")
 
     try:
+        from services import availability
+        alert_events += availability.collect_alert_events()          # devices that stopped answering (topology-aware), see services/availability.py
+    except Exception as e:
+        print(f"[uplink] availability alert events error: {e}")
+
+    try:
         from services import resource_monitor
         alert_events += await _bounded(resource_monitor.collect_resource_events())
     except Exception as e:

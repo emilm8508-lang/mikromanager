@@ -1369,10 +1369,30 @@ export type SocStatus = 'new' | 'ack' | 'in_progress' | 'false_positive' | 'clos
 export const SOC_SEVERITIES: SocSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 export const SOC_STATUSES: SocStatus[] = ['new', 'ack', 'in_progress', 'false_positive', 'closed']
 export interface SocAlert {
+  root_asset_id?: number | null; root_name?: string | null      // availability alerts: the device that is down above this one (this one is a consequence)
   id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null
   device_name: string | null; ip?: string | null; asset_id?: number | null; status: SocStatus; owner: string | null; count: number; mitre: string | null
   first_seen: string; last_seen: string; closed_at?: string | null; closed_by?: string | null
   detail: Record<string, any>; note?: string | null; log?: Array<{ t: string; who: string; a: string; v?: unknown }>
+}
+// availability (services/availability.py): state of the watched devices, uptime and outages
+export interface AvailItem {
+  id: number; name: string; ip: string | null; type: string | null; watched: boolean; mode: number | null
+  state: 'up' | 'down' | 'unreachable' | null; since: string | null; uptime: Record<string, number | null>
+  root: string | null; root_id?: number | null; detail: string | null; last_check: string | null
+}
+export interface AvailOverview {
+  items: AvailItem[]; up: number; down: number; unreachable: number; interval_sec: number; last: { at: string | null; checked: number; duration_sec: number | null; error: string | null }
+}
+export interface AvailOutages {
+  outages: Array<{ from: string; to: string | null; seconds: number; kind: 'down' | 'unreachable'; cause: string | null }>
+  uptime: number | null; state: string | null; since?: string | null; days: number; affected: Array<{ id: number; name: string; ip: string | null }>
+}
+export const availApi = {
+  overview: () => api.get<AvailOverview>('/availability').then(r => r.data),
+  run: () => api.post('/availability/run').then(r => r.data),
+  outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
+  setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
 export interface SocStats {
   open: number; new: number; in_progress: number; by_severity: Record<SocSeverity, number>; by_category: Record<string, number>
@@ -1412,11 +1432,11 @@ export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; asset?: number | null; status: SocStatus
-                  owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any> }>
+                  owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any>; root?: string | null }>
 }
 export function socFromCentral(s: CentralSoc): SocAlert[] {
   return s.alerts.map(a => ({ id: a.id, rule: a.rule, source: a.source, category: a.category, severity: a.severity, title: a.title, device_name: a.device, asset_id: a.asset ?? null,
-                              status: a.status, owner: a.owner, count: a.count, mitre: a.mitre, first_seen: a.first, last_seen: a.last, detail: a.detail }))
+                              status: a.status, owner: a.owner, count: a.count, mitre: a.mitre, first_seen: a.first, last_seen: a.last, detail: a.detail, root_name: a.root ?? null }))
 }
 
 // ── Traffic analyzer (RouterOS Torch) ───────────────────────────────────────
