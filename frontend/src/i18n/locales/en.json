@@ -23,6 +23,7 @@
                 "svc": "Business services",
                 "syslog": "Syslog and SNMP traps",
                 "cfg": "Router configurations",
+                "ai": "AI assistant",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1804,6 +1805,100 @@
         "note": "Read over SSH (/export), without passwords: the values of passwords, secrets and keys are replaced by ***. A new version is made only on a change; the header with the date is not a change. The last 40 versions of each router are kept.",
         "central": {
             "changed": "Routers whose configuration changed (24 h)"
+        }
+    },
+    "ai": {
+        "title": "AI assistant",
+        "subtitle": "Questions about the network in plain words: Claude reaches into this agent's data (alerts, risk, inventory, vulnerabilities, availability, configurations, syslog) through read-only tools and answers from it.",
+        "ready": "Ready",
+        "notReady": {
+            "off": "Off",
+            "no_key": "No API key",
+            "no_consent": "No consent",
+            "no_scope": "No data chosen"
+        },
+        "newChat": "New conversation",
+        "thinking": "The assistant is checking the data…",
+        "placeholder": "Ask a question, e.g. which servers are going out of support? (Enter sends, Shift+Enter a new line)",
+        "privacy": {
+            "title": "What leaves the organisation",
+            "body": "The question and the data the assistant reads with its tools (device names, IP addresses, alert texts, software versions, syslog lines) are sent to the Claude API of Anthropic. Passwords, secrets, keys, SNMP communities, MAC addresses, serial numbers and notes are not sent; texts are cut. The assistant changes nothing. Every question is recorded (who, when, which tools, how many tokens)."
+        },
+        "settings": {
+            "title": "Assistant settings",
+            "keySet": "key saved (enter a new one to replace it)",
+            "keyPlaceholder": "Anthropic API key (sk-ant-…)",
+            "saveKey": "Save key",
+            "removeKey": "Remove key",
+            "removeKeyConfirm": "Remove the API key from this agent?",
+            "keyNote": "The key is encrypted on the agent and never returned by the application.",
+            "model": "Model",
+            "effort": "Thoroughness",
+            "dailyLimit": "Questions per day",
+            "scopes": "What the assistant may read",
+            "consent": "I understand that the chosen data about this network will be sent to the Claude API (Anthropic), and I confirm that the organisation agrees to it.",
+            "enabled": "Enable the assistant",
+            "save": "Save settings"
+        },
+        "models": {
+            "claude-opus-5-5": "Claude Opus 5.5 (best, default)",
+            "claude-sonnet-5-5": "Claude Sonnet 5.5 (faster, cheaper)",
+            "claude-haiku-5-5": "Claude Haiku 5.5 (cheapest, simple questions)"
+        },
+        "efforts": {
+            "low": "low (fast)",
+            "medium": "medium",
+            "high": "high (more thorough, slower)"
+        },
+        "scope": {
+            "alerts": {
+                "name": "Alerts and risk",
+                "what": "the SOC alert queue and the risk ranking of devices"
+            },
+            "assets": {
+                "name": "Inventory",
+                "what": "devices, systems, versions, support status, where attached"
+            },
+            "vulnerabilities": {
+                "name": "Vulnerabilities",
+                "what": "the CVEs of devices, exploited ones marked"
+            },
+            "availability": {
+                "name": "Availability and services",
+                "what": "which devices do not answer, uptimes, business services and SLA"
+            },
+            "configs": {
+                "name": "Router configurations",
+                "what": "what was changed and when (no passwords)"
+            },
+            "syslog": {
+                "name": "Syslog and traps",
+                "what": "messages received from devices"
+            }
+        },
+        "suggest": {
+            "whatsWrong": "What is wrong in the network right now?",
+            "riskiest": "Which devices are most at risk and why?",
+            "eol": "Which computers and servers are out of vendor support?",
+            "changes": "What changed lately in the router configurations?",
+            "services": "How are the business services doing and what is unreachable?"
+        },
+        "tool": {
+            "list_alerts": "alerts",
+            "risk_ranking": "risk ranking",
+            "search_assets": "inventory",
+            "asset_detail": "device details",
+            "asset_vulnerabilities": "vulnerabilities",
+            "availability": "availability",
+            "config_changes": "configurations",
+            "syslog_events": "syslog"
+        },
+        "history": {
+            "title": "Questions",
+            "today": "today: {{n}}",
+            "tokens": "30 days: {{in}}k input tokens, {{out}}k output",
+            "none": "No questions yet.",
+            "error": "error"
         }
     },
     "traffic": {

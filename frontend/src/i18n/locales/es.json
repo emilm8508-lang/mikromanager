@@ -23,6 +23,7 @@
                 "svc": "Servicios de negocio",
                 "syslog": "Syslog y traps SNMP",
                 "cfg": "Configuraciones de routers",
+                "ai": "Asistente de IA",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1804,6 +1805,100 @@
         "note": "Lectura por SSH (/export), sin contraseñas: los valores de contraseñas, secretos y claves se sustituyen por ***. Una versión nueva solo se crea con un cambio; la cabecera con la fecha no es un cambio. Se conservan las últimas 40 versiones de cada router.",
         "central": {
             "changed": "Routers con la configuración cambiada (24 h)"
+        }
+    },
+    "ai": {
+        "title": "Asistente de IA",
+        "subtitle": "Preguntas sobre la red con palabras sencillas: Claude accede a los datos de este agente (alertas, riesgo, inventario, vulnerabilidades, disponibilidad, configuraciones, syslog) mediante herramientas de solo lectura y responde con ellos.",
+        "ready": "Listo",
+        "notReady": {
+            "off": "Desactivado",
+            "no_key": "Sin clave de API",
+            "no_consent": "Sin consentimiento",
+            "no_scope": "Sin datos elegidos"
+        },
+        "newChat": "Nueva conversación",
+        "thinking": "El asistente está consultando los datos…",
+        "placeholder": "Haga una pregunta, p. ej. ¿qué servidores pierden el soporte? (Intro envía, Mayús+Intro nueva línea)",
+        "privacy": {
+            "title": "Qué sale de la organización",
+            "body": "La pregunta y los datos que el asistente lee con sus herramientas (nombres de dispositivos, direcciones IP, textos de alertas, versiones de software, líneas de syslog) se envían a la API de Claude de Anthropic. No se envían contraseñas, secretos, claves, comunidades SNMP, direcciones MAC, números de serie ni notas; los textos se recortan. El asistente no cambia nada. Cada pregunta queda registrada (quién, cuándo, qué herramientas, cuántos tokens)."
+        },
+        "settings": {
+            "title": "Ajustes del asistente",
+            "keySet": "clave guardada (escriba una nueva para sustituirla)",
+            "keyPlaceholder": "Clave de API de Anthropic (sk-ant-…)",
+            "saveKey": "Guardar clave",
+            "removeKey": "Quitar clave",
+            "removeKeyConfirm": "¿Quitar la clave de API de este agente?",
+            "keyNote": "La clave se cifra en el agente y la aplicación nunca la devuelve.",
+            "model": "Modelo",
+            "effort": "Esmero",
+            "dailyLimit": "Preguntas por día",
+            "scopes": "Qué puede leer el asistente",
+            "consent": "Entiendo que los datos elegidos de esta red se enviarán a la API de Claude (Anthropic) y confirmo que la organización lo acepta.",
+            "enabled": "Activar el asistente",
+            "save": "Guardar ajustes"
+        },
+        "models": {
+            "claude-opus-5-5": "Claude Opus 5.5 (el mejor, por defecto)",
+            "claude-sonnet-5-5": "Claude Sonnet 5.5 (más rápido y barato)",
+            "claude-haiku-5-5": "Claude Haiku 5.5 (el más barato, preguntas simples)"
+        },
+        "efforts": {
+            "low": "baja (rápido)",
+            "medium": "media",
+            "high": "alta (más minucioso, más lento)"
+        },
+        "scope": {
+            "alerts": {
+                "name": "Alertas y riesgo",
+                "what": "la cola de alertas SOC y el ranking de riesgo de los dispositivos"
+            },
+            "assets": {
+                "name": "Inventario",
+                "what": "dispositivos, sistemas, versiones, soporte, dónde están conectados"
+            },
+            "vulnerabilities": {
+                "name": "Vulnerabilidades",
+                "what": "los CVE de los dispositivos, con los explotados marcados"
+            },
+            "availability": {
+                "name": "Disponibilidad y servicios",
+                "what": "qué dispositivos no responden, disponibilidad, servicios de negocio y SLA"
+            },
+            "configs": {
+                "name": "Configuraciones de routers",
+                "what": "qué se cambió y cuándo (sin contraseñas)"
+            },
+            "syslog": {
+                "name": "Syslog y traps",
+                "what": "mensajes recibidos de los dispositivos"
+            }
+        },
+        "suggest": {
+            "whatsWrong": "¿Qué falla ahora mismo en la red?",
+            "riskiest": "¿Qué dispositivos están más en riesgo y por qué?",
+            "eol": "¿Qué ordenadores y servidores están fuera de soporte del fabricante?",
+            "changes": "¿Qué ha cambiado últimamente en las configuraciones de los routers?",
+            "services": "¿Cómo van los servicios de negocio y qué está inalcanzable?"
+        },
+        "tool": {
+            "list_alerts": "alertas",
+            "risk_ranking": "ranking de riesgo",
+            "search_assets": "inventario",
+            "asset_detail": "detalle del dispositivo",
+            "asset_vulnerabilities": "vulnerabilidades",
+            "availability": "disponibilidad",
+            "config_changes": "configuraciones",
+            "syslog_events": "syslog"
+        },
+        "history": {
+            "title": "Preguntas",
+            "today": "hoy: {{n}}",
+            "tokens": "30 días: {{in}} mil tokens de entrada, {{out}} mil de salida",
+            "none": "Aún no hay preguntas.",
+            "error": "error"
         }
     },
     "traffic": {

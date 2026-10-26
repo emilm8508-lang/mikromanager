@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api, assistant as assistant_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, config_history
+from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, config_history, ai_assistant
 
 
 @asynccontextmanager
@@ -81,6 +81,7 @@ async def lifespan(app: FastAPI):
     availability.start()
     await syslog_receiver.start()
     config_history.start()
+    ai_assistant.load_settings()
     asset_scan_svc.start()
     lan_sweep_svc.start()
     try:
@@ -150,6 +151,7 @@ app.include_router(availability_api.router, dependencies=_protected)
 app.include_router(services_api.router, dependencies=_protected)
 app.include_router(syslog_api.router, dependencies=_protected)
 app.include_router(config_history_api.router, dependencies=_protected)
+app.include_router(assistant_api.router, dependencies=_protected)
 app.include_router(onsite_api.router)           # its own check: a session or the shared key (see api/onsite.py)
 app.include_router(inventory_api.router, dependencies=_protected)
 app.include_router(compliance_api.router, dependencies=_protected)

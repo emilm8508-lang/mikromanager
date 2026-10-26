@@ -521,6 +521,22 @@ class AvailEvent(Base):
     detail = Column(String, nullable=True)
 
 
+class AiQuery(Base):
+    """A question put to the AI assistant (services/ai_assistant.py): who asked, what, which tools ran and how many tokens it took. Kept 90 days - what was
+    sent out of the organisation can always be looked up."""
+    __tablename__ = "ai_queries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    username = Column(String, nullable=True)
+    question = Column(Text, nullable=False)
+    tools = Column(String, nullable=True)                # comma-separated names of the tools that ran
+    input_tokens = Column(Integer, nullable=False, default=0)
+    output_tokens = Column(Integer, nullable=False, default=0)
+    model = Column(String, nullable=True)
+    error = Column(String, nullable=True)
+
+
 class ConfigSnapshot(Base):
     """One version of the configuration of a MikroTik device (services/config_history.py): the normalised plain-text /export, stored when it changed."""
     __tablename__ = "config_snapshots"

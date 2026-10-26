@@ -23,6 +23,7 @@
                 "svc": "Services métier",
                 "syslog": "Syslog et traps SNMP",
                 "cfg": "Configurations des routeurs",
+                "ai": "Assistant IA",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1804,6 +1805,100 @@
         "note": "Lecture par SSH (/export), sans mots de passe : les valeurs des mots de passe, secrets et clés sont remplacées par ***. Une nouvelle version n'est créée qu'en cas de changement ; l'en-tête avec la date n'en est pas un. Les 40 dernières versions de chaque routeur sont conservées.",
         "central": {
             "changed": "Routeurs dont la configuration a changé (24 h)"
+        }
+    },
+    "ai": {
+        "title": "Assistant IA",
+        "subtitle": "Des questions sur le réseau en mots simples : Claude accède aux données de cet agent (alertes, risque, inventaire, vulnérabilités, disponibilité, configurations, syslog) par des outils en lecture seule et répond à partir d'elles.",
+        "ready": "Prêt",
+        "notReady": {
+            "off": "Désactivé",
+            "no_key": "Pas de clé API",
+            "no_consent": "Pas de consentement",
+            "no_scope": "Aucune donnée choisie"
+        },
+        "newChat": "Nouvelle conversation",
+        "thinking": "L'assistant consulte les données…",
+        "placeholder": "Posez une question, p. ex. quels serveurs sortent du support ? (Entrée envoie, Maj+Entrée nouvelle ligne)",
+        "privacy": {
+            "title": "Ce qui quitte l'organisation",
+            "body": "La question et les données que l'assistant lit avec ses outils (noms d'appareils, adresses IP, textes d'alertes, versions logicielles, lignes syslog) sont envoyées à l'API Claude d'Anthropic. Les mots de passe, secrets, clés, communautés SNMP, adresses MAC, numéros de série et notes ne sont pas envoyés ; les textes sont tronqués. L'assistant ne modifie rien. Chaque question est enregistrée (qui, quand, quels outils, combien de jetons)."
+        },
+        "settings": {
+            "title": "Réglages de l'assistant",
+            "keySet": "clé enregistrée (saisissez-en une nouvelle pour la remplacer)",
+            "keyPlaceholder": "Clé API Anthropic (sk-ant-…)",
+            "saveKey": "Enregistrer la clé",
+            "removeKey": "Supprimer la clé",
+            "removeKeyConfirm": "Supprimer la clé API de cet agent ?",
+            "keyNote": "La clé est chiffrée sur l'agent et n'est jamais renvoyée par l'application.",
+            "model": "Modèle",
+            "effort": "Minutie",
+            "dailyLimit": "Questions par jour",
+            "scopes": "Ce que l'assistant peut lire",
+            "consent": "Je comprends que les données choisies sur ce réseau seront envoyées à l'API Claude (Anthropic) et je confirme que l'organisation y consent.",
+            "enabled": "Activer l'assistant",
+            "save": "Enregistrer les réglages"
+        },
+        "models": {
+            "claude-opus-5-5": "Claude Opus 5.5 (le meilleur, par défaut)",
+            "claude-sonnet-5-5": "Claude Sonnet 5.5 (plus rapide, moins cher)",
+            "claude-haiku-5-5": "Claude Haiku 5.5 (le moins cher, questions simples)"
+        },
+        "efforts": {
+            "low": "faible (rapide)",
+            "medium": "moyenne",
+            "high": "élevée (plus minutieux, plus lent)"
+        },
+        "scope": {
+            "alerts": {
+                "name": "Alertes et risque",
+                "what": "la file d'alertes SOC et le classement de risque des appareils"
+            },
+            "assets": {
+                "name": "Inventaire",
+                "what": "appareils, systèmes, versions, support, lieu de raccordement"
+            },
+            "vulnerabilities": {
+                "name": "Vulnérabilités",
+                "what": "les CVE des appareils, celles exploitées signalées"
+            },
+            "availability": {
+                "name": "Disponibilité et services",
+                "what": "quels appareils ne répondent pas, disponibilités, services métier et SLA"
+            },
+            "configs": {
+                "name": "Configurations des routeurs",
+                "what": "ce qui a changé et quand (sans mots de passe)"
+            },
+            "syslog": {
+                "name": "Syslog et traps",
+                "what": "messages reçus des appareils"
+            }
+        },
+        "suggest": {
+            "whatsWrong": "Qu'est-ce qui ne va pas dans le réseau en ce moment ?",
+            "riskiest": "Quels appareils sont les plus à risque et pourquoi ?",
+            "eol": "Quels ordinateurs et serveurs sont hors support du constructeur ?",
+            "changes": "Qu'est-ce qui a changé récemment dans les configurations des routeurs ?",
+            "services": "Comment vont les services métier et qu'est-ce qui est injoignable ?"
+        },
+        "tool": {
+            "list_alerts": "alertes",
+            "risk_ranking": "classement de risque",
+            "search_assets": "inventaire",
+            "asset_detail": "détail de l'appareil",
+            "asset_vulnerabilities": "vulnérabilités",
+            "availability": "disponibilité",
+            "config_changes": "configurations",
+            "syslog_events": "syslog"
+        },
+        "history": {
+            "title": "Questions",
+            "today": "aujourd'hui : {{n}}",
+            "tokens": "30 jours : {{in}} k jetons en entrée, {{out}} k en sortie",
+            "none": "Aucune question pour l'instant.",
+            "error": "erreur"
         }
     },
     "traffic": {

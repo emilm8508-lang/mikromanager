@@ -23,6 +23,7 @@
                 "svc": "Geschäftsdienste",
                 "syslog": "Syslog und SNMP-Traps",
                 "cfg": "Router-Konfigurationen",
+                "ai": "KI-Assistent",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1804,6 +1805,100 @@
         "note": "Lesen über SSH (/export), ohne Passwörter: Werte von Passwörtern, Secrets und Schlüsseln werden durch *** ersetzt. Eine neue Version entsteht nur bei einer Änderung; der Kopf mit dem Datum ist keine Änderung. Die letzten 40 Versionen je Router werden aufbewahrt.",
         "central": {
             "changed": "Router mit geänderter Konfiguration (24 h)"
+        }
+    },
+    "ai": {
+        "title": "KI-Assistent",
+        "subtitle": "Fragen zum Netzwerk in einfachen Worten: Claude greift über reine Lese-Werkzeuge auf die Daten dieses Agenten zu (Alarme, Risiko, Inventar, Schwachstellen, Verfügbarkeit, Konfigurationen, Syslog) und antwortet daraus.",
+        "ready": "Bereit",
+        "notReady": {
+            "off": "Aus",
+            "no_key": "Kein API-Schlüssel",
+            "no_consent": "Keine Zustimmung",
+            "no_scope": "Keine Daten gewählt"
+        },
+        "newChat": "Neues Gespräch",
+        "thinking": "Der Assistent prüft die Daten…",
+        "placeholder": "Frage stellen, z. B. welche Server verlieren den Support? (Enter sendet, Shift+Enter neue Zeile)",
+        "privacy": {
+            "title": "Was die Organisation verlässt",
+            "body": "Die Frage und die Daten, die der Assistent mit seinen Werkzeugen liest (Gerätenamen, IP-Adressen, Alarmtexte, Softwareversionen, Syslog-Zeilen), werden an die Claude-API von Anthropic gesendet. Passwörter, Secrets, Schlüssel, SNMP-Communities, MAC-Adressen, Seriennummern und Notizen werden nicht gesendet; Texte werden gekürzt. Der Assistent ändert nichts. Jede Frage wird protokolliert (wer, wann, welche Werkzeuge, wie viele Tokens)."
+        },
+        "settings": {
+            "title": "Assistenten-Einstellungen",
+            "keySet": "Schlüssel gespeichert (neuen eingeben zum Ersetzen)",
+            "keyPlaceholder": "Anthropic-API-Schlüssel (sk-ant-…)",
+            "saveKey": "Schlüssel speichern",
+            "removeKey": "Schlüssel entfernen",
+            "removeKeyConfirm": "API-Schlüssel von diesem Agenten entfernen?",
+            "keyNote": "Der Schlüssel wird auf dem Agenten verschlüsselt und von der Anwendung nie zurückgegeben.",
+            "model": "Modell",
+            "effort": "Gründlichkeit",
+            "dailyLimit": "Fragen pro Tag",
+            "scopes": "Was der Assistent lesen darf",
+            "consent": "Mir ist bekannt, dass die gewählten Daten dieses Netzwerks an die Claude-API (Anthropic) gesendet werden, und ich bestätige, dass die Organisation zustimmt.",
+            "enabled": "Assistent aktivieren",
+            "save": "Einstellungen speichern"
+        },
+        "models": {
+            "claude-opus-5-5": "Claude Opus 5.5 (am besten, Standard)",
+            "claude-sonnet-5-5": "Claude Sonnet 5.5 (schneller, günstiger)",
+            "claude-haiku-5-5": "Claude Haiku 5.5 (am günstigsten, einfache Fragen)"
+        },
+        "efforts": {
+            "low": "niedrig (schnell)",
+            "medium": "mittel",
+            "high": "hoch (gründlicher, langsamer)"
+        },
+        "scope": {
+            "alerts": {
+                "name": "Alarme und Risiko",
+                "what": "die SOC-Alarmwarteschlange und das Risiko-Ranking der Geräte"
+            },
+            "assets": {
+                "name": "Inventar",
+                "what": "Geräte, Systeme, Versionen, Support-Status, Anschlussort"
+            },
+            "vulnerabilities": {
+                "name": "Schwachstellen",
+                "what": "die CVEs der Geräte, ausgenutzte markiert"
+            },
+            "availability": {
+                "name": "Verfügbarkeit und Dienste",
+                "what": "welche Geräte nicht antworten, Verfügbarkeiten, Geschäftsdienste und SLA"
+            },
+            "configs": {
+                "name": "Router-Konfigurationen",
+                "what": "was wann geändert wurde (ohne Passwörter)"
+            },
+            "syslog": {
+                "name": "Syslog und Traps",
+                "what": "von Geräten empfangene Meldungen"
+            }
+        },
+        "suggest": {
+            "whatsWrong": "Was ist im Netzwerk gerade nicht in Ordnung?",
+            "riskiest": "Welche Geräte sind am stärksten gefährdet und warum?",
+            "eol": "Welche Computer und Server sind außerhalb des Herstellersupports?",
+            "changes": "Was hat sich zuletzt in den Router-Konfigurationen geändert?",
+            "services": "Wie geht es den Geschäftsdiensten und was ist nicht erreichbar?"
+        },
+        "tool": {
+            "list_alerts": "Alarme",
+            "risk_ranking": "Risiko-Ranking",
+            "search_assets": "Inventar",
+            "asset_detail": "Gerätedetails",
+            "asset_vulnerabilities": "Schwachstellen",
+            "availability": "Verfügbarkeit",
+            "config_changes": "Konfigurationen",
+            "syslog_events": "Syslog"
+        },
+        "history": {
+            "title": "Fragen",
+            "today": "heute: {{n}}",
+            "tokens": "30 Tage: {{in}} Tsd. Eingabe-, {{out}} Tsd. Ausgabe-Tokens",
+            "none": "Noch keine Fragen.",
+            "error": "Fehler"
         }
     },
     "traffic": {

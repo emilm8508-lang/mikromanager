@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -268,6 +268,7 @@ export function Sidebar() {
   const agentNav: NavEntry[] = [
     item('/', t('nav.dashboard') as string, LayoutDashboard),
     item('/security-summary', t('nav.securitySummary') as string, PieChart),
+    item('/assistant', t('nav.ai') as string, Sparkles),
     { key: 'soc', label: t('nav.groupSoc') as string, icon: Siren, items: [
       item('/soc', t('nav.socAlerts') as string, Siren),
       item('/soc/risk', t('nav.socRisk') as string, Gauge),

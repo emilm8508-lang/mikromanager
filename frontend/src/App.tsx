@@ -13,6 +13,7 @@ import { Availability } from './pages/Availability'
 import { Services } from './pages/Services'
 import { SocSyslog } from './pages/SocSyslog'
 import { ConfigHistory } from './pages/ConfigHistory'
+import { Assistant } from './pages/Assistant'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="/services" element={<Services />} />
             <Route path="/soc/syslog" element={<SocSyslog />} />
             <Route path="/config-history" element={<ConfigHistory />} />
+            <Route path="/assistant" element={<Assistant />} />
             <Route path="/central/soc" element={<CentralSoc />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />

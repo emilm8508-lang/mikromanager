@@ -1396,6 +1396,21 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// the AI assistant (services/ai_assistant.py)
+export type AiScope = 'alerts' | 'assets' | 'vulnerabilities' | 'availability' | 'configs' | 'syslog'
+export interface AiStatus {
+  settings: { enabled: boolean; has_key: boolean; model: string; effort: string; scopes: Record<AiScope, boolean>; consent_at: string | null; consent_by: string | null; daily_limit: number
+              models: string[]; efforts: string[]; ready: boolean; not_ready: string | null }
+  queries: Array<{ at: string; user: string; question: string; tools: string[]; in: number; out: number; model: string; error: string | null }>
+  today: number; tokens_30d: { in: number; out: number }
+}
+export const aiApi = {
+  status: () => api.get<AiStatus>('/assistant/status').then(r => r.data),
+  save: (body: Record<string, unknown>) => api.put('/assistant/settings', body).then(r => r.data),
+  chat: (message: string, session_id: string | null) =>
+    api.post<{ session_id: string; answer: string; tools: Array<{ name: string; input: unknown }>; usage: { in: number; out: number }; model: string }>('/assistant/chat', { message, session_id }, { timeout: 240000 }).then(r => r.data),
+  endSession: (id: string) => api.delete(`/assistant/session/${id}`).then(r => r.data),
+}
 // configuration history of the MikroTik devices (services/config_history.py)
 export interface CfgItem {
   id: number; name: string; ip: string; versions: number; last_check: string | null; last_error: string | null; last_change: string | null; last_version: string | null
