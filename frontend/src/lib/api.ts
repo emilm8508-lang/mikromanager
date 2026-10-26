@@ -1394,6 +1394,24 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// business services (services/business_services.py)
+export interface BizBody { name: string; description: string | null; mode: 'all' | 'any' | 'min'; min_up: number | null; target: number | null; members: number[] }
+export interface BizMonth { uptime: number | null; down_min: number; target?: number; allowed_min?: number; left_min?: number; met?: boolean }
+export interface BizService {
+  id: number; name: string; description: string | null; mode: string; min_up: number | null; target: number | null; members: number[]; member_names: string[]
+  state: 'ok' | 'degraded' | 'down' | 'unknown'; since: string | null; up: number; total: number; missing: string[]; uptime: Record<string, number | null>; month: BizMonth | null
+}
+export interface BizDetail extends BizService {
+  days: number; outages: Array<{ from: string; to: string | null; seconds: number; kind: 'down' | 'degraded'; missing: string | null }>
+  member_states: Array<{ id: number; name: string; state: 'up' | 'down' | 'unreachable' | null; root: string | null }>
+}
+export const bizApi = {
+  list: () => api.get<{ items: BizService[]; ok: number; degraded: number; down: number }>('/services').then(r => r.data),
+  get: (id: number, days = 30) => api.get<BizDetail>(`/services/${id}`, { params: { days } }).then(r => r.data),
+  create: (body: BizBody) => api.post<{ id: number }>('/services', body).then(r => r.data),
+  update: (id: number, body: BizBody) => api.put<{ id: number }>(`/services/${id}`, body).then(r => r.data),
+  remove: (id: number) => api.delete(`/services/${id}`).then(r => r.data),
+}
 export interface SocStats {
   open: number; new: number; in_progress: number; by_severity: Record<SocSeverity, number>; by_category: Record<string, number>
   top_devices?: Array<{ name: string; n: number }>; opened_24h: number; closed_24h: number; false_positive_7d: number; mttr_hours: number | null
@@ -1431,6 +1449,9 @@ export const socApi = {
 export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
+  availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
+  services?: { ok: number; degraded: number; down: number
+               items: Array<{ n: string; s: 'ok' | 'degraded' | 'down' | 'unknown'; since: string | null; up: number; total: number; missing: string[]; mode: string; min?: number | null; u30: number | null; month: BizMonth | null }> }
   alerts: Array<{ id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null; device: string | null; asset?: number | null; status: SocStatus
                   owner: string | null; count: number; first: string; last: string; mitre: string | null; detail: Record<string, any>; root?: string | null }>
 }

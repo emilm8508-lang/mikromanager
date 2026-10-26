@@ -307,6 +307,8 @@ async def _build_snapshot() -> dict:
     try:
         from services import availability
         alert_events += availability.collect_alert_events()          # devices that stopped answering (topology-aware), see services/availability.py
+        from services import business_services
+        alert_events += business_services.collect_alert_events()     # business services that are down or degraded
     except Exception as e:
         print(f"[uplink] availability alert events error: {e}")
 
@@ -558,6 +560,12 @@ async def _build_snapshot() -> dict:
             soc_status["risk"] = await _bounded(soc_risk.public_summary())          # the worst devices and why, for Central's top list
         except Exception as e:
             print(f"[uplink] soc risk error: {e}")
+        try:
+            from services import availability, business_services
+            soc_status["availability"] = availability.public_summary()          # what is down / unreachable, for Central
+            soc_status["services"] = business_services.public_summary()         # the business services and their SLA
+        except Exception as e:
+            print(f"[uplink] availability summary error: {e}")
     except Exception as e:
         print(f"[uplink] soc error: {e}")
         soc_status = None

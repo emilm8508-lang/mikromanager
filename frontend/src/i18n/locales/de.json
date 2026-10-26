@@ -20,6 +20,7 @@
                 "socRules": "Erkennungsregeln",
                 "socRisk": "Asset-Risiko",
                 "avail": "Verfügbarkeit",
+                "svc": "Geschäftsdienste",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1458,6 +1459,7 @@
             "tunnel_down": "Tunnel ausgefallen",
             "host_service_down": "Dienst läuft nicht",
             "asset_down": "Gerät antwortet nicht",
+            "bizservice_problem": "Geschäftsdienst beeinträchtigt",
             "hostmon_host_down": "Host antwortet nicht",
             "idrac_unreachable": "iDRAC nicht erreichbar",
             "idrac_health_degraded": "Hardwarezustand des Servers verschlechtert",
@@ -1578,6 +1580,73 @@
         "affected": "Hinter diesem Gerät nicht erreichbar ({{count}})",
         "uptime": "Verfügbarkeit",
         "note": "Prüfung jede Minute: Antwort auf Ping oder auf einen von einigen TCP-Ports. Die Verfügbarkeit zählt ab der ersten Prüfung; ein Ausfall ist die Zeit ohne Antwort, auch als nicht erreichbar."
+    },
+    "svc": {
+        "title": "Geschäftsdienste und SLA",
+        "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",
+        "state": {
+            "ok": "Läuft",
+            "degraded": "Eingeschränkt",
+            "down": "Ausgefallen",
+            "unknown": "Keine Daten"
+        },
+        "counts": "Läuft: {{ok}} · eingeschränkt: {{degraded}} · ausgefallen: {{down}}",
+        "new": "Neuer Dienst",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "deleteConfirm": "Dienst „{{name}}“ samt Historie löschen?",
+        "col": {
+            "service": "Dienst",
+            "state": "Zustand",
+            "members": "Bestandteile",
+            "uptime": "Verfügbarkeit 30 Tage",
+            "sla": "Dieser Monat"
+        },
+        "empty": "Noch keine Dienste. Fügen Sie den ersten hinzu: ein Name und die Geräte, von denen er abhängt.",
+        "mode": {
+            "all": "alle nötig",
+            "any": "eines genügt",
+            "min": "mindestens {{n}}"
+        },
+        "membersUp": "{{up}} von {{total}} laufen",
+        "missing": "Fehlt: {{names}}",
+        "month": "{{uptime}}% (Ziel {{target}}%)",
+        "monthNoTarget": "{{uptime}}%",
+        "budgetLeft": "in diesem Monat noch {{left}} Min. Ausfall erlaubt",
+        "budgetOver": "um {{over}} Min. überschritten",
+        "outages": "Ausfälle der letzten {{days}} Tage",
+        "outagesNone": "Keine Ausfälle in diesem Zeitraum.",
+        "outageDown": "ausgefallen",
+        "outageDegraded": "eingeschränkt",
+        "ongoing": "läuft",
+        "members": "Bestandteile des Dienstes",
+        "memberCause": "wegen {{name}}",
+        "form": {
+            "titleNew": "Neuer Dienst",
+            "titleEdit": "Dienst bearbeiten",
+            "name": "Name",
+            "description": "Beschreibung (optional)",
+            "mode": "Regel",
+            "modeAll": "Alle Bestandteile nötig (fehlt einer = Dienst ausgefallen)",
+            "modeAny": "Ein Bestandteil genügt (zwei Gateways, zwei Server)",
+            "modeMin": "Eine Mindestanzahl von Bestandteilen nötig",
+            "minUp": "Mindestens aktiv",
+            "target": "SLA-Ziel (% des Monats ohne Ausfall, optional)",
+            "members": "Geräte des Dienstes",
+            "search": "Geräte suchen: Name oder IP",
+            "chosen": "Gewählt: {{count}}",
+            "hint": "Ein nicht überwachtes Gerät wird in die Verfügbarkeitsprüfung aufgenommen. Ein Gerät ohne IP-Adresse kann kein Bestandteil sein.",
+            "save": "Speichern",
+            "cancel": "Abbrechen"
+        },
+        "central": {
+            "title": "Geschäftsdienste und Verfügbarkeit",
+            "services": "Geschäftsdienste",
+            "none": "Dieser Kunde hat noch keine Dienste definiert (sie werden im Agent definiert).",
+            "availability": "Geräte, die nicht antworten",
+            "availNone": "Alle überwachten Geräte antworten ({{up}}).",
+            "behind": "wegen {{name}}"
+        }
     },
     "traffic": {
         "title": "Verkehrsanalyse",

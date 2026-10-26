@@ -521,6 +521,46 @@ class AvailEvent(Base):
     detail = Column(String, nullable=True)
 
 
+class BizService(Base):
+    """A business service (services/business_services.py): what people use - "e-mail", "accounting", "the shop" - defined as the equipment it needs.
+    Its state follows from the availability of the members (all of them needed / any one is enough / at least N), its history gives the SLA."""
+    __tablename__ = "biz_services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    description = Column(String, nullable=True)
+    mode = Column(String, nullable=False, default="all")        # all | any | min
+    min_up = Column(Integer, nullable=True)                      # mode "min": how many members have to be up
+    target = Column(Float, nullable=True)                        # the SLA target, % of the month the service is not down
+    members = Column(Text, nullable=False, default="[]")         # JSON list of asset ids
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class BizState(Base):
+    """The current state of a business service: ok | degraded (it works, something it relies on is missing) | down | unknown (no member checked yet)."""
+    __tablename__ = "biz_state"
+
+    service_id = Column(Integer, primary_key=True)
+    state = Column(String, nullable=False, default="unknown")
+    since = Column(DateTime, nullable=False, default=datetime.utcnow)
+    first_check = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_check = Column(DateTime, nullable=True)
+    detail = Column(Text, nullable=True)                         # JSON {up, total, missing: [names]}
+    alerted = Column(Boolean, nullable=False, default=False)
+    problem_since = Column(DateTime, nullable=True)              # when the current outage (degraded or down) began
+
+
+class BizEvent(Base):
+    """One change of state of a business service: the history the SLA and the outage list are computed from (kept 400 days)."""
+    __tablename__ = "biz_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_id = Column(Integer, nullable=False, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    state = Column(String, nullable=False)
+    root_name = Column(String, nullable=True)                    # what was missing, as text ("sw1, nas")
+
+
 class VulnDaily(Base):
     """One row per day: how many open vulnerabilities (per severity) and vulnerable assets there were - the history behind the
     "vulnerable assets over time" chart (services/assets.py record_vuln_day). The vulnerability data itself keeps no history."""

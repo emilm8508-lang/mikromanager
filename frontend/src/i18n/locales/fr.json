@@ -20,6 +20,7 @@
                 "socRules": "Règles de détection",
                 "socRisk": "Risque des équipements",
                 "avail": "Disponibilité",
+                "svc": "Services métier",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1458,6 +1459,7 @@
             "tunnel_down": "Tunnel coupé",
             "host_service_down": "Service arrêté",
             "asset_down": "L'appareil ne répond pas",
+            "bizservice_problem": "Service métier dégradé",
             "hostmon_host_down": "L'hôte ne répond pas",
             "idrac_unreachable": "iDRAC injoignable",
             "idrac_health_degraded": "État matériel du serveur dégradé",
@@ -1578,6 +1580,73 @@
         "affected": "Injoignables derrière cet appareil ({{count}})",
         "uptime": "Disponibilité",
         "note": "Vérification chaque minute : réponse au ping ou à l'un de quelques ports TCP. La disponibilité compte depuis la première vérification ; une interruption est le temps hors service ou injoignable."
+    },
+    "svc": {
+        "title": "Services métier et SLA",
+        "subtitle": "Un service est ce que les gens utilisent (« messagerie », « comptabilité », « la boutique »), décrit comme l'équipement dont il a besoin. Son état découle de la disponibilité de cet équipement et le SLA est calculé à partir de l'historique.",
+        "state": {
+            "ok": "Fonctionne",
+            "degraded": "Dégradé",
+            "down": "En panne",
+            "unknown": "Pas de données"
+        },
+        "counts": "Fonctionnent : {{ok}} · dégradés : {{degraded}} · en panne : {{down}}",
+        "new": "Nouveau service",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "deleteConfirm": "Supprimer le service « {{name}} » avec son historique ?",
+        "col": {
+            "service": "Service",
+            "state": "État",
+            "members": "Éléments",
+            "uptime": "Disponibilité, 30 jours",
+            "sla": "Ce mois"
+        },
+        "empty": "Aucun service pour l'instant. Ajoutez le premier : un nom et les appareils dont il dépend.",
+        "mode": {
+            "all": "tous nécessaires",
+            "any": "un seul suffit",
+            "min": "au moins {{n}}"
+        },
+        "membersUp": "{{up}} sur {{total}} fonctionnent",
+        "missing": "Manque : {{names}}",
+        "month": "{{uptime}}% (objectif {{target}}%)",
+        "monthNoTarget": "{{uptime}}%",
+        "budgetLeft": "il reste {{left}} min d'indisponibilité ce mois-ci",
+        "budgetOver": "dépassé de {{over}} min",
+        "outages": "Interruptions des {{days}} derniers jours",
+        "outagesNone": "Aucune interruption sur cette période.",
+        "outageDown": "en panne",
+        "outageDegraded": "dégradé",
+        "ongoing": "en cours",
+        "members": "Éléments du service",
+        "memberCause": "à cause de {{name}}",
+        "form": {
+            "titleNew": "Nouveau service",
+            "titleEdit": "Modifier le service",
+            "name": "Nom",
+            "description": "Description (facultatif)",
+            "mode": "Règle",
+            "modeAll": "Tous les éléments sont nécessaires (un manquant = service en panne)",
+            "modeAny": "Un seul élément suffit (deux passerelles, deux serveurs)",
+            "modeMin": "Un nombre minimal d'éléments est nécessaire",
+            "minUp": "Minimum devant fonctionner",
+            "target": "Objectif SLA (% du mois sans panne, facultatif)",
+            "members": "Appareils du service",
+            "search": "Chercher des appareils : nom ou IP",
+            "chosen": "Choisis : {{count}}",
+            "hint": "Un appareil non surveillé est ajouté aux contrôles de disponibilité. Un appareil sans adresse IP ne peut pas être un élément.",
+            "save": "Enregistrer",
+            "cancel": "Annuler"
+        },
+        "central": {
+            "title": "Services métier et disponibilité",
+            "services": "Services métier",
+            "none": "Ce client n'a pas encore de services définis (ils se définissent sur l'agent).",
+            "availability": "Appareils qui ne répondent pas",
+            "availNone": "Tous les appareils surveillés répondent ({{up}}).",
+            "behind": "à cause de {{name}}"
+        }
     },
     "traffic": {
         "title": "Analyseur de trafic",

@@ -20,6 +20,7 @@
                 "socRules": "Reglas de detección",
                 "socRisk": "Riesgo de activos",
                 "avail": "Disponibilidad",
+                "svc": "Servicios de negocio",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1458,6 +1459,7 @@
             "tunnel_down": "Túnel caído",
             "host_service_down": "Servicio detenido",
             "asset_down": "El dispositivo no responde",
+            "bizservice_problem": "Servicio de negocio afectado",
             "hostmon_host_down": "El host no responde",
             "idrac_unreachable": "iDRAC inaccesible",
             "idrac_health_degraded": "Estado del hardware del servidor degradado",
@@ -1578,6 +1580,73 @@
         "affected": "Inalcanzables tras este dispositivo ({{count}})",
         "uptime": "Disponibilidad",
         "note": "Comprobación cada minuto: respuesta a ping o a uno de varios puertos TCP. La disponibilidad cuenta desde la primera comprobación; una interrupción es el tiempo caído o inalcanzable."
+    },
+    "svc": {
+        "title": "Servicios de negocio y SLA",
+        "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",
+        "state": {
+            "ok": "Funciona",
+            "degraded": "Degradado",
+            "down": "Caído",
+            "unknown": "Sin datos"
+        },
+        "counts": "Funcionan: {{ok}} · degradados: {{degraded}} · caídos: {{down}}",
+        "new": "Nuevo servicio",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteConfirm": "¿Eliminar el servicio «{{name}}» con su historial?",
+        "col": {
+            "service": "Servicio",
+            "state": "Estado",
+            "members": "Elementos",
+            "uptime": "Disponibilidad, 30 días",
+            "sla": "Este mes"
+        },
+        "empty": "Aún no hay servicios. Añada el primero: un nombre y los dispositivos de los que depende.",
+        "mode": {
+            "all": "todos necesarios",
+            "any": "basta uno",
+            "min": "al menos {{n}}"
+        },
+        "membersUp": "{{up}} de {{total}} funcionan",
+        "missing": "Falta: {{names}}",
+        "month": "{{uptime}}% (objetivo {{target}}%)",
+        "monthNoTarget": "{{uptime}}%",
+        "budgetLeft": "quedan {{left}} min de caída este mes",
+        "budgetOver": "superado en {{over}} min",
+        "outages": "Interrupciones en los últimos {{days}} días",
+        "outagesNone": "Sin interrupciones en este período.",
+        "outageDown": "caído",
+        "outageDegraded": "degradado",
+        "ongoing": "en curso",
+        "members": "Elementos del servicio",
+        "memberCause": "por {{name}}",
+        "form": {
+            "titleNew": "Nuevo servicio",
+            "titleEdit": "Editar servicio",
+            "name": "Nombre",
+            "description": "Descripción (opcional)",
+            "mode": "Regla",
+            "modeAll": "Hacen falta todos los elementos (si falta uno, el servicio está caído)",
+            "modeAny": "Basta un elemento (dos puertas de enlace, dos servidores)",
+            "modeMin": "Hace falta un número mínimo de elementos",
+            "minUp": "Mínimo que debe funcionar",
+            "target": "Objetivo de SLA (% del mes sin caída, opcional)",
+            "members": "Dispositivos del servicio",
+            "search": "Buscar dispositivos: nombre o IP",
+            "chosen": "Elegidos: {{count}}",
+            "hint": "Un dispositivo sin supervisión se activa para las comprobaciones de disponibilidad. Un dispositivo sin dirección IP no puede ser un elemento.",
+            "save": "Guardar",
+            "cancel": "Cancelar"
+        },
+        "central": {
+            "title": "Servicios de negocio y disponibilidad",
+            "services": "Servicios de negocio",
+            "none": "Este cliente aún no tiene servicios definidos (se definen en el agente).",
+            "availability": "Dispositivos que no responden",
+            "availNone": "Todos los dispositivos supervisados responden ({{up}}).",
+            "behind": "por {{name}}"
+        }
     },
     "traffic": {
         "title": "Analizador de tráfico",

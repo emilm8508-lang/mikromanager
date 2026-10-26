@@ -54,6 +54,8 @@ CATALOG: Dict[str, tuple] = {
     "host_service_up":            ("service", "recovery", "availability", "medium", None, "Service running"),
     "asset_down":                 ("assetdown", "problem", "availability", "high", None, "Device not answering"),
     "asset_up":                   ("assetdown", "recovery", "availability", "high", None, "Device answering"),
+    "bizservice_problem":         ("bizsvc", "problem", "availability", "medium", None, "Business service impaired"),
+    "bizservice_ok":              ("bizsvc", "recovery", "availability", "medium", None, "Business service restored"),
     "hostmon_host_down":          ("hostmon", "problem", "availability", "medium", None, "Host not answering"),
     "hostmon_host_up":            ("hostmon", "recovery", "availability", "medium", None, "Host answering"),
     "idrac_unreachable":          ("idrac", "problem", "hardware", "high", None, "iDRAC unreachable"),
@@ -126,6 +128,8 @@ def classify(e: dict) -> dict:
         sev = "high"
     elif t == "login_after_failures" and count >= 5:
         sev = "critical"
+    elif t == "bizservice_problem" and e.get("state") == "down":
+        sev = "critical"                       # a degraded service is medium: it still works
     elif t == "wazuh_alert":
         try:
             lvl = int(e.get("rule_level") or 0)

@@ -20,6 +20,7 @@
                 "socRules": "Detection rules",
                 "socRisk": "Asset risk",
                 "avail": "Availability",
+                "svc": "Business services",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1458,6 +1459,7 @@
             "tunnel_down": "Tunnel down",
             "host_service_down": "Service not running",
             "asset_down": "Device not answering",
+            "bizservice_problem": "Business service impaired",
             "hostmon_host_down": "Host not answering",
             "idrac_unreachable": "iDRAC unreachable",
             "idrac_health_degraded": "Server hardware health degraded",
@@ -1578,6 +1580,73 @@
         "affected": "Unreachable behind this device ({{count}})",
         "uptime": "Availability",
         "note": "Checked every minute: an answer to ping or to one of a few TCP ports. Availability counts from the first check; an outage is the time it was down or unreachable."
+    },
+    "svc": {
+        "title": "Business services and SLA",
+        "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",
+        "state": {
+            "ok": "Working",
+            "degraded": "Degraded",
+            "down": "Down",
+            "unknown": "No data"
+        },
+        "counts": "Working: {{ok}} · degraded: {{degraded}} · down: {{down}}",
+        "new": "New service",
+        "edit": "Edit",
+        "delete": "Delete",
+        "deleteConfirm": "Delete the service \"{{name}}\" together with its history?",
+        "col": {
+            "service": "Service",
+            "state": "State",
+            "members": "Members",
+            "uptime": "Availability, 30 days",
+            "sla": "This month"
+        },
+        "empty": "No services yet. Add the first: a name and the devices it depends on.",
+        "mode": {
+            "all": "all needed",
+            "any": "any one is enough",
+            "min": "at least {{n}}"
+        },
+        "membersUp": "{{up}} of {{total}} up",
+        "missing": "Missing: {{names}}",
+        "month": "{{uptime}}% (target {{target}}%)",
+        "monthNoTarget": "{{uptime}}%",
+        "budgetLeft": "{{left}} min of downtime left this month",
+        "budgetOver": "exceeded by {{over}} min",
+        "outages": "Outages in the last {{days}} days",
+        "outagesNone": "No outages in this period.",
+        "outageDown": "down",
+        "outageDegraded": "degraded",
+        "ongoing": "ongoing",
+        "members": "Members of the service",
+        "memberCause": "because of {{name}}",
+        "form": {
+            "titleNew": "New service",
+            "titleEdit": "Edit service",
+            "name": "Name",
+            "description": "Description (optional)",
+            "mode": "Rule",
+            "modeAll": "All members are needed (one missing = the service is down)",
+            "modeAny": "One member is enough (two gateways, two servers)",
+            "modeMin": "A minimum number of members is needed",
+            "minUp": "Minimum that must be up",
+            "target": "SLA target (% of the month without an outage, optional)",
+            "members": "Devices of the service",
+            "search": "Search devices: name or IP",
+            "chosen": "Chosen: {{count}}",
+            "hint": "A device that is not monitored is switched on for availability checks. A device without an IP address cannot be a member.",
+            "save": "Save",
+            "cancel": "Cancel"
+        },
+        "central": {
+            "title": "Business services and availability",
+            "services": "Business services",
+            "none": "This client has no services defined yet (they are defined on the agent).",
+            "availability": "Devices that do not answer",
+            "availNone": "All monitored devices answer ({{up}}).",
+            "behind": "because of {{name}}"
+        }
     },
     "traffic": {
         "title": "Traffic analyzer",

@@ -10,6 +10,7 @@ import { Soc } from './pages/Soc'
 import { SocRules } from './pages/SocRules'
 import { SocRisk } from './pages/SocRisk'
 import { Availability } from './pages/Availability'
+import { Services } from './pages/Services'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="/soc/rules" element={<SocRules />} />
             <Route path="/soc/risk" element={<SocRisk />} />
             <Route path="/availability" element={<Availability />} />
+            <Route path="/services" element={<Services />} />
             <Route path="/central/soc" element={<CentralSoc />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />

@@ -5,6 +5,7 @@ import { centralApi, centralConfig, socFromCentral, type CentralSoc as CentralSo
 import { RiskTable, RISK_LEVELS, SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAULT, useAgo, type SocFilterState } from '../components/SocBits'
 import { AssetDrawer, type Row as AssetRow } from './CentralAssets'
 import { TenantBadge } from '../components/ui/TenantBadge'
+import { CentralServices } from '../components/CentralServices'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; soc: CentralSocData }
@@ -101,6 +102,7 @@ export function CentralSoc() {
               <SocFilters f={f} set={setF} tabs={['open', 'new']} />
               <SocTable alerts={alerts} readOnly onOpenAsset={id => { const r = assetRow(id); if (r) setOpen(r) }} empty={t('soc.empty') as string} />
               {part.soc.alerts.length >= 80 && <p className="text-xs text-slate-400">{t('soc.central.cut')}</p>}
+              <CentralServices soc={part.soc} />
               {part.soc.risk && part.soc.risk.top.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center gap-3 flex-wrap">

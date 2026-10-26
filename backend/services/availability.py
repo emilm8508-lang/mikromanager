@@ -221,6 +221,11 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
         db.execute(delete(AvailEvent).where(AvailEvent.at < now - timedelta(days=KEEP_DAYS)))
         db.commit()
     _emit(events)
+    try:
+        from services import business_services
+        business_services.evaluate(now)      # the services follow from the states just written
+    except Exception as e:
+        print(f"[availability] business services error: {e}")
     _last.update(at=_iso(_now()), checked=len(targets), duration_sec=round((_now() - t0).total_seconds(), 1), error=None)
     return {"checked": len(targets), "down": sum(1 for s, _ in new.values() if s == "down"),
             "unreachable": sum(1 for s, _ in new.values() if s == "unreachable"), "events": len(events)}
@@ -259,10 +264,11 @@ def collect_alert_events() -> List[dict]:
 
 # ── Reading: uptime and outages ──────────────────────────────────────────────
 
-def _intervals(events: List[AvailEvent], first: datetime, now: datetime, state_now: str) -> List[Tuple[datetime, datetime, str, Optional[str]]]:
-    """[(from, to, state, root name)] covering first..now from the changes (the state before the first change is "up")."""
+def _intervals(events, first: datetime, now: datetime, state_now: str, initial: str = "up") -> List[Tuple[datetime, datetime, str, Optional[str]]]:
+    """[(from, to, state, root name)] covering first..now from the changes (the state before the first change is `initial`). The events only need
+    `.state`, `.at` and `.root_name`, so the business services use it too."""
     out = []
-    cur, since, root = "up", first, None
+    cur, since, root = initial, first, None
     for e in events:
         if e.state == cur:
             continue
@@ -273,14 +279,14 @@ def _intervals(events: List[AvailEvent], first: datetime, now: datetime, state_n
     return out
 
 
-def _uptime(intervals, start: datetime, end: datetime) -> Optional[float]:
+def _uptime(intervals, start: datetime, end: datetime, good: Tuple[str, ...] = ("up",)) -> Optional[float]:
     total = up = 0.0
     for a, b, st, _r in intervals:
         a, b = max(a, start), min(b, end)
         if b <= a:
             continue
         total += (b - a).total_seconds()
-        if st == "up":
+        if st in good:
             up += (b - a).total_seconds()
     return round(100.0 * up / total, 3) if total > 0 else None
 

@@ -20,6 +20,7 @@
                 "socRules": "Reguły detekcji",
                 "socRisk": "Ryzyko zasobów",
                 "avail": "Dostępność",
+                "svc": "Usługi biznesowe",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1616,6 +1617,7 @@
             "tunnel_down": "Tunel nie działa",
             "host_service_down": "Usługa nie działa",
             "asset_down": "Urządzenie nie odpowiada",
+            "bizservice_problem": "Usługa biznesowa ma problem",
             "hostmon_host_down": "Host nie odpowiada",
             "idrac_unreachable": "iDRAC nieosiągalny",
             "idrac_health_degraded": "Pogorszony stan sprzętu serwera",
@@ -1736,6 +1738,73 @@
         "affected": "Za tym urządzeniem nieosiągalne ({{count}})",
         "uptime": "Dostępność",
         "note": "Sprawdzenie co minutę: odpowiedź na ping albo na jeden z portów TCP. Dostępność liczona od pierwszego sprawdzenia, przerwa to czas niedostępności, także nieosiągalności."
+    },
+    "svc": {
+        "title": "Usługi biznesowe i SLA",
+        "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",
+        "state": {
+            "ok": "Działa",
+            "degraded": "Ograniczona",
+            "down": "Nie działa",
+            "unknown": "Brak danych"
+        },
+        "counts": "Działa: {{ok}} · ograniczona: {{degraded}} · nie działa: {{down}}",
+        "new": "Nowa usługa",
+        "edit": "Edytuj",
+        "delete": "Usuń",
+        "deleteConfirm": "Usunąć usługę „{{name}}” razem z jej historią?",
+        "col": {
+            "service": "Usługa",
+            "state": "Stan",
+            "members": "Elementy",
+            "uptime": "Dostępność 30 dni",
+            "sla": "Ten miesiąc"
+        },
+        "empty": "Brak usług. Dodaj pierwszą: nazwa i urządzenia, od których zależy.",
+        "mode": {
+            "all": "potrzebne wszystkie",
+            "any": "wystarczy jedno",
+            "min": "co najmniej {{n}}"
+        },
+        "membersUp": "{{up}} z {{total}} działa",
+        "missing": "Brakuje: {{names}}",
+        "month": "{{uptime}}% (cel {{target}}%)",
+        "monthNoTarget": "{{uptime}}%",
+        "budgetLeft": "do końca miesiąca zostało {{left}} min przerwy",
+        "budgetOver": "przekroczono o {{over}} min",
+        "outages": "Przerwy w ostatnich {{days}} dniach",
+        "outagesNone": "Brak przerw w tym okresie.",
+        "outageDown": "nie działała",
+        "outageDegraded": "ograniczona",
+        "ongoing": "trwa",
+        "members": "Elementy usługi",
+        "memberCause": "przez {{name}}",
+        "form": {
+            "titleNew": "Nowa usługa",
+            "titleEdit": "Edycja usługi",
+            "name": "Nazwa",
+            "description": "Opis (opcjonalnie)",
+            "mode": "Reguła",
+            "modeAll": "Potrzebne wszystkie elementy (brak jednego = usługa nie działa)",
+            "modeAny": "Wystarczy jeden element (dwie bramy, dwa serwery)",
+            "modeMin": "Potrzebna minimalna liczba elementów",
+            "minUp": "Minimum działających",
+            "target": "Cel SLA (% miesiąca bez przerwy, opcjonalnie)",
+            "members": "Urządzenia usługi",
+            "search": "Szukaj urządzenia: nazwa lub IP",
+            "chosen": "Wybrano: {{count}}",
+            "hint": "Urządzenie bez monitorowania zostanie włączone do sprawdzania dostępności. Urządzenie bez adresu IP nie może być elementem usługi.",
+            "save": "Zapisz",
+            "cancel": "Anuluj"
+        },
+        "central": {
+            "title": "Usługi biznesowe i dostępność",
+            "services": "Usługi biznesowe",
+            "none": "Ten klient nie ma jeszcze zdefiniowanych usług (definiuje się je w agencie).",
+            "availability": "Urządzenia, które nie odpowiadają",
+            "availNone": "Wszystkie monitorowane urządzenia odpowiadają ({{up}}).",
+            "behind": "przez {{name}}"
+        }
     },
     "traffic": {
         "title": "Analizator ruchu",
