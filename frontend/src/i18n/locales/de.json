@@ -22,6 +22,7 @@
                 "avail": "Verfügbarkeit",
                 "svc": "Geschäftsdienste",
                 "syslog": "Syslog und SNMP-Traps",
+                "cfg": "Router-Konfigurationen",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1461,6 +1462,14 @@
             "host_service_down": "Dienst läuft nicht",
             "asset_down": "Gerät antwortet nicht",
             "bizservice_problem": "Geschäftsdienst beeinträchtigt",
+            "config_changed": "Router-Konfiguration geändert",
+            "syslog": {
+                "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
+                "config_change": "Gerätekonfiguration geändert",
+                "restart": "Gerät neu gestartet",
+                "critical": "Kritische Meldung",
+                "link_down": "Link ausgefallen"
+            },
             "hostmon_host_down": "Host antwortet nicht",
             "idrac_unreachable": "iDRAC nicht erreichbar",
             "idrac_health_degraded": "Hardwarezustand des Servers verschlechtert",
@@ -1760,6 +1769,39 @@
                 "name": "Kritische Meldungen",
                 "desc": "Alles, was das Gerät als kritisch, Alarm oder Notfall protokolliert."
             }
+        }
+    },
+    "cfg": {
+        "title": "Konfigurationsverlauf der Router",
+        "subtitle": "Was an einem Router wann geändert wurde und wie es vorher war: die Konfigurationsversionen jedes MikroTik mit Vergleich beliebiger zweier Versionen. Eine Konfigurationsänderung ist ein Alarm des Geräts.",
+        "runAll": "Alle jetzt lesen",
+        "enabled": "Konfigurationen automatisch lesen",
+        "interval": "alle",
+        "empty": "Keine MikroTik-Router mit zugewiesener Zugangsdaten.",
+        "col": {
+            "device": "Router",
+            "versions": "Versionen",
+            "lastCheck": "Zuletzt gelesen",
+            "lastChange": "Letzte Änderung",
+            "what": "Was sich änderte"
+        },
+        "snapshotNow": "Konfiguration jetzt lesen",
+        "deleteHistory": "Verlauf löschen",
+        "deleteConfirm": "Konfigurationsverlauf des Routers „{{name}}“ löschen?",
+        "error": "Lesefehler",
+        "from": "Von",
+        "to": "Bis",
+        "version": "Version",
+        "sections": "Abschnitte",
+        "first": "erste",
+        "text": "Text",
+        "oneVersion": "Es gibt eine Version; ein Vergleich ist nach der ersten Änderung möglich.",
+        "noDiff": "Keine Unterschiede.",
+        "diffSummary": "Zeilen hinzugefügt: {{added}}, entfernt: {{removed}}",
+        "sensitive": "betrifft Firewall, Benutzer, Dienste oder VPN",
+        "note": "Lesen über SSH (/export), ohne Passwörter: Werte von Passwörtern, Secrets und Schlüsseln werden durch *** ersetzt. Eine neue Version entsteht nur bei einer Änderung; der Kopf mit dem Datum ist keine Änderung. Die letzten 40 Versionen je Router werden aufbewahrt.",
+        "central": {
+            "changed": "Router mit geänderter Konfiguration (24 h)"
         }
     },
     "traffic": {

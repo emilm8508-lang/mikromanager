@@ -521,6 +521,32 @@ class AvailEvent(Base):
     detail = Column(String, nullable=True)
 
 
+class ConfigSnapshot(Base):
+    """One version of the configuration of a MikroTik device (services/config_history.py): the normalised plain-text /export, stored when it changed."""
+    __tablename__ = "config_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, nullable=False, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    sha = Column(String, nullable=False)
+    text = Column(Text, nullable=False)
+    size = Column(Integer, nullable=False, default=0)
+    lines = Column(Integer, nullable=False, default=0)
+    added = Column(Integer, nullable=True)               # lines added / removed against the previous version (none for the first one)
+    removed = Column(Integer, nullable=True)
+    sections = Column(Text, nullable=True)               # JSON list of the sections of the export that changed
+
+
+class ConfigCheck(Base):
+    """When the configuration of a device was last read, whether that failed, and when it last changed."""
+    __tablename__ = "config_checks"
+
+    device_id = Column(Integer, primary_key=True)
+    last_check_at = Column(DateTime, nullable=True)
+    last_error = Column(String, nullable=True)
+    last_change_at = Column(DateTime, nullable=True)
+
+
 class SyslogEvent(Base):
     """A message of a device that was kept (services/syslog_receiver.py): syslog of severity notice or worse, every SNMP trap, and whatever raised an alert
     (info too when asked for). 14 days, at most 30 000 rows."""

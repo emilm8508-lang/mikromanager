@@ -22,6 +22,7 @@
                 "avail": "Disponibilité",
                 "svc": "Services métier",
                 "syslog": "Syslog et traps SNMP",
+                "cfg": "Configurations des routeurs",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1461,6 +1462,14 @@
             "host_service_down": "Service arrêté",
             "asset_down": "L'appareil ne répond pas",
             "bizservice_problem": "Service métier dégradé",
+            "config_changed": "Configuration du routeur modifiée",
+            "syslog": {
+                "auth_failure": "Échecs de connexion répétés",
+                "config_change": "Configuration de l'appareil modifiée",
+                "restart": "Appareil redémarré",
+                "critical": "Message critique",
+                "link_down": "Lien coupé"
+            },
             "hostmon_host_down": "L'hôte ne répond pas",
             "idrac_unreachable": "iDRAC injoignable",
             "idrac_health_degraded": "État matériel du serveur dégradé",
@@ -1760,6 +1769,39 @@
                 "name": "Messages critiques",
                 "desc": "Tout ce que l'appareil journalise comme critique, alerte ou urgence."
             }
+        }
+    },
+    "cfg": {
+        "title": "Historique de configuration des routeurs",
+        "subtitle": "Ce qui a été modifié sur un routeur, quand, et comment c'était avant : les versions de la configuration de chaque MikroTik avec la comparaison de deux versions au choix. Un changement de configuration est une alerte de l'appareil.",
+        "runAll": "Tout lire maintenant",
+        "enabled": "Lire les configurations automatiquement",
+        "interval": "toutes les",
+        "empty": "Aucun routeur MikroTik avec un identifiant attribué.",
+        "col": {
+            "device": "Routeur",
+            "versions": "Versions",
+            "lastCheck": "Dernière lecture",
+            "lastChange": "Dernier changement",
+            "what": "Ce qui a changé"
+        },
+        "snapshotNow": "Lire la configuration maintenant",
+        "deleteHistory": "Supprimer l'historique",
+        "deleteConfirm": "Supprimer l'historique de configuration du routeur « {{name}} » ?",
+        "error": "échec de lecture",
+        "from": "De",
+        "to": "À",
+        "version": "Version",
+        "sections": "Sections",
+        "first": "première",
+        "text": "texte",
+        "oneVersion": "Il y a une version ; la comparaison sera possible après le premier changement.",
+        "noDiff": "Aucune différence.",
+        "diffSummary": "Lignes ajoutées : {{added}}, supprimées : {{removed}}",
+        "sensitive": "touche le pare-feu, les utilisateurs, les services ou le VPN",
+        "note": "Lecture par SSH (/export), sans mots de passe : les valeurs des mots de passe, secrets et clés sont remplacées par ***. Une nouvelle version n'est créée qu'en cas de changement ; l'en-tête avec la date n'en est pas un. Les 40 dernières versions de chaque routeur sont conservées.",
+        "central": {
+            "changed": "Routeurs dont la configuration a changé (24 h)"
         }
     },
     "traffic": {

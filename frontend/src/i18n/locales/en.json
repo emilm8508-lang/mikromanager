@@ -22,6 +22,7 @@
                 "avail": "Availability",
                 "svc": "Business services",
                 "syslog": "Syslog and SNMP traps",
+                "cfg": "Router configurations",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1461,6 +1462,14 @@
             "host_service_down": "Service not running",
             "asset_down": "Device not answering",
             "bizservice_problem": "Business service impaired",
+            "config_changed": "Router configuration changed",
+            "syslog": {
+                "auth_failure": "Repeated failed logins",
+                "config_change": "Device configuration changed",
+                "restart": "Device restarted",
+                "critical": "Critical message",
+                "link_down": "Link down"
+            },
             "hostmon_host_down": "Host not answering",
             "idrac_unreachable": "iDRAC unreachable",
             "idrac_health_degraded": "Server hardware health degraded",
@@ -1760,6 +1769,39 @@
                 "name": "Critical messages",
                 "desc": "Anything the device logs as critical, alert or emergency."
             }
+        }
+    },
+    "cfg": {
+        "title": "Router configuration history",
+        "subtitle": "What was changed on a router, when, and what it was before: the versions of the configuration of every MikroTik with a comparison of any two. A configuration change is an alert of the device.",
+        "runAll": "Read all now",
+        "enabled": "Read the configurations automatically",
+        "interval": "every",
+        "empty": "No MikroTik routers with an assigned credential.",
+        "col": {
+            "device": "Router",
+            "versions": "Versions",
+            "lastCheck": "Last read",
+            "lastChange": "Last change",
+            "what": "What changed"
+        },
+        "snapshotNow": "Read the configuration now",
+        "deleteHistory": "Delete the history",
+        "deleteConfirm": "Delete the configuration history of the router \"{{name}}\"?",
+        "error": "read failed",
+        "from": "From",
+        "to": "To",
+        "version": "Version",
+        "sections": "Sections",
+        "first": "first",
+        "text": "text",
+        "oneVersion": "There is one version; a comparison becomes possible after the first change.",
+        "noDiff": "No differences.",
+        "diffSummary": "Lines added: {{added}}, removed: {{removed}}",
+        "sensitive": "touches the firewall, users, services or VPN",
+        "note": "Read over SSH (/export), without passwords: the values of passwords, secrets and keys are replaced by ***. A new version is made only on a change; the header with the date is not a change. The last 40 versions of each router are kept.",
+        "central": {
+            "changed": "Routers whose configuration changed (24 h)"
         }
     },
     "traffic": {

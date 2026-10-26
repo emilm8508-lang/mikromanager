@@ -22,6 +22,7 @@
                 "avail": "Dostępność",
                 "svc": "Usługi biznesowe",
                 "syslog": "Syslog i trapy SNMP",
+                "cfg": "Konfiguracje routerów",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1619,6 +1620,14 @@
             "host_service_down": "Usługa nie działa",
             "asset_down": "Urządzenie nie odpowiada",
             "bizservice_problem": "Usługa biznesowa ma problem",
+            "config_changed": "Zmieniono konfigurację routera",
+            "syslog": {
+                "auth_failure": "Powtarzające się nieudane logowania",
+                "config_change": "Zmiana konfiguracji urządzenia",
+                "restart": "Restart urządzenia",
+                "critical": "Komunikat krytyczny",
+                "link_down": "Link w dół"
+            },
             "hostmon_host_down": "Host nie odpowiada",
             "idrac_unreachable": "iDRAC nieosiągalny",
             "idrac_health_degraded": "Pogorszony stan sprzętu serwera",
@@ -1918,6 +1927,39 @@
                 "name": "Komunikaty krytyczne",
                 "desc": "Wszystko, co urządzenie loguje jako krytyczne, alarm lub awaria."
             }
+        }
+    },
+    "cfg": {
+        "title": "Historia konfiguracji routerów",
+        "subtitle": "Co zmieniono na routerze, kiedy i jak było wcześniej: wersje konfiguracji każdego MikroTika z porównaniem dowolnych dwóch. Zmiana konfiguracji jest alertem urządzenia.",
+        "runAll": "Pobierz teraz wszystkie",
+        "enabled": "Pobieraj konfiguracje automatycznie",
+        "interval": "co",
+        "empty": "Brak routerów MikroTik z przypisanym poświadczeniem.",
+        "col": {
+            "device": "Router",
+            "versions": "Wersji",
+            "lastCheck": "Ostatni odczyt",
+            "lastChange": "Ostatnia zmiana",
+            "what": "Co się zmieniło"
+        },
+        "snapshotNow": "Pobierz konfigurację teraz",
+        "deleteHistory": "Usuń historię",
+        "deleteConfirm": "Usunąć historię konfiguracji routera „{{name}}”?",
+        "error": "błąd odczytu",
+        "from": "Od",
+        "to": "Do",
+        "version": "Wersja",
+        "sections": "Sekcje",
+        "first": "pierwsza",
+        "text": "tekst",
+        "oneVersion": "Jest jedna wersja; porównanie będzie możliwe po pierwszej zmianie.",
+        "noDiff": "Brak różnic.",
+        "diffSummary": "Dodano linii: {{added}}, usunięto: {{removed}}",
+        "sensitive": "dotyka zapory, użytkowników, usług lub VPN",
+        "note": "Odczyt przez SSH (/export), bez haseł: wartości haseł, sekretów i kluczy są zastępowane znakami ***. Nowa wersja powstaje tylko przy zmianie; nagłówek z datą nie jest zmianą. Przechowywane jest 40 ostatnich wersji każdego routera.",
+        "central": {
+            "changed": "Routery ze zmienioną konfiguracją (24 h)"
         }
     },
     "traffic": {

@@ -9,7 +9,7 @@ export function CentralServices({ soc }: { soc: CentralSoc }) {
   const ago = useAgo()
   const svc = soc.services
   const av = soc.availability
-  if (!svc && !av && !soc.syslog) return null
+  if (!svc && !av && !soc.syslog && !soc.configs) return null
   return (
     <div className="space-y-3 pt-2">
       <h2 className="text-base font-semibold text-slate-900">{t('svc.central.title')}</h2>
@@ -39,6 +39,20 @@ export function CentralServices({ soc }: { soc: CentralSoc }) {
             ))}
           </div>
         )
+      )}
+      {soc.configs && soc.configs.changed_24h.length > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-slate-700">{t('cfg.central.changed')}</h3>
+          <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+            {soc.configs.changed_24h.map((c, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-1.5">
+                <span className="font-medium text-slate-900 w-48 truncate">{c.n}</span>
+                <span className="text-xs text-slate-500 flex-1 truncate">{c.added != null && <><span className="text-green-700">+{c.added}</span> <span className="text-red-700">−{c.removed}</span> </>}{c.sections.join(', ')}</span>
+                <span className="text-xs text-slate-400 w-20 text-right">{ago(c.at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
       {av && (
         <div className="space-y-1">

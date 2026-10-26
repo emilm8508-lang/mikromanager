@@ -1394,6 +1394,22 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// configuration history of the MikroTik devices (services/config_history.py)
+export interface CfgItem {
+  id: number; name: string; ip: string; versions: number; last_check: string | null; last_error: string | null; last_change: string | null; last_version: string | null
+  last_added: number | null; last_removed: number | null; last_sections: string[]
+}
+export interface CfgVersion { id: number; at: string; size: number; lines: number; added: number | null; removed: number | null; sections: string[] }
+export interface CfgDiff { added: number; removed: number; sections: Record<string, { added: number; removed: number }>; hunks: Array<{ section: string; lines: Array<[string, string]> }>; a: number; b: number; sensitive: boolean }
+export const cfgApi = {
+  overview: () => api.get<{ items: CfgItem[]; settings: { enabled: boolean; interval_hours: number } }>('/config-history').then(r => r.data),
+  versions: (id: number) => api.get<{ versions: CfgVersion[] }>(`/config-history/${id}`).then(r => r.data),
+  diff: (id: number, a: number, b: number) => api.get<CfgDiff>(`/config-history/${id}/diff`, { params: { a, b } }).then(r => r.data),
+  snapshot: (id: number) => api.post(`/config-history/${id}/snapshot`).then(r => r.data),
+  run: () => api.post('/config-history/run').then(r => r.data),
+  remove: (id: number) => api.delete(`/config-history/${id}`).then(r => r.data),
+  settings: (body: { enabled?: boolean; interval_hours?: number }) => api.put('/config-history/settings', body).then(r => r.data),
+}
 // syslog and SNMP traps (services/syslog_receiver.py)
 export interface SyslogRule {
   id: string; name: string; pattern: string; severity: string; source: string; threshold: number; window_sec: number; enabled: boolean
@@ -1467,6 +1483,7 @@ export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
+  configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }
   syslog?: { on: boolean; listening: { syslog: boolean; trap: boolean }; stored_24h: number; sources: number; unknown: number; errors: string[] }
   services?: { ok: number; degraded: number; down: number
                items: Array<{ n: string; s: 'ok' | 'degraded' | 'down' | 'unknown'; since: string | null; up: number; total: number; missing: string[]; mode: string; min?: number | null; u30: number | null; month: BizMonth | null }> }

@@ -566,6 +566,8 @@ async def _build_snapshot() -> dict:
             soc_status["services"] = business_services.public_summary()         # the business services and their SLA
             from services import syslog_receiver
             soc_status["syslog"] = syslog_receiver.public_summary()             # whether devices' syslog / traps are received
+            from services import config_history
+            soc_status["configs"] = config_history.public_summary()             # routers whose configuration changed lately
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:
