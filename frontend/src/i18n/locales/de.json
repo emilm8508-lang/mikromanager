@@ -21,9 +21,10 @@
                 "socRisk": "Asset-Risiko",
                 "avail": "Verfügbarkeit",
                 "svc": "Geschäftsdienste",
-                "syslog": "Syslog und SNMP-Traps",
                 "cfg": "Router-Konfigurationen",
                 "ai": "KI-Assistent",
+                "syslog": "Syslog und SNMP-Traps",
+                "groupNetSvc": "Dienste und Verfügbarkeit",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1661,119 +1662,6 @@
             "behind": "wegen {{name}}"
         }
     },
-    "syslog": {
-        "title": "Syslog und SNMP-Traps",
-        "subtitle": "Ereignisse von Geräten, auf denen kein Agent läuft: Switches, Drucker, USVs, Firewalls. Das Gerät sendet, was es protokolliert (Syslog) oder dass etwas passiert ist (SNMP-Trap); der Agent erkennt, was wichtig ist, und macht daraus Alarme.",
-        "status": {
-            "listening": "Lauscht",
-            "off": "Aus",
-            "port": "UDP {{port}}",
-            "counts": "Empfangen: {{received}} · gespeichert (24 h): {{stored}} · Traps: {{traps}}",
-            "dropped": "Verworfen: unbekannte Quellen {{unknown}}, über dem Limit {{rate}}, falsche SNMP-Community {{community}}, SNMPv3 {{v3}}, unlesbar {{bad}}"
-        },
-        "settings": {
-            "title": "Einstellungen",
-            "enabled": "Syslog und Traps empfangen",
-            "syslogPort": "Syslog-Port (UDP)",
-            "trapPort": "SNMP-Trap-Port (UDP)",
-            "acceptUnknown": "Auch von unbekannten Geräten annehmen (nicht im Inventar)",
-            "storeInfo": "Auch Info-Meldungen speichern (viele Daten)",
-            "communities": "SNMP-Trap-Communities (kommagetrennt; leer = jede). Gesetzt: {{count}}",
-            "communitiesPlaceholder": "eine neue Liste ersetzt die aktuelle",
-            "save": "Speichern",
-            "saved": "Gespeichert",
-            "portHint": "Ports 514 und 162 brauchen Administratorrechte (Linux); 5514 und 5162 genügen."
-        },
-        "how": {
-            "title": "So richten Sie die Geräte auf diesen Agenten aus",
-            "intro": "Adresse dieses Agenten im Netz: {{host}}. Das Gerät muss im Inventar sein (oder unbekannte zulassen).",
-            "mikrotik": "MikroTik: /system logging action add name=mm target=remote remote={{host}} remote-port={{port}} bsd-syslog=yes, dann /system logging add topics=system,error,critical,warning,info action=mm",
-            "linux": "Linux (rsyslog): in /etc/rsyslog.d/mm.conf *.* @{{host}}:{{port}} ergänzen",
-            "cisco": "Cisco: logging host {{host}} (Standardport) und logging trap informational",
-            "snmp": "SNMP-Traps: {{host}}:{{trapPort}} als Trap-Empfänger eintragen (v1 oder v2c)."
-        },
-        "unknown": {
-            "title": "Abgewiesene unbekannte Quellen",
-            "none": "Kein unbekannter Absender.",
-            "hint": "Gerät ins Inventar aufnehmen (Netzwerkscan) oder unbekannte Quellen zulassen."
-        },
-        "rules": {
-            "title": "Erkennungen",
-            "builtin": "eingebaut",
-            "custom": "eigene",
-            "threshold": "{{n}} in {{sec}} s",
-            "addCustom": "Eigene Regel hinzufügen",
-            "name": "Name",
-            "pattern": "Muster (regulärer Ausdruck)",
-            "severity": "Schweregrad",
-            "source": "Quelle",
-            "sourceAny": "Syslog und Traps",
-            "sourceSyslog": "Syslog",
-            "sourceTrap": "Traps",
-            "thresholdLabel": "Anzahl",
-            "window": "innerhalb (s)",
-            "remove": "Entfernen",
-            "hint": "Das Muster wird auf den Meldungstext angewandt (ohne Groß-/Kleinschreibung); ein Trap lautet „SNMP trap Name (OID): Variablen“."
-        },
-        "events": {
-            "title": "Empfangene Ereignisse",
-            "none": "Keine Ereignisse.",
-            "search": "Im Text suchen",
-            "allKinds": "Syslog und Traps",
-            "kindSyslog": "Syslog",
-            "kindTrap": "Traps",
-            "minSeverity": "Ab Schweregrad",
-            "col": {
-                "time": "Zeit",
-                "device": "Gerät",
-                "severity": "Schweregrad",
-                "source": "Quelle",
-                "message": "Text"
-            },
-            "raised": "Alarm"
-        },
-        "sev": {
-            "0": "Notfall",
-            "1": "Alarm",
-            "2": "kritisch",
-            "3": "Fehler",
-            "4": "Warnung",
-            "5": "Hinweis",
-            "6": "Info",
-            "7": "Debug",
-            "low": "Niedrig",
-            "medium": "Mittel",
-            "high": "Hoch",
-            "critical": "Kritisch"
-        },
-        "central": {
-            "line": "Syslog und Traps: {{state}} · Ereignisse (24 h): {{n}} · Geräte: {{sources}}",
-            "on": "an",
-            "off": "aus"
-        },
-        "rule": {
-            "auth_failure": {
-                "name": "Wiederholte fehlgeschlagene Anmeldungen (Syslog)",
-                "desc": "Fünf fehlgeschlagene Anmeldungen desselben Geräts innerhalb von fünf Minuten."
-            },
-            "config_change": {
-                "name": "Konfiguration geändert",
-                "desc": "Ein Gerät protokolliert, dass seine Konfiguration geändert wurde (RouterOS „changed by“, Cisco CONFIG_I; Linux-sudo gehört nicht dazu)."
-            },
-            "restart": {
-                "name": "Gerät neu gestartet",
-                "desc": "Ein vom Gerät selbst gemeldeter Neustart oder eine Abschaltung."
-            },
-            "link": {
-                "name": "Link down / up",
-                "desc": "Ein ausgefallener Link (Syslog oder SNMP-Trap linkDown) ist ein Alarm des Geräts, bis das Link-up eintrifft."
-            },
-            "critical": {
-                "name": "Kritische Meldungen",
-                "desc": "Alles, was das Gerät als kritisch, Alarm oder Notfall protokolliert."
-            }
-        }
-    },
     "cfg": {
         "title": "Konfigurationsverlauf der Router",
         "subtitle": "Was an einem Router wann geändert wurde und wie es vorher war: die Konfigurationsversionen jedes MikroTik mit Vergleich beliebiger zweier Versionen. Eine Konfigurationsänderung ist ein Alarm des Geräts.",
@@ -1899,6 +1787,122 @@
             "tokens": "30 Tage: {{in}} Tsd. Eingabe-, {{out}} Tsd. Ausgabe-Tokens",
             "none": "Noch keine Fragen.",
             "error": "Fehler"
+        }
+    },
+    "syslog": {
+        "title": "Syslog und SNMP-Traps",
+        "subtitle": "Ereignisse von Geräten, auf denen kein Agent läuft: Switches, Drucker, USVs, Firewalls. Das Gerät sendet, was es protokolliert (Syslog) oder dass etwas passiert ist (SNMP-Trap); der Agent erkennt, was wichtig ist, und macht daraus Alarme.",
+        "status": {
+            "listening": "Lauscht",
+            "off": "Aus",
+            "port": "UDP {{port}}",
+            "counts": "Empfangen: {{received}} · gespeichert (24 h): {{stored}} · Traps: {{traps}}",
+            "dropped": "Verworfen: unbekannte Quellen {{unknown}}, über dem Limit {{rate}}, falsche SNMP-Community {{community}}, SNMPv3 {{v3}}, unlesbar {{bad}}"
+        },
+        "settings": {
+            "title": "Einstellungen",
+            "enabled": "Syslog und Traps empfangen",
+            "syslogPort": "Syslog-Port (UDP)",
+            "trapPort": "SNMP-Trap-Port (UDP)",
+            "acceptUnknown": "Auch von unbekannten Geräten annehmen (nicht im Inventar)",
+            "storeInfo": "Auch Info-Meldungen speichern (viele Daten)",
+            "communities": "SNMP-Trap-Communities (kommagetrennt; leer = jede). Gesetzt: {{count}}",
+            "communitiesPlaceholder": "eine neue Liste ersetzt die aktuelle",
+            "save": "Speichern",
+            "saved": "Gespeichert",
+            "portHint": "Ports 514 und 162 brauchen Administratorrechte (Linux); 5514 und 5162 genügen."
+        },
+        "how": {
+            "title": "So richten Sie die Geräte auf diesen Agenten aus",
+            "intro": "Adresse dieses Agenten im Netz: {{host}}. Das Gerät muss im Inventar sein (oder unbekannte zulassen).",
+            "mikrotik": "MikroTik: /system logging action add name=mm target=remote remote={{host}} remote-port={{port}} bsd-syslog=yes, dann /system logging add topics=system,error,critical,warning,info action=mm",
+            "linux": "Linux (rsyslog): in /etc/rsyslog.d/mm.conf *.* @{{host}}:{{port}} ergänzen",
+            "cisco": "Cisco: logging host {{host}} (Standardport) und logging trap informational",
+            "snmp": "SNMP-Traps: {{host}}:{{trapPort}} als Trap-Empfänger eintragen (v1 oder v2c)."
+        },
+        "unknown": {
+            "title": "Abgewiesene unbekannte Quellen",
+            "none": "Kein unbekannter Absender.",
+            "hint": "Gerät ins Inventar aufnehmen (Netzwerkscan) oder unbekannte Quellen zulassen."
+        },
+        "rules": {
+            "title": "Erkennungen",
+            "builtin": "eingebaut",
+            "custom": "eigene",
+            "threshold": "{{n}} in {{sec}} s",
+            "addCustom": "Eigene Regel hinzufügen",
+            "name": "Name",
+            "pattern": "Muster (regulärer Ausdruck)",
+            "severity": "Schweregrad",
+            "source": "Quelle",
+            "sourceAny": "Syslog und Traps",
+            "sourceSyslog": "Syslog",
+            "sourceTrap": "Traps",
+            "thresholdLabel": "Anzahl",
+            "window": "innerhalb (s)",
+            "remove": "Entfernen",
+            "hint": "Das Muster wird auf den Meldungstext angewandt (ohne Groß-/Kleinschreibung); ein Trap lautet „SNMP trap Name (OID): Variablen“."
+        },
+        "events": {
+            "title": "Empfangene Ereignisse",
+            "none": "Keine Ereignisse.",
+            "search": "Im Text suchen",
+            "allKinds": "Syslog und Traps",
+            "kindSyslog": "Syslog",
+            "kindTrap": "Traps",
+            "minSeverity": "Ab Schweregrad",
+            "col": {
+                "time": "Zeit",
+                "device": "Gerät",
+                "severity": "Schweregrad",
+                "source": "Quelle",
+                "message": "Text"
+            },
+            "raised": "Alarm"
+        },
+        "sev": {
+            "0": "Notfall",
+            "1": "Alarm",
+            "2": "kritisch",
+            "3": "Fehler",
+            "4": "Warnung",
+            "5": "Hinweis",
+            "6": "Info",
+            "7": "Debug",
+            "low": "Niedrig",
+            "medium": "Mittel",
+            "high": "Hoch",
+            "critical": "Kritisch"
+        },
+        "central": {
+            "line": "Syslog und Traps: {{state}} · Ereignisse (24 h): {{n}} · Geräte: {{sources}}",
+            "on": "an",
+            "off": "aus",
+            "state": "Empfang",
+            "events": "Ereignisse (24 h)",
+            "devices": "Geräte"
+        },
+        "rule": {
+            "auth_failure": {
+                "name": "Wiederholte fehlgeschlagene Anmeldungen (Syslog)",
+                "desc": "Fünf fehlgeschlagene Anmeldungen desselben Geräts innerhalb von fünf Minuten."
+            },
+            "config_change": {
+                "name": "Konfiguration geändert",
+                "desc": "Ein Gerät protokolliert, dass seine Konfiguration geändert wurde (RouterOS „changed by“, Cisco CONFIG_I; Linux-sudo gehört nicht dazu)."
+            },
+            "restart": {
+                "name": "Gerät neu gestartet",
+                "desc": "Ein vom Gerät selbst gemeldeter Neustart oder eine Abschaltung."
+            },
+            "link": {
+                "name": "Link down / up",
+                "desc": "Ein ausgefallener Link (Syslog oder SNMP-Trap linkDown) ist ein Alarm des Geräts, bis das Link-up eintrifft."
+            },
+            "critical": {
+                "name": "Kritische Meldungen",
+                "desc": "Alles, was das Gerät als kritisch, Alarm oder Notfall protokolliert."
+            }
         }
     },
     "traffic": {

@@ -330,6 +330,12 @@ export function Sidebar() {
       item('/central/servers', t('central.tabServers') as string, ServerCog),
       item('/central/routers', t('routersCentral.navLabel') as string, Router),
     ] },
+    { key: 'c-netsvc', label: t('nav.groupNetSvc') as string, icon: HeartPulse, items: [
+      item('/central/services', t('nav.svc') as string, Layers3),
+      item('/central/availability', t('nav.avail') as string, HeartPulse),
+      item('/central/configs', t('nav.cfg') as string, FileClock),
+      item('/central/syslog', t('nav.syslog') as string, Radio),
+    ] },
     { key: 'c-monitoring', label: t('nav.groupMonitoring') as string, icon: Activity, items: [
       item('/central/external-monitoring', t('externalMonitoringCentral.navLabel') as string, Activity),
       item('/central/hostmon', t('hostmonCentral.navLabel') as string, Radar),
