@@ -58,6 +58,8 @@
             },
     "common":  {
                    "online":  "En ligne",
+                   "mgmtBlocked": "ports de gestion bloqués",
+                   "mgmtBlockedHint": "L'appareil répond au ping ou au SNMP, mais aucun port de gestion (Winbox, API, SSH, web) ne répond depuis cet agent : vérifiez la liste des services (« Available From »), le pare-feu et les blocages de l'adresse de l'agent.",
                    "offline":  "Hors ligne",
                    "loading":  "Chargement...",
                    "loadingFromDevice":  "Chargement depuis l\u0027appareil...",

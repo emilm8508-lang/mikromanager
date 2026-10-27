@@ -59,6 +59,8 @@
             },
     "common":  {
                    "online":  "Online",
+                   "mgmtBlocked": "porty zarządzania niedostępne",
+                   "mgmtBlockedHint": "Urządzenie odpowiada na ping lub SNMP, ale żaden port zarządzania (Winbox, API, SSH, WWW) nie odpowiada z tego agenta: sprawdź listę usług („Available From”), zaporę i blokady adresu agenta.",
                    "offline":  "Offline",
                    "loading":  "Ładowanie...",
                    "loadingFromDevice":  "Ładowanie z urządzenia...",

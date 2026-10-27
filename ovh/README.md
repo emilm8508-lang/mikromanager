@@ -76,6 +76,7 @@ Na laptopie w MikroManager → **Centralny** → **Konfiguracja viewer**:
     Deny from all
   </Files>
   ```
+- **Zawęź CORS** (opcjonalnie): w `config.php` dopisz `'cors_origins' => ['https://adres-podgladu.example.com'],` — wtedy `api.php` odpowiada nagłówkami CORS tylko stronom z tej listy (bez tego klucza zachowuje się jak dawniej, dla każdej domeny). Agent łączy się z Centralą po stronie serwera, więc go to nie dotyczy; wpisz domenę, z której otwierasz podgląd telefoniczny (`ovh/viewer`).
 - Klucze tenantów są porównywane przez `hash_equals()` (timing-safe)
 - Agent może być za NAT — wszystko działa po wychodzącym 443
 

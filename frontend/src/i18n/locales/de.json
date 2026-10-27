@@ -58,6 +58,8 @@
             },
     "common":  {
                    "online":  "Online",
+                   "mgmtBlocked": "Verwaltungsports gesperrt",
+                   "mgmtBlockedHint": "Das Gerät antwortet auf Ping oder SNMP, aber kein Verwaltungsport (Winbox, API, SSH, Web) antwortet von diesem Agenten: Dienstliste („Available From“), Firewall und Sperren der Agentenadresse prüfen.",
                    "offline":  "Offline",
                    "loading":  "Wird geladen...",
                    "loadingFromDevice":  "Lade vom Gerät...",

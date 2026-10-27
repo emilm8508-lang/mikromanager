@@ -58,6 +58,8 @@
             },
     "common":  {
                    "online":  "En línea",
+                   "mgmtBlocked": "puertos de gestión bloqueados",
+                   "mgmtBlockedHint": "El dispositivo responde a ping o SNMP, pero ningún puerto de gestión (Winbox, API, SSH, web) responde desde este agente: compruebe la lista de servicios («Available From»), el cortafuegos y los bloqueos de la dirección del agente.",
                    "offline":  "Desconectado",
                    "loading":  "Cargando...",
                    "loadingFromDevice":  "Cargando desde el dispositivo...",

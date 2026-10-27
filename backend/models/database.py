@@ -54,6 +54,7 @@ class Device(Base):
     credential_id = Column(Integer, ForeignKey("credentials.id"), nullable=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     online = Column(Boolean, default=False)
+    mgmt_ok = Column(Boolean, nullable=True)            # a management port (Winbox, API, SSH, web) answered from the agent; False with online = it answers ping / SNMP but the ports are blocked
     notes = Column(Text, nullable=True)
     # topology
     x_pos = Column(Float, default=0.0)
@@ -1491,6 +1492,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN iface_mbps_threshold FLOAT"))
             if "temperature_c" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN temperature_c FLOAT"))
+            if "mgmt_ok" not in dev_cols:
+                conn.execute(text("ALTER TABLE devices ADD COLUMN mgmt_ok BOOLEAN"))
             if "is_router_override" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN is_router_override BOOLEAN"))
             if "drp_exclude" not in dev_cols:

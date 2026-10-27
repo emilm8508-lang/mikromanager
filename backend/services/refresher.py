@@ -90,19 +90,49 @@ async def _ping_one(dev_id: int) -> None:
             if p:
                 ports.add(p)
 
-    online_now = False
+    mgmt = False
     for port in ports:
         if await scan_svc._tcp_open(ip, port):
-            online_now = True
+            mgmt = True
             break
+    online_now = mgmt
+    if not online_now:
+        online_now = await _answers_without_ports(dev_id, ip)
 
     with SessionLocal() as db:
         device = db.execute(select(Device).where(Device.id == dev_id)).scalar_one_or_none()
         if not device:
             return
         device.online = online_now
+        device.mgmt_ok = mgmt            # online with mgmt False: alive, but no management port answers from this agent (a service "available from" list, a firewall, a ban)
         device.last_seen = datetime.utcnow()
         db.commit()
+
+
+async def _answers_without_ports(dev_id: int, ip: str) -> bool:
+    """A device none of whose management ports answers is not necessarily down: it may answer a ping or SNMP (a service list limited to other addresses, a firewall
+    that drops this agent's TCP, a temporary ban). Online here means "alive"; whether it can be managed is Device.mgmt_ok."""
+    try:
+        from services import edge_selfcheck
+        ok, _ = await asyncio.get_event_loop().run_in_executor(None, edge_selfcheck._ping_sync, ip, 2)
+        if ok:
+            return True
+    except Exception:
+        pass
+    try:
+        from services.snmp_client import SnmpClient
+        from services.crypto import decrypt
+        with SessionLocal() as db:
+            device = db.get(Device, dev_id)
+            cred = db.get(Credential, device.credential_id) if device and device.credential_id else None
+            community = decrypt(cred.snmp_community_enc) if cred and cred.snmp_community_enc else None
+            port = (device.snmp_port if device else None) or 161
+        for c in dict.fromkeys([community, "public"]):
+            if c and await SnmpClient(ip, c, port=port, timeout=2.0).probe():
+                return True
+    except Exception:
+        pass
+    return False
 
 
 async def ping_all_devices() -> None:

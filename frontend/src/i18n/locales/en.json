@@ -58,6 +58,8 @@
             },
     "common":  {
                    "online":  "Online",
+                   "mgmtBlocked": "management ports blocked",
+                   "mgmtBlockedHint": "The device answers ping or SNMP, but no management port (Winbox, API, SSH, web) answers from this agent: check the service list (\"Available From\"), the firewall and bans of the agent address.",
                    "offline":  "Offline",
                    "loading":  "Loading...",
                    "loadingFromDevice":  "Loading from device...",

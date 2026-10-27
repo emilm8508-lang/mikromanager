@@ -19,9 +19,21 @@
  */
 
 declare(strict_types=1);
+$config = require __DIR__ . '/config.php';
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-header('Access-Control-Allow-Origin: *');
+// Which pages may call this API from a browser: the origins listed in config.php as 'cors_origins' (e.g. ['https://viewer.example.com']). Without that key any
+// origin is allowed, as before, so nothing breaks until it is set; with it, an origin that is not listed gets no CORS headers at all.
+$cors_origins = $config['cors_origins'] ?? null;
+if (is_array($cors_origins) && !empty($cors_origins)) {
+    $req_origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    header('Vary: Origin');
+    if ($req_origin !== '' && in_array($req_origin, $cors_origins, true)) {
+        header('Access-Control-Allow-Origin: ' . $req_origin);
+    }
+} else {
+    header('Access-Control-Allow-Origin: *');
+}
 header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Totp');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 
@@ -30,7 +42,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-$config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/totp.php';
 require_once __DIR__ . '/anydesk.php';

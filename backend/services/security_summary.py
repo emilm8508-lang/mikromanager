@@ -17,6 +17,7 @@ Only counts, device names and CVE ids go out — no IPs, no log text, no check d
 uplink puts in the snapshot's plaintext envelope; agent_bundle() is the page's own endpoint and returns the
 same sections Central receives plus these stats.
 """
+import time
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -35,12 +36,25 @@ TOP_DEVICES = 8
 
 # ── Events ───────────────────────────────────────────────────────────────────
 
+_seen: dict = {}                 # (type, device, detected_at, count) -> when it was taken in
+_SEEN_KEEP_SEC = 4 * 3600
+
+
 def record_events(events: List[dict]) -> None:
-    """Stores the alert events of one snapshot build (type, device, count only) and trims old ones."""
+    """Stores the alert events of one snapshot build (type, device, count only) and trims old ones. The collectors that cache a scan (alerts.collect_alert_events
+    hands the same events out on every cycle for an hour) give an event more than once: one with the same type, device, time of detection and count is stored once."""
     rows = []
+    clock = time.time()
+    for k in [k for k, v in _seen.items() if clock - v > _SEEN_KEEP_SEC]:
+        del _seen[k]
     for e in events or []:
         if not isinstance(e, dict) or not e.get("type"):
             continue
+        if e.get("detected_at"):
+            key = (str(e["type"]), str(e.get("device_name") or ""), str(e["detected_at"]), str(e.get("count") or ""))
+            if key in _seen:
+                continue
+            _seen[key] = clock
         try:
             n = max(1, int(e.get("count") or 1))
         except (TypeError, ValueError):

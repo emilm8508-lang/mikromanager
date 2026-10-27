@@ -5,6 +5,7 @@ import { pickUpgradeTarget, cleanVersion } from '../lib/version'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
+import { OnlineBadge } from '../components/OnlineBadge'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
@@ -118,6 +119,7 @@ interface UnifiedDevice {
   ros_version?: string
   vendor?: string
   online: boolean
+  mgmt_ok?: boolean | null
   last_seen?: string
   has_api?: boolean
   has_ssh?: boolean
@@ -242,6 +244,7 @@ export function Devices() {
       ros_version: d.ros_version,
       vendor: d.vendor,
       online: d.online,
+      mgmt_ok: d.mgmt_ok,
       last_seen: d.last_seen,
       has_api: d.has_api, has_ssh: d.has_ssh, has_web: d.has_web, has_snmp: d.has_snmp,
       credential_id: d.credential_id,
@@ -495,7 +498,7 @@ export function Devices() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex flex-col gap-1 items-start">
-                      <Badge variant={d.online ? 'green' : 'red'}>{d.online ? t('common.online') : t('common.offline')}</Badge>
+                      <OnlineBadge online={d.online} mgmtOk={d.mgmt_ok} />
                       {d.wan_status && (
                         <span title={d.wan_iface ? `WAN: ${d.wan_iface}` : undefined}>
                           <Badge variant={d.wan_status === 'up' ? 'green' : 'red'} className="text-[10px]">

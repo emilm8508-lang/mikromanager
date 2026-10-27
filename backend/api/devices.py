@@ -58,6 +58,7 @@ class DeviceOut(BaseModel):
     credential_id: Optional[int]
     last_seen: Optional[datetime]
     online: bool
+    mgmt_ok: Optional[bool] = None   # False while online: answers ping / SNMP, but no management port answers from this agent
     notes: Optional[str]
     x_pos: float
     y_pos: float

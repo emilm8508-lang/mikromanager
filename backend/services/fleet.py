@@ -308,7 +308,7 @@ def build_overview(include_ip: bool = True, include_packages: bool = True) -> di
             "latest_ros_version": d.latest_ros_version,
             "update_available": "update_available" in alert_keys,
             "firmware_current": d.current_firmware, "firmware_target": d.upgrade_firmware,
-            "online": bool(d.online), "paired": d.credential_id is not None,
+            "online": bool(d.online), "mgmt_ok": d.mgmt_ok, "paired": d.credential_id is not None,
             "cpu": d.cpu_load_pct, "mem": d.mem_used_pct, "mem_total_bytes": d.mem_total_bytes,
             "disk": d.disk_used_pct, "disk_total_bytes": d.disk_total_bytes, "temperature": d.temperature_c,
             "uptime_sec": d.uptime_sec, "packages_count": len(pkgs),

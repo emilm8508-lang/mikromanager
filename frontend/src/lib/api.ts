@@ -99,6 +99,7 @@ export interface Device {
   credential_id?: number
   last_seen?: string
   online: boolean
+  mgmt_ok?: boolean | null  // false while online: it answers ping / SNMP but no management port answers from this agent
   notes?: string
   x_pos: number
   y_pos: number
@@ -2179,6 +2180,7 @@ export interface FleetAlertRow {
 }
 
 export interface FleetDeviceRow {
+  mgmt_ok?: boolean | null                                 // false while online: answers ping / SNMP, but no management port answers from the agent
   id: number
   ip?: string                                              // absent in Central's redacted copy
   name: string
