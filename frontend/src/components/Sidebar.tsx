@@ -274,6 +274,7 @@ export function Sidebar() {
       item('/soc/risk', t('nav.socRisk') as string, Gauge),
       item('/soc/rules', t('nav.socRules') as string, ListChecks),
       item('/soc/syslog', t('nav.syslog') as string, Radio),
+      item('/soc/hostlogs', t('nav.hostlogs') as string, ScrollText),
     ] },
     { key: 'systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/mikrotik', t('nav.mikrotik') as string, Router),

@@ -26,6 +26,7 @@
                 "syslog": "Syslog i trapy SNMP",
                 "groupNetSvc": "Usługi i dostępność",
                 "maint": "Okna serwisowe",
+                "hostlogs": "Dzienniki hostów",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2122,6 +2123,23 @@
             "enabled": "Eskaluj alerty bez reakcji",
             "how": "Eskalacja wysyła do Centrali zdarzenie „Eskalacja alertu SOC” z poziomem (1, 2, 3…) w polu „min. liczba”. Dodaj w Centrali → Alerty reguły dla tego zdarzenia: reguła z min. liczbą 1 powiadomi pierwszy kanał, z min. liczbą 2 kolejny itd. Bez takiej reguły eskalacja jest tylko widoczna w kolejce SOC."
         }
+    },
+    "hostlogs": {
+        "title": "Dzienniki bezpieczeństwa hostów",
+        "subtitle": "Dziennik zabezpieczeń Windows i dziennik uwierzytelniania Linuksa zarządzanych hostów, odczytywane przez WinRM i SSH (tylko odczyt). Z nich powstają alerty: powtarzające się nieudane logowania, udane logowanie po próbach, blokada konta, nowe konto, dodanie do grupy uprzywilejowanej, wyczyszczenie dziennika, nowa usługa lub zadanie.",
+        "runNow": "Odczytaj teraz",
+        "enabled": "Czytaj dzienniki automatycznie",
+        "interval": "co",
+        "none": "Brak zarządzanych hostów Windows ani Linux.",
+        "col": {
+            "host": "Host",
+            "os": "System",
+            "lastRun": "Ostatni odczyt",
+            "lastOk": "Ostatni udany",
+            "events": "Zdarzeń",
+            "problem": "Problem"
+        },
+        "note": "Odczyt dziennika zabezpieczeń Windows wymaga konta administratora lub grupy „Czytelnicy dziennika zdarzeń”; host, na którym się nie udaje, pokazuje błąd. Pierwszy odczyt sięga 15 minut wstecz, kolejne zaczynają od miejsca, w którym skończył poprzedni. Agent nie przechowuje dzienników, tylko liczby, źródła i nazwy potrzebne do alertu."
     },
     "traffic": {
         "title": "Analizator ruchu",

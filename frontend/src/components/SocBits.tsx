@@ -10,7 +10,7 @@ import { cn } from '../lib/utils'
 // The pieces of the SOC pages shared by the agent (triage: acknowledge, take, close) and Central (the same queue, read-only).
 
 export const SOC_CATEGORIES = ['auth', 'detection', 'availability', 'network', 'hardware', 'resource', 'vulnerability', 'system', 'other']
-export const SOC_SOURCES = ['agent', 'wazuh', 'checkmk', 'prtg', 'rules', 'syslog']
+export const SOC_SOURCES = ['agent', 'wazuh', 'checkmk', 'prtg', 'rules', 'syslog', 'hostlog']
 
 const SEV_CLASS: Record<SocSeverity, string> = {
   critical: 'bg-red-600 text-white',

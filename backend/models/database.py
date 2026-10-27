@@ -494,6 +494,20 @@ class SocAlert(Base):
     root_name = Column(String, nullable=True)
 
 
+class HostLogCursor(Base):
+    """Where the reading of a host's security events (services/host_logs.py) got to: the time of the last successful read, the last error, how many events were seen."""
+    __tablename__ = "host_log_cursors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String, nullable=False, index=True)           # windows | linux
+    host_id = Column(Integer, nullable=False, index=True)
+    last_at = Column(DateTime, nullable=True)                    # events up to here have been read
+    last_run_at = Column(DateTime, nullable=True)
+    last_ok_at = Column(DateTime, nullable=True)
+    last_error = Column(String, nullable=True)
+    events_total = Column(Integer, nullable=False, default=0)
+
+
 class MaintenanceWindow(Base):
     """A planned period in which the alerts of some devices (or of the whole network) are muted towards Central (services/maintenance.py)."""
     __tablename__ = "maintenance_windows"

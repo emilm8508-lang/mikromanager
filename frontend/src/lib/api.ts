@@ -1397,6 +1397,13 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// security events of the managed hosts (services/host_logs.py)
+export const hostLogsApi = {
+  status: () => api.get<{ settings: { enabled: boolean; interval_min: number }; running: boolean
+                          hosts: Array<{ kind: 'windows' | 'linux'; id: number; name: string; ip: string; last_run: string | null; last_ok: string | null; error: string | null; events: number }> }>('/host-logs').then(r => r.data),
+  save: (b: { enabled?: boolean; interval_min?: number }) => api.put('/host-logs/settings', b).then(r => r.data),
+  run: () => api.post('/host-logs/run').then(r => r.data),
+}
 // maintenance windows and escalation (services/maintenance.py, services/escalation.py)
 export interface MaintWindow {
   id: number; name: string; kind: 'once' | 'weekly'; scope_all: boolean; asset_ids: number[]; assets: string[]; starts_at: string | null; ends_at: string | null

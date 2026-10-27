@@ -26,6 +26,7 @@
                 "syslog": "Syslog et traps SNMP",
                 "groupNetSvc": "Services et disponibilité",
                 "maint": "Fenêtres de maintenance",
+                "hostlogs": "Journaux des hôtes",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1958,6 +1959,23 @@
             "enabled": "Escalader les alertes que personne n'a prises en charge",
             "how": "Une escalade envoie à la centrale l'événement « Escalade d'alerte SOC » avec le niveau (1, 2, 3…) dans le champ « nombre minimal ». Ajoutez des règles pour cet événement dans Centrale → Alertes : une règle de nombre minimal 1 avertit le premier canal, 2 le suivant, etc. Sans cette règle, l'escalade n'est visible que dans la file SOC."
         }
+    },
+    "hostlogs": {
+        "title": "Journaux de sécurité des hôtes",
+        "subtitle": "Le journal de sécurité Windows et le journal d'authentification Linux des hôtes gérés, lus par WinRM et SSH (lecture seule). Ils donnent des alertes : échecs de connexion répétés, connexion réussie après des tentatives, verrouillage de compte, nouveau compte, ajout à un groupe privilégié, journal d'audit effacé, nouveau service ou tâche.",
+        "runNow": "Lire maintenant",
+        "enabled": "Lire les journaux automatiquement",
+        "interval": "toutes les",
+        "none": "Aucun hôte Windows ou Linux géré.",
+        "col": {
+            "host": "Hôte",
+            "os": "Système",
+            "lastRun": "Dernière lecture",
+            "lastOk": "Dernière réussie",
+            "events": "Événements",
+            "problem": "Problème"
+        },
+        "note": "Lire le journal de sécurité Windows demande un compte administrateur ou le groupe « Lecteurs des journaux d'événements » ; un hôte où cela échoue affiche l'erreur. La première lecture remonte de 15 minutes, les suivantes reprennent là où la précédente s'est arrêtée. L'agent ne conserve pas les journaux, seulement les nombres, sources et noms nécessaires à une alerte."
     },
     "traffic": {
         "title": "Analyseur de trafic",

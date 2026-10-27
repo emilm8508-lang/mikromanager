@@ -15,6 +15,7 @@ import { SocSyslog } from './pages/SocSyslog'
 import { ConfigHistory } from './pages/ConfigHistory'
 import { Assistant } from './pages/Assistant'
 import { Maintenance } from './pages/Maintenance'
+import { HostLogs } from './pages/HostLogs'
 import { CentralServicesPage, CentralAvailabilityPage, CentralConfigsPage, CentralSyslogPage } from './pages/CentralNetwork'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/config-history" element={<ConfigHistory />} />
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/maintenance" element={<Maintenance />} />
+            <Route path="/soc/hostlogs" element={<HostLogs />} />
             <Route path="/central/services" element={<CentralServicesPage />} />
             <Route path="/central/availability" element={<CentralAvailabilityPage />} />
             <Route path="/central/configs" element={<CentralConfigsPage />} />

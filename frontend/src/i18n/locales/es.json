@@ -26,6 +26,7 @@
                 "syslog": "Syslog y traps SNMP",
                 "groupNetSvc": "Servicios y disponibilidad",
                 "maint": "Ventanas de mantenimiento",
+                "hostlogs": "Registros de hosts",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1958,6 +1959,23 @@
             "enabled": "Escalar las alertas que nadie ha atendido",
             "how": "Un escalado envía a la central el evento «Escalado de alerta SOC» con el nivel (1, 2, 3…) en el campo «cantidad mínima». Añada reglas para ese evento en Central → Alertas: una regla con cantidad mínima 1 avisa al primer canal, con 2 al siguiente, etc. Sin esa regla el escalado solo se ve en la cola SOC."
         }
+    },
+    "hostlogs": {
+        "title": "Registros de seguridad de los hosts",
+        "subtitle": "El registro de seguridad de Windows y el registro de autenticación de Linux de los hosts gestionados, leídos por WinRM y SSH (solo lectura). De ellos salen alertas: inicios de sesión fallidos repetidos, un inicio correcto tras intentos, bloqueo de cuenta, cuenta nueva, alta en un grupo privilegiado, registro de auditoría borrado, servicio o tarea nuevos.",
+        "runNow": "Leer ahora",
+        "enabled": "Leer los registros automáticamente",
+        "interval": "cada",
+        "none": "No hay hosts Windows ni Linux gestionados.",
+        "col": {
+            "host": "Host",
+            "os": "Sistema",
+            "lastRun": "Última lectura",
+            "lastOk": "Última correcta",
+            "events": "Eventos",
+            "problem": "Problema"
+        },
+        "note": "Leer el registro de seguridad de Windows requiere una cuenta de administrador o el grupo «Lectores del registro de eventos»; un host donde falla muestra el error. La primera lectura retrocede 15 minutos y las siguientes empiezan donde terminó la anterior. El agente no guarda los registros, solo los recuentos, orígenes y nombres que necesita una alerta."
     },
     "traffic": {
         "title": "Analizador de tráfico",

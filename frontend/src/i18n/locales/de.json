@@ -26,6 +26,7 @@
                 "syslog": "Syslog und SNMP-Traps",
                 "groupNetSvc": "Dienste und Verfügbarkeit",
                 "maint": "Wartungsfenster",
+                "hostlogs": "Host-Protokolle",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1958,6 +1959,23 @@
             "enabled": "Alarme ohne Reaktion eskalieren",
             "how": "Eine Eskalation sendet der Zentrale das Ereignis „SOC-Alarm-Eskalation“ mit der Stufe (1, 2, 3…) im Feld „Mindestanzahl“. Legen Sie in Zentrale → Alarme Regeln dafür an: Mindestanzahl 1 benachrichtigt den ersten Kanal, 2 den nächsten usw. Ohne solche Regel ist die Eskalation nur in der SOC-Warteschlange sichtbar."
         }
+    },
+    "hostlogs": {
+        "title": "Sicherheitsprotokolle der Hosts",
+        "subtitle": "Das Windows-Sicherheitsprotokoll und das Linux-Authentifizierungsprotokoll der verwalteten Hosts, gelesen über WinRM und SSH (nur lesend). Daraus entstehen Alarme: wiederholte fehlgeschlagene Anmeldungen, erfolgreiche Anmeldung nach Versuchen, Kontosperrung, neues Konto, Aufnahme in eine privilegierte Gruppe, gelöschtes Überwachungsprotokoll, neuer Dienst oder Task.",
+        "runNow": "Jetzt lesen",
+        "enabled": "Protokolle automatisch lesen",
+        "interval": "alle",
+        "none": "Keine verwalteten Windows- oder Linux-Hosts.",
+        "col": {
+            "host": "Host",
+            "os": "System",
+            "lastRun": "Letztes Lesen",
+            "lastOk": "Letztes erfolgreiches",
+            "events": "Ereignisse",
+            "problem": "Problem"
+        },
+        "note": "Das Lesen des Windows-Sicherheitsprotokolls erfordert ein Administratorkonto oder die Gruppe „Ereignisprotokollleser“; ein Host, bei dem es scheitert, zeigt den Fehler. Das erste Lesen reicht 15 Minuten zurück, spätere beginnen dort, wo das vorige endete. Der Agent speichert die Protokolle nicht, nur die Zahlen, Quellen und Namen, die ein Alarm braucht."
     },
     "traffic": {
         "title": "Verkehrsanalyse",

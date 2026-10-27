@@ -26,6 +26,7 @@
                 "syslog": "Syslog and SNMP traps",
                 "groupNetSvc": "Services and availability",
                 "maint": "Maintenance windows",
+                "hostlogs": "Host logs",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1958,6 +1959,23 @@
             "enabled": "Escalate alerts nobody has picked up",
             "how": "An escalation sends Central the event \"SOC alert escalation\" with the level (1, 2, 3...) in the \"minimum count\" field. Add rules for that event in Central -> Alerts: a rule with minimum count 1 notifies the first channel, minimum count 2 the next, and so on. Without such a rule the escalation is only visible in the SOC queue."
         }
+    },
+    "hostlogs": {
+        "title": "Security logs of the hosts",
+        "subtitle": "The Windows Security log and the Linux authentication log of the managed hosts, read over WinRM and SSH (read only). Alerts come from them: repeated failed logons, a successful logon after attempts, an account lockout, a new account, a member added to a privileged group, the audit log cleared, a new service or task.",
+        "runNow": "Read now",
+        "enabled": "Read the logs automatically",
+        "interval": "every",
+        "none": "No managed Windows or Linux hosts.",
+        "col": {
+            "host": "Host",
+            "os": "System",
+            "lastRun": "Last read",
+            "lastOk": "Last successful",
+            "events": "Events",
+            "problem": "Problem"
+        },
+        "note": "Reading the Windows Security log needs an administrator account or the \"Event Log Readers\" group; a host where it fails shows the error. The first read goes back 15 minutes, later ones start where the previous one stopped. The agent does not keep the logs, only the counts, sources and names an alert needs."
     },
     "traffic": {
         "title": "Traffic analyzer",
