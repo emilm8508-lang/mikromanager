@@ -28,6 +28,7 @@
                 "maint": "Maintenance windows",
                 "hostlogs": "Host logs",
                 "metrics": "Metrics and forecasts",
+                "ups": "UPS and sensors",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2020,6 +2021,54 @@
             "ups_temp": "UPS temperature",
             "other": "other"
         }
+    },
+    "ups": {
+        "title": "UPS and sensors",
+        "subtitle": "The power of the server room: UPS units read over SNMP (on battery, battery low, alarms, temperature, overload) and any other SNMP value (a temperature probe, a PDU current) recorded as series.",
+        "runNow": "Read now",
+        "add": "Add UPS",
+        "suggest": "These look like UPS units (click to add):",
+        "none": "No UPS yet. Add the first: a name and the address of its network card with SNMP enabled.",
+        "deleteConfirm": "Remove \"{{name}}\" from monitoring?",
+        "notAnswering": "not answering SNMP",
+        "lastOk": "Last successful reading",
+        "charge": "Charge",
+        "runtime": "Runtime left",
+        "load": "Load",
+        "temp": "Temperature",
+        "voltage": "Battery voltage",
+        "alarms": "Alarms: {{n}}.",
+        "source": {
+            "online": "on mains",
+            "battery": "on battery",
+            "bypass": "bypass",
+            "off": "off",
+            "unknown": "no data"
+        },
+        "battery": {
+            "low": "Battery low.",
+            "depleted": "Battery depleted."
+        },
+        "form": {
+            "titleNew": "New UPS",
+            "titleEdit": "Edit UPS",
+            "name": "Name (e.g. Server room UPS)",
+            "community": "SNMP community",
+            "communityHint": "empty = the communities the agent already knows for this address, then \"public\"",
+            "test": "Test the reading",
+            "testOk": "answers: {{model}}, charge {{charge}}%",
+            "testFail": "no SNMP answer (neither UPS-MIB nor APC)"
+        },
+        "sensors": "Other SNMP sensors",
+        "sensor": {
+            "add": "Add a sensor",
+            "none": "No sensors.",
+            "titleNew": "New SNMP sensor",
+            "scale": "Multiplier",
+            "unit": "Unit",
+            "hint": "The value of the OID is multiplied by the multiplier (0.1 when the device reports tenths of a degree). The readings go to \"Metrics and forecasts\", where thresholds of your own can be set."
+        },
+        "note": "Alerts: \"UPS is running on battery\" (high), \"battery low\" (critical, also when the charge or the runtime left drops under a limit while on battery), alarms, battery temperature too high, overload, no answer after three tries. The readings of a UPS have charts in"
     },
     "traffic": {
         "title": "Traffic analyzer",

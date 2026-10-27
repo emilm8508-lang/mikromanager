@@ -28,6 +28,7 @@
                 "maint": "Fenêtres de maintenance",
                 "hostlogs": "Journaux des hôtes",
                 "metrics": "Métriques et prévisions",
+                "ups": "Onduleurs et capteurs",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2020,6 +2021,54 @@
             "ups_temp": "température de l'onduleur",
             "other": "autres"
         }
+    },
+    "ups": {
+        "title": "Onduleurs et capteurs",
+        "subtitle": "L'alimentation de la salle serveurs : onduleurs lus par SNMP (sur batterie, batterie faible, alarmes, température, surcharge) et toute autre valeur SNMP (une sonde de température, le courant d'une PDU) enregistrée comme série.",
+        "runNow": "Lire maintenant",
+        "add": "Ajouter un onduleur",
+        "suggest": "Ils ressemblent à des onduleurs (cliquez pour ajouter) :",
+        "none": "Aucun onduleur pour l'instant. Ajoutez le premier : un nom et l'adresse de sa carte réseau avec SNMP activé.",
+        "deleteConfirm": "Retirer « {{name}} » de la surveillance ?",
+        "notAnswering": "ne répond pas en SNMP",
+        "lastOk": "Dernier relevé réussi",
+        "charge": "Charge",
+        "runtime": "Autonomie",
+        "load": "Charge de sortie",
+        "temp": "Température",
+        "voltage": "Tension de batterie",
+        "alarms": "Alarmes : {{n}}.",
+        "source": {
+            "online": "sur secteur",
+            "battery": "sur batterie",
+            "bypass": "bypass",
+            "off": "éteint",
+            "unknown": "pas de données"
+        },
+        "battery": {
+            "low": "Batterie faible.",
+            "depleted": "Batterie épuisée."
+        },
+        "form": {
+            "titleNew": "Nouvel onduleur",
+            "titleEdit": "Modifier l'onduleur",
+            "name": "Nom (p. ex. Onduleur de la salle serveurs)",
+            "community": "Communauté SNMP",
+            "communityHint": "vide = les communautés que l'agent connaît déjà pour cette adresse, puis « public »",
+            "test": "Tester le relevé",
+            "testOk": "répond : {{model}}, charge {{charge}}%",
+            "testFail": "pas de réponse SNMP (ni UPS-MIB ni APC)"
+        },
+        "sensors": "Autres capteurs SNMP",
+        "sensor": {
+            "add": "Ajouter un capteur",
+            "none": "Aucun capteur.",
+            "titleNew": "Nouveau capteur SNMP",
+            "scale": "Multiplicateur",
+            "unit": "Unité",
+            "hint": "La valeur de l'OID est multipliée par le multiplicateur (0,1 si l'appareil donne des dixièmes de degré). Les relevés vont dans « Métriques et prévisions », où l'on peut fixer des seuils personnalisés."
+        },
+        "note": "Alertes : « l'onduleur fonctionne sur batterie » (élevée), « batterie faible » (critique, aussi quand la charge ou l'autonomie passe sous une limite sur batterie), alarmes, température de batterie trop élevée, surcharge, pas de réponse après trois essais. Les relevés d'un onduleur ont des graphiques dans"
     },
     "traffic": {
         "title": "Analyseur de trafic",

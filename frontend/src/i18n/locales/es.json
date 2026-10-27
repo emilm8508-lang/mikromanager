@@ -28,6 +28,7 @@
                 "maint": "Ventanas de mantenimiento",
                 "hostlogs": "Registros de hosts",
                 "metrics": "Métricas y previsiones",
+                "ups": "SAI y sensores",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2020,6 +2021,54 @@
             "ups_temp": "temperatura del SAI",
             "other": "otras"
         }
+    },
+    "ups": {
+        "title": "SAI y sensores",
+        "subtitle": "La alimentación de la sala de servidores: SAI leídos por SNMP (en batería, batería baja, alarmas, temperatura, sobrecarga) y cualquier otro valor SNMP (una sonda de temperatura, la corriente de una PDU) registrado como series.",
+        "runNow": "Leer ahora",
+        "add": "Añadir SAI",
+        "suggest": "Parecen SAI (haga clic para añadir):",
+        "none": "Aún no hay SAI. Añada el primero: un nombre y la dirección de su tarjeta de red con SNMP activado.",
+        "deleteConfirm": "¿Quitar «{{name}}» de la supervisión?",
+        "notAnswering": "no responde a SNMP",
+        "lastOk": "Última lectura correcta",
+        "charge": "Carga",
+        "runtime": "Autonomía",
+        "load": "Carga de salida",
+        "temp": "Temperatura",
+        "voltage": "Tensión de batería",
+        "alarms": "Alarmas: {{n}}.",
+        "source": {
+            "online": "con red",
+            "battery": "en batería",
+            "bypass": "bypass",
+            "off": "apagado",
+            "unknown": "sin datos"
+        },
+        "battery": {
+            "low": "Batería baja.",
+            "depleted": "Batería agotada."
+        },
+        "form": {
+            "titleNew": "Nuevo SAI",
+            "titleEdit": "Editar SAI",
+            "name": "Nombre (p. ej. SAI de la sala de servidores)",
+            "community": "Comunidad SNMP",
+            "communityHint": "vacío = las comunidades que el agente ya conoce para esta dirección y luego «public»",
+            "test": "Probar la lectura",
+            "testOk": "responde: {{model}}, carga {{charge}}%",
+            "testFail": "sin respuesta SNMP (ni UPS-MIB ni APC)"
+        },
+        "sensors": "Otros sensores SNMP",
+        "sensor": {
+            "add": "Añadir sensor",
+            "none": "Sin sensores.",
+            "titleNew": "Nuevo sensor SNMP",
+            "scale": "Multiplicador",
+            "unit": "Unidad",
+            "hint": "El valor del OID se multiplica por el multiplicador (0,1 si el dispositivo da décimas de grado). Las lecturas van a «Métricas y previsiones», donde se pueden fijar umbrales propios."
+        },
+        "note": "Alertas: «el SAI funciona con batería» (alta), «batería baja» (crítica, también cuando la carga o la autonomía bajan de un límite estando en batería), alarmas, temperatura de batería alta, sobrecarga, sin respuesta tras tres intentos. Las lecturas de un SAI tienen gráficos en"
     },
     "traffic": {
         "title": "Analizador de tráfico",

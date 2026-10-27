@@ -28,6 +28,7 @@
                 "maint": "Okna serwisowe",
                 "hostlogs": "Dzienniki hostów",
                 "metrics": "Metryki i prognozy",
+                "ups": "UPS i czujniki",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2184,6 +2185,54 @@
             "ups_temp": "UPS: temperatura",
             "other": "inne"
         }
+    },
+    "ups": {
+        "title": "UPS i czujniki",
+        "subtitle": "Zasilanie serwerowni: UPS-y odpytywane przez SNMP (praca z baterii, rozładowana bateria, alarmy, temperatura, przeciążenie) oraz dowolne inne wartości SNMP (sonda temperatury, prąd w listwie) zapisywane jako serie.",
+        "runNow": "Odczytaj teraz",
+        "add": "Dodaj UPS",
+        "suggest": "Wyglądają na UPS-y (kliknij, aby dodać):",
+        "none": "Brak UPS-ów. Dodaj pierwszy: nazwa i adres jego karty sieciowej z włączonym SNMP.",
+        "deleteConfirm": "Usunąć „{{name}}” z monitoringu?",
+        "notAnswering": "nie odpowiada na SNMP",
+        "lastOk": "Ostatni udany odczyt",
+        "charge": "Naładowanie",
+        "runtime": "Czas pracy",
+        "load": "Obciążenie",
+        "temp": "Temperatura",
+        "voltage": "Napięcie baterii",
+        "alarms": "Alarmy: {{n}}.",
+        "source": {
+            "online": "z sieci",
+            "battery": "z baterii",
+            "bypass": "bypass",
+            "off": "wyłączony",
+            "unknown": "brak danych"
+        },
+        "battery": {
+            "low": "Bateria słaba.",
+            "depleted": "Bateria rozładowana."
+        },
+        "form": {
+            "titleNew": "Nowy UPS",
+            "titleEdit": "Edycja UPS",
+            "name": "Nazwa (np. UPS serwerownia)",
+            "community": "Wspólnota SNMP",
+            "communityHint": "puste = wspólnoty, które agent już zna dla tego adresu, potem „public”",
+            "test": "Sprawdź odczyt",
+            "testOk": "odpowiada: {{model}}, naładowanie {{charge}}%",
+            "testFail": "brak odpowiedzi SNMP (UPS-MIB ani APC)"
+        },
+        "sensors": "Inne czujniki SNMP",
+        "sensor": {
+            "add": "Dodaj czujnik",
+            "none": "Brak czujników.",
+            "titleNew": "Nowy czujnik SNMP",
+            "scale": "Mnożnik",
+            "unit": "Jednostka",
+            "hint": "Wartość z OID jest mnożona przez mnożnik (0,1, jeśli urządzenie podaje dziesiąte części stopnia). Odczyty trafiają do „Metryk i prognoz”, gdzie można ustawić własne progi."
+        },
+        "note": "Alerty: „UPS pracuje z baterii” (wysoki), „bateria słaba” (krytyczny, także gdy naładowanie lub czas pracy spadną poniżej progu podczas pracy z baterii), alarmy, wysoka temperatura baterii, przeciążenie, brak odpowiedzi po trzech próbach. Odczyty UPS-ów mają wykresy w"
     },
     "traffic": {
         "title": "Analizator ruchu",

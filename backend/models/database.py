@@ -494,6 +494,42 @@ class SocAlert(Base):
     root_name = Column(String, nullable=True)
 
 
+class UpsTarget(Base):
+    """A UPS read over SNMP (services/ups_monitor.py)."""
+    __tablename__ = "ups_targets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    ip = Column(String, nullable=False)
+    port = Column(Integer, nullable=False, default=161)
+    community_enc = Column(String, nullable=True)                # Fernet-encrypted; none = the communities the agent already knows for the address
+    enabled = Column(Boolean, nullable=False, default=True)
+    state = Column(Text, nullable=True)                          # JSON of the last reading
+    last_check = Column(DateTime, nullable=True)
+    last_ok = Column(DateTime, nullable=True)
+    last_error = Column(String, nullable=True)
+
+
+class SnmpSensor(Base):
+    """Any numeric SNMP value the operator names (a temperature probe, a PDU current ...), recorded as a metric series (services/ups_monitor.py)."""
+    __tablename__ = "snmp_sensors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    ip = Column(String, nullable=False)
+    port = Column(Integer, nullable=False, default=161)
+    community_enc = Column(String, nullable=True)
+    oid = Column(String, nullable=False)
+    scale = Column(Float, nullable=False, default=1.0)           # the value is multiplied by this (0.1: tenths of a degree)
+    unit = Column(String, nullable=True)
+    kind = Column(String, nullable=False, default="other")       # the metric kind: temp | other | cpu | mem | disk
+    enabled = Column(Boolean, nullable=False, default=True)
+    last_value = Column(Float, nullable=True)
+    last_check = Column(DateTime, nullable=True)
+    last_ok = Column(DateTime, nullable=True)
+    last_error = Column(String, nullable=True)
+
+
 class MetricSeries(Base):
     """One measured thing with a history (services/metrics.py): the CPU of a router, the C: drive of a server, the charge of a UPS ..."""
     __tablename__ = "metric_series"

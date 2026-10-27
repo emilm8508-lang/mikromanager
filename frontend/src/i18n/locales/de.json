@@ -28,6 +28,7 @@
                 "maint": "Wartungsfenster",
                 "hostlogs": "Host-Protokolle",
                 "metrics": "Metriken und Prognosen",
+                "ups": "USV und Sensoren",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2020,6 +2021,54 @@
             "ups_temp": "USV-Temperatur",
             "other": "andere"
         }
+    },
+    "ups": {
+        "title": "USV und Sensoren",
+        "subtitle": "Die Stromversorgung des Serverraums: über SNMP abgefragte USV (Batteriebetrieb, Batterie schwach, Alarme, Temperatur, Überlast) und beliebige andere SNMP-Werte (Temperaturfühler, PDU-Strom) als Serien aufgezeichnet.",
+        "runNow": "Jetzt lesen",
+        "add": "USV hinzufügen",
+        "suggest": "Diese sehen nach USV aus (zum Hinzufügen anklicken):",
+        "none": "Noch keine USV. Fügen Sie die erste hinzu: Name und Adresse ihrer Netzwerkkarte mit aktiviertem SNMP.",
+        "deleteConfirm": "„{{name}}“ aus der Überwachung entfernen?",
+        "notAnswering": "antwortet nicht auf SNMP",
+        "lastOk": "Letzte erfolgreiche Messung",
+        "charge": "Ladung",
+        "runtime": "Restlaufzeit",
+        "load": "Last",
+        "temp": "Temperatur",
+        "voltage": "Batteriespannung",
+        "alarms": "Alarme: {{n}}.",
+        "source": {
+            "online": "Netzbetrieb",
+            "battery": "Batteriebetrieb",
+            "bypass": "Bypass",
+            "off": "aus",
+            "unknown": "keine Daten"
+        },
+        "battery": {
+            "low": "Batterie schwach.",
+            "depleted": "Batterie erschöpft."
+        },
+        "form": {
+            "titleNew": "Neue USV",
+            "titleEdit": "USV bearbeiten",
+            "name": "Name (z. B. USV Serverraum)",
+            "community": "SNMP-Community",
+            "communityHint": "leer = die dem Agenten für diese Adresse bekannten Communities, dann „public“",
+            "test": "Messung testen",
+            "testOk": "antwortet: {{model}}, Ladung {{charge}}%",
+            "testFail": "keine SNMP-Antwort (weder UPS-MIB noch APC)"
+        },
+        "sensors": "Weitere SNMP-Sensoren",
+        "sensor": {
+            "add": "Sensor hinzufügen",
+            "none": "Keine Sensoren.",
+            "titleNew": "Neuer SNMP-Sensor",
+            "scale": "Faktor",
+            "unit": "Einheit",
+            "hint": "Der Wert der OID wird mit dem Faktor multipliziert (0,1, wenn das Gerät Zehntelgrad meldet). Die Messwerte gehen in „Metriken und Prognosen“, wo eigene Schwellen gesetzt werden können."
+        },
+        "note": "Alarme: „USV läuft im Batteriebetrieb“ (hoch), „Batterie schwach“ (kritisch, auch wenn Ladung oder Restlaufzeit im Batteriebetrieb unter eine Grenze fallen), Alarme, zu hohe Batterietemperatur, Überlast, keine Antwort nach drei Versuchen. Die Messwerte einer USV haben Diagramme unter"
     },
     "traffic": {
         "title": "Verkehrsanalyse",

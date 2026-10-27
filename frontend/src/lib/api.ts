@@ -1397,6 +1397,20 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// UPS units and SNMP sensors (services/ups_monitor.py)
+export interface UpsState { source: string; battery: string; charge: number | null; minutes: number | null; load: number | null; temp: number | null; voltage: number | null; alarms: number; model: string | null; on_battery_s: number }
+export interface UpsRow { id: number; name: string; ip: string; port: number; enabled: boolean; has_community: boolean; state: UpsState | null; last_check: string | null; last_ok: string | null; error: string | null }
+export interface SensorRow { id: number; name: string; ip: string; port: number; oid: string; scale: number; unit: string | null; kind: string; enabled: boolean; has_community: boolean; value: number | null; last_check: string | null; error: string | null }
+export const upsApi = {
+  overview: () => api.get<{ ups: UpsRow[]; sensors: SensorRow[]; suggestions: Array<{ id: number; name: string; ip: string; model: string | null; manufacturer: string | null }> }>('/ups').then(r => r.data),
+  test: (b: { ip: string; port: number; community: string | null }) => api.post<{ ok: boolean; state: UpsState | null }>('/ups/test', b).then(r => r.data),
+  create: (b: { name: string; ip: string; port: number; community?: string }) => api.post<{ id: number }>('/ups', b).then(r => r.data),
+  update: (id: number, b: { name: string; ip: string; port: number; community?: string }) => api.put<{ id: number }>(`/ups/${id}`, b).then(r => r.data),
+  remove: (id: number) => api.delete(`/ups/${id}`).then(r => r.data),
+  createSensor: (b: { name: string; ip: string; port: number; oid: string; scale: number; unit: string; kind: string; community?: string }) => api.post<{ id: number }>('/ups/sensors', b).then(r => r.data),
+  removeSensor: (id: number) => api.delete(`/ups/sensors/${id}`).then(r => r.data),
+  run: () => api.post('/ups/run').then(r => r.data),
+}
 // metrics with history, forecast and thresholds that last (services/metrics.py)
 export interface MetricSeriesRow { key: string; name: string; kind: string; unit: string; asset_id: number | null; value: number | null; at: string | null; slope: number | null; r2: number | null; days_to_full: number | null; samples: number; stale: boolean }
 export interface MetricRule { id?: string; name: string; kind: string; op: string; threshold: number; minutes: number; severity: string; match?: string | null; enabled: boolean }

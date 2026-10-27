@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -283,6 +283,7 @@ export function Sidebar() {
       item('/windows', t('nav.windowsHosts') as string, MonitorSmartphone),
       item('/hyperv', t('nav.hyperv') as string, Layers),
       item('/dell-servers', t('nav.dellServers') as string, ServerCog),
+      item('/ups', t('nav.ups') as string, BatteryCharging),
       item('/hostmon', t('nav.hostMonitor') as string, Radar),
     ] },
     { key: 'network', label: t('nav.groupNetwork') as string, icon: Network, items: [
