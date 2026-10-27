@@ -1397,6 +1397,14 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// metrics with history, forecast and thresholds that last (services/metrics.py)
+export interface MetricSeriesRow { key: string; name: string; kind: string; unit: string; asset_id: number | null; value: number | null; at: string | null; slope: number | null; r2: number | null; days_to_full: number | null; samples: number; stale: boolean }
+export interface MetricRule { id?: string; name: string; kind: string; op: string; threshold: number; minutes: number; severity: string; match?: string | null; enabled: boolean }
+export const metricsApi = {
+  overview: () => api.get<{ series: MetricSeriesRow[]; rules: MetricRule[]; status: { at: string | null; series: number; error: string | null } }>('/metrics').then(r => r.data),
+  series: (key: string, days: number) => api.get<{ key: string; points: Array<{ t: string; v: number }>; trend: { slope: number | null; r2: number | null; current: number | null; days_to_limit: number | null; span_days: number } }>('/metrics/series', { params: { key, days } }).then(r => r.data),
+  saveRules: (rules: MetricRule[]) => api.put<{ rules: MetricRule[] }>('/metrics/rules', { rules }).then(r => r.data),
+}
 // security events of the managed hosts (services/host_logs.py)
 export const hostLogsApi = {
   status: () => api.get<{ settings: { enabled: boolean; interval_min: number }; running: boolean

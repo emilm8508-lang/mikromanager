@@ -494,6 +494,29 @@ class SocAlert(Base):
     root_name = Column(String, nullable=True)
 
 
+class MetricSeries(Base):
+    """One measured thing with a history (services/metrics.py): the CPU of a router, the C: drive of a server, the charge of a UPS ..."""
+    __tablename__ = "metric_series"
+
+    key = Column(String, primary_key=True)                       # "win:3:disk:C:", "dev:12:cpu", "ups:7:charge"
+    name = Column(String, nullable=False)                        # "DC1 · C:" - the part before " · " is the device
+    kind = Column(String, nullable=False, default="other", index=True)     # cpu | mem | disk | temp | ups_charge ...
+    asset_id = Column(Integer, nullable=True)
+    unit = Column(String, nullable=False, default="%")
+    last_value = Column(Float, nullable=True)
+    last_at = Column(DateTime, nullable=True)
+
+
+class MetricSample(Base):
+    """A reading of a series: every 10 minutes for 14 days, then one per hour up to 90 days."""
+    __tablename__ = "metric_samples"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, nullable=False, index=True)
+    at = Column(DateTime, nullable=False, index=True)
+    value = Column(Float, nullable=False)
+
+
 class HostLogCursor(Base):
     """Where the reading of a host's security events (services/host_logs.py) got to: the time of the last successful read, the last error, how many events were seen."""
     __tablename__ = "host_log_cursors"

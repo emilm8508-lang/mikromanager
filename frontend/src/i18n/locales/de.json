@@ -27,6 +27,7 @@
                 "groupNetSvc": "Dienste und Verfügbarkeit",
                 "maint": "Wartungsfenster",
                 "hostlogs": "Host-Protokolle",
+                "metrics": "Metriken und Prognosen",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1976,6 +1977,49 @@
             "problem": "Problem"
         },
         "note": "Das Lesen des Windows-Sicherheitsprotokolls erfordert ein Administratorkonto oder die Gruppe „Ereignisprotokollleser“; ein Host, bei dem es scheitert, zeigt den Fehler. Das erste Lesen reicht 15 Minuten zurück, spätere beginnen dort, wo das vorige endete. Der Agent speichert die Protokolle nicht, nur die Zahlen, Quellen und Namen, die ein Alarm braucht."
+    },
+    "metrics": {
+        "title": "Metriken und Prognosen",
+        "subtitle": "CPU, Speicher, Datenträger und Temperatur der Geräte mit Verlauf: Diagramme, die Prognose, wann ein Datenträger voll ist („der Datenträger ist in 9 Tagen voll“), und Schwellen, die eine Weile gelten müssen, um einen Alarm auszulösen.",
+        "allKinds": "Alle Arten",
+        "empty": "Noch keine Serien. Sie erscheinen nach den ersten Messungen der Ressourcen von Geräten und Hosts (alle 10 Minuten).",
+        "col": {
+            "series": "Serie",
+            "kind": "Art",
+            "now": "Jetzt",
+            "trend": "Trend (7 Tage)",
+            "full": "Voll in"
+        },
+        "days": "Tage",
+        "day": "Tag",
+        "trend": "Trend: {{slope}} {{unit}} pro Tag (Anpassung {{r2}})",
+        "notEnough": "Zu wenige Messwerte für ein Diagramm.",
+        "rules": {
+            "title": "Eigene Schwellen",
+            "add": "Schwelle hinzufügen",
+            "intro": "Ein Alarm entsteht, wenn der Wert die ganze angegebene Zeit auf der falschen Seite der Schwelle bleibt (z. B. CPU über 90 % für 15 Minuten). Dauer 0 bedeutet einen einzelnen Messwert.",
+            "none": "Keine eigenen Schwellen.",
+            "name": "Name (z. B. DC1-CPU überlastet)",
+            "kind": "Art",
+            "when": "Wenn der Wert",
+            "threshold": "Schwelle",
+            "minutes": "Für (Min.)",
+            "severity": "Schweregrad",
+            "match": "Namensfilter (optional, regulärer Ausdruck)",
+            "forMin": "für {{n}} Min."
+        },
+        "note": "Die Messwerte stammen aus dem, was der Agent über Geräte und Hosts schon weiß (keine neuen Verbindungen); volle Auflösung 14 Tage, danach ein Wert pro Stunde bis 90 Tage. Die Prognose gilt für Datenträger: stetiges Wachstum (Geradenanpassung mindestens 0,6, Wachstum mindestens 0,2 Punkte pro Tag) mit Erreichen von 100 % innerhalb von 14 Tagen.",
+        "kind": {
+            "cpu": "CPU",
+            "mem": "Speicher",
+            "disk": "Datenträger",
+            "temp": "Temperatur",
+            "ups_charge": "USV-Ladung",
+            "ups_load": "USV-Last",
+            "ups_runtime": "USV-Laufzeit",
+            "ups_temp": "USV-Temperatur",
+            "other": "andere"
+        }
     },
     "traffic": {
         "title": "Verkehrsanalyse",

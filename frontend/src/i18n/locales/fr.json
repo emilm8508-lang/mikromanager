@@ -27,6 +27,7 @@
                 "groupNetSvc": "Services et disponibilité",
                 "maint": "Fenêtres de maintenance",
                 "hostlogs": "Journaux des hôtes",
+                "metrics": "Métriques et prévisions",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1976,6 +1977,49 @@
             "problem": "Problème"
         },
         "note": "Lire le journal de sécurité Windows demande un compte administrateur ou le groupe « Lecteurs des journaux d'événements » ; un hôte où cela échoue affiche l'erreur. La première lecture remonte de 15 minutes, les suivantes reprennent là où la précédente s'est arrêtée. L'agent ne conserve pas les journaux, seulement les nombres, sources et noms nécessaires à une alerte."
+    },
+    "metrics": {
+        "title": "Métriques et prévisions",
+        "subtitle": "Processeur, mémoire, disques et température des appareils avec historique : graphiques, prévision du remplissage d'un disque (« le disque sera plein dans 9 jours ») et seuils qui doivent tenir un certain temps pour déclencher une alerte.",
+        "allKinds": "Tous les types",
+        "empty": "Aucune série pour l'instant. Elles apparaissent après les premières lectures des ressources des appareils et des hôtes (toutes les 10 minutes).",
+        "col": {
+            "series": "Série",
+            "kind": "Type",
+            "now": "Maintenant",
+            "trend": "Tendance (7 jours)",
+            "full": "Plein dans"
+        },
+        "days": "jours",
+        "day": "jour",
+        "trend": "Tendance : {{slope}} {{unit}} par jour (ajustement {{r2}})",
+        "notEnough": "Trop peu de relevés pour un graphique.",
+        "rules": {
+            "title": "Seuils personnalisés",
+            "add": "Ajouter un seuil",
+            "intro": "Une alerte est levée quand la valeur reste du mauvais côté du seuil pendant tout le temps indiqué (p. ex. processeur au-dessus de 90 % pendant 15 minutes). Une durée de 0 signifie un seul relevé.",
+            "none": "Aucun seuil personnalisé.",
+            "name": "Nom (p. ex. Processeur de DC1 surchargé)",
+            "kind": "Type",
+            "when": "Quand la valeur est",
+            "threshold": "Seuil",
+            "minutes": "Pendant (min)",
+            "severity": "Gravité",
+            "match": "Filtre de nom (facultatif, expression régulière)",
+            "forMin": "pendant {{n}} min"
+        },
+        "note": "Les relevés viennent de ce que l'agent sait déjà des appareils et des hôtes (pas de nouvelles connexions) ; pleine résolution 14 jours, puis un relevé par heure jusqu'à 90 jours. La prévision concerne les disques : croissance régulière (ajustement de droite d'au moins 0,6, croissance d'au moins 0,2 point par jour) atteignant 100 % en 14 jours.",
+        "kind": {
+            "cpu": "processeur",
+            "mem": "mémoire",
+            "disk": "disque",
+            "temp": "température",
+            "ups_charge": "charge de l'onduleur",
+            "ups_load": "charge de sortie de l'onduleur",
+            "ups_runtime": "autonomie de l'onduleur",
+            "ups_temp": "température de l'onduleur",
+            "other": "autres"
+        }
     },
     "traffic": {
         "title": "Analyseur de trafic",

@@ -27,6 +27,7 @@
                 "groupNetSvc": "Services and availability",
                 "maint": "Maintenance windows",
                 "hostlogs": "Host logs",
+                "metrics": "Metrics and forecasts",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1976,6 +1977,49 @@
             "problem": "Problem"
         },
         "note": "Reading the Windows Security log needs an administrator account or the \"Event Log Readers\" group; a host where it fails shows the error. The first read goes back 15 minutes, later ones start where the previous one stopped. The agent does not keep the logs, only the counts, sources and names an alert needs."
+    },
+    "metrics": {
+        "title": "Metrics and forecasts",
+        "subtitle": "CPU, memory, disks and temperature of the devices with history: charts, the forecast of when a disk is full (\"the disk will be full in 9 days\") and thresholds that must hold for a while to raise an alert.",
+        "allKinds": "All kinds",
+        "empty": "No series yet. They appear after the first readings of the resources of the devices and hosts (every 10 minutes).",
+        "col": {
+            "series": "Series",
+            "kind": "Kind",
+            "now": "Now",
+            "trend": "Trend (7 days)",
+            "full": "Full in"
+        },
+        "days": "days",
+        "day": "day",
+        "trend": "Trend: {{slope}} {{unit}} a day (fit {{r2}})",
+        "notEnough": "Too few readings for a chart.",
+        "rules": {
+            "title": "Own thresholds",
+            "add": "Add a threshold",
+            "intro": "An alert is raised when the value stays on the wrong side of the threshold for the whole time (e.g. CPU above 90% for 15 minutes). A duration of 0 means a single reading.",
+            "none": "No own thresholds.",
+            "name": "Name (e.g. DC1 CPU overloaded)",
+            "kind": "Kind",
+            "when": "When the value is",
+            "threshold": "Threshold",
+            "minutes": "For (min)",
+            "severity": "Severity",
+            "match": "Name filter (optional, regular expression)",
+            "forMin": "for {{n}} min"
+        },
+        "note": "The readings come from what the agent already knows about the devices and hosts (no new connections); full resolution for 14 days, then one reading an hour up to 90 days. The forecast is for disks: growing steadily (a straight-line fit of at least 0.6, growth of at least 0.2 points a day) and reaching 100% within 14 days.",
+        "kind": {
+            "cpu": "CPU",
+            "mem": "memory",
+            "disk": "disk",
+            "temp": "temperature",
+            "ups_charge": "UPS charge",
+            "ups_load": "UPS load",
+            "ups_runtime": "UPS runtime",
+            "ups_temp": "UPS temperature",
+            "other": "other"
+        }
     },
     "traffic": {
         "title": "Traffic analyzer",

@@ -27,6 +27,7 @@
                 "groupNetSvc": "Servicios y disponibilidad",
                 "maint": "Ventanas de mantenimiento",
                 "hostlogs": "Registros de hosts",
+                "metrics": "Métricas y previsiones",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1976,6 +1977,49 @@
             "problem": "Problema"
         },
         "note": "Leer el registro de seguridad de Windows requiere una cuenta de administrador o el grupo «Lectores del registro de eventos»; un host donde falla muestra el error. La primera lectura retrocede 15 minutos y las siguientes empiezan donde terminó la anterior. El agente no guarda los registros, solo los recuentos, orígenes y nombres que necesita una alerta."
+    },
+    "metrics": {
+        "title": "Métricas y previsiones",
+        "subtitle": "CPU, memoria, discos y temperatura de los dispositivos con historial: gráficos, la previsión de cuándo se llena un disco («el disco estará lleno en 9 días») y umbrales que deben mantenerse un tiempo para generar una alerta.",
+        "allKinds": "Todos los tipos",
+        "empty": "Aún no hay series. Aparecen tras las primeras lecturas de los recursos de dispositivos y hosts (cada 10 minutos).",
+        "col": {
+            "series": "Serie",
+            "kind": "Tipo",
+            "now": "Ahora",
+            "trend": "Tendencia (7 días)",
+            "full": "Lleno en"
+        },
+        "days": "días",
+        "day": "día",
+        "trend": "Tendencia: {{slope}} {{unit}} al día (ajuste {{r2}})",
+        "notEnough": "Pocas lecturas para un gráfico.",
+        "rules": {
+            "title": "Umbrales propios",
+            "add": "Añadir umbral",
+            "intro": "Se genera una alerta cuando el valor permanece al otro lado del umbral durante todo el tiempo indicado (p. ej. CPU por encima del 90 % durante 15 minutos). Una duración de 0 significa una sola lectura.",
+            "none": "Sin umbrales propios.",
+            "name": "Nombre (p. ej. CPU de DC1 sobrecargada)",
+            "kind": "Tipo",
+            "when": "Cuando el valor",
+            "threshold": "Umbral",
+            "minutes": "Durante (min)",
+            "severity": "Gravedad",
+            "match": "Filtro de nombre (opcional, expresión regular)",
+            "forMin": "durante {{n}} min"
+        },
+        "note": "Las lecturas salen de lo que el agente ya sabe de dispositivos y hosts (sin conexiones nuevas); resolución completa 14 días, luego una lectura por hora hasta 90 días. La previsión es para discos: crecimiento constante (ajuste de recta de al menos 0,6, crecimiento de al menos 0,2 puntos al día) que alcance el 100 % en 14 días.",
+        "kind": {
+            "cpu": "CPU",
+            "mem": "memoria",
+            "disk": "disco",
+            "temp": "temperatura",
+            "ups_charge": "carga del SAI",
+            "ups_load": "carga del SAI (salida)",
+            "ups_runtime": "autonomía del SAI",
+            "ups_temp": "temperatura del SAI",
+            "other": "otras"
+        }
     },
     "traffic": {
         "title": "Analizador de tráfico",

@@ -27,6 +27,7 @@
                 "groupNetSvc": "Usługi i dostępność",
                 "maint": "Okna serwisowe",
                 "hostlogs": "Dzienniki hostów",
+                "metrics": "Metryki i prognozy",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2140,6 +2141,49 @@
             "problem": "Problem"
         },
         "note": "Odczyt dziennika zabezpieczeń Windows wymaga konta administratora lub grupy „Czytelnicy dziennika zdarzeń”; host, na którym się nie udaje, pokazuje błąd. Pierwszy odczyt sięga 15 minut wstecz, kolejne zaczynają od miejsca, w którym skończył poprzedni. Agent nie przechowuje dzienników, tylko liczby, źródła i nazwy potrzebne do alertu."
+    },
+    "metrics": {
+        "title": "Metryki i prognozy",
+        "subtitle": "Procesor, pamięć, dyski i temperatura urządzeń z historią: wykresy, prognoza zapełnienia dysku („dysk będzie pełny za 9 dni”) i progi, które muszą utrzymać się przez jakiś czas, żeby wywołać alert.",
+        "allKinds": "Wszystkie rodzaje",
+        "empty": "Brak serii. Pojawią się po pierwszych odczytach zasobów urządzeń i hostów (co 10 minut).",
+        "col": {
+            "series": "Seria",
+            "kind": "Rodzaj",
+            "now": "Teraz",
+            "trend": "Trend (7 dni)",
+            "full": "Pełny za"
+        },
+        "days": "dni",
+        "day": "dzień",
+        "trend": "Trend: {{slope}} {{unit}} na dzień (dopasowanie {{r2}})",
+        "notEnough": "Za mało odczytów do wykresu.",
+        "rules": {
+            "title": "Własne progi",
+            "add": "Dodaj próg",
+            "intro": "Alert powstaje, gdy wartość przez cały podany czas jest po złej stronie progu (np. procesor powyżej 90% przez 15 minut). Czas 0 oznacza pojedynczy odczyt.",
+            "none": "Brak własnych progów.",
+            "name": "Nazwa (np. Procesor DC1 przeciążony)",
+            "kind": "Rodzaj",
+            "when": "Gdy wartość",
+            "threshold": "Próg",
+            "minutes": "Przez (min)",
+            "severity": "Waga",
+            "match": "Filtr nazwy (opcjonalny, wyrażenie regularne)",
+            "forMin": "przez {{n}} min"
+        },
+        "note": "Odczyty pochodzą z tego, co agent już zna o urządzeniach i hostach (nie ma nowych połączeń); pełna rozdzielczość przez 14 dni, potem jeden odczyt na godzinę do 90 dni. Prognoza dotyczy dysków: rośnie stale (dopasowanie prostej co najmniej 0,6, wzrost co najmniej 0,2 punktu na dzień) i osiągnie 100% w ciągu 14 dni.",
+        "kind": {
+            "cpu": "procesor",
+            "mem": "pamięć",
+            "disk": "dysk",
+            "temp": "temperatura",
+            "ups_charge": "UPS: naładowanie",
+            "ups_load": "UPS: obciążenie",
+            "ups_runtime": "UPS: czas pracy",
+            "ups_temp": "UPS: temperatura",
+            "other": "inne"
+        }
     },
     "traffic": {
         "title": "Analizator ruchu",
