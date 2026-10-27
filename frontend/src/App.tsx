@@ -18,6 +18,7 @@ import { Maintenance } from './pages/Maintenance'
 import { HostLogs } from './pages/HostLogs'
 import { Metrics } from './pages/Metrics'
 import { Ups } from './pages/Ups'
+import { Coverage } from './pages/Coverage'
 import { CentralServicesPage, CentralAvailabilityPage, CentralConfigsPage, CentralSyslogPage } from './pages/CentralNetwork'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="/soc/hostlogs" element={<HostLogs />} />
             <Route path="/metrics" element={<Metrics />} />
             <Route path="/ups" element={<Ups />} />
+            <Route path="/soc/coverage" element={<Coverage />} />
             <Route path="/central/services" element={<CentralServicesPage />} />
             <Route path="/central/availability" element={<CentralAvailabilityPage />} />
             <Route path="/central/configs" element={<CentralConfigsPage />} />

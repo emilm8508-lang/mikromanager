@@ -29,6 +29,7 @@
                 "hostlogs": "Dzienniki hostów",
                 "metrics": "Metryki i prognozy",
                 "ups": "UPS i czujniki",
+                "coverage": "Pokrycie źródeł",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2235,6 +2236,46 @@
             "hint": "Wartość z OID jest mnożona przez mnożnik (0,1, jeśli urządzenie podaje dziesiąte części stopnia). Odczyty trafiają do „Metryk i prognoz”, gdzie można ustawić własne progi."
         },
         "note": "Alerty: „UPS pracuje z baterii” (wysoki), „bateria słaba” (krytyczny, także gdy naładowanie lub czas pracy spadną poniżej progu podczas pracy z baterii), alarmy, wysoka temperatura baterii, przeciążenie, brak odpowiedzi po trzech próbach. Odczyty UPS-ów mają wykresy w"
+    },
+    "coverage": {
+        "title": "Pokrycie: które źródła raportują",
+        "subtitle": "Cisza wygląda dokładnie jak „nic się nie dzieje”: wygasłe hasło Wazuha, router nieczytany od tygodnia, nikt nie nasłuchuje syslogu. Tu widać każde źródło informacji agenta, kiedy ostatnio działało i jak często powinno; źródło, które zamilkło, samo jest alertem.",
+        "state": {
+            "ok": "Działa",
+            "stale": "Milczy",
+            "error": "Błąd",
+            "off": "Wyłączone"
+        },
+        "group": {
+            "link": "Połączenie z Centralą",
+            "connectors": "Integracje",
+            "devices": "Odczyty urządzeń i hostów",
+            "soc": "Monitory SOC i skany"
+        },
+        "silentHosts": "milczy {{n}} z {{total}}",
+        "note": "Źródło uznajemy za milczące, gdy nie działało przez 2,5 raza dłużej niż wynosi jego przedział; w pierwszych 15 minutach po starcie agenta nic nie jest zgłaszane. Milczące źródło otwiera alert „Źródło milczy” w kolejce SOC (zamyka się samo po powrocie). Nieskonfigurowane lub wyłączone źródła nie są problemem. Alerty:",
+        "src": {
+            "uplink": "Centrala (uplink)",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "device_ping": "Żywotność routerów",
+            "device_refresh": "Szczegóły routerów (model, wersja, interfejsy)",
+            "device_resources": "Zasoby routerów (CPU, pamięć, dysk)",
+            "win_resources": "Hosty Windows: zasoby",
+            "lin_resources": "Hosty Linux: zasoby",
+            "dell": "BMC serwerów (iDRAC / iLO)",
+            "hyperv": "Hosty Hyper-V",
+            "availability": "Monitor dostępności",
+            "metrics": "Próbnik metryk",
+            "syslog": "Odbiornik syslog / trapów SNMP",
+            "host_logs": "Dzienniki bezpieczeństwa Windows / Linux",
+            "ups": "UPS-y",
+            "config_history": "Historia konfiguracji routerów",
+            "topology": "Mapa sieci",
+            "vuln_scan": "Skan podatności",
+            "exploit_intel": "CISA KEV i EPSS"
+        }
     },
     "traffic": {
         "title": "Analizator ruchu",

@@ -29,6 +29,7 @@
                 "hostlogs": "Registros de hosts",
                 "metrics": "Métricas y previsiones",
                 "ups": "SAI y sensores",
+                "coverage": "Cobertura de fuentes",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2071,6 +2072,46 @@
             "hint": "El valor del OID se multiplica por el multiplicador (0,1 si el dispositivo da décimas de grado). Las lecturas van a «Métricas y previsiones», donde se pueden fijar umbrales propios."
         },
         "note": "Alertas: «el SAI funciona con batería» (alta), «batería baja» (crítica, también cuando la carga o la autonomía bajan de un límite estando en batería), alarmas, temperatura de batería alta, sobrecarga, sin respuesta tras tres intentos. Las lecturas de un SAI tienen gráficos en"
+    },
+    "coverage": {
+        "title": "Cobertura: qué fuentes informan",
+        "subtitle": "El silencio se parece exactamente a «no pasa nada»: una contraseña de Wazuh caducada, un router sin leer desde hace una semana, nadie escuchando syslog. Aquí está cada fuente de información del agente, cuándo funcionó por última vez y cada cuánto debería; una fuente que enmudeció es una alerta en sí misma.",
+        "state": {
+            "ok": "Funciona",
+            "stale": "En silencio",
+            "error": "Error",
+            "off": "Desactivada"
+        },
+        "group": {
+            "link": "Enlace con la central",
+            "connectors": "Integraciones",
+            "devices": "Lecturas de dispositivos y hosts",
+            "soc": "Monitores SOC y análisis"
+        },
+        "silentHosts": "{{n}} de {{total}} en silencio",
+        "note": "Una fuente está en silencio cuando no ha funcionado durante 2,5 veces su intervalo; en los primeros 15 minutos tras arrancar el agente no se informa de nada. Una fuente en silencio abre una alerta «Fuente en silencio» en la cola SOC (se cierra sola al volver). Las fuentes no configuradas o desactivadas no son un problema. Alertas:",
+        "src": {
+            "uplink": "Central (uplink)",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "device_ping": "Disponibilidad de routers",
+            "device_refresh": "Detalles de routers (modelo, versión, interfaces)",
+            "device_resources": "Recursos de routers (CPU, memoria, disco)",
+            "win_resources": "Hosts Windows: recursos",
+            "lin_resources": "Hosts Linux: recursos",
+            "dell": "BMC de servidores (iDRAC / iLO)",
+            "hyperv": "Hosts Hyper-V",
+            "availability": "Monitor de disponibilidad",
+            "metrics": "Muestreador de métricas",
+            "syslog": "Receptor de syslog / traps SNMP",
+            "host_logs": "Registros de seguridad Windows / Linux",
+            "ups": "SAI",
+            "config_history": "Historial de configuración de routers",
+            "topology": "Mapa de red",
+            "vuln_scan": "Análisis de vulnerabilidades",
+            "exploit_intel": "CISA KEV y EPSS"
+        }
     },
     "traffic": {
         "title": "Analizador de tráfico",

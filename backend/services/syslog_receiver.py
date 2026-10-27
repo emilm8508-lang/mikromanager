@@ -440,6 +440,7 @@ def _handle(kind: str, data: bytes, ip: str, now: Optional[float] = None) -> Opt
     """One datagram -> an event dict (not yet stored), or None when it is dropped. Pure of any I/O except the known-sources cache."""
     now = now or time.time()
     _stats["received"] += 1
+    _stats["last_at"] = datetime.utcnow().isoformat()
     known = known_sources()
     src = known.get(ip)
     if src is None and not _settings.get("accept_unknown"):

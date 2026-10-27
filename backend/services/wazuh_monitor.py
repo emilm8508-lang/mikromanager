@@ -104,6 +104,7 @@ async def collect_wazuh_events() -> List[dict]:
     since = state.get("last_seen_at") or "now-1h"
     alerts = await wazuh_client.list_recent_alerts(since_iso=since, min_level=MIN_LEVEL, low_level=wazuh_client.LOW_LEVEL)
     if alerts is None:
+        _coverage_beat(False, "the Wazuh indexer did not answer")
         return []  # transient failure — keep the old watermark, retry next cycle
 
     events: List[dict] = []
@@ -140,7 +141,16 @@ async def collect_wazuh_events() -> List[dict]:
     state["last_seen_at"] = latest_ts or datetime.utcnow().isoformat()
     _save_state(state)
     _cache["data"] = events
+    _coverage_beat(True)
     return events
+
+
+def _coverage_beat(ok: bool, error=None) -> None:
+    try:
+        from services import coverage
+        coverage.beat("wazuh", ok, error)
+    except Exception:
+        pass
 
 
 def take_soc_events() -> List[dict]:

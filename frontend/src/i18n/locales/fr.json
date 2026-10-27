@@ -29,6 +29,7 @@
                 "hostlogs": "Journaux des hôtes",
                 "metrics": "Métriques et prévisions",
                 "ups": "Onduleurs et capteurs",
+                "coverage": "Couverture des sources",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2071,6 +2072,46 @@
             "hint": "La valeur de l'OID est multipliée par le multiplicateur (0,1 si l'appareil donne des dixièmes de degré). Les relevés vont dans « Métriques et prévisions », où l'on peut fixer des seuils personnalisés."
         },
         "note": "Alertes : « l'onduleur fonctionne sur batterie » (élevée), « batterie faible » (critique, aussi quand la charge ou l'autonomie passe sous une limite sur batterie), alarmes, température de batterie trop élevée, surcharge, pas de réponse après trois essais. Les relevés d'un onduleur ont des graphiques dans"
+    },
+    "coverage": {
+        "title": "Couverture : quelles sources remontent",
+        "subtitle": "Le silence ressemble exactement à « tout va bien » : un mot de passe Wazuh expiré, un routeur non lu depuis une semaine, personne n'écoute le syslog. Voici chaque source d'information de l'agent, quand elle a fonctionné pour la dernière fois et à quelle fréquence elle le devrait ; une source devenue muette est elle-même une alerte.",
+        "state": {
+            "ok": "Fonctionne",
+            "stale": "Muette",
+            "error": "Erreur",
+            "off": "Désactivée"
+        },
+        "group": {
+            "link": "Lien avec la centrale",
+            "connectors": "Intégrations",
+            "devices": "Relevés des appareils et des hôtes",
+            "soc": "Moniteurs SOC et analyses"
+        },
+        "silentHosts": "{{n}} sur {{total}} muets",
+        "note": "Une source est muette si elle n'a pas fonctionné pendant 2,5 fois son intervalle ; rien n'est signalé dans les 15 premières minutes après le démarrage de l'agent. Une source muette ouvre une alerte « Source muette » dans la file SOC (elle se ferme seule au retour). Les sources non configurées ou désactivées ne posent pas de problème. Alertes :",
+        "src": {
+            "uplink": "Centrale (uplink)",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "device_ping": "Disponibilité des routeurs",
+            "device_refresh": "Détails des routeurs (modèle, version, interfaces)",
+            "device_resources": "Ressources des routeurs (CPU, mémoire, disque)",
+            "win_resources": "Hôtes Windows : ressources",
+            "lin_resources": "Hôtes Linux : ressources",
+            "dell": "BMC des serveurs (iDRAC / iLO)",
+            "hyperv": "Hôtes Hyper-V",
+            "availability": "Moniteur de disponibilité",
+            "metrics": "Échantillonneur de métriques",
+            "syslog": "Récepteur syslog / traps SNMP",
+            "host_logs": "Journaux de sécurité Windows / Linux",
+            "ups": "Onduleurs",
+            "config_history": "Historique de configuration des routeurs",
+            "topology": "Carte du réseau",
+            "vuln_scan": "Analyse de vulnérabilités",
+            "exploit_intel": "CISA KEV et EPSS"
+        }
     },
     "traffic": {
         "title": "Analyseur de trafic",

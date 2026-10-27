@@ -101,6 +101,7 @@ async def _scan() -> Optional[List[dict]]:
     devices = await prtg_client.list_devices()
     sensors = await prtg_client.list_sensors()
     if devices is None or sensors is None:
+        _coverage_beat(False, "PRTG did not answer")
         return _cache["data"]
 
     out = []
@@ -119,7 +120,16 @@ async def _scan() -> Optional[List[dict]]:
         })
     _cache["data"] = out
     _cache["at"] = now
+    _coverage_beat(True)
     return out
+
+
+def _coverage_beat(ok: bool, error=None) -> None:
+    try:
+        from services import coverage
+        coverage.beat("prtg", ok, error)
+    except Exception:
+        pass
 
 
 async def collect_prtg_events() -> List[dict]:

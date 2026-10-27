@@ -1398,6 +1398,9 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// coverage: which sources of the agent report (services/coverage.py)
+export interface CoverageItem { id: string; group: string; name: string; state: 'ok' | 'stale' | 'error' | 'off'; last_ok: string | null; expected_s: number | null; error: string | null; detail: string | null; stale_items: string[]; total: number | null }
+export const coverageApi = { report: () => api.get<{ items: CoverageItem[]; summary: Record<'ok' | 'stale' | 'error' | 'off', number>; uptime_s: number; at: string }>('/coverage').then(r => r.data) }
 // UPS units and SNMP sensors (services/ups_monitor.py)
 export interface UpsState { source: string; battery: string; charge: number | null; minutes: number | null; load: number | null; temp: number | null; voltage: number | null; alarms: number; model: string | null; on_battery_s: number }
 export interface UpsRow { id: number; name: string; ip: string; port: number; enabled: boolean; has_community: boolean; state: UpsState | null; last_check: string | null; last_ok: string | null; error: string | null }
@@ -1548,6 +1551,7 @@ export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
+  coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }
   syslog?: { on: boolean; listening: { syslog: boolean; trap: boolean }; stored_24h: number; sources: number; unknown: number; errors: string[] }
   services?: { ok: number; degraded: number; down: number

@@ -29,6 +29,7 @@
                 "hostlogs": "Host-Protokolle",
                 "metrics": "Metriken und Prognosen",
                 "ups": "USV und Sensoren",
+                "coverage": "Quellenabdeckung",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2071,6 +2072,46 @@
             "hint": "Der Wert der OID wird mit dem Faktor multipliziert (0,1, wenn das Gerät Zehntelgrad meldet). Die Messwerte gehen in „Metriken und Prognosen“, wo eigene Schwellen gesetzt werden können."
         },
         "note": "Alarme: „USV läuft im Batteriebetrieb“ (hoch), „Batterie schwach“ (kritisch, auch wenn Ladung oder Restlaufzeit im Batteriebetrieb unter eine Grenze fallen), Alarme, zu hohe Batterietemperatur, Überlast, keine Antwort nach drei Versuchen. Die Messwerte einer USV haben Diagramme unter"
+    },
+    "coverage": {
+        "title": "Abdeckung: welche Quellen berichten",
+        "subtitle": "Stille sieht genau aus wie „alles in Ordnung“: ein abgelaufenes Wazuh-Passwort, ein seit einer Woche nicht gelesener Router, niemand hört auf Syslog. Hier steht jede Informationsquelle des Agenten, wann sie zuletzt funktionierte und wie oft sie sollte; eine verstummte Quelle ist selbst ein Alarm.",
+        "state": {
+            "ok": "Läuft",
+            "stale": "Stumm",
+            "error": "Fehler",
+            "off": "Aus"
+        },
+        "group": {
+            "link": "Verbindung zur Zentrale",
+            "connectors": "Integrationen",
+            "devices": "Auslesen von Geräten und Hosts",
+            "soc": "SOC-Monitore und Scans"
+        },
+        "silentHosts": "{{n}} von {{total}} stumm",
+        "note": "Eine Quelle gilt als stumm, wenn sie das 2,5-Fache ihres Intervalls nicht funktioniert hat; in den ersten 15 Minuten nach dem Start des Agenten wird nichts gemeldet. Eine stumme Quelle öffnet in der SOC-Warteschlange einen Alarm „Quelle stumm“ (er schließt sich selbst, wenn die Quelle zurückkehrt). Nicht konfigurierte oder abgeschaltete Quellen sind kein Problem. Alarme:",
+        "src": {
+            "uplink": "Zentrale (Uplink)",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "device_ping": "Router-Erreichbarkeit",
+            "device_refresh": "Router-Details (Modell, Version, Schnittstellen)",
+            "device_resources": "Router-Ressourcen (CPU, Speicher, Datenträger)",
+            "win_resources": "Windows-Hosts: Ressourcen",
+            "lin_resources": "Linux-Hosts: Ressourcen",
+            "dell": "Server-BMC (iDRAC / iLO)",
+            "hyperv": "Hyper-V-Hosts",
+            "availability": "Verfügbarkeitsmonitor",
+            "metrics": "Metrik-Sampler",
+            "syslog": "Syslog-/SNMP-Trap-Empfänger",
+            "host_logs": "Windows-/Linux-Sicherheitsprotokolle",
+            "ups": "USV-Geräte",
+            "config_history": "Router-Konfigurationsverlauf",
+            "topology": "Netzwerkkarte",
+            "vuln_scan": "Schwachstellenscan",
+            "exploit_intel": "CISA KEV und EPSS"
+        }
     },
     "traffic": {
         "title": "Verkehrsanalyse",

@@ -29,6 +29,7 @@
                 "hostlogs": "Host logs",
                 "metrics": "Metrics and forecasts",
                 "ups": "UPS and sensors",
+                "coverage": "Source coverage",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2071,6 +2072,46 @@
             "hint": "The value of the OID is multiplied by the multiplier (0.1 when the device reports tenths of a degree). The readings go to \"Metrics and forecasts\", where thresholds of your own can be set."
         },
         "note": "Alerts: \"UPS is running on battery\" (high), \"battery low\" (critical, also when the charge or the runtime left drops under a limit while on battery), alarms, battery temperature too high, overload, no answer after three tries. The readings of a UPS have charts in"
+    },
+    "coverage": {
+        "title": "Coverage: which sources are reporting",
+        "subtitle": "Silence looks exactly like \"nothing is wrong\": an expired Wazuh password, a router that has not been read for a week, nobody listening for syslog. This lists every source of information of the agent, when it last worked and how often it should; a source that went quiet is an alert of its own.",
+        "state": {
+            "ok": "Working",
+            "stale": "Silent",
+            "error": "Error",
+            "off": "Off"
+        },
+        "group": {
+            "link": "Link to Central",
+            "connectors": "Integrations",
+            "devices": "Readings of devices and hosts",
+            "soc": "SOC monitors and scans"
+        },
+        "silentHosts": "{{n}} of {{total}} silent",
+        "note": "A source is silent when it has not worked for 2.5 times its interval; nothing is reported in the first 15 minutes after the agent starts. A silent source opens a \"Source silent\" alert in the SOC queue (it closes by itself when the source returns). Sources that are not configured or are switched off are not a problem. Alerts:",
+        "src": {
+            "uplink": "Central (uplink)",
+            "wazuh": "Wazuh",
+            "checkmk": "Checkmk",
+            "prtg": "PRTG",
+            "device_ping": "Router liveness",
+            "device_refresh": "Router details (model, version, interfaces)",
+            "device_resources": "Router resources (CPU, memory, disk)",
+            "win_resources": "Windows hosts: resources",
+            "lin_resources": "Linux hosts: resources",
+            "dell": "Server BMC (iDRAC / iLO)",
+            "hyperv": "Hyper-V hosts",
+            "availability": "Availability monitor",
+            "metrics": "Metrics sampler",
+            "syslog": "Syslog / SNMP trap receiver",
+            "host_logs": "Windows / Linux security logs",
+            "ups": "UPS units",
+            "config_history": "Router configuration history",
+            "topology": "Network map",
+            "vuln_scan": "Vulnerability scan",
+            "exploit_intel": "CISA KEV and EPSS"
+        }
     },
     "traffic": {
         "title": "Traffic analyzer",

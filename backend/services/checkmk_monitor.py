@@ -87,6 +87,7 @@ async def _scan() -> Optional[dict]:
     services = await checkmk_client.list_service_states()
     hosts = await checkmk_client.list_host_states()
     if host_ips is None or services is None or hosts is None:
+        _coverage_beat(False, "Checkmk did not answer")
         return _cache["data"]
 
     out_services = []
@@ -121,7 +122,16 @@ async def _scan() -> Optional[dict]:
     data = {"services": out_services, "hosts": out_hosts}
     _cache["data"] = data
     _cache["at"] = now
+    _coverage_beat(True)
     return data
+
+
+def _coverage_beat(ok: bool, error=None) -> None:
+    try:
+        from services import coverage
+        coverage.beat("checkmk", ok, error)
+    except Exception:
+        pass
 
 
 async def collect_checkmk_events() -> List[dict]:
