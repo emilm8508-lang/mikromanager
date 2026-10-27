@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -276,6 +276,7 @@ export function Sidebar() {
       item('/soc/syslog', t('nav.syslog') as string, Radio),
       item('/soc/hostlogs', t('nav.hostlogs') as string, ScrollText),
       item('/soc/coverage', t('nav.coverage') as string, Radar),
+      item('/soc/response', t('nav.soar') as string, ShieldBan),
     ] },
     { key: 'systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/mikrotik', t('nav.mikrotik') as string, Router),

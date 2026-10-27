@@ -30,6 +30,7 @@
                 "metrics": "Metryki i prognozy",
                 "ups": "UPS i czujniki",
                 "coverage": "Pokrycie źródeł",
+                "soar": "Reakcje",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1575,6 +1576,11 @@
             "status": "status",
             "owner": "właściciel",
             "note": "notatka",
+            "response_proposed": "zaproponowano reakcję",
+            "response_approved": "reakcję zatwierdzono",
+            "response_rejected": "reakcję odrzucono",
+            "response_done": "reakcja wykonana (routery)",
+            "response_lifted": "blokada zdjęta",
             "recovered": "wrócił do normy",
             "stale": "wygasł (bez nawrotu)"
         },
@@ -1627,6 +1633,7 @@
             "client": "Klient",
             "lastReport": "Ostatni raport",
             "stale": "Dane sprzed {{when}} (agent nie raportuje)",
+            "statusSent": "Zmiana statusu wysłana — agent zastosuje ją w ciągu ok. 2 min.",
             "cut": "Pokazano najpilniejsze alerty (limit 80); pełna kolejka jest na agencie."
         },
         "rule": {
@@ -2275,6 +2282,60 @@
             "topology": "Mapa sieci",
             "vuln_scan": "Skan podatności",
             "exploit_intel": "CISA KEV i EPSS"
+        }
+    },
+    "soar": {
+        "title": "Reakcje na incydenty",
+        "subtitle": "Pierwsza akcja reakcji: zablokowanie adresu na routerach MikroTik — z limitem czasu, po zatwierdzeniu przez człowieka. Niczego nie wykonuje się samo.",
+        "enable": "Włącz akcje reakcji",
+        "centralApproval": "Pozwól zatwierdzać propozycje z Centrali (podpisana komenda)",
+        "guard": "Adres trafia na listę „mm-blocked” routera z limitem czasu (router sam ją usuwa). Reguła, która tę listę odrzuca, jest instalowana osobną, zatwierdzaną akcją. Nie da się zablokować adresu prywatnego (bez potwierdzenia), adresu agenta, routerów ani sprzętu sieciowego z inwentarza; najwyżej 50 blokad naraz.",
+        "pending": "Propozycje czekające na decyzję",
+        "nonePending": "Brak propozycji.",
+        "active": "Blokady w mocy",
+        "noneActive": "Brak aktywnych blokad.",
+        "new": "Nowa propozycja",
+        "history": "Historia",
+        "approve": "Zatwierdź i wykonaj",
+        "reject": "Odrzuć",
+        "propose": "Zaproponuj",
+        "reason": "Powód (zostaje przy akcji)",
+        "internal": "adres wewnętrzny",
+        "allowInternal": "To adres wewnętrzny — zablokowanie odetnie ten host od sieci; potwierdzam",
+        "ruleNote": "Reguła w firewallu (raw, prerouting, na górze) odrzucająca adresy z listy „mm-blocked”. Bez niej blokada niczego nie zmienia.",
+        "noRouters": "Brak routerów MikroTik z danymi dostępowymi.",
+        "noRule": "Na części routerów nie ma reguły odrzucającej listę — blokada tam nie działa. Zaproponuj instalację reguły.",
+        "unblock": "Zdejmij blokadę",
+        "until": "do {{when}}",
+        "alertRef": "alert #{{id}}",
+        "for": "na {{time}}",
+        "kind": {
+            "block": "Zablokuj {{ip}}",
+            "blockShort": "Zablokuj adres",
+            "rule": "Zainstaluj regułę odrzucającą listę"
+        },
+        "status": {
+            "pending": "Czeka",
+            "approved": "Zatwierdzona",
+            "rejected": "Odrzucona",
+            "executed": "Wykonana",
+            "failed": "Nie powiodła się",
+            "expired": "Wygasła",
+            "lifted": "Zdjęta"
+        },
+        "alert": {
+            "title": "Reakcja",
+            "proposed": "Propozycja czeka na zatwierdzenie.",
+            "open": "Otwórz Reakcje",
+            "block": "Zablokuj {{ip}}"
+        },
+        "internalHidden": "adres wewnętrzny",
+        "central": {
+            "title": "Reakcje na incydenty",
+            "line": "Czekających propozycji: {{n}} · aktywnych blokad: {{active}}.",
+            "off": "Agent nie przyjmuje zatwierdzeń z Centrali — zatwierdź na agencie.",
+            "sent_approve": "Zatwierdzenie wysłane — agent wykona je w ciągu ok. 2 min.",
+            "sent_reject": "Odrzucenie wysłane — agent odbierze je w ciągu ok. 2 min."
         }
     },
     "traffic": {

@@ -1401,6 +1401,26 @@ export const availApi = {
 // coverage: which sources of the agent report (services/coverage.py)
 export interface CoverageItem { id: string; group: string; name: string; state: 'ok' | 'stale' | 'error' | 'off'; last_ok: string | null; expected_s: number | null; error: string | null; detail: string | null; stale_items: string[]; total: number | null }
 export const coverageApi = { report: () => api.get<{ items: CoverageItem[]; summary: Record<'ok' | 'stale' | 'error' | 'off', number>; uptime_s: number; at: string }>('/coverage').then(r => r.data) }
+// Response actions with approval (services/soar.py)
+export interface SoarResult { device: string; ok: boolean; error?: string; rule_present?: boolean; position?: string }
+export interface SoarAction {
+  id: number; kind: 'block_ip' | 'install_rule'; target: string | null; devices: Array<{ id: number; name: string }>; ttl_min: number; reason: string; alert_id: number | null
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed' | 'expired' | 'lifted'; proposed_by: string | null; proposed_at: string | null; decided_by: string | null; decided_at: string | null
+  executed_at: string | null; expires_at: string | null; result: SoarResult[]; internal: boolean
+}
+export interface SoarOverview {
+  settings: { enabled: boolean; central_approval: boolean }; pending: SoarAction[]; active: SoarAction[]; history: SoarAction[]
+  routers: Array<{ id: number; name: string; ip: string; online: boolean; mgmt_ok: boolean | null }>
+}
+export interface SoarProposal { kind: 'block_ip' | 'install_rule'; target?: string; device_ids: number[]; ttl_min?: number; reason: string; alert_id?: number | null; allow_internal?: boolean }
+export const soarApi = {
+  overview: () => api.get<SoarOverview>('/soar').then(r => r.data),
+  settings: (body: { enabled?: boolean; central_approval?: boolean }) => api.put('/soar/settings', body).then(r => r.data),
+  candidates: (alertId: number) => api.get<{ addresses: string[] }>(`/soar/candidates/${alertId}`).then(r => r.data.addresses),
+  propose: (body: SoarProposal) => api.post<{ id: number }>('/soar/propose', body).then(r => r.data),
+  decide: (id: number, approve: boolean) => api.post<SoarAction>(`/soar/${id}/decide`, { approve }).then(r => r.data),
+  unblock: (target: string) => api.post('/soar/unblock', { target }).then(r => r.data),
+}
 // UPS units and SNMP sensors (services/ups_monitor.py)
 export interface UpsState { source: string; battery: string; charge: number | null; minutes: number | null; load: number | null; temp: number | null; voltage: number | null; alarms: number; model: string | null; on_battery_s: number }
 export interface UpsRow { id: number; name: string; ip: string; port: number; enabled: boolean; has_community: boolean; state: UpsState | null; last_check: string | null; last_ok: string | null; error: string | null }
@@ -1552,6 +1572,8 @@ export interface CentralSoc {
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
+  soar?: { enabled: boolean; central_approval: boolean; active: number
+           pending: Array<{ id: number; kind: 'block_ip' | 'install_rule'; target: string | null; devices: string[]; ttl_min: number; reason: string; by: string | null; at: string | null; internal: boolean }> }
   configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }
   syslog?: { on: boolean; listening: { syslog: boolean; trap: boolean }; stored_24h: number; sources: number; unknown: number; errors: string[] }
   services?: { ok: number; degraded: number; down: number
@@ -3031,6 +3053,10 @@ export const centralApi = {
     centralRequest<{ ok: boolean; tenant: string; vm_id: number; vm_action: string; queued_at: string }>(
       'request_hyperv_vm_action', { tenant, vm_id: String(vmId), vm_action: action, reason },
     ),
+  requestSoarDecision: (tenant: string, actionId: number, decision: 'approve' | 'reject') =>
+    centralRequest<{ ok: boolean; queued_at: string }>('request_soar_decision', { tenant, action_id: String(actionId), decision }),
+  requestSocUpdate: (tenant: string, alertId: number, status: string) =>
+    centralRequest<{ ok: boolean; queued_at: string }>('request_soc_update', { tenant, alert_id: String(alertId), status }),
   requestDeviceReboot: (tenant: string, deviceId: number, reason: string) =>
     centralRequest<{ ok: boolean; tenant: string; device_id: number; queued_at: string }>(
       'request_device_reboot', { tenant, device_id: String(deviceId), reason },

@@ -587,6 +587,28 @@ class MaintenanceWindow(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class SoarAction(Base):
+    """A response action (services/soar.py): proposed by a person or from an alert, executed only after approval. For block_ip the address goes on the router's block list with a timeout."""
+    __tablename__ = "soar_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String, nullable=False)                        # block_ip | install_rule
+    target = Column(String, nullable=True, index=True)           # the address (block_ip)
+    device_ids = Column(Text, nullable=False, default="[]")      # JSON list of router ids
+    ttl_min = Column(Integer, nullable=False, default=0)
+    reason = Column(String, nullable=False, default="")
+    alert_id = Column(Integer, nullable=True, index=True)
+    internal = Column(Boolean, nullable=False, default=False)    # the target is an internal address (confirmed explicitly)
+    status = Column(String, nullable=False, default="pending", index=True)   # pending | approved | rejected | executed | failed | expired | lifted
+    proposed_by = Column(String, nullable=True)
+    proposed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    decided_by = Column(String, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    executed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)                 # pending: the proposal lapses; executed block: the block ends
+    result = Column(Text, nullable=True)                         # JSON: one entry per router
+
+
 class AvailState(Base):
     """The current reachability of one monitored asset (services/availability.py): up | down (it does not answer and what it hangs on does)
     | unreachable (it does not answer because the device it hangs on - switch, access point, router, Hyper-V host - is down)."""

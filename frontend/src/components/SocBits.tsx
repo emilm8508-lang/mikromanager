@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { socApi, SOC_SEVERITIES, SOC_STATUSES, type AssetType, type SocAlert, type SocRiskFactor, type SocRiskItem, type SocSeverity, type SocStats, type SocStatus } from '../lib/api'
 import { Pill, TypeIcon } from './AssetBits'
 import { cn } from '../lib/utils'
+import { BlockBox } from './SoarBits'
 
 // The pieces of the SOC pages shared by the agent (triage: acknowledge, take, close) and Central (the same queue, read-only).
 
@@ -171,6 +172,7 @@ function AlertDetail({ a, readOnly, onUpdate }: { a: SocAlert; readOnly: boolean
             <button className="text-xs text-indigo-600 hover:underline disabled:text-slate-300" disabled={note == null} onClick={() => { onUpdate([cur.id], { note, set_note: true }); setNote(null) }}>{t('soc.detail.saveNote')}</button>
           </div>
         )}
+        {!readOnly && <BlockBox alert={cur} />}
         {readOnly && (cur.owner || cur.note) && <p className="text-slate-600">{cur.owner ? `${t('soc.detail.owner')}: ${cur.owner}` : ''}{cur.note ? ` · ${cur.note}` : ''}</p>}
         {!readOnly && (
           <div>
@@ -188,10 +190,11 @@ function AlertDetail({ a, readOnly, onUpdate }: { a: SocAlert; readOnly: boolean
 }
 
 /** The queue. Agent: `readOnly` false with a status control per row and checkboxes for the bulk bar; Central: the same rows without controls. */
-export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, onOpenAsset, empty }: {
+export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, onOpenAsset, onRemoteStatus, empty }: {
   alerts: SocAlert[]; readOnly: boolean; selected?: Set<number>; setSelected?: (s: Set<number>) => void
   onUpdate?: (ids: number[], patch: Record<string, unknown>) => void
   onOpenAsset?: (assetId: number) => void          // Central: opens the device's drawer (details and commands) instead of a link to the agent's page
+  onRemoteStatus?: (id: number, status: string) => void   // Central: asks the agent to change the status of an alert (a signed command)
   empty: string
 }) {
   const { t } = useTranslation()
@@ -237,7 +240,12 @@ export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, on
               <div className="px-2 py-2 text-right tabular-nums text-slate-600">{a.count}</div>
               <div className="px-2 py-2 text-xs text-slate-500" title={new Date(a.last_seen).toLocaleString()}>{ago(a.last_seen)}</div>
               <div className="px-2 py-2" onClick={e => e.stopPropagation()}>
-                {readOnly || !onUpdate ? <StatusPill s={a.status} /> : (
+                {readOnly && onRemoteStatus ? (
+                  <select value={a.status} onChange={e => onRemoteStatus(a.id, e.target.value)} className="border border-slate-300 rounded-md px-1.5 py-1 text-xs bg-white w-full">
+                    {a.status === 'new' && <option value="new">{t('soc.status.new')}</option>}
+                    {SOC_STATUSES.filter(s => s !== 'new').map(s => <option key={s} value={s}>{t(`soc.status.${s}`)}</option>)}
+                  </select>
+                ) : readOnly || !onUpdate ? <StatusPill s={a.status} /> : (
                   <select value={a.status} onChange={e => onUpdate([a.id], { status: e.target.value })} className="border border-slate-300 rounded-md px-1.5 py-1 text-xs bg-white w-full">
                     {SOC_STATUSES.map(s => <option key={s} value={s}>{t(`soc.status.${s}`)}</option>)}
                   </select>

@@ -30,6 +30,7 @@
                 "metrics": "Métriques et prévisions",
                 "ups": "Onduleurs et capteurs",
                 "coverage": "Couverture des sources",
+                "soar": "Réponse",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1411,6 +1412,11 @@
             "status": "statut",
             "owner": "responsable",
             "note": "note",
+            "response_proposed": "réponse proposée",
+            "response_approved": "réponse approuvée",
+            "response_rejected": "réponse rejetée",
+            "response_done": "réponse exécutée (routeurs)",
+            "response_lifted": "blocage levé",
             "recovered": "rétablie",
             "stale": "expirée (sans récidive)"
         },
@@ -1463,6 +1469,7 @@
             "client": "Client",
             "lastReport": "Dernier rapport",
             "stale": "Données de {{when}} (l'agent ne remonte plus)",
+            "statusSent": "Changement de statut envoyé : l'agent l'applique dans environ 2 min.",
             "cut": "Les alertes les plus urgentes sont affichées (limite 80) ; la file complète est sur l'agent."
         },
         "rule": {
@@ -2111,6 +2118,60 @@
             "topology": "Carte du réseau",
             "vuln_scan": "Analyse de vulnérabilités",
             "exploit_intel": "CISA KEV et EPSS"
+        }
+    },
+    "soar": {
+        "title": "Réponse aux incidents",
+        "subtitle": "La première action de réponse : bloquer une adresse sur les routeurs MikroTik, pour une durée limitée et après approbation d'une personne. Rien ne s'exécute seul.",
+        "enable": "Activer les actions de réponse",
+        "centralApproval": "Autoriser l'approbation des propositions depuis la Centrale (commande signée)",
+        "guard": "L'adresse est ajoutée à la liste « mm-blocked » du routeur avec un délai (le routeur la retire seul). La règle qui rejette cette liste est installée par une action distincte, approuvée. Ne peuvent jamais être bloqués : les adresses internes (sans confirmation), l'agent lui-même, les routeurs et les équipements réseau de l'inventaire ; 50 blocages au plus à la fois.",
+        "pending": "Propositions en attente de décision",
+        "nonePending": "Aucune proposition.",
+        "active": "Blocages en vigueur",
+        "noneActive": "Aucun blocage actif.",
+        "new": "Nouvelle proposition",
+        "history": "Historique",
+        "approve": "Approuver et exécuter",
+        "reject": "Rejeter",
+        "propose": "Proposer",
+        "reason": "Motif (conservé avec l'action)",
+        "internal": "adresse interne",
+        "allowInternal": "C'est une adresse interne : la bloquer coupe cet hôte du réseau ; je confirme",
+        "ruleNote": "Une règle de pare-feu (raw, prerouting, tout en haut) qui rejette les adresses de la liste « mm-blocked ». Sans elle, un blocage ne change rien.",
+        "noRouters": "Aucun routeur MikroTik avec identifiants.",
+        "noRule": "Sur certains routeurs, aucune règle ne rejette la liste : le blocage n'y agit pas. Proposez d'installer la règle.",
+        "unblock": "Lever le blocage",
+        "until": "jusqu'à {{when}}",
+        "alertRef": "alerte #{{id}}",
+        "for": "pour {{time}}",
+        "kind": {
+            "block": "Bloquer {{ip}}",
+            "blockShort": "Bloquer une adresse",
+            "rule": "Installer la règle qui rejette la liste"
+        },
+        "status": {
+            "pending": "En attente",
+            "approved": "Approuvée",
+            "rejected": "Rejetée",
+            "executed": "Exécutée",
+            "failed": "Échec",
+            "expired": "Expirée",
+            "lifted": "Levée"
+        },
+        "alert": {
+            "title": "Réponse",
+            "proposed": "La proposition attend l'approbation.",
+            "open": "Ouvrir Réponse",
+            "block": "Bloquer {{ip}}"
+        },
+        "internalHidden": "adresse interne",
+        "central": {
+            "title": "Réponse aux incidents",
+            "line": "Propositions en attente : {{n}} · blocages actifs : {{active}}.",
+            "off": "L'agent n'accepte pas les approbations de la Centrale : approuvez sur l'agent.",
+            "sent_approve": "Approbation envoyée : l'agent l'exécute dans environ 2 min.",
+            "sent_reject": "Rejet envoyé : l'agent le récupère dans environ 2 min."
         }
     },
     "traffic": {

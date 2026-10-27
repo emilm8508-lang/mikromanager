@@ -76,6 +76,10 @@ function canonical_commands(array $commands): string {
             $parts[] = 'hyperv_vm_action:' . (int)($c['vm_id'] ?? 0) . ':' . (string)($c['action'] ?? '');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'device_reboot') {
             $parts[] = 'device_reboot:' . (int)($c['device_id'] ?? 0);
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'soar_decision') {
+            $parts[] = 'soar_decision:' . (int)($c['action_id'] ?? 0) . ':' . (!empty($c['approve']) ? 'approve' : 'reject');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'soc_update') {
+            $parts[] = 'soc_update:' . (int)($c['alert_id'] ?? 0) . ':' . ($c['status'] ?? '');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'rack_op') {
             // the operation is an opaque JSON string; its SHA-256 is what is signed (see _canonical_commands in uplink.py)
             $parts[] = 'rack_op:' . hash('sha256', (string)($c['op'] ?? ''));
@@ -597,6 +601,30 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "device_reboot_delivered", ?, ?)')
                     ->execute([$tenant_header, "Restart routera dostarczony do agenta {$tenant_header}", json_encode(['device_id'=>(int)$m[1],'reason'=>$reason,'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 3d3. response actions approved / rejected and alert statuses changed in Central (the agent checks both again before acting)
+    foreach (glob($state_dir . "/soar_decision_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^soar_decision_' . preg_quote($safe, '/') . '_(\d+)_(approve|reject)$/', $base, $m)) {
+            $commands[] = ['type' => 'soar_decision', 'action_id' => (int)$m[1], 'approve' => $m[2] === 'approve'];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "soar_decision_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Decyzja o akcji reakcji ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['action_id'=>(int)$m[1],'decision'=>$m[2],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+    foreach (glob($state_dir . "/soc_update_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^soc_update_' . preg_quote($safe, '/') . '_(\d+)_(ack|in_progress|closed|false_positive)$/', $base, $m)) {
+            $commands[] = ['type' => 'soc_update', 'alert_id' => (int)$m[1], 'status' => $m[2]];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "soc_update_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Zmiana statusu alertu SOC ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['alert_id'=>(int)$m[1],'status'=>$m[2],'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

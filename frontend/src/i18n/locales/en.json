@@ -30,6 +30,7 @@
                 "metrics": "Metrics and forecasts",
                 "ups": "UPS and sensors",
                 "coverage": "Source coverage",
+                "soar": "Response",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1411,6 +1412,11 @@
             "status": "status",
             "owner": "owner",
             "note": "note",
+            "response_proposed": "response proposed",
+            "response_approved": "response approved",
+            "response_rejected": "response rejected",
+            "response_done": "response done (routers)",
+            "response_lifted": "block lifted",
             "recovered": "recovered",
             "stale": "expired (did not recur)"
         },
@@ -1463,6 +1469,7 @@
             "client": "Client",
             "lastReport": "Last report",
             "stale": "Data from {{when}} (the agent is not reporting)",
+            "statusSent": "Status change sent - the agent applies it within about 2 min.",
             "cut": "The most urgent alerts are shown (limit 80); the full queue is on the agent."
         },
         "rule": {
@@ -2111,6 +2118,60 @@
             "topology": "Network map",
             "vuln_scan": "Vulnerability scan",
             "exploit_intel": "CISA KEV and EPSS"
+        }
+    },
+    "soar": {
+        "title": "Incident response",
+        "subtitle": "The first response action: block an address on the MikroTik routers - with a time limit, after a person approves. Nothing runs on its own.",
+        "enable": "Enable response actions",
+        "centralApproval": "Allow approving proposals from Central (a signed command)",
+        "guard": "The address goes on the router's \"mm-blocked\" list with a timeout (the router removes it itself). The rule that drops that list is installed by a separate, approved action. These can never be blocked: an internal address (without a confirmation), the agent itself, the routers and the network equipment of the inventory; at most 50 blocks at once.",
+        "pending": "Proposals waiting for a decision",
+        "nonePending": "No proposals.",
+        "active": "Blocks in force",
+        "noneActive": "No active blocks.",
+        "new": "New proposal",
+        "history": "History",
+        "approve": "Approve and run",
+        "reject": "Reject",
+        "propose": "Propose",
+        "reason": "Reason (kept with the action)",
+        "internal": "internal address",
+        "allowInternal": "This is an internal address - blocking it cuts that host off the network; I confirm",
+        "ruleNote": "A firewall rule (raw, prerouting, at the top) that drops the addresses on the \"mm-blocked\" list. Without it a block changes nothing.",
+        "noRouters": "No MikroTik routers with credentials.",
+        "noRule": "Some routers have no rule dropping the list - the block does not work there. Propose installing the rule.",
+        "unblock": "Lift the block",
+        "until": "until {{when}}",
+        "alertRef": "alert #{{id}}",
+        "for": "for {{time}}",
+        "kind": {
+            "block": "Block {{ip}}",
+            "blockShort": "Block an address",
+            "rule": "Install the rule that drops the list"
+        },
+        "status": {
+            "pending": "Waiting",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "executed": "Done",
+            "failed": "Failed",
+            "expired": "Expired",
+            "lifted": "Lifted"
+        },
+        "alert": {
+            "title": "Response",
+            "proposed": "The proposal waits for approval.",
+            "open": "Open Response",
+            "block": "Block {{ip}}"
+        },
+        "internalHidden": "internal address",
+        "central": {
+            "title": "Incident response",
+            "line": "Proposals waiting: {{n}} · active blocks: {{active}}.",
+            "off": "The agent does not accept approvals from Central - approve on the agent.",
+            "sent_approve": "Approval sent - the agent carries it out within about 2 min.",
+            "sent_reject": "Rejection sent - the agent picks it up within about 2 min."
         }
     },
     "traffic": {

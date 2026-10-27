@@ -573,6 +573,8 @@ async def _build_snapshot() -> dict:
             soc_status["coverage"] = {"summary": cov["summary"], "silent": [{"n": i["name"], "s": i["state"], "items": i["stale_items"][:5]} for i in cov["items"] if i["state"] in ("stale", "error")][:20]}
             from services import config_history
             soc_status["configs"] = config_history.public_summary()             # routers whose configuration changed lately
+            from services import soar
+            soc_status["soar"] = soar.public_summary()                          # response actions waiting for approval
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:
@@ -853,6 +855,14 @@ def _fleet_group_token(g: dict) -> str:
     ])
 
 
+async def _soar_decide(soar, action_id: int, approve: bool) -> None:
+    try:
+        await soar.decide(action_id, approve, "Centrala", via="Centrala")
+    except (LookupError, ValueError) as e:
+        print(f"[uplink] soar_decision {action_id} not applied: {e}")
+        activity.record("soar_decision_refused", action_id=action_id, error=str(e)[:120])
+
+
 def _canonical_commands(commands: list) -> str:
     """Must match ovh/ingest.php's canonical_commands() exactly, token for token."""
     parts = []
@@ -883,6 +893,10 @@ def _canonical_commands(commands: list) -> str:
             parts.append(f"hyperv_vm_action:{int(c.get('vm_id') or 0)}:{c.get('action') or ''}")
         elif isinstance(c, dict) and c.get("type") == "device_reboot":
             parts.append(f"device_reboot:{int(c.get('device_id') or 0)}")
+        elif isinstance(c, dict) and c.get("type") == "soar_decision":
+            parts.append(f"soar_decision:{int(c.get('action_id') or 0)}:{'approve' if c.get('approve') else 'reject'}")
+        elif isinstance(c, dict) and c.get("type") == "soc_update":
+            parts.append(f"soc_update:{int(c.get('alert_id') or 0)}:{c.get('status') or ''}")
         elif isinstance(c, dict) and c.get("type") == "rack_op":
             # the operation travels as an opaque JSON string; its SHA-256 is what is signed
             parts.append("rack_op:" + hashlib.sha256(str(c.get("op") or "").encode("utf-8")).hexdigest())
@@ -1198,6 +1212,28 @@ async def _handle_commands(commands: list) -> None:
                     print(f"[uplink] received DEVICE_REBOOT for device {device_id} (run {run_id})")
                 except (PermissionError, ValueError) as e:
                     print(f"[uplink] device_reboot rejected: {e}")
+            elif cmd_type == "soar_decision":
+                from services import soar
+                try:
+                    action_id = int(cmd.get("action_id") or 0)
+                    approve = bool(cmd.get("approve"))
+                    if not action_id:
+                        raise ValueError("action_id required")
+                    asyncio.create_task(_soar_decide(soar, action_id, approve))
+                    print(f"[uplink] received SOAR_DECISION {action_id}: {'approve' if approve else 'reject'}")
+                except (PermissionError, ValueError) as e:
+                    print(f"[uplink] soar_decision rejected: {e}")
+            elif cmd_type == "soc_update":
+                from services import soc as _soc
+                try:
+                    alert_id = int(cmd.get("alert_id") or 0)
+                    status = str(cmd.get("status") or "")
+                    if not alert_id or status not in ("ack", "in_progress", "closed", "false_positive"):
+                        raise ValueError("alert_id and a status required")
+                    n = _soc.update([alert_id], status=status, who="Centrala")
+                    print(f"[uplink] received SOC_UPDATE alert {alert_id} -> {status} ({n} changed)")
+                except (PermissionError, ValueError) as e:
+                    print(f"[uplink] soc_update rejected: {e}")
             elif cmd_type == "rack_op":
                 from services import racks as racks_svc
                 try:

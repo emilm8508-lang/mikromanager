@@ -619,6 +619,96 @@ class MikrotikClient:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_API_EXECUTOR, _sync)
 
+    # ── Response actions: the blocked-address list (services/soar.py) ─────────────
+
+    BLOCK_LIST = "mm-blocked"
+    BLOCK_RULE_COMMENT = "MikroManager: addresses blocked from the SOC"
+
+    async def _write_api(self, command: str, **kwargs):
+        """One write command over the binary API (the fallback when REST is not available: RouterOS before 7.1, or the REST service off)."""
+        loop = asyncio.get_event_loop()
+
+        def _run():
+            ssl_wrapper = None
+            if self.api_port == 8729:
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                ctx.minimum_version = ssl.TLSVersion.TLSv1
+                try:
+                    ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+                except ssl.SSLError:
+                    pass
+                ssl_wrapper = ctx.wrap_socket
+            api = _connect_and_login(self.ip, self.username, self.password, port=self.api_port, timeout=8, ssl_wrapper=ssl_wrapper)
+            try:
+                return tuple(api(command, **kwargs))
+            finally:
+                api.close()
+        return await loop.run_in_executor(_API_EXECUTOR, _run)
+
+    async def blocklist_entries(self) -> list:
+        """The addresses on the "mm-blocked" list: [{".id", address, timeout, comment}]."""
+        rows = await self._rest_or_api("ip/firewall/address-list", "/ip/firewall/address-list/print")
+        return [r for r in (rows or []) if r.get("list") == self.BLOCK_LIST]
+
+    async def blocklist_add(self, address: str, timeout: str, comment: str) -> None:
+        """Adds an address to the list with a timeout (the router removes it itself when it runs out)."""
+        data = {"list": self.BLOCK_LIST, "address": address, "timeout": timeout, "comment": comment[:120]}
+        try:
+            await self.rest_put("ip/firewall/address-list", data)
+        except Exception:
+            await self._write_api("/ip/firewall/address-list/add", **data)
+
+    async def blocklist_remove(self, address: str) -> int:
+        """Removes the address from the list; returns how many entries were removed."""
+        n = 0
+        for row in await self.blocklist_entries():
+            if row.get("address") == address and row.get(".id"):
+                try:
+                    await self.rest_delete(f"ip/firewall/address-list/{row['.id']}")
+                except Exception:
+                    await self._write_api("/ip/firewall/address-list/remove", **{".id": row[".id"]})
+                n += 1
+        return n
+
+    async def block_rule_present(self) -> bool:
+        """Whether an enabled rule that drops what is on the list exists (raw or filter): without one the list does nothing."""
+        for path, api_path in (("ip/firewall/raw", "/ip/firewall/raw/print"), ("ip/firewall/filter", "/ip/firewall/filter/print")):
+            try:
+                rows = await self._rest_or_api(path, api_path)
+            except Exception:
+                continue
+            for r in rows or []:
+                if r.get("src-address-list") == self.BLOCK_LIST and r.get("action") == "drop" and str(r.get("disabled", "false")).lower() != "true" and str(r.get("invalid", "false")).lower() != "true":
+                    return True
+        return False
+
+    async def block_rule_install(self) -> str:
+        """Adds the rule that drops the addresses on the list - in firewall raw, chain prerouting (before connection tracking, so it costs the router little) - and moves it
+        to the top. Returns "top" when it is first, "end" when it could not be moved (it works, but a rule above it may accept the traffic first)."""
+        data = {"chain": "prerouting", "src-address-list": self.BLOCK_LIST, "action": "drop", "comment": self.BLOCK_RULE_COMMENT}
+        try:
+            created = await self.rest_put("ip/firewall/raw", data)
+            new_id = created.get(".id") if isinstance(created, dict) else None
+        except Exception:
+            await self._write_api("/ip/firewall/raw/add", **data)
+            new_id = None
+        try:
+            rows = await self._rest_or_api("ip/firewall/raw", "/ip/firewall/raw/print")
+            mine = [r for r in rows or [] if r.get("comment") == self.BLOCK_RULE_COMMENT and r.get("src-address-list") == self.BLOCK_LIST]
+            new_id = new_id or (mine[-1].get(".id") if mine else None)
+            first = rows[0].get(".id") if rows else None
+            if not new_id or not first or first == new_id:
+                return "top"
+            try:
+                await self.rest_post("ip/firewall/raw/move", {"numbers": new_id, "destination": first})
+            except Exception:
+                await self._write_api("/ip/firewall/raw/move", **{"numbers": new_id, "destination": first})
+            return "top"
+        except Exception:
+            return "end"
+
     async def get_firewall_rules(self) -> dict:
         async def _get_one(rest_path, api_path):
             try:

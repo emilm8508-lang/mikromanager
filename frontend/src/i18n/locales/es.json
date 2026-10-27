@@ -30,6 +30,7 @@
                 "metrics": "Métricas y previsiones",
                 "ups": "SAI y sensores",
                 "coverage": "Cobertura de fuentes",
+                "soar": "Respuesta",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1411,6 +1412,11 @@
             "status": "estado",
             "owner": "responsable",
             "note": "nota",
+            "response_proposed": "respuesta propuesta",
+            "response_approved": "respuesta aprobada",
+            "response_rejected": "respuesta rechazada",
+            "response_done": "respuesta ejecutada (routers)",
+            "response_lifted": "bloqueo levantado",
             "recovered": "recuperada",
             "stale": "caducada (no se repitió)"
         },
@@ -1463,6 +1469,7 @@
             "client": "Cliente",
             "lastReport": "Último informe",
             "stale": "Datos de {{when}} (el agente no informa)",
+            "statusSent": "Cambio de estado enviado: el agente lo aplica en unos 2 min.",
             "cut": "Se muestran las alertas más urgentes (límite 80); la cola completa está en el agente."
         },
         "rule": {
@@ -2111,6 +2118,60 @@
             "topology": "Mapa de red",
             "vuln_scan": "Análisis de vulnerabilidades",
             "exploit_intel": "CISA KEV y EPSS"
+        }
+    },
+    "soar": {
+        "title": "Respuesta a incidentes",
+        "subtitle": "La primera acción de respuesta: bloquear una dirección en los routers MikroTik, con límite de tiempo y tras la aprobación de una persona. Nada se ejecuta solo.",
+        "enable": "Activar las acciones de respuesta",
+        "centralApproval": "Permitir aprobar propuestas desde la Central (comando firmado)",
+        "guard": "La dirección pasa a la lista «mm-blocked» del router con un tiempo límite (el router la elimina solo). La regla que descarta esa lista se instala con una acción propia, aprobada. Nunca se pueden bloquear: direcciones internas (sin confirmación), el propio agente, los routers y los equipos de red del inventario; como máximo 50 bloqueos a la vez.",
+        "pending": "Propuestas pendientes de decisión",
+        "nonePending": "Sin propuestas.",
+        "active": "Bloqueos en vigor",
+        "noneActive": "Sin bloqueos activos.",
+        "new": "Nueva propuesta",
+        "history": "Historial",
+        "approve": "Aprobar y ejecutar",
+        "reject": "Rechazar",
+        "propose": "Proponer",
+        "reason": "Motivo (se conserva con la acción)",
+        "internal": "dirección interna",
+        "allowInternal": "Es una dirección interna: bloquearla aísla ese host de la red; lo confirmo",
+        "ruleNote": "Una regla de firewall (raw, prerouting, arriba del todo) que descarta las direcciones de la lista «mm-blocked». Sin ella, un bloqueo no cambia nada.",
+        "noRouters": "No hay routers MikroTik con credenciales.",
+        "noRule": "En algunos routers no hay regla que descarte la lista: el bloqueo no funciona allí. Proponga instalar la regla.",
+        "unblock": "Levantar el bloqueo",
+        "until": "hasta {{when}}",
+        "alertRef": "alerta #{{id}}",
+        "for": "durante {{time}}",
+        "kind": {
+            "block": "Bloquear {{ip}}",
+            "blockShort": "Bloquear una dirección",
+            "rule": "Instalar la regla que descarta la lista"
+        },
+        "status": {
+            "pending": "Pendiente",
+            "approved": "Aprobada",
+            "rejected": "Rechazada",
+            "executed": "Ejecutada",
+            "failed": "Fallida",
+            "expired": "Caducada",
+            "lifted": "Levantada"
+        },
+        "alert": {
+            "title": "Respuesta",
+            "proposed": "La propuesta espera aprobación.",
+            "open": "Abrir Respuesta",
+            "block": "Bloquear {{ip}}"
+        },
+        "internalHidden": "dirección interna",
+        "central": {
+            "title": "Respuesta a incidentes",
+            "line": "Propuestas en espera: {{n}} · bloqueos activos: {{active}}.",
+            "off": "El agente no acepta aprobaciones desde la Central: apruebe en el agente.",
+            "sent_approve": "Aprobación enviada: el agente la ejecuta en unos 2 min.",
+            "sent_reject": "Rechazo enviado: el agente lo recoge en unos 2 min."
         }
     },
     "traffic": {

@@ -30,6 +30,7 @@
                 "metrics": "Metriken und Prognosen",
                 "ups": "USV und Sensoren",
                 "coverage": "Quellenabdeckung",
+                "soar": "Reaktion",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1411,6 +1412,11 @@
             "status": "Status",
             "owner": "Besitzer",
             "note": "Notiz",
+            "response_proposed": "Reaktion vorgeschlagen",
+            "response_approved": "Reaktion freigegeben",
+            "response_rejected": "Reaktion abgelehnt",
+            "response_done": "Reaktion ausgeführt (Router)",
+            "response_lifted": "Sperre aufgehoben",
             "recovered": "wieder normal",
             "stale": "abgelaufen (nicht wiedergekehrt)"
         },
@@ -1463,6 +1469,7 @@
             "client": "Kunde",
             "lastReport": "Letzter Bericht",
             "stale": "Daten von {{when}} (der Agent meldet nicht)",
+            "statusSent": "Statusänderung gesendet - der Agent wendet sie in etwa 2 Min. an.",
             "cut": "Die dringendsten Alarme werden angezeigt (Limit 80); die vollständige Warteschlange liegt auf dem Agenten."
         },
         "rule": {
@@ -2111,6 +2118,60 @@
             "topology": "Netzwerkkarte",
             "vuln_scan": "Schwachstellenscan",
             "exploit_intel": "CISA KEV und EPSS"
+        }
+    },
+    "soar": {
+        "title": "Reaktion auf Vorfälle",
+        "subtitle": "Die erste Reaktionsaktion: eine Adresse auf den MikroTik-Routern sperren - zeitlich begrenzt und erst nach Freigabe durch einen Menschen. Nichts läuft von allein.",
+        "enable": "Reaktionsaktionen aktivieren",
+        "centralApproval": "Freigabe von Vorschlägen aus der Zentrale erlauben (signierter Befehl)",
+        "guard": "Die Adresse kommt mit Timeout auf die Liste „mm-blocked“ des Routers (der Router entfernt sie selbst). Die Regel, die diese Liste verwirft, wird durch eine eigene, freigegebene Aktion installiert. Nie gesperrt werden: interne Adressen (ohne Bestätigung), der Agent selbst, die Router und die Netzwerkgeräte des Inventars; höchstens 50 Sperren gleichzeitig.",
+        "pending": "Vorschläge, die auf eine Entscheidung warten",
+        "nonePending": "Keine Vorschläge.",
+        "active": "Aktive Sperren",
+        "noneActive": "Keine aktiven Sperren.",
+        "new": "Neuer Vorschlag",
+        "history": "Verlauf",
+        "approve": "Freigeben und ausführen",
+        "reject": "Ablehnen",
+        "propose": "Vorschlagen",
+        "reason": "Grund (bleibt bei der Aktion)",
+        "internal": "interne Adresse",
+        "allowInternal": "Das ist eine interne Adresse - die Sperre trennt diesen Host vom Netz; ich bestätige",
+        "ruleNote": "Eine Firewall-Regel (raw, prerouting, ganz oben), die die Adressen der Liste „mm-blocked“ verwirft. Ohne sie ändert eine Sperre nichts.",
+        "noRouters": "Keine MikroTik-Router mit Zugangsdaten.",
+        "noRule": "Auf einigen Routern fehlt die Regel, die die Liste verwirft - die Sperre wirkt dort nicht. Die Installation der Regel vorschlagen.",
+        "unblock": "Sperre aufheben",
+        "until": "bis {{when}}",
+        "alertRef": "Alarm #{{id}}",
+        "for": "für {{time}}",
+        "kind": {
+            "block": "{{ip}} sperren",
+            "blockShort": "Adresse sperren",
+            "rule": "Regel installieren, die die Liste verwirft"
+        },
+        "status": {
+            "pending": "Wartet",
+            "approved": "Freigegeben",
+            "rejected": "Abgelehnt",
+            "executed": "Ausgeführt",
+            "failed": "Fehlgeschlagen",
+            "expired": "Abgelaufen",
+            "lifted": "Aufgehoben"
+        },
+        "alert": {
+            "title": "Reaktion",
+            "proposed": "Der Vorschlag wartet auf Freigabe.",
+            "open": "Reaktion öffnen",
+            "block": "{{ip}} sperren"
+        },
+        "internalHidden": "interne Adresse",
+        "central": {
+            "title": "Reaktion auf Vorfälle",
+            "line": "Wartende Vorschläge: {{n}} · aktive Sperren: {{active}}.",
+            "off": "Der Agent nimmt keine Freigaben aus der Zentrale an - auf dem Agenten freigeben.",
+            "sent_approve": "Freigabe gesendet - der Agent führt sie in etwa 2 Min. aus.",
+            "sent_reject": "Ablehnung gesendet - der Agent holt sie in etwa 2 Min. ab."
         }
     },
     "traffic": {

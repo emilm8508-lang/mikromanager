@@ -6,6 +6,7 @@ import { RiskTable, RISK_LEVELS, SocFilters, SocKpis, SocTable, SOC_FILTER_DEFAU
 import { AssetDrawer, type Row as AssetRow } from './CentralAssets'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { CentralServices } from '../components/CentralServices'
+import { CentralResponse } from '../components/CentralResponse'
 import { cn } from '../lib/utils'
 
 type Part = { tenant: string; lastSeen: string | null; soc: CentralSocData }
@@ -23,6 +24,8 @@ export function CentralSoc() {
   const [assets, setAssets] = useState<Record<string, AssetRow[]>>({})       // the asset rows of every client: what a device's drawer is built from
   const [open, setOpen] = useState<AssetRow | null>(null)
   const [f, setF] = useState<SocFilterState>(SOC_FILTER_DEFAULT)
+  const [local, setLocal] = useState<Record<number, string>>({})              // statuses asked for from here, shown until the agent's next report
+  const [note, setNote] = useState<string | null>(null)
 
   const reload = async () => {
     try {
@@ -43,6 +46,7 @@ export function CentralSoc() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => { if (parts.length && !parts.some(p => p.tenant === tenant)) setTenant(parts[0].tenant) }, [parts, tenant])
+  useEffect(() => { setLocal({}) }, [parts, tenant])           // a newer report from the agent replaces what was asked for here
 
   const ranked = useMemo(() => [...parts].sort((a, b) => {
     const w = (p: Part) => (p.soc.stats!.by_severity.critical ?? 0) * 1000 + (p.soc.stats!.by_severity.high ?? 0) * 10 + p.soc.stats!.open
@@ -54,11 +58,18 @@ export function CentralSoc() {
   const alerts = useMemo(() => {
     if (!part) return []
     const q = f.q.trim().toLowerCase()
-    return socFromCentral(part.soc).filter(a =>
+    return socFromCentral(part.soc).map(a => local[a.id] ? { ...a, status: local[a.id] as typeof a.status } : a).filter(a =>
       (!f.severity || a.severity === f.severity) && (!f.category || a.category === f.category) && (!f.source || a.source === f.source)
       && (f.tab === 'open' || (f.tab === 'new' && a.status === 'new'))
       && (!q || [a.device_name, a.rule, a.title, JSON.stringify(a.detail)].some(x => String(x ?? '').toLowerCase().includes(q))))
-  }, [part, f])
+  }, [part, f, local])
+  const changeStatus = async (id: number, status: string) => {
+    try {
+      await centralApi.requestSocUpdate(tenant, id, status)
+      setLocal(x => ({ ...x, [id]: status }))
+      setNote(t('soc.central.statusSent') as string)
+    } catch (e) { setNote((e as Error).message) }
+  }
   const stale = part?.soc.at ? Date.now() - new Date(part.soc.at).getTime() > 20 * 60 * 1000 : false
 
   return (
@@ -100,8 +111,10 @@ export function CentralSoc() {
               </div>
               <SocKpis stats={part.soc.stats!} />
               <SocFilters f={f} set={setF} tabs={['open', 'new']} />
-              <SocTable alerts={alerts} readOnly onOpenAsset={id => { const r = assetRow(id); if (r) setOpen(r) }} empty={t('soc.empty') as string} />
+              {note && <p className="text-xs text-slate-500">{note}</p>}
+              <SocTable alerts={alerts} readOnly onRemoteStatus={(id, st) => void changeStatus(id, st)} onOpenAsset={id => { const r = assetRow(id); if (r) setOpen(r) }} empty={t('soc.empty') as string} />
               {part.soc.alerts.length >= 80 && <p className="text-xs text-slate-400">{t('soc.central.cut')}</p>}
+              <CentralResponse tenant={part.tenant} soc={part.soc} />
               <CentralServices soc={part.soc} />
               {part.soc.risk && part.soc.risk.top.length > 0 && (
                 <div className="space-y-2 pt-2">

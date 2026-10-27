@@ -1363,6 +1363,44 @@ try {
             ]);
             break;
 
+        case 'request_soar_decision':
+            // Approval (or rejection) of a response action the agent proposed (block an address on its routers); the agent acts on it only if it allows approval from Central.
+            $tenant = $_GET['tenant'] ?? '';
+            $action_id = (int)($_GET['action_id'] ?? 0);
+            $decision = $_GET['decision'] ?? '';
+            if ($tenant === '' || $action_id <= 0 || !in_array($decision, ['approve', 'reject'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, action_id and decision (approve|reject) required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/soar_decision_{$safe}_{$action_id}_{$decision}.pending", (string)($identity['username'] ?? ''));
+            echo json_encode(['ok' => true, 'tenant' => $tenant, 'action_id' => $action_id, 'decision' => $decision, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
+            break;
+
+        case 'request_soc_update':
+            // The status of an alert of the agent's SOC queue changed in Central (acknowledge, in progress, close, false positive).
+            $tenant = $_GET['tenant'] ?? '';
+            $alert_id = (int)($_GET['alert_id'] ?? 0);
+            $status = $_GET['status'] ?? '';
+            if ($tenant === '' || $alert_id <= 0 || !in_array($status, ['ack', 'in_progress', 'closed', 'false_positive'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, alert_id and status (ack|in_progress|closed|false_positive) required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/soc_update_{$safe}_{$alert_id}_{$status}.pending", (string)($identity['username'] ?? ''));
+            echo json_encode(['ok' => true, 'tenant' => $tenant, 'alert_id' => $alert_id, 'status' => $status, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
+            break;
+
         case 'pending_linux_restarts':
             require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
@@ -2834,6 +2872,8 @@ try {
                     'hv_action_'              => ['Akcja na maszynie Hyper-V',   '/^hv_action_(.+)_(\d+)_(?:start|shutdown|poweroff|restart|checkpoint)$/'],
                     'device_reboot_'          => ['Restart routera',             '/^device_reboot_(.+)_(\d+)$/'],
                     'rack_op_'                => ['Zmiana w szafie rack',        '/^rack_op_(.+)_[0-9a-f]{12}$/'],
+                    'soar_decision_'          => ['Decyzja o akcji reakcji',     '/^soar_decision_(.+)_(\d+)_(?:approve|reject)$/'],
+                    'soc_update_'             => ['Zmiana statusu alertu SOC',   '/^soc_update_(.+)_(\d+)_(?:ack|in_progress|closed|false_positive)$/'],
                 ];
                 foreach ($id_patterns as $prefix => $pat) {
                     [$label, $re] = $pat;
@@ -2859,7 +2899,7 @@ try {
                 'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
                 'windows_restart_delivered', 'windows_restarted',
                 'windows_manage_toggle_delivered',
-                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'rack_op_delivered', 'rack_op_done', 'rack_op_failed',
+                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'soar_decision_delivered', 'soc_update_delivered', 'rack_op_delivered', 'rack_op_done', 'rack_op_failed',
                 'dell_check_delivered',
                 'vuln_remediation_delivered',
                 'device_router_override_delivered',
