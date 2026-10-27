@@ -9,8 +9,10 @@ log/config retrieval (not implemented in this minimal version).
 Auth model: same Credential rows as Mikrotik — username/password used
 for SSH (future), snmp_community used for SNMP polling.
 """
+import asyncio
 import re
-from typing import Optional
+import time
+from typing import Callable, Optional
 from services.snmp_client import (
     SnmpClient,
     OID_SYS_NAME, OID_SYS_DESCR, OID_SYS_UPTIME, OID_SYS_OBJECT_ID,
@@ -53,6 +55,86 @@ def parse_cisco_sb_model(sys_descr: str) -> dict:
     if m:
         out["fw_version"] = m.group(1)
     return out
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][A-Z0-9]|\r")
+_BACKSPACED = re.compile(r"[^\x08]\x08")
+
+
+def _clean_terminal(text: str) -> str:
+    text = _ANSI.sub("", text)
+    while _BACKSPACED.search(text):                             # a backspace erases the character before it (a pager's "--More--" is overwritten this way)
+        text = _BACKSPACED.sub("", text, count=1)
+    return text.replace("\x08", "")
+
+
+def read_running_config(chan, user: str, password: str, timeout_sec: int = 30, sleep: Callable[[float], None] = time.sleep) -> str:
+    """Drives an interactive SSH shell (a paramiko channel, or anything with send / recv_ready / recv) to the running configuration of a Cisco switch or router and
+    returns it. Handles the login prompts some Small Business switches show after the SSH login, the paging ("--More--") and the two ways of turning it off
+    (IOS: terminal length 0, Small Business: terminal datadump); returns the text between the command and the next prompt."""
+    deadline = time.time() + timeout_sec
+
+    def read(idle: float = 1.2, until: Optional[Callable[[str], bool]] = None) -> str:
+        buf, last = "", time.time()
+        while time.time() < deadline:
+            if chan.recv_ready():
+                buf += chan.recv(65535).decode("utf-8", errors="ignore")
+                last = time.time()
+                if "--More--" in buf[-40:] or "More:" in buf[-40:]:
+                    chan.send(" ")
+                if until and until(_clean_terminal(buf)):
+                    break
+            else:
+                if time.time() - last > idle:
+                    break
+                sleep(0.05)
+        return buf
+
+    out = _clean_terminal(read())
+    for _ in range(3):                                          # "User Name:" / "Password:" inside the session
+        tail = out.rstrip().lower()
+        if tail.endswith(("user name:", "username:", "login:")):
+            chan.send(user + "\n")
+            out = _clean_terminal(read())
+        elif tail.endswith("password:"):
+            chan.send(password + "\n")
+            out = _clean_terminal(read())
+        else:
+            break
+    lines = [x for x in out.splitlines() if x.strip()]
+    prompt = lines[-1].strip() if lines else ""
+    if not prompt.endswith(("#", ">")):
+        raise RuntimeError(f"no command prompt after login (got {prompt[-60:]!r})")
+    if prompt.endswith(">"):                                    # user EXEC: go to privileged mode
+        chan.send("enable\n")
+        o = _clean_terminal(read())
+        if o.rstrip().lower().endswith("password:"):
+            chan.send(password + "\n")
+            o = _clean_terminal(read())
+        lines = [x for x in o.splitlines() if x.strip()]
+        prompt = lines[-1].strip() if lines else prompt
+    host = prompt[:-1]
+    for cmd in ("terminal length 0", "terminal datadump"):       # each is a mistake on the other family: harmless
+        chan.send(cmd + "\n")
+        read(0.6)
+    chan.send("show running-config\n")
+
+    def finished(t: str) -> bool:
+        t = t.rstrip()
+        return bool(t) and "show running-config" in t and t.splitlines()[-1].strip().startswith(host) and t.endswith(("#", ">"))
+
+    raw = _clean_terminal(read(idle=3.0, until=finished))
+    body = raw.splitlines()
+    for i, ln in enumerate(body):
+        if "show running-config" in ln:
+            body = body[i + 1:]
+            break
+    while body and (not body[-1].strip() or body[-1].strip().startswith(host)):
+        body.pop()
+    text = "\n".join(body).strip()
+    if len(text) < 30 or "% Invalid" in text[:200] or "Unrecognized command" in text[:200]:
+        raise RuntimeError("the switch did not return its running configuration")
+    return text
 
 
 class CiscoClient:
@@ -246,6 +328,24 @@ class CiscoClient:
     async def get_logs(self, limit: int = 100) -> list:
         # Would need SSH to retrieve; not implemented in v1.
         return []
+
+    async def get_config_export(self, ssh_port: int = 22, timeout_sec: int = 30) -> str:
+        """The running configuration over SSH (`show running-config`), for the configuration history: read-only."""
+        def _sync() -> str:
+            import paramiko
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            try:
+                client.connect(self.ip, port=ssh_port or 22, username=self.username, password=self.password, timeout=timeout_sec, banner_timeout=timeout_sec, auth_timeout=timeout_sec,
+                               look_for_keys=False, allow_agent=False)
+                chan = client.invoke_shell(width=250, height=10000)
+                return read_running_config(chan, self.username, self.password, timeout_sec)
+            finally:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+        return await asyncio.get_event_loop().run_in_executor(None, _sync)
 
     async def get_firewall_rules(self) -> dict:
         # Cisco SB has ACLs, not firewall — return empty shape compatible with UI.

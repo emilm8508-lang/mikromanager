@@ -112,7 +112,7 @@ export function ConfigHistory() {
             <Fragment key={r.id}>
               <div className={cn('grid items-center border-t border-slate-100 cursor-pointer hover:bg-slate-50', grid)} onClick={() => setOpen(open === r.id ? null : r.id)}>
                 <div className="px-2 text-slate-400">{open === r.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
-                <div className="px-2 py-2 min-w-0"><div className="font-medium text-slate-900 truncate">{r.name}</div><div className="text-[11px] text-slate-400">{r.ip}</div></div>
+                <div className="px-2 py-2 min-w-0"><div className="font-medium text-slate-900 truncate">{r.name}{r.vendor === 'cisco-sb' && <span className="ml-2 text-[10px] font-normal text-slate-500 border border-slate-200 rounded px-1">Cisco</span>}</div><div className="text-[11px] text-slate-400">{r.ip}</div></div>
                 <div className="px-2 text-right tabular-nums text-slate-700">{r.versions}</div>
                 <div className="px-2 text-xs">{r.last_error ? <span className="text-red-600" title={r.last_error}>{t('cfg.error')}</span> : <span className="text-slate-500">{ago(r.last_check)}</span>}</div>
                 <div className="px-2 text-xs text-slate-600">{r.last_change ? ago(r.last_change) : <span className="text-slate-400">—</span>}</div>

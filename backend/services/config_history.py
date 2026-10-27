@@ -33,7 +33,11 @@ DEFAULTS = {"enabled": True, "interval_hours": 6}
 MAX_VERSIONS = 40
 MAX_BYTES = 2_000_000
 SENSITIVE_SECTIONS = ("/ip firewall", "/user", "/ip service", "/system scheduler", "/system script", "/interface wireguard", "/interface ovpn", "/interface l2tp",
-                      "/interface sstp", "/ip ipsec", "/ppp secret", "/ip ssh", "/certificate", "/snmp", "/radius", "/ip proxy", "/ip socks", "/system ntp", "/tool")
+                      "/interface sstp", "/ip ipsec", "/ppp secret", "/ip ssh", "/certificate", "/snmp", "/radius", "/ip proxy", "/ip socks", "/system ntp", "/tool",
+                      # Cisco: the access lists, accounts, authentication, management access, VPN and routing
+                      "ip access-list", "access-list", "username", "aaa", "line vty", "line console", "snmp-server", "crypto", "enable", "ip ssh", "ip http", "interface Tunnel",
+                      "router ", "tacacs", "radius-server", "management access", "ip route", "ntp ")
+SUPPORTED = ("mikrotik", "cisco-sb")             # the vendors whose configuration can be read
 
 _settings: Dict = dict(DEFAULTS)
 _task: Optional[asyncio.Task] = None
@@ -84,11 +88,27 @@ _SECRET = re.compile(r'((?:^|[\s;])(?:password|secret|private-key|passphrase|pre
 _HEADER = re.compile(r"^#\s*(?:\d{4}-\d\d-\d\d|[a-z]{3}/\d\d/\d{4}|software id|model|serial number|by RouterOS)", re.I)
 
 
-def normalize(text: str) -> str:
+_CISCO_VOLATILE = re.compile(r"^(?:Building configuration|Current configuration\s*:|Using \d+ out of|!\s*(?:Last configuration change|NVRAM config last updated|Time:)|ntp clock-period)", re.I)
+_CISCO_SECRET_A = re.compile(r"\b(secret|password|passwd)(\s+(?:\d|encrypted))?\s+(\S+)", re.I)
+_CISCO_SECRET_B = re.compile(r"\b(key|key-string|community|pre-shared-key|psk|md5)(\s+\d)?\s+(\S+)", re.I)
+
+
+def _mask_cisco(line: str) -> str:
+    line = _CISCO_SECRET_A.sub(lambda m: f"{m.group(1)}{m.group(2) or ''} ***", line)
+    return _CISCO_SECRET_B.sub(lambda m: f"{m.group(1)}{m.group(2) or ''} ***", line)
+
+
+def normalize(text: str, vendor: str = "mikrotik") -> str:
     """The export without what changes by itself (the header comments with the date) and without secrets; line endings unified, `\\` line joins kept
-    as the device wrote them."""
+    as the device wrote them. For Cisco: the banner lines and the "last changed" comments are dropped and the secrets, keys and communities masked."""
     out: List[str] = []
+    cisco = vendor == "cisco-sb"
     for line in (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if cisco:
+            if _CISCO_VOLATILE.match(line):
+                continue
+            out.append(_mask_cisco(line.rstrip()))
+            continue
         if _HEADER.match(line):
             continue
         out.append(_SECRET.sub(lambda m: m.group(1) + "***", line.rstrip()))
@@ -115,8 +135,30 @@ def _is_header(line: str) -> bool:
     return line.startswith("/") and "=" not in line
 
 
-def _joined_with_sections(text: str) -> List[tuple]:
+def _cisco_items(text: str) -> List[tuple]:
+    """[(section, line)] of a Cisco configuration: the indented lines belong to the block above them ("interface gi1"), a top-level line is its own section;
+    "!" and "exit" at the top level end a block and are not commands."""
+    head, out = "", []
+    for raw in text.split(chr(10)):
+        ln = raw.rstrip()
+        s = ln.strip()
+        if not s:
+            continue
+        if raw[:1].isspace():
+            out.append((head[:60], s))
+            continue
+        if s.startswith("!") or s in ("exit", "end"):
+            head = ""
+            continue
+        head = s
+        out.append((s[:60], s))
+    return out
+
+
+def _joined_with_sections(text: str, vendor: str = "mikrotik") -> List[tuple]:
     """[(section, command)] of an export, wrapped lines joined, comments left out. A section header is a line like "/ip firewall filter"."""
+    if vendor == "cisco-sb":
+        return _cisco_items(text)
     sec, out = "", []
     for line in _join_continuations(text.split(chr(10))):
         line = line.strip()
@@ -129,9 +171,9 @@ def _joined_with_sections(text: str) -> List[tuple]:
     return out
 
 
-def diff(old: str, new: str) -> dict:
+def diff(old: str, new: str, vendor: str = "mikrotik") -> dict:
     """What changed between two normalised exports: {added, removed, sections: {section: {added, removed}}, hunks: [{section, lines: [(+|-|' ', text)]}]}."""
-    a, b = _joined_with_sections(old), _joined_with_sections(new)
+    a, b = _joined_with_sections(old, vendor), _joined_with_sections(new, vendor)
     sm = difflib.SequenceMatcher(None, [f"{s}\u0000{l}" for s, l in a], [f"{s}\u0000{l}" for s, l in b], autojunk=False)
     added = removed = 0
     secs: Dict[str, Dict[str, int]] = {}
@@ -160,18 +202,16 @@ def _sensitive(sections) -> bool:
 # ── Taking a version ─────────────────────────────────────────────────────────
 
 async def _export(device: Device, cred: Credential) -> str:
-    from services.mikrotik_client import MikrotikClient
-    password = decrypt_secret(cred.password_enc)
-    client = MikrotikClient(device.ip, cred.username, password, api_port=device.api_port or 8728, web_port=device.web_port or 80,
-                            snmp_community=None, snmp_port=device.snmp_port or 161)
+    from services.device_client import build_client
+    client = build_client(device, cred)                  # MikroTik: /export; Cisco: show running-config - both over SSH, read-only
     return await client.get_config_export(ssh_port=device.ssh_port or 22, timeout_sec=30)
 
 
-def record(device_id: int, device_name: str, exported: str, now: Optional[datetime] = None) -> dict:
+def record(device_id: int, device_name: str, exported: str, now: Optional[datetime] = None, vendor: str = "mikrotik") -> dict:
     """Stores the export as a new version when it differs from the last one; raises an alert for a change after the first version.
     Returns {"changed": bool, "first": bool, "id": snapshot id, "added", "removed", "sections"}."""
     now = now or datetime.utcnow()
-    text = normalize(exported)[:MAX_BYTES]
+    text = normalize(exported, vendor)[:MAX_BYTES]
     if len(text) < 20:
         raise ValueError("the export is empty")
     sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -183,7 +223,7 @@ def record(device_id: int, device_name: str, exported: str, now: Optional[dateti
         if last is not None and last.sha == sha:
             db.commit()
             return {"changed": False, "first": False, "id": last.id}
-        d = diff(last.text, text) if last is not None else None
+        d = diff(last.text, text, vendor) if last is not None else None
         sections = sorted(d["sections"]) if d else []
         snap = ConfigSnapshot(device_id=device_id, at=now, sha=sha, text=text, size=len(text), lines=text.count("\n") + 1,
                               added=d["added"] if d else None, removed=d["removed"] if d else None,
@@ -222,11 +262,12 @@ async def snapshot_device(device_id: int) -> dict:
             cred = db.get(Credential, dev.credential_id) if dev and dev.credential_id else None
             if dev is None:
                 return {"error": "device not found"}
-            if (dev.vendor or "mikrotik") != "mikrotik":
-                return {"error": "only MikroTik devices are supported"}
+            if (dev.vendor or "mikrotik") not in SUPPORTED:
+                return {"error": "only MikroTik and Cisco devices are supported"}
             if cred is None:
                 return {"error": "no credential assigned to the device"}
             name = dev.name or dev.ip
+            vendor = dev.vendor or "mikrotik"
         try:
             text = await _export(dev, cred)
         except Exception as e:
@@ -238,7 +279,7 @@ async def snapshot_device(device_id: int) -> dict:
                 db.commit()
             return {"error": msg}
         try:
-            return record(device_id, name, text)
+            return record(device_id, name, text, vendor=vendor)
         except ValueError as e:
             return {"error": str(e)}
     finally:
@@ -252,7 +293,7 @@ async def run_cycle(force: bool = False) -> dict:
         interval = timedelta(hours=float(_settings.get("interval_hours") or 6))
         checks = {c.device_id: c for c in db.execute(select(ConfigCheck)).scalars().all()}
         for d in db.execute(select(Device).where(Device.credential_id.is_not(None))).scalars().all():
-            if (d.vendor or "mikrotik") != "mikrotik":
+            if (d.vendor or "mikrotik") not in SUPPORTED:
                 continue
             c = checks.get(d.id)
             if force or c is None or c.last_check_at is None or datetime.utcnow() - c.last_check_at >= interval:
@@ -311,10 +352,10 @@ def overview() -> dict:
             last[s.device_id] = s
         items = []
         for d in devices:
-            if (d.vendor or "mikrotik") != "mikrotik":
+            if (d.vendor or "mikrotik") not in SUPPORTED:
                 continue
             c, s = checks.get(d.id), last.get(d.id)
-            items.append({"id": d.id, "name": d.name or d.ip, "ip": d.ip, "versions": counts.get(d.id, 0), "last_check": _iso(c.last_check_at) if c else None,
+            items.append({"id": d.id, "name": d.name or d.ip, "ip": d.ip, "vendor": d.vendor or "mikrotik", "versions": counts.get(d.id, 0), "last_check": _iso(c.last_check_at) if c else None,
                           "last_error": c.last_error if c else None, "last_change": _iso(c.last_change_at) if c else None, "last_version": _iso(s.at) if s else None,
                           "last_added": s.added if s else None, "last_removed": s.removed if s else None,
                           "last_sections": json.loads(s.sections) if s and s.sections else []})
@@ -339,7 +380,10 @@ def compare(device_id: int, a: int, b: int) -> Optional[dict]:
     ta, tb = get_text(device_id, a), get_text(device_id, b)
     if ta is None or tb is None:
         return None
-    d = diff(ta, tb)
+    with SessionLocal() as db:
+        dev = db.get(Device, device_id)
+        vendor = (dev.vendor if dev else None) or "mikrotik"
+    d = diff(ta, tb, vendor)
     d["hunks"] = d["hunks"][:300]
     return {**d, "a": a, "b": b, "sensitive": _sensitive(d["sections"])}
 

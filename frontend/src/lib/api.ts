@@ -1445,6 +1445,7 @@ export const aiApi = {
 }
 // configuration history of the MikroTik devices (services/config_history.py)
 export interface CfgItem {
+  vendor?: string
   id: number; name: string; ip: string; versions: number; last_check: string | null; last_error: string | null; last_change: string | null; last_version: string | null
   last_added: number | null; last_removed: number | null; last_sections: string[]
 }
