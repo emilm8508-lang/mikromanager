@@ -1371,6 +1371,7 @@ export type SocStatus = 'new' | 'ack' | 'in_progress' | 'false_positive' | 'clos
 export const SOC_SEVERITIES: SocSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 export const SOC_STATUSES: SocStatus[] = ['new', 'ack', 'in_progress', 'false_positive', 'closed']
 export interface SocAlert {
+  esc_level?: number; maintenance?: string | null              // escalated for staying unacknowledged; the maintenance window that mutes its device now
   root_asset_id?: number | null; root_name?: string | null      // availability alerts: the device that is down above this one (this one is a consequence)
   id: number; rule: string; source: string; category: string; severity: SocSeverity; title: string | null
   device_name: string | null; ip?: string | null; asset_id?: number | null; status: SocStatus; owner: string | null; count: number; mitre: string | null
@@ -1395,6 +1396,22 @@ export const availApi = {
   run: () => api.post('/availability/run').then(r => r.data),
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
+}
+// maintenance windows and escalation (services/maintenance.py, services/escalation.py)
+export interface MaintWindow {
+  id: number; name: string; kind: 'once' | 'weekly'; scope_all: boolean; asset_ids: number[]; assets: string[]; starts_at: string | null; ends_at: string | null
+  days: number[]; start_time: string | null; duration_min: number | null; enabled: boolean; active: boolean; suppressed: number; created_by: string | null
+}
+export interface MaintBody {
+  name: string; kind: 'once' | 'weekly'; starts_at?: string; ends_at?: string; days?: number[]; start_time?: string; duration_min?: number; scope_all: boolean; asset_ids: number[]; enabled: boolean
+}
+export const maintApi = {
+  overview: () => api.get<{ windows: MaintWindow[]; escalation: { enabled: boolean; levels: Record<string, number[]> } }>('/maintenance').then(r => r.data),
+  create: (b: MaintBody) => api.post<{ id: number }>('/maintenance', b).then(r => r.data),
+  update: (id: number, b: MaintBody) => api.put<{ id: number }>(`/maintenance/${id}`, b).then(r => r.data),
+  remove: (id: number) => api.delete(`/maintenance/${id}`).then(r => r.data),
+  quick: (b: { asset_ids: number[]; minutes: number; scope_all: boolean }) => api.post<{ id: number }>('/maintenance/quick', b).then(r => r.data),
+  escalation: (b: { enabled: boolean; levels: Record<string, number[]> }) => api.put('/maintenance/escalation', b).then(r => r.data),
 }
 // the AI assistant (services/ai_assistant.py)
 export type AiScope = 'alerts' | 'assets' | 'vulnerabilities' | 'availability' | 'configs' | 'syslog'

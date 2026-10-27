@@ -25,6 +25,7 @@
                 "ai": "AI assistant",
                 "syslog": "Syslog and SNMP traps",
                 "groupNetSvc": "Services and availability",
+                "maint": "Maintenance windows",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1447,6 +1448,8 @@
             "full_log": "Source log line",
             "groups": "Rule groups",
             "correlated": "Consequence of: {{name}}",
+            "maintenance": "In maintenance: {{name}}",
+            "escalated": "Escalated: level {{n}}",
             "exploited": "Exploited in attacks",
             "epss": "EPSS"
         },
@@ -1903,6 +1906,57 @@
                 "name": "Critical messages",
                 "desc": "Anything the device logs as critical, alert or emergency."
             }
+        }
+    },
+    "maint": {
+        "title": "Maintenance windows and escalation",
+        "subtitle": "Planned work is not an incident: in a maintenance window the alerts of the chosen devices are not sent to Central (or ServiceDesk) and are not escalated; they still show in the agent's own SOC queue, marked. An alert nobody has picked up is escalated.",
+        "new": "New window",
+        "windows": "Maintenance windows",
+        "none": "No maintenance windows.",
+        "active": "in force now",
+        "enabled": "Enabled",
+        "suppressed": "muted: {{n}}",
+        "suppressedHint": "Events muted by this window since the agent started",
+        "deleteConfirm": "Delete the window \"{{name}}\"?",
+        "chosen": "Chosen: {{count}}",
+        "search": "Search devices: name or IP",
+        "kind": {
+            "once": "One-off",
+            "weekly": "Weekly"
+        },
+        "day": {
+            "0": "Mon",
+            "1": "Tue",
+            "2": "Wed",
+            "3": "Thu",
+            "4": "Fri",
+            "5": "Sat",
+            "6": "Sun"
+        },
+        "form": {
+            "titleNew": "New maintenance window",
+            "titleEdit": "Edit maintenance window",
+            "name": "Name (e.g. Server room switch upgrade)",
+            "from": "From",
+            "to": "To",
+            "startTime": "Start",
+            "duration": "Length (min)",
+            "localTime": "Times are in the agent's local time; a window may run past midnight.",
+            "all": "The whole network (all devices)",
+            "save": "Save",
+            "cancel": "Cancel"
+        },
+        "quick": {
+            "title": "Mute now",
+            "intro": "A quick one-off window for chosen devices, e.g. before a restart.",
+            "go": "Mute"
+        },
+        "esc": {
+            "title": "Escalation",
+            "intro": "An alert that stays new (nobody acknowledged, took or closed it) is escalated after the given minutes since it opened, separately for each severity.",
+            "enabled": "Escalate alerts nobody has picked up",
+            "how": "An escalation sends Central the event \"SOC alert escalation\" with the level (1, 2, 3...) in the \"minimum count\" field. Add rules for that event in Central -> Alerts: a rule with minimum count 1 notifies the first channel, minimum count 2 the next, and so on. Without such a rule the escalation is only visible in the SOC queue."
         }
     },
     "traffic": {

@@ -25,6 +25,7 @@
                 "ai": "Assistant IA",
                 "syslog": "Syslog et traps SNMP",
                 "groupNetSvc": "Services et disponibilité",
+                "maint": "Fenêtres de maintenance",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1447,6 +1448,8 @@
             "full_log": "Ligne du journal source",
             "groups": "Groupes de la règle",
             "correlated": "Conséquence de la panne de {{name}}",
+            "maintenance": "En maintenance : {{name}}",
+            "escalated": "Escaladée : niveau {{n}}",
             "exploited": "Exploitée dans des attaques",
             "epss": "EPSS"
         },
@@ -1903,6 +1906,57 @@
                 "name": "Messages critiques",
                 "desc": "Tout ce que l'appareil journalise comme critique, alerte ou urgence."
             }
+        }
+    },
+    "maint": {
+        "title": "Fenêtres de maintenance et escalade",
+        "subtitle": "Un travail planifié n'est pas un incident : dans une fenêtre de maintenance, les alertes des appareils choisis ne sont pas envoyées à la centrale (ni à ServiceDesk) et ne sont pas escaladées ; elles restent visibles, marquées, dans la file SOC de l'agent. Une alerte que personne n'a prise en charge est escaladée.",
+        "new": "Nouvelle fenêtre",
+        "windows": "Fenêtres de maintenance",
+        "none": "Aucune fenêtre de maintenance.",
+        "active": "en vigueur maintenant",
+        "enabled": "Activée",
+        "suppressed": "rendus muets : {{n}}",
+        "suppressedHint": "Événements rendus muets par cette fenêtre depuis le démarrage de l'agent",
+        "deleteConfirm": "Supprimer la fenêtre « {{name}} » ?",
+        "chosen": "Choisis : {{count}}",
+        "search": "Chercher des appareils : nom ou IP",
+        "kind": {
+            "once": "Ponctuelle",
+            "weekly": "Hebdomadaire"
+        },
+        "day": {
+            "0": "lun",
+            "1": "mar",
+            "2": "mer",
+            "3": "jeu",
+            "4": "ven",
+            "5": "sam",
+            "6": "dim"
+        },
+        "form": {
+            "titleNew": "Nouvelle fenêtre de maintenance",
+            "titleEdit": "Modifier la fenêtre de maintenance",
+            "name": "Nom (p. ex. Mise à jour du switch de la salle serveurs)",
+            "from": "De",
+            "to": "À",
+            "startTime": "Début",
+            "duration": "Durée (min)",
+            "localTime": "Heures en heure locale de l'agent ; une fenêtre peut passer minuit.",
+            "all": "Tout le réseau (tous les appareils)",
+            "save": "Enregistrer",
+            "cancel": "Annuler"
+        },
+        "quick": {
+            "title": "Rendre muet maintenant",
+            "intro": "Une fenêtre ponctuelle rapide pour des appareils choisis, p. ex. avant un redémarrage.",
+            "go": "Rendre muet"
+        },
+        "esc": {
+            "title": "Escalade",
+            "intro": "Une alerte qui reste nouvelle (personne ne l'a acquittée, prise ou fermée) est escaladée après les minutes indiquées depuis son ouverture, séparément pour chaque gravité.",
+            "enabled": "Escalader les alertes que personne n'a prises en charge",
+            "how": "Une escalade envoie à la centrale l'événement « Escalade d'alerte SOC » avec le niveau (1, 2, 3…) dans le champ « nombre minimal ». Ajoutez des règles pour cet événement dans Centrale → Alertes : une règle de nombre minimal 1 avertit le premier canal, 2 le suivant, etc. Sans cette règle, l'escalade n'est visible que dans la file SOC."
         }
     },
     "traffic": {

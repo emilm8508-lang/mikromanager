@@ -489,8 +489,28 @@ class SocAlert(Base):
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String, nullable=True)                       # a user name, or "auto: recovered" / "auto: stale"
     log = Column(Text, nullable=True)                               # JSON [{t, who, a, v}]
+    esc_level = Column(Integer, nullable=False, default=0)          # how many times it was escalated for staying unacknowledged (services/escalation.py)
     root_asset_id = Column(Integer, nullable=True, index=True)      # an availability alert of something behind a device that is down itself: that device (services/availability.py)
     root_name = Column(String, nullable=True)
+
+
+class MaintenanceWindow(Base):
+    """A planned period in which the alerts of some devices (or of the whole network) are muted towards Central (services/maintenance.py)."""
+    __tablename__ = "maintenance_windows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    kind = Column(String, nullable=False, default="once")        # once | weekly
+    starts_at = Column(DateTime, nullable=True)                  # once: UTC
+    ends_at = Column(DateTime, nullable=True)
+    days = Column(String, nullable=True)                         # weekly: "0,6" (Monday = 0), in the agent's local time
+    start_time = Column(String, nullable=True)                   # weekly: "02:00"
+    duration_min = Column(Integer, nullable=True)
+    scope_all = Column(Boolean, nullable=False, default=False)
+    asset_ids = Column(Text, nullable=False, default="[]")       # JSON list of asset ids
+    enabled = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class AvailState(Base):
@@ -1423,6 +1443,8 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE soc_alerts ADD COLUMN root_asset_id INTEGER"))
             if "root_name" not in sa_cols:
                 conn.execute(text("ALTER TABLE soc_alerts ADD COLUMN root_name VARCHAR"))
+            if "esc_level" not in sa_cols:
+                conn.execute(text("ALTER TABLE soc_alerts ADD COLUMN esc_level INTEGER DEFAULT 0"))
 
     if "vuln_hosts" in inspector.get_table_names():
         vh_cols = {c["name"] for c in inspector.get_columns("vuln_hosts")}

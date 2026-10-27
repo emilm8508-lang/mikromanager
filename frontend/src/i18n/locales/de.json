@@ -25,6 +25,7 @@
                 "ai": "KI-Assistent",
                 "syslog": "Syslog und SNMP-Traps",
                 "groupNetSvc": "Dienste und Verfügbarkeit",
+                "maint": "Wartungsfenster",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1447,6 +1448,8 @@
             "full_log": "Quell-Logzeile",
             "groups": "Regelgruppen",
             "correlated": "Folge des Ausfalls von {{name}}",
+            "maintenance": "Im Wartungsfenster: {{name}}",
+            "escalated": "Eskaliert: Stufe {{n}}",
             "exploited": "In Angriffen ausgenutzt",
             "epss": "EPSS"
         },
@@ -1903,6 +1906,57 @@
                 "name": "Kritische Meldungen",
                 "desc": "Alles, was das Gerät als kritisch, Alarm oder Notfall protokolliert."
             }
+        }
+    },
+    "maint": {
+        "title": "Wartungsfenster und Eskalation",
+        "subtitle": "Geplante Arbeiten sind kein Vorfall: In einem Wartungsfenster werden die Alarme der gewählten Geräte nicht an die Zentrale (oder ServiceDesk) gesendet und nicht eskaliert; in der SOC-Warteschlange des Agenten bleiben sie sichtbar, markiert. Ein Alarm, den niemand übernommen hat, wird eskaliert.",
+        "new": "Neues Fenster",
+        "windows": "Wartungsfenster",
+        "none": "Keine Wartungsfenster.",
+        "active": "läuft jetzt",
+        "enabled": "Aktiv",
+        "suppressed": "stummgeschaltet: {{n}}",
+        "suppressedHint": "Von diesem Fenster seit dem Start des Agenten stummgeschaltete Ereignisse",
+        "deleteConfirm": "Fenster „{{name}}“ löschen?",
+        "chosen": "Gewählt: {{count}}",
+        "search": "Geräte suchen: Name oder IP",
+        "kind": {
+            "once": "Einmalig",
+            "weekly": "Wöchentlich"
+        },
+        "day": {
+            "0": "Mo",
+            "1": "Di",
+            "2": "Mi",
+            "3": "Do",
+            "4": "Fr",
+            "5": "Sa",
+            "6": "So"
+        },
+        "form": {
+            "titleNew": "Neues Wartungsfenster",
+            "titleEdit": "Wartungsfenster bearbeiten",
+            "name": "Name (z. B. Switch-Update Serverraum)",
+            "from": "Von",
+            "to": "Bis",
+            "startTime": "Beginn",
+            "duration": "Dauer (Min.)",
+            "localTime": "Zeiten in der Ortszeit des Agenten; ein Fenster kann über Mitternacht gehen.",
+            "all": "Das ganze Netzwerk (alle Geräte)",
+            "save": "Speichern",
+            "cancel": "Abbrechen"
+        },
+        "quick": {
+            "title": "Jetzt stummschalten",
+            "intro": "Ein schnelles einmaliges Fenster für gewählte Geräte, z. B. vor einem Neustart.",
+            "go": "Stummschalten"
+        },
+        "esc": {
+            "title": "Eskalation",
+            "intro": "Ein Alarm, der neu bleibt (niemand hat ihn bestätigt, übernommen oder geschlossen), wird nach den angegebenen Minuten seit dem Öffnen eskaliert, getrennt je Schweregrad.",
+            "enabled": "Alarme ohne Reaktion eskalieren",
+            "how": "Eine Eskalation sendet der Zentrale das Ereignis „SOC-Alarm-Eskalation“ mit der Stufe (1, 2, 3…) im Feld „Mindestanzahl“. Legen Sie in Zentrale → Alarme Regeln dafür an: Mindestanzahl 1 benachrichtigt den ersten Kanal, 2 den nächsten usw. Ohne solche Regel ist die Eskalation nur in der SOC-Warteschlange sichtbar."
         }
     },
     "traffic": {

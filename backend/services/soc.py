@@ -93,6 +93,7 @@ _EVIDENCE_KEYS = ("sources", "users", "count", "window_sec", "threshold", "log_m
                   "iface", "interface", "detail", "from_state", "to_state", "duration_sec", "description", "mount", "vm_name", "groups", "mitre",
                   "src_ip", "user", "location", "path", "cve", "package", "vuln_severity", "tactics", "full_log", "affected")
 
+_new_alert_events: List[dict] = []          # alerts opened by the agent's own detectors (not from an event), for Central: a rule on "soc_alert" with a minimum count = severity rank
 _last_housekeeping = [0.0]
 _seen_events: Dict[tuple, float] = {}      # (type, fingerprint, detected_at) of the events already taken in, so a repeated copy counts once
 _SEEN_KEEP_SEC = 4 * 3600
@@ -301,11 +302,23 @@ def raise_alert(*, rule: str, device: Optional[str], title: str, severity: str =
     severity = severity if severity in RANK else "medium"
     fp = f"{rule}|{(device or '').strip().lower()}|{fp_detail}"[:240]
     with SessionLocal() as db:
-        r = _upsert(db, fp=fp, rule=rule, source=source, category=category, severity=severity, title=title, device=device, ip=ip,
-                    detail={k: _cut(v) for k, v in (detail or {}).items() if _cut(v) not in (None, "", [])}, count=count, mitre=mitre, now=now,
+        det = {k: _cut(v) for k, v in (detail or {}).items() if _cut(v) not in (None, "", [])}
+        r = _upsert(db, fp=fp, rule=rule, source=source, category=category, severity=severity, title=title, device=device, ip=ip, detail=det, count=count, mitre=mitre, now=now,
                     asset_id=asset_id)
         db.commit()
+        if r == "opened":
+            row = db.execute(select(SocAlert).where(SocAlert.fingerprint == fp).order_by(SocAlert.id.desc()).limit(1)).scalars().first()
+            _new_alert_events.append({"type": "soc_alert", "count": max(1, RANK.get(severity, 1)), "alert_id": row.id if row else None, "device_name": device, "ip": ip, "title": title,
+                                      "severity": severity, "category": category, "rule": rule, "mitre": mitre, "message": det.get("message"), "detected_at": now.isoformat()})
+            del _new_alert_events[:-200]
     return r
+
+
+def take_new_alert_events() -> List[dict]:
+    """The alerts the agent's own detectors opened since the last call, as events for Central."""
+    out = list(_new_alert_events)
+    _new_alert_events.clear()
+    return out
 
 
 def resolve(*, rule: str, device: Optional[str], fp_detail: str = "", who: str = "auto: recovered", now: Optional[datetime] = None) -> int:
@@ -369,6 +382,17 @@ def update(ids: List[int], *, status: Optional[str] = None, owner: Optional[str]
     return n
 
 
+def _maintenance_of(a: SocAlert) -> Optional[str]:
+    """The planned-maintenance window that mutes this alert's device now (open alerts only)."""
+    if a.status not in OPEN:
+        return None
+    try:
+        from services import maintenance
+        return maintenance.covers_alert(a.asset_id, a.device_name, a.ip)
+    except Exception:
+        return None
+
+
 def _row(a: SocAlert, full: bool = True) -> dict:
     try:
         detail = json.loads(a.detail) if a.detail else {}
@@ -378,7 +402,8 @@ def _row(a: SocAlert, full: bool = True) -> dict:
         "id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
         "device_name": a.device_name, "ip": a.ip, "asset_id": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count,
         "mitre": a.mitre, "first_seen": _iso(a.first_seen), "last_seen": _iso(a.last_seen), "closed_at": _iso(a.closed_at), "closed_by": a.closed_by,
-        "detail": detail, "root_asset_id": a.root_asset_id, "root_name": a.root_name,
+        "detail": detail, "root_asset_id": a.root_asset_id, "root_name": a.root_name, "esc_level": a.esc_level or 0,
+        "maintenance": _maintenance_of(a),
     }
     if full:
         out["note"] = a.note

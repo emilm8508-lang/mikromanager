@@ -576,6 +576,15 @@ async def _build_snapshot() -> dict:
         print(f"[uplink] soc error: {e}")
         soc_status = None
 
+    # What goes to Central as alert events beyond the collectors': the alerts the agent's own detectors opened (syslog, configuration changes, the rules ...), the
+    # escalations of alerts nobody has picked up - and then everything that concerns devices in planned maintenance is left out (services/maintenance.py).
+    try:
+        from services import soc as _soc, escalation, maintenance
+        alert_events = list(alert_events) + _soc.take_new_alert_events() + escalation.collect_events()
+        alert_events = maintenance.filter_events(alert_events)
+    except Exception as e:
+        print(f"[uplink] maintenance / escalation error: {e}")
+
     # Outages that should open (and, when they end, close) a ServiceDesk Plus ticket - see services/servicedesk_tickets.py
     try:
         from services import servicedesk_tickets

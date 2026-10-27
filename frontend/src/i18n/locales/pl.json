@@ -25,6 +25,7 @@
                 "ai": "Asystent AI",
                 "syslog": "Syslog i trapy SNMP",
                 "groupNetSvc": "Usługi i dostępność",
+                "maint": "Okna serwisowe",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -602,6 +603,12 @@
                     "eventHypervSnapshotOld":  "Hyper-V: stary checkpoint maszyny",
                     "eventHypervReplicationProblem":  "Hyper-V: problem z replikacją maszyny",
                     "eventHypervHostPressure":  "Hyper-V: host przeciążony / kończy się miejsce",
+                    "eventAssetDown":  "Urządzenie nie odpowiada (z korelacją topologii)",
+                    "eventAssetUp":  "Urządzenie odpowiada ponownie",
+                    "eventBizserviceProblem":  "Usługa biznesowa: problem lub ograniczone działanie",
+                    "eventBizserviceOk":  "Usługa biznesowa działa ponownie",
+                    "eventSocAlert":  "Nowy alert SOC (min. liczba = waga: 1 niska, 2 średnia, 3 wysoka, 4 krytyczna)",
+                    "eventSocEscalated":  "Eskalacja alertu SOC bez reakcji (min. liczba = poziom eskalacji)",
                     "eventHostmonDown":  "Monitoring hostów: host przestał odpowiadać",
                     "eventHostmonUp":  "Monitoring hostów: host odpowiada ponownie",
                     "eventHostServiceDown":  "Usługa na hoście niezgodna z oczekiwanym stanem",
@@ -1605,6 +1612,8 @@
             "full_log": "Wiersz logu źródłowego",
             "groups": "Grupy reguły",
             "correlated": "Skutek awarii: {{name}}",
+            "maintenance": "W oknie serwisowym: {{name}}",
+            "escalated": "Eskalacja: poziom {{n}}",
             "exploited": "Wykorzystywana w atakach",
             "epss": "EPSS"
         },
@@ -2061,6 +2070,57 @@
                 "name": "Komunikaty krytyczne",
                 "desc": "Wszystko, co urządzenie loguje jako krytyczne, alarm lub awaria."
             }
+        }
+    },
+    "maint": {
+        "title": "Okna serwisowe i eskalacje",
+        "subtitle": "Zaplanowane prace to nie incydent: w oknie serwisowym alerty wybranych urządzeń nie idą do Centrali (ani do ServiceDesk) i nie są eskalowane; w kolejce SOC agenta nadal je widać, z oznaczeniem. Alert, którego nikt nie przejął, jest eskalowany.",
+        "new": "Nowe okno",
+        "windows": "Okna serwisowe",
+        "none": "Brak okien serwisowych.",
+        "active": "trwa teraz",
+        "enabled": "Włączone",
+        "suppressed": "wyciszono: {{n}}",
+        "suppressedHint": "Liczba zdarzeń wyciszonych przez to okno od startu agenta",
+        "deleteConfirm": "Usunąć okno „{{name}}”?",
+        "chosen": "Wybrano: {{count}}",
+        "search": "Szukaj urządzenia: nazwa lub IP",
+        "kind": {
+            "once": "Jednorazowe",
+            "weekly": "Cotygodniowe"
+        },
+        "day": {
+            "0": "pon",
+            "1": "wt",
+            "2": "śr",
+            "3": "czw",
+            "4": "pt",
+            "5": "sob",
+            "6": "niedz"
+        },
+        "form": {
+            "titleNew": "Nowe okno serwisowe",
+            "titleEdit": "Edycja okna serwisowego",
+            "name": "Nazwa (np. Aktualizacja switcha serwerowni)",
+            "from": "Od",
+            "to": "Do",
+            "startTime": "Początek",
+            "duration": "Długość (min)",
+            "localTime": "Godziny w czasie lokalnym agenta; okno może przechodzić przez północ.",
+            "all": "Cała sieć (wszystkie urządzenia)",
+            "save": "Zapisz",
+            "cancel": "Anuluj"
+        },
+        "quick": {
+            "title": "Wycisz teraz",
+            "intro": "Szybkie okno jednorazowe dla wybranych urządzeń, np. przed restartem.",
+            "go": "Wycisz"
+        },
+        "esc": {
+            "title": "Eskalacje",
+            "intro": "Alert, który pozostaje nowy (nikt go nie potwierdził, nie przejął ani nie zamknął), jest eskalowany po podanych minutach od otwarcia, osobno dla każdej wagi.",
+            "enabled": "Eskaluj alerty bez reakcji",
+            "how": "Eskalacja wysyła do Centrali zdarzenie „Eskalacja alertu SOC” z poziomem (1, 2, 3…) w polu „min. liczba”. Dodaj w Centrali → Alerty reguły dla tego zdarzenia: reguła z min. liczbą 1 powiadomi pierwszy kanał, z min. liczbą 2 kolejny itd. Bez takiej reguły eskalacja jest tylko widoczna w kolejce SOC."
         }
     },
     "traffic": {

@@ -25,6 +25,7 @@
                 "ai": "Asistente de IA",
                 "syslog": "Syslog y traps SNMP",
                 "groupNetSvc": "Servicios y disponibilidad",
+                "maint": "Ventanas de mantenimiento",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1447,6 +1448,8 @@
             "full_log": "Línea del registro de origen",
             "groups": "Grupos de la regla",
             "correlated": "Consecuencia de la caída de {{name}}",
+            "maintenance": "En mantenimiento: {{name}}",
+            "escalated": "Escalada: nivel {{n}}",
             "exploited": "Explotada en ataques",
             "epss": "EPSS"
         },
@@ -1903,6 +1906,57 @@
                 "name": "Mensajes críticos",
                 "desc": "Todo lo que el dispositivo registra como crítico, alerta o emergencia."
             }
+        }
+    },
+    "maint": {
+        "title": "Ventanas de mantenimiento y escalado",
+        "subtitle": "El trabajo planificado no es un incidente: en una ventana de mantenimiento las alertas de los dispositivos elegidos no se envían a la central (ni a ServiceDesk) ni se escalan; siguen viéndose en la cola SOC del agente, marcadas. Una alerta que nadie ha atendido se escala.",
+        "new": "Nueva ventana",
+        "windows": "Ventanas de mantenimiento",
+        "none": "No hay ventanas de mantenimiento.",
+        "active": "en vigor ahora",
+        "enabled": "Activa",
+        "suppressed": "silenciados: {{n}}",
+        "suppressedHint": "Eventos silenciados por esta ventana desde que arrancó el agente",
+        "deleteConfirm": "¿Eliminar la ventana «{{name}}»?",
+        "chosen": "Elegidos: {{count}}",
+        "search": "Buscar dispositivos: nombre o IP",
+        "kind": {
+            "once": "Puntual",
+            "weekly": "Semanal"
+        },
+        "day": {
+            "0": "lun",
+            "1": "mar",
+            "2": "mié",
+            "3": "jue",
+            "4": "vie",
+            "5": "sáb",
+            "6": "dom"
+        },
+        "form": {
+            "titleNew": "Nueva ventana de mantenimiento",
+            "titleEdit": "Editar ventana de mantenimiento",
+            "name": "Nombre (p. ej. Actualización del switch de la sala de servidores)",
+            "from": "Desde",
+            "to": "Hasta",
+            "startTime": "Inicio",
+            "duration": "Duración (min)",
+            "localTime": "Horas en la hora local del agente; una ventana puede pasar de medianoche.",
+            "all": "Toda la red (todos los dispositivos)",
+            "save": "Guardar",
+            "cancel": "Cancelar"
+        },
+        "quick": {
+            "title": "Silenciar ahora",
+            "intro": "Una ventana puntual rápida para dispositivos elegidos, p. ej. antes de un reinicio.",
+            "go": "Silenciar"
+        },
+        "esc": {
+            "title": "Escalado",
+            "intro": "Una alerta que sigue nueva (nadie la ha reconocido, tomado ni cerrado) se escala tras los minutos indicados desde su apertura, por separado para cada gravedad.",
+            "enabled": "Escalar las alertas que nadie ha atendido",
+            "how": "Un escalado envía a la central el evento «Escalado de alerta SOC» con el nivel (1, 2, 3…) en el campo «cantidad mínima». Añada reglas para ese evento en Central → Alertas: una regla con cantidad mínima 1 avisa al primer canal, con 2 al siguiente, etc. Sin esa regla el escalado solo se ve en la cola SOC."
         }
     },
     "traffic": {

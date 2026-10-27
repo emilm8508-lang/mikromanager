@@ -349,6 +349,74 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                  . "Tenant: {$tenant}\n"
                  . "Host: {$device}\n"
                  . "Szczegóły: " . ($event['detail'] ?? '');
+        case 'asset_down':
+            $msg = "🔴 {$prefix}Urządzenie nie odpowiada
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Urządzenie: {$device}";
+            if (is_array($event['affected'] ?? null) && !empty($event['affected'])) {
+                $msg .= "
+Za nim nieosiągalne: " . implode(', ', array_slice($event['affected'], 0, 8));
+            }
+            if (($event['detail'] ?? '') !== '') $msg .= "
+Szczegóły: " . $event['detail'];
+            return $msg;
+        case 'asset_up':
+            $dur = (int)($event['duration_sec'] ?? 0);
+            $msg = "✅ {$prefix}Urządzenie odpowiada ponownie
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Urządzenie: {$device}";
+            if ($dur > 0) $msg .= "
+Przerwa trwała: " . ($dur >= 60 ? floor($dur / 60) . ' min ' . ($dur % 60) . ' s' : $dur . ' s');
+            return $msg;
+        case 'bizservice_problem':
+            $down = (($event['state'] ?? '') === 'down');
+            $msg = ($down ? "🔴 {$prefix}Usługa biznesowa nie działa
+" : "🟠 {$prefix}Usługa biznesowa działa z ograniczeniami
+")
+                 . "Tenant: {$tenant}
+"
+                 . "Usługa: {$device}";
+            if (is_array($event['affected'] ?? null) && !empty($event['affected'])) {
+                $msg .= "
+Brakuje: " . implode(', ', array_slice($event['affected'], 0, 8));
+            }
+            return $msg;
+        case 'bizservice_ok':
+            $dur = (int)($event['duration_sec'] ?? 0);
+            $msg = "✅ {$prefix}Usługa biznesowa działa ponownie
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Usługa: {$device}";
+            if ($dur > 0) $msg .= "
+Problem trwał: " . ($dur >= 60 ? floor($dur / 60) . ' min' : $dur . ' s');
+            return $msg;
+        case 'soc_alert':
+            $sev = $event['severity'] ?? '?';
+            $icon = ($sev === 'critical' || $sev === 'high') ? '🔴' : '🟠';
+            $msg = "{$icon} {$prefix}Nowy alert SOC ({$sev})
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Urządzenie: {$device}
+"
+                 . "Alert: " . ($event['title'] ?? '?');
+            if (($event['message'] ?? '') !== '') $msg .= "
+" . $event['message'];
+            return $msg;
+        case 'soc_escalated':
+            $min = (int)($event['minutes'] ?? 0);
+            return "⏫ {$prefix}Alert SOC bez reakcji od {$min} min (poziom eskalacji " . (int)($event['count'] ?? 0) . ")
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Urządzenie: {$device}
+"
+                 . "Alert: " . ($event['title'] ?? '?') . " (" . ($event['severity'] ?? '?') . ")";
         default:
             return "⚠️ {$prefix}[{$tenant}] Alert {$type} na {$device}";
     }

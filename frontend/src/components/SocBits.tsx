@@ -225,6 +225,8 @@ export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, on
               <div className="px-2 py-2 min-w-0">
                 <div className="font-medium text-slate-900 truncate">{alertTitle(t as never, a)}{a.mitre && <span className="ml-2 text-[10px] font-normal text-slate-500 border border-slate-200 rounded px-1">{a.mitre}</span>}</div>
                 {a.root_name && <div className="text-xs text-amber-700 truncate">{t('soc.field.correlated', { name: a.root_name })}</div>}
+                {a.maintenance && <div className="text-xs text-sky-700 truncate">{t('soc.field.maintenance', { name: a.maintenance })}</div>}
+                {(a.esc_level ?? 0) > 0 && <div className="text-xs text-red-700 truncate">{t('soc.field.escalated', { n: a.esc_level })}</div>}
                 {line && <div className="text-xs text-slate-500 truncate" title={line}>{line}</div>}
               </div>
               <div className="px-2 py-2 min-w-0 truncate" onClick={e => e.stopPropagation()}>
