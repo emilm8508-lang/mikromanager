@@ -34,6 +34,7 @@
                 "tls": "TLS-Zertifikate",
                 "nettools": "Werkzeuge",
                 "palette": "Suchen",
+                "playbook": "Maßnahmenplan",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2285,6 +2286,10 @@
         "central": "Zentrale",
         "asset": "Gerät",
         "hint": "↑ ↓ wählen · Enter öffnet · Esc schließt · Strg+K öffnet von überall"
+    },
+    "playbook": {
+        "button": "Maßnahmenplan (.md)",
+        "hint": "Den Maßnahmenplan dieses Geräts als Markdown-Datei herunterladen: dringendste Schwachstellen, was je Produkt zu tun ist, TLS-Zertifikate und eine Prüfliste (Polnisch oder Englisch, je nach Oberflächensprache)"
     },
     "traffic": {
         "title": "Verkehrsanalyse",

@@ -34,6 +34,7 @@
                 "tls": "Certificats TLS",
                 "nettools": "Outils",
                 "palette": "Rechercher",
+                "playbook": "Plan de correction",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2285,6 +2286,10 @@
         "central": "Centrale",
         "asset": "équipement",
         "hint": "↑ ↓ choisir · Entrée ouvre · Échap ferme · Ctrl+K ouvre de partout"
+    },
+    "playbook": {
+        "button": "Plan de correction (.md)",
+        "hint": "Télécharger le plan de correction de cet équipement en fichier Markdown : vulnérabilités les plus urgentes, que faire pour chaque produit, certificats TLS et liste de vérification (en polonais ou en anglais selon la langue de l'interface)"
     },
     "traffic": {
         "title": "Analyseur de trafic",

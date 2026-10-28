@@ -1204,6 +1204,7 @@ export const assetsApi = {
   list: () => api.get<{ assets: AssetRow[] }>('/assets').then(r => r.data.assets),
   get: (id: number) => api.get<AssetDetail>(`/assets/${id}`).then(r => r.data),
   vulnerabilities: (id: number) => api.get<{ findings: AssetFinding[] }>(`/assets/${id}/vulnerabilities`).then(r => r.data.findings),
+  playbook: (id: number, lang: string) => api.get<{ filename: string; markdown: string }>(`/assets/${id}/playbook`, { params: { lang } }).then(r => r.data),
   software: (id: number) => api.get<{ software: Array<{ name: string; version: string | null; last_seen: string | null }> }>(`/assets/${id}/software`).then(r => r.data.software),
   refresh: () => api.post('/assets/refresh').then(r => r.data),
   scanSettings: () => api.get<{ computers_hours: number; devices_hours: number }>('/assets/scan-settings').then(r => r.data),

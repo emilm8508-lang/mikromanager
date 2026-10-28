@@ -7,7 +7,7 @@ import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Attac
 import { Button } from '../components/ui/Button'
 import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
 import { AssetActions, hasActions } from '../components/AssetActions'
-import { ArrowLeft, Trash2, Save, X, ScanSearch, Loader2, Search, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Trash2, Save, X, ScanSearch, Loader2, Search, ArrowUp, ArrowDown, ChevronRight, FileDown } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
@@ -257,7 +257,19 @@ function RiskInsights({ a }: { a: Detail }) {
 type VSort = 'cve' | 'score'
 
 function AssetVulns({ a }: { a: Detail }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const [pbErr, setPbErr] = useState<string | null>(null)
+  // the remediation plan of this asset as a Markdown file
+  const downloadPlaybook = async () => {
+    try {
+      const r = await assetsApi.playbook(a.id, i18n.language.startsWith('pl') ? 'pl' : 'en')
+      const url = URL.createObjectURL(new Blob([r.markdown], { type: 'text/markdown;charset=utf-8' }))
+      const el = document.createElement('a')
+      el.href = url; el.download = r.filename; el.click()
+      URL.revokeObjectURL(url)
+      setPbErr(null)
+    } catch (e) { setPbErr((e as Error).message) }
+  }
   const { data: all = [], isLoading } = useQuery({ queryKey: ['vuln-findings', undefined], queryFn: () => vulnApi.findings(), refetchInterval: 60_000 })
   const [q, setQ] = useState('')
   const [sev, setSev] = useState('all')
@@ -286,6 +298,8 @@ function AssetVulns({ a }: { a: Detail }) {
         <select value={sev} onChange={e => setSev(e.target.value)} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
           <option value="all">{t('assets.allSeverities')}</option>{['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => <option key={s} value={s}>{t(`assets.sev.${s.toLowerCase()}`)}</option>)}
         </select>
+        <button onClick={() => void downloadPlaybook()} title={t('playbook.hint') as string} className="ml-auto inline-flex items-center gap-1.5 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"><FileDown size={13} /> {t('playbook.button')}</button>
+        {pbErr && <span className="text-xs text-red-600">{pbErr}</span>}
       </div>
       {isLoading ? <p className="px-4 pb-4 text-sm text-slate-500">{t('common.loading')}</p> : rows.length === 0 ? <p className="px-4 pb-4 text-sm text-emerald-700">{t('assets.noVulnsHere')}</p> : (
         <div className="overflow-x-auto">

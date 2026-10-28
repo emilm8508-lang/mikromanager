@@ -123,6 +123,16 @@ async def vulnerabilities(asset_id: int):
     return {"findings": v}
 
 
+@router.get("/{asset_id}/playbook")
+async def playbook(asset_id: int, lang: str = "pl"):
+    """A remediation plan for the asset as a Markdown document ({filename, markdown}); Polish or English."""
+    from services import playbook as pb
+    r = await pb.build(asset_id, lang if lang in ("pl", "en") else "en")
+    if r is None:
+        raise HTTPException(404, "asset not found")
+    return r
+
+
 @router.get("/{asset_id}/software")
 async def software(asset_id: int):
     s = assets.asset_software(asset_id)

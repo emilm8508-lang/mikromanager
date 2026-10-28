@@ -34,6 +34,7 @@
                 "tls": "Certyfikaty TLS",
                 "nettools": "Narzędzia",
                 "palette": "Szukaj",
+                "playbook": "Plan naprawy",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2449,6 +2450,10 @@
         "central": "Centrala",
         "asset": "zasób",
         "hint": "↑ ↓ wybór · Enter otwiera · Esc zamyka · Ctrl+K otwiera z każdego miejsca"
+    },
+    "playbook": {
+        "button": "Plan naprawy (.md)",
+        "hint": "Pobierz plan naprawy tego zasobu jako plik Markdown: najpilniejsze podatności, co zrobić dla każdego produktu, certyfikaty TLS i lista kontrolna weryfikacji (po polsku lub angielsku, zależnie od języka interfejsu)"
     },
     "traffic": {
         "title": "Analizator ruchu",

@@ -34,6 +34,7 @@
                 "tls": "TLS certificates",
                 "nettools": "Tools",
                 "palette": "Search",
+                "playbook": "Remediation plan",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2285,6 +2286,10 @@
         "central": "Central",
         "asset": "asset",
         "hint": "↑ ↓ choose · Enter opens · Esc closes · Ctrl+K opens from anywhere"
+    },
+    "playbook": {
+        "button": "Remediation plan (.md)",
+        "hint": "Download the remediation plan of this asset as a Markdown file: the most urgent vulnerabilities, what to do for each product, TLS certificates and a verification checklist (Polish or English, depending on the interface language)"
     },
     "traffic": {
         "title": "Traffic analyzer",
