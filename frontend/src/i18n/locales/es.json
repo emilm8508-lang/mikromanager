@@ -66,6 +66,8 @@
     "common":  {
                    "online":  "En línea",
                    "mgmtBlocked": "puertos de gestión bloqueados",
+                   "snmpOnly": "solo SNMP",
+                   "snmpOnlyHint": "Este dispositivo solo es accesible por SNMP (p. ej. SwOS Lite, conmutadores antiguos): disponibilidad, puertos y tráfico son visibles, pero sin historial de configuración ni acciones. Es un estado normal, no una avería.",
                    "mgmtBlockedHint": "El dispositivo responde a ping o SNMP, pero ningún puerto de gestión (Winbox, API, SSH, web) responde desde este agente: compruebe la lista de servicios («Available From»), el cortafuegos y los bloqueos de la dirección del agente.",
                    "offline":  "Desconectado",
                    "loading":  "Cargando...",
@@ -2336,6 +2338,35 @@
         },
         "bestCredential": "Mejor credencial: {{name}}",
         "notAssigned": "no asignada a este dispositivo",
+        "acc": {
+            "title": "Cuentas para el agente en los dispositivos",
+            "intro": "Comandos listos para pegar en un dispositivo para que el agente tenga una cuenta propia con los mínimos derechos necesarios, en lugar de la cuenta de administrador. Plantillas: compruébelas para la versión de firmware del dispositivo.",
+            "target": {
+                "ros7": "RouterOS 7",
+                "ros6": "RouterOS 6",
+                "cisco": "Cisco SB",
+                "swos": "MikroTik SwOS Lite"
+            },
+            "profile": "Perfil",
+            "profiles": {
+                "ro": "Solo lectura",
+                "ctl": "Lectura + acciones"
+            },
+            "profileNote": {
+                "ro": "Monitorización, detalles, recursos, disponibilidad, historial de configuración (por SSH). No se cambia nada en el dispositivo. Si el historial de configuración indica falta de permiso, añada la política ftp.",
+                "ctl": "Como «solo lectura», más acciones: actualización de firmware, reinicio, bloqueo de una dirección desde el SOC (necesitan write, reboot, ftp). La cuenta no puede gestionar usuarios, contraseñas ni datos sensibles."
+            },
+            "agentIp": "Dirección del agente",
+            "password": "Contraseña",
+            "community": "Community SNMP",
+            "generate": "Generar",
+            "copy": "Copiar",
+            "copied": "Copiado",
+            "noteStore": "Esta página no guarda la contraseña en ningún sitio. Guárdela como credencial en:",
+            "noteAddress": "La restricción address= también afecta a otras personas que usan ese servicio (p. ej. WebFig en el puerto www): añada sus direcciones separadas por comas para no bloquearse.",
+            "noteCisco": "El nivel de privilegio 15 es necesario para leer la configuración completa por SSH. Para monitorizar basta una community SNMP de solo lectura (ro) y no hace falta cuenta.",
+            "noteCheck": "Los comandos no se han probado en un dispositivo real de cada versión: tras pegarlos, use «Probar» en esta página."
+        },
         "advice": {
             "no_credential": "El dispositivo no tiene credencial asignada. Use «Asignar credenciales» o asígnela a mano en la página del dispositivo.",
             "login_refused": "Se rechazó el usuario o la contraseña. Revise la cuenta (mejor una dedicada de solo lectura) y la contraseña; tras cambiar una contraseña en el router, actualice la credencial en la aplicación.",

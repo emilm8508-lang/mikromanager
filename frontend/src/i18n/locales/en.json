@@ -66,6 +66,8 @@
     "common":  {
                    "online":  "Online",
                    "mgmtBlocked": "management ports blocked",
+                   "snmpOnly": "SNMP only",
+                   "snmpOnlyHint": "This device can only be reached over SNMP (e.g. SwOS Lite, older switches): availability, ports and traffic are visible, but there is no configuration history and no actions. This is a normal state, not a fault.",
                    "mgmtBlockedHint": "The device answers ping or SNMP, but no management port (Winbox, API, SSH, web) answers from this agent: check the service list (\"Available From\"), the firewall and bans of the agent address.",
                    "offline":  "Offline",
                    "loading":  "Loading...",
@@ -2336,6 +2338,35 @@
         },
         "bestCredential": "Best credential: {{name}}",
         "notAssigned": "not assigned to this device",
+        "acc": {
+            "title": "Accounts for the agent on the devices",
+            "intro": "Ready commands to paste on a device so the agent gets an account of its own with the least rights it needs, instead of the administrator account. Templates - check them for the device's firmware version.",
+            "target": {
+                "ros7": "RouterOS 7",
+                "ros6": "RouterOS 6",
+                "cisco": "Cisco SB",
+                "swos": "MikroTik SwOS Lite"
+            },
+            "profile": "Profile",
+            "profiles": {
+                "ro": "Read only",
+                "ctl": "Read + actions"
+            },
+            "profileNote": {
+                "ro": "Monitoring, details, resources, availability, configuration history (over SSH). Nothing is changed on the device. If the configuration history reports a missing permission, add the ftp policy.",
+                "ctl": "Like \"read only\", plus actions: firmware update, restart, blocking an address from the SOC (they need write, reboot, ftp). The account has no rights to manage users, passwords or sensitive data."
+            },
+            "agentIp": "Agent address",
+            "password": "Password",
+            "community": "SNMP community",
+            "generate": "Generate",
+            "copy": "Copy",
+            "copied": "Copied",
+            "noteStore": "This page stores the password nowhere. Save it as a credential in:",
+            "noteAddress": "The address= restriction also applies to other people using that service (e.g. WebFig on the www port): add their addresses, comma-separated, so you do not lock yourself out.",
+            "noteCisco": "Privilege level 15 is needed to read the full configuration over SSH. For monitoring alone a read-only SNMP community (ro) is enough and no account is needed.",
+            "noteCheck": "The commands have not been tried on a real device of every version: after pasting, use \"Test\" on this page."
+        },
         "advice": {
             "no_credential": "The device has no credential assigned. Use \"Fit credentials\", or assign one by hand on the device page.",
             "login_refused": "The login or password was refused. Check the account (best a dedicated read-only one) and the password; after changing a password on the router, update the credential in the application.",

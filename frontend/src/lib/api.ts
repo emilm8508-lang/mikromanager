@@ -1433,7 +1433,7 @@ export interface OnboardingDiagnosis {
   best_credential_id: number | null; own_credential_id: number | null; tried: number; advice: string[]; results: Array<{ credential_id: number; credential: string; own: boolean; level: string }>
 }
 export const onboardingApi = {
-  overview: () => api.get<{ devices: OnboardingDevice[]; ranges: Array<{ id: number; cidr: string; label: string | null; active: boolean }>; credentials: number; suggested_ranges: Array<{ cidr: string; hosts: number }> }>('/onboarding').then(r => r.data),
+  overview: () => api.get<{ devices: OnboardingDevice[]; ranges: Array<{ id: number; cidr: string; label: string | null; active: boolean }>; credentials: number; suggested_ranges: Array<{ cidr: string; hosts: number }>; agent_ip: string | null }>('/onboarding').then(r => r.data),
   test: (id: number) => api.post<OnboardingDiagnosis>(`/onboarding/test/${id}`, undefined, { timeout: 120000 }).then(r => r.data),
   assign: (ids: number[]) => api.post<{ results: Array<{ device_id: number; name: string; level: string; assigned: string | null; advice: string[] }> }>('/onboarding/assign', { device_ids: ids }, { timeout: 300000 }).then(r => r.data),
 }

@@ -233,7 +233,7 @@ def overview() -> dict:
                          "ports": {"api": bool(d.has_api), "ssh": bool(d.has_ssh), "web": bool(d.has_web), "snmp": bool(d.has_snmp)}})
         ranges = [{"id": r.id, "cidr": r.cidr, "label": r.label, "active": bool(r.active)} for r in db.execute(select(ScanRange)).scalars().all()]
         ncreds = len(creds)
-    return {"devices": rows, "ranges": ranges, "credentials": ncreds, "suggested_ranges": suggest_ranges([r["cidr"] for r in ranges])}
+    return {"devices": rows, "ranges": ranges, "credentials": ncreds, "suggested_ranges": suggest_ranges([r["cidr"] for r in ranges]), "agent_ip": agent_ip()}
 
 
 # ── The agent's own networks ─────────────────────────────────────────────────
@@ -280,6 +280,18 @@ def local_networks() -> List[str]:
         return parse_local_networks(out, False)
     except Exception:
         return []
+
+
+def agent_ip() -> Optional[str]:
+    """The address the agent's computer would use towards the network (the interface of the default route); nothing is sent."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 9))
+            ip = s.getsockname()[0]
+        return ip if ip and not ip.startswith("0.") else None
+    except OSError:
+        return None
 
 
 def suggest_ranges(configured: List[str], nets: Optional[List[str]] = None) -> List[dict]:

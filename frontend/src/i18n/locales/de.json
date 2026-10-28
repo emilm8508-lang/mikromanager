@@ -66,6 +66,8 @@
     "common":  {
                    "online":  "Online",
                    "mgmtBlocked": "Verwaltungsports gesperrt",
+                   "snmpOnly": "nur SNMP",
+                   "snmpOnlyHint": "Dieses Gerät ist nur über SNMP erreichbar (z. B. SwOS Lite, ältere Switches): Verfügbarkeit, Ports und Verkehr sind sichtbar, aber es gibt keinen Konfigurationsverlauf und keine Aktionen. Das ist ein normaler Zustand, kein Fehler.",
                    "mgmtBlockedHint": "Das Gerät antwortet auf Ping oder SNMP, aber kein Verwaltungsport (Winbox, API, SSH, Web) antwortet von diesem Agenten: Dienstliste („Available From“), Firewall und Sperren der Agentenadresse prüfen.",
                    "offline":  "Offline",
                    "loading":  "Wird geladen...",
@@ -2336,6 +2338,35 @@
         },
         "bestCredential": "Beste Zugangsdaten: {{name}}",
         "notAssigned": "diesem Gerät nicht zugeordnet",
+        "acc": {
+            "title": "Konten für den Agenten auf den Geräten",
+            "intro": "Fertige Befehle zum Einfügen auf einem Gerät, damit der Agent ein eigenes Konto mit den geringsten nötigen Rechten bekommt statt des Administratorkontos. Vorlagen - für die Firmware-Version des Geräts prüfen.",
+            "target": {
+                "ros7": "RouterOS 7",
+                "ros6": "RouterOS 6",
+                "cisco": "Cisco SB",
+                "swos": "MikroTik SwOS Lite"
+            },
+            "profile": "Profil",
+            "profiles": {
+                "ro": "Nur Lesen",
+                "ctl": "Lesen + Aktionen"
+            },
+            "profileNote": {
+                "ro": "Überwachung, Details, Ressourcen, Verfügbarkeit, Konfigurationsverlauf (über SSH). Am Gerät wird nichts geändert. Meldet der Konfigurationsverlauf eine fehlende Berechtigung, die Richtlinie ftp ergänzen.",
+                "ctl": "Wie „Nur Lesen“, plus Aktionen: Firmware-Update, Neustart, Sperren einer Adresse aus dem SOC (benötigen write, reboot, ftp). Das Konto darf keine Benutzer, Passwörter oder sensiblen Daten verwalten."
+            },
+            "agentIp": "Adresse des Agenten",
+            "password": "Passwort",
+            "community": "SNMP-Community",
+            "generate": "Erzeugen",
+            "copy": "Kopieren",
+            "copied": "Kopiert",
+            "noteStore": "Diese Seite speichert das Passwort nirgends. Als Zugangsdaten speichern unter:",
+            "noteAddress": "Die Einschränkung address= gilt auch für andere Personen, die diesen Dienst nutzen (z. B. WebFig am Port www): deren Adressen kommagetrennt ergänzen, um sich nicht auszusperren.",
+            "noteCisco": "Berechtigungsstufe 15 ist nötig, um die vollständige Konfiguration über SSH zu lesen. Für reine Überwachung genügt eine SNMP-Read-only-Community (ro), ein Konto ist nicht nötig.",
+            "noteCheck": "Die Befehle wurden nicht auf einem echten Gerät jeder Version erprobt: nach dem Einfügen „Testen“ auf dieser Seite nutzen."
+        },
         "advice": {
             "no_credential": "Dem Gerät sind keine Zugangsdaten zugeordnet. „Zugangsdaten zuordnen“ nutzen oder auf der Geräteseite von Hand zuordnen.",
             "login_refused": "Benutzername oder Passwort wurden abgelehnt. Konto (am besten ein eigenes Nur-Lesen-Konto) und Passwort prüfen; nach einer Passwortänderung am Router die Zugangsdaten in der Anwendung aktualisieren.",

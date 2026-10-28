@@ -498,7 +498,7 @@ export function Devices() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex flex-col gap-1 items-start">
-                      <OnlineBadge online={d.online} mgmtOk={d.mgmt_ok} />
+                      <OnlineBadge online={d.online} mgmtOk={d.mgmt_ok} snmpOnly={d.vendor === 'generic-snmp' || (d.has_snmp && !d.has_api && !d.has_ssh)} />
                       {d.wan_status && (
                         <span title={d.wan_iface ? `WAN: ${d.wan_iface}` : undefined}>
                           <Badge variant={d.wan_status === 'up' ? 'green' : 'red'} className="text-[10px]">

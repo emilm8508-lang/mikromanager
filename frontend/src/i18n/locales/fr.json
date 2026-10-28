@@ -66,6 +66,8 @@
     "common":  {
                    "online":  "En ligne",
                    "mgmtBlocked": "ports de gestion bloqués",
+                   "snmpOnly": "SNMP seul",
+                   "snmpOnlyHint": "Cet équipement n'est joignable que par SNMP (p. ex. SwOS Lite, anciens commutateurs) : disponibilité, ports et trafic sont visibles, mais ni historique de configuration ni actions. C'est un état normal, pas une panne.",
                    "mgmtBlockedHint": "L'appareil répond au ping ou au SNMP, mais aucun port de gestion (Winbox, API, SSH, web) ne répond depuis cet agent : vérifiez la liste des services (« Available From »), le pare-feu et les blocages de l'adresse de l'agent.",
                    "offline":  "Hors ligne",
                    "loading":  "Chargement...",
@@ -2336,6 +2338,35 @@
         },
         "bestCredential": "Meilleur identifiant : {{name}}",
         "notAssigned": "non attribué à cet équipement",
+        "acc": {
+            "title": "Comptes de l'agent sur les équipements",
+            "intro": "Commandes prêtes à coller sur un équipement pour que l'agent ait son propre compte avec le minimum de droits, au lieu du compte administrateur. Modèles : à vérifier pour la version du firmware de l'équipement.",
+            "target": {
+                "ros7": "RouterOS 7",
+                "ros6": "RouterOS 6",
+                "cisco": "Cisco SB",
+                "swos": "MikroTik SwOS Lite"
+            },
+            "profile": "Profil",
+            "profiles": {
+                "ro": "Lecture seule",
+                "ctl": "Lecture + actions"
+            },
+            "profileNote": {
+                "ro": "Supervision, détails, ressources, disponibilité, historique de configuration (par SSH). Rien n'est modifié sur l'équipement. Si l'historique de configuration signale un droit manquant, ajoutez la politique ftp.",
+                "ctl": "Comme « lecture seule », plus les actions : mise à jour du firmware, redémarrage, blocage d'une adresse depuis le SOC (elles demandent write, reboot, ftp). Le compte ne peut gérer ni utilisateurs, ni mots de passe, ni données sensibles."
+            },
+            "agentIp": "Adresse de l'agent",
+            "password": "Mot de passe",
+            "community": "Community SNMP",
+            "generate": "Générer",
+            "copy": "Copier",
+            "copied": "Copié",
+            "noteStore": "Cette page n'enregistre le mot de passe nulle part. Enregistrez-le comme identifiant dans :",
+            "noteAddress": "La restriction address= s'applique aussi aux autres personnes qui utilisent ce service (p. ex. WebFig sur le port www) : ajoutez leurs adresses séparées par des virgules pour ne pas vous verrouiller.",
+            "noteCisco": "Le niveau de privilège 15 est nécessaire pour lire la configuration complète par SSH. Pour la seule supervision, une community SNMP en lecture seule (ro) suffit et aucun compte n'est nécessaire.",
+            "noteCheck": "Les commandes n'ont pas été essayées sur un équipement réel de chaque version : après le collage, utilisez « Tester » sur cette page."
+        },
         "advice": {
             "no_credential": "L'équipement n'a pas d'identifiant attribué. Utilisez « Attribuer les identifiants » ou attribuez-en un à la main sur la page de l'équipement.",
             "login_refused": "L'identifiant ou le mot de passe a été refusé. Vérifiez le compte (idéalement un compte dédié en lecture seule) et le mot de passe ; après un changement de mot de passe sur le routeur, mettez à jour l'identifiant dans l'application.",

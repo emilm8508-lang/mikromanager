@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { Cable, Check, X } from 'lucide-react'
 import { onboardingApi, scannerApi, type OnboardingDiagnosis } from '../lib/api'
 import { useAgo } from '../components/SocBits'
+import { AccountSnippets } from '../components/AccountSnippets'
 import { cn } from '../lib/utils'
 
 const errText = (e: unknown) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? (e as Error)?.message ?? ''
@@ -118,6 +119,7 @@ export function Onboarding() {
           ))}
         </div>
       )}
+      {d && <AccountSnippets key={d.agent_ip ?? 'none'} agentIp={d.agent_ip} />}
     </div>
   )
 }

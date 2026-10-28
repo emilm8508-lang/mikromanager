@@ -67,6 +67,8 @@
     "common":  {
                    "online":  "Online",
                    "mgmtBlocked": "porty zarządzania niedostępne",
+                   "snmpOnly": "tylko SNMP",
+                   "snmpOnlyHint": "To urządzenie jest dostępne tylko przez SNMP (np. SwOS Lite, starsze przełączniki): dostępność, porty i ruch są widoczne, ale nie ma historii konfiguracji ani akcji. To normalny stan, nie awaria.",
                    "mgmtBlockedHint": "Urządzenie odpowiada na ping lub SNMP, ale żaden port zarządzania (Winbox, API, SSH, WWW) nie odpowiada z tego agenta: sprawdź listę usług („Available From”), zaporę i blokady adresu agenta.",
                    "offline":  "Offline",
                    "loading":  "Ładowanie...",
@@ -2500,6 +2502,35 @@
         },
         "bestCredential": "Najlepsze poświadczenie: {{name}}",
         "notAssigned": "nie przypisane do tego urządzenia",
+        "acc": {
+            "title": "Konta dla agenta na urządzeniach",
+            "intro": "Gotowe polecenia do wklejenia na urządzeniu, żeby agent miał własne konto z najmniejszymi potrzebnymi uprawnieniami, zamiast konta administratora. Szablony — sprawdź je dla wersji oprogramowania urządzenia.",
+            "target": {
+                "ros7": "RouterOS 7",
+                "ros6": "RouterOS 6",
+                "cisco": "Cisco SB",
+                "swos": "MikroTik SwOS Lite"
+            },
+            "profile": "Profil",
+            "profiles": {
+                "ro": "Tylko odczyt",
+                "ctl": "Odczyt + akcje"
+            },
+            "profileNote": {
+                "ro": "Monitoring, szczegóły, zasoby, dostępność, historia konfiguracji (przez SSH). Bez zmian na urządzeniu. Jeśli historia konfiguracji zgłosi brak uprawnień, dodaj politykę ftp.",
+                "ctl": "Jak „tylko odczyt”, a do tego akcje: aktualizacja firmware, restart, blokada adresu z SOC (wymagają write, reboot, ftp). Konto nie ma uprawnień do zarządzania użytkownikami, haseł ani wrażliwych danych."
+            },
+            "agentIp": "Adres agenta",
+            "password": "Hasło",
+            "community": "Community SNMP",
+            "generate": "Wygeneruj",
+            "copy": "Kopiuj",
+            "copied": "Skopiowano",
+            "noteStore": "Hasło nie jest nigdzie zapisywane przez tę stronę. Zapisz je jako poświadczenie w:",
+            "noteAddress": "Ograniczenie address= dotyczy też innych osób korzystających z tej usługi (np. WebFig na porcie www): dopisz ich adresy po przecinku, żeby się nie zablokować.",
+            "noteCisco": "Poziom uprawnień 15 jest potrzebny do odczytu pełnej konfiguracji przez SSH. Do samego monitoringu wystarczy odczyt SNMP (community ro) i nie trzeba konta.",
+            "noteCheck": "Polecenia nie były sprawdzone na prawdziwym urządzeniu każdej wersji: po wklejeniu użyj „Testuj” na tej stronie."
+        },
         "advice": {
             "no_credential": "Urządzenie nie ma przypisanego poświadczenia. Użyj „Dopasuj poświadczenia” albo przypisz je ręcznie na stronie urządzenia.",
             "login_refused": "Login lub hasło zostały odrzucone. Sprawdź konto (najlepiej dedykowane, tylko do odczytu) i hasło; po zmianie hasła na routerze zaktualizuj poświadczenie w aplikacji.",
