@@ -32,6 +32,7 @@
                 "coverage": "Quellenabdeckung",
                 "soar": "Reaktion",
                 "tls": "TLS-Zertifikate",
+                "nettools": "Werkzeuge",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2232,6 +2233,49 @@
         "warnDays": "Warnen ab (Tage vorher)",
         "critDays": "Hohe Schwere ab (Tage vorher)",
         "lastRun": "Zuletzt"
+    },
+    "nettools": {
+        "title": "Netzwerkwerkzeuge",
+        "subtitle": "Kleine Administratorwerkzeuge, ausgeführt von dem Ort, an dem der Agent steht. Jedes wird von Hand gestartet; nichts läuft von allein.",
+        "tab": {
+            "wol": "Wake on LAN",
+            "snmp": "SNMP",
+            "rdap": "RDAP / Whois",
+            "path": "Pfad zu einem Host"
+        },
+        "pickHost": "Host aus dem Inventar wählen",
+        "run": "Ausführen",
+        "wol": {
+            "intro": "Sendet ein Magic Packet (UDP-Broadcast), das den Rechner mit dieser MAC-Adresse aufweckt. WoL muss im BIOS und in der Netzwerkkarte aktiviert sein.",
+            "send": "Paket senden",
+            "sent": "Paket für {{mac}} gesendet an: {{to}}",
+            "note": "Das Paket geht an den globalen Broadcast und, für einen Host des Inventars, an den Broadcast seines /24-Subnetzes. Das Senden beweist nicht, dass der Rechner aufgewacht ist. Ein Paket pro Adresse alle paar Sekunden."
+        },
+        "snmp": {
+            "intro": "Liest einen OID (GET) oder einen Teilbaum (WALK) von einem dem Inventar bekannten Host. Nur Lesen - SET gibt es absichtlich nicht. Community: aus den gespeicherten Zugangsdaten des Geräts oder hier eingegeben (wird nicht gespeichert).",
+            "stored": "Community gespeichert",
+            "community": "Community",
+            "none": "Keine Ergebnisse.",
+            "cut": "Die ersten 300 Zeilen werden angezeigt."
+        },
+        "rdap": {
+            "intro": "Wem eine öffentliche Adresse, eine Domain oder eine AS-Nummer gehört (öffentlicher RDAP-Dienst). Die Abfrage verlässt das Netz, daher läuft sie nur auf Anforderung; interne Adressen werden nie gesendet.",
+            "name": "Name",
+            "range": "Bereich",
+            "country": "Land",
+            "status": "Status",
+            "ns": "Nameserver",
+            "events": "Ereignisse",
+            "entities": "Beteiligte",
+            "note": "Daten des öffentlichen Dienstes rdap.org (leitet zum richtigen Register weiter)."
+        },
+        "path": {
+            "intro": "Traceroute zu einer Adresse oder einem Namen als Kette von Hops: Namen aus dem Inventar, die Latenz jedes Hops und wie viel er zum Ganzen beiträgt.",
+            "running": "Pfad wird verfolgt…",
+            "reached": "Ziel erreicht",
+            "notReached": "Ziel nicht erreicht (eine Firewall kann Antworten blockieren)",
+            "legend": "Grün: internes Netz · lila: öffentlich · gelb: der Hop fügt über 40 ms hinzu. Hops ohne Antwort sind bei Firewalls üblich, kein Fehler."
+        }
     },
     "traffic": {
         "title": "Verkehrsanalyse",

@@ -32,6 +32,7 @@
                 "coverage": "Couverture des sources",
                 "soar": "Réponse",
                 "tls": "Certificats TLS",
+                "nettools": "Outils",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2232,6 +2233,49 @@
         "warnDays": "Avertir à (jours avant)",
         "critDays": "Gravité haute à (jours avant)",
         "lastRun": "Dernière fois"
+    },
+    "nettools": {
+        "title": "Outils réseau",
+        "subtitle": "Petits outils d'administrateur lancés depuis l'endroit où se trouve l'agent. Chacun se lance à la main ; rien ne s'exécute seul.",
+        "tab": {
+            "wol": "Wake on LAN",
+            "snmp": "SNMP",
+            "rdap": "RDAP / Whois",
+            "path": "Chemin vers un hôte"
+        },
+        "pickHost": "Choisir un hôte de l'inventaire",
+        "run": "Lancer",
+        "wol": {
+            "intro": "Envoie un paquet magique (diffusion UDP) qui réveille l'ordinateur portant cette adresse MAC. WoL doit être activé dans le BIOS et sur la carte réseau.",
+            "send": "Envoyer le paquet",
+            "sent": "Paquet pour {{mac}} envoyé à : {{to}}",
+            "note": "Le paquet part vers la diffusion globale et, pour un hôte de l'inventaire, vers la diffusion de son sous-réseau /24. L'envoyer ne prouve pas que l'ordinateur s'est réveillé. Un paquet par adresse toutes les quelques secondes."
+        },
+        "snmp": {
+            "intro": "Lit un OID (GET) ou un sous-arbre (WALK) d'un hôte connu de l'inventaire. Lecture seule : il n'y a volontairement pas de SET. Community : celle des identifiants enregistrés de l'équipement, ou saisie ici (non enregistrée).",
+            "stored": "community enregistrée",
+            "community": "community",
+            "none": "Aucun résultat.",
+            "cut": "Les 300 premières lignes sont affichées."
+        },
+        "rdap": {
+            "intro": "À qui appartient une adresse publique, un domaine ou un numéro AS (service RDAP public). La requête quitte le réseau, elle ne s'exécute donc que sur demande ; les adresses internes ne sont jamais envoyées.",
+            "name": "Nom",
+            "range": "Plage",
+            "country": "Pays",
+            "status": "Statut",
+            "ns": "Serveurs de noms",
+            "events": "Événements",
+            "entities": "Entités",
+            "note": "Données du service public rdap.org (qui redirige vers le bon registre)."
+        },
+        "path": {
+            "intro": "Traceroute vers une adresse ou un nom, affiché en chaîne de sauts : noms de l'inventaire, latence de chaque saut et ce qu'il ajoute au total.",
+            "running": "Traçage du chemin…",
+            "reached": "Cible atteinte",
+            "notReached": "Cible non atteinte (un pare-feu peut bloquer les réponses)",
+            "legend": "Vert : réseau interne · violet : public · ambre : le saut ajoute plus de 40 ms. Des sauts sans réponse sont courants avec des pare-feu, pas une panne."
+        }
     },
     "traffic": {
         "title": "Analyseur de trafic",

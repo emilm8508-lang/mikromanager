@@ -1421,6 +1421,19 @@ export const soarApi = {
   decide: (id: number, approve: boolean) => api.post<SoarAction>(`/soar/${id}/decide`, { approve }).then(r => r.data),
   unblock: (target: string) => api.post('/soar/unblock', { target }).then(r => r.data),
 }
+// Small network tools (services/netkit.py): Wake on LAN, SNMP browser, RDAP, path to a host
+export interface NetkitHost { name: string; ip: string; mac: string | null; snmp: boolean; type: string }
+export interface RdapResult { kind: string; handle: string | null; name: string | null; status: string[]; events: Array<{ action: string; date: string | null }>
+                              entities: Array<{ roles: string[]; handle: string | null; name: string | null }>; country: string | null; type: string | null; range?: string | null; cidr?: string[]; nameservers?: string[] }
+export interface PathHop { n: number; ip: string | null; ms: number | null; delta: number | null; name: string | null; scope: 'private' | 'public' | null }
+export const netkitApi = {
+  hosts: () => api.get<{ hosts: NetkitHost[] }>('/netkit/hosts').then(r => r.data.hosts),
+  wol: (mac: string) => api.post<{ mac: string; sent_to: string[]; errors: string[] }>('/netkit/wol', { mac }).then(r => r.data),
+  snmp: (body: { ip: string; op: 'get' | 'walk'; oid: string; community?: string }) =>
+    api.post<{ rows: Array<{ oid: string; name: string | null; value: string }>; truncated: boolean }>('/netkit/snmp', body).then(r => r.data),
+  rdap: (query: string) => api.post<RdapResult>('/netkit/rdap', { query }).then(r => r.data),
+  path: (query: string) => api.post<{ target: string; ip: string; hops: PathHop[]; reached: boolean; error: string | null }>('/netkit/path', { query }, { timeout: 90000 }).then(r => r.data),
+}
 // TLS certificates and protocols (services/tls_scan.py)
 export interface TlsFinding { code: string; severity: 'high' | 'medium' | 'low' | 'info'; message: string }
 export interface TlsRow {

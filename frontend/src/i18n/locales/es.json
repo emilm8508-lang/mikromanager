@@ -32,6 +32,7 @@
                 "coverage": "Cobertura de fuentes",
                 "soar": "Respuesta",
                 "tls": "Certificados TLS",
+                "nettools": "Herramientas",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2232,6 +2233,49 @@
         "warnDays": "Avisar a (días antes)",
         "critDays": "Gravedad alta a (días antes)",
         "lastRun": "Última vez"
+    },
+    "nettools": {
+        "title": "Herramientas de red",
+        "subtitle": "Pequeñas herramientas de administrador ejecutadas desde el lugar donde está el agente. Cada una se inicia a mano; nada se ejecuta solo.",
+        "tab": {
+            "wol": "Wake on LAN",
+            "snmp": "SNMP",
+            "rdap": "RDAP / Whois",
+            "path": "Ruta a un host"
+        },
+        "pickHost": "Elija un host del inventario",
+        "run": "Ejecutar",
+        "wol": {
+            "intro": "Envía un paquete mágico (difusión UDP) que despierta el equipo con esa dirección MAC. El equipo debe tener WoL activado en la BIOS y en la tarjeta de red.",
+            "send": "Enviar paquete",
+            "sent": "Paquete para {{mac}} enviado a: {{to}}",
+            "note": "El paquete va a la difusión global y, para un host del inventario, a la difusión de su subred /24. Enviarlo no demuestra que el equipo despertó. Un paquete por dirección cada pocos segundos."
+        },
+        "snmp": {
+            "intro": "Lee un OID (GET) o un subárbol (WALK) de un host que el inventario conoce. Solo lectura: no hay SET a propósito. Community: de la credencial guardada del dispositivo o escrita aquí (no se guarda).",
+            "stored": "community guardada",
+            "community": "community",
+            "none": "Sin resultados.",
+            "cut": "Se muestran las primeras 300 filas."
+        },
+        "rdap": {
+            "intro": "Quién es el titular de una dirección pública, un dominio o un número AS (servicio RDAP público). La consulta sale de la red, por eso solo se ejecuta cuando usted lo pide; las direcciones internas nunca se envían.",
+            "name": "Nombre",
+            "range": "Rango",
+            "country": "País",
+            "status": "Estado",
+            "ns": "Servidores de nombres",
+            "events": "Eventos",
+            "entities": "Entidades",
+            "note": "Datos del servicio público rdap.org (redirige al registro correcto)."
+        },
+        "path": {
+            "intro": "Traceroute a una dirección o nombre, mostrado como cadena de saltos: nombres del inventario, la latencia de cada salto y cuánto aporta al total.",
+            "running": "Trazando la ruta…",
+            "reached": "Destino alcanzado",
+            "notReached": "Destino no alcanzado (un cortafuegos puede bloquear las respuestas)",
+            "legend": "Verde: red interna · morado: pública · ámbar: el salto añade más de 40 ms. Los saltos sin respuesta son habituales con cortafuegos, no una avería."
+        }
     },
     "traffic": {
         "title": "Analizador de tráfico",

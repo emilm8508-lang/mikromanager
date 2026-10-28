@@ -32,6 +32,7 @@
                 "coverage": "Pokrycie źródeł",
                 "soar": "Reakcje",
                 "tls": "Certyfikaty TLS",
+                "nettools": "Narzędzia",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2396,6 +2397,49 @@
         "warnDays": "Ostrzegaj na (dni przed)",
         "critDays": "Wysoka waga na (dni przed)",
         "lastRun": "Ostatnio"
+    },
+    "nettools": {
+        "title": "Narzędzia sieciowe",
+        "subtitle": "Małe narzędzia administratora uruchamiane z miejsca, w którym stoi agent. Każde uruchamia się ręcznie, nic nie działa samo.",
+        "tab": {
+            "wol": "Wake on LAN",
+            "snmp": "SNMP",
+            "rdap": "RDAP / Whois",
+            "path": "Trasa do hosta"
+        },
+        "pickHost": "Wybierz host z inwentarza",
+        "run": "Uruchom",
+        "wol": {
+            "intro": "Wysyła pakiet „magic packet” (UDP, broadcast) budzący komputer o danym adresie MAC. Komputer musi mieć włączone WoL w BIOS-ie i karcie sieciowej.",
+            "send": "Wyślij pakiet",
+            "sent": "Wysłano pakiet dla {{mac}} na: {{to}}",
+            "note": "Pakiet idzie na broadcast globalny i, dla hosta z inwentarza, na broadcast jego podsieci /24. Wysłanie pakietu nie dowodzi, że komputer się obudził. Jeden pakiet na adres co kilka sekund."
+        },
+        "snmp": {
+            "intro": "Odczyt jednego OID (GET) lub poddrzewa (WALK) z hosta znanego w inwentarzu. Tylko do odczytu — SET celowo nie istnieje. Community: z zapisanych poświadczeń urządzenia albo wpisane tutaj (nie jest zapisywane).",
+            "stored": "community zapisane",
+            "community": "community",
+            "none": "Brak wyników.",
+            "cut": "Pokazano pierwsze 300 wierszy."
+        },
+        "rdap": {
+            "intro": "Kto jest właścicielem adresu publicznego, domeny albo numeru AS (publiczna usługa RDAP). Zapytanie opuszcza sieć, więc wykonuje się tylko na Twoje żądanie; adresy wewnętrzne nigdy nie są wysyłane.",
+            "name": "Nazwa",
+            "range": "Zakres",
+            "country": "Kraj",
+            "status": "Status",
+            "ns": "Serwery nazw",
+            "events": "Zdarzenia",
+            "entities": "Podmioty",
+            "note": "Dane z publicznej usługi rdap.org (przekierowuje do właściwego rejestru)."
+        },
+        "path": {
+            "intro": "Traceroute do adresu lub nazwy, pokazany jako łańcuch skoków: nazwy z inwentarza, opóźnienie każdego skoku i ile dokłada do całości.",
+            "running": "Śledzenie trasy…",
+            "reached": "Cel osiągnięty",
+            "notReached": "Cel nieosiągnięty (zapora może blokować odpowiedzi)",
+            "legend": "Zielony: sieć wewnętrzna · fioletowy: publiczna · żółty: skok dokłada ponad 40 ms. Skoki bez odpowiedzi to częsta cecha zapór, nie awaria."
+        }
     },
     "traffic": {
         "title": "Analizator ruchu",

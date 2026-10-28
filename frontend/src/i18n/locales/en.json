@@ -32,6 +32,7 @@
                 "coverage": "Source coverage",
                 "soar": "Response",
                 "tls": "TLS certificates",
+                "nettools": "Tools",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2232,6 +2233,49 @@
         "warnDays": "Warn at (days before)",
         "critDays": "High severity at (days before)",
         "lastRun": "Last run"
+    },
+    "nettools": {
+        "title": "Network tools",
+        "subtitle": "Small administrator tools run from the place the agent stands. Each is started by hand; nothing runs on its own.",
+        "tab": {
+            "wol": "Wake on LAN",
+            "snmp": "SNMP",
+            "rdap": "RDAP / Whois",
+            "path": "Path to a host"
+        },
+        "pickHost": "Pick a host of the inventory",
+        "run": "Run",
+        "wol": {
+            "intro": "Sends a magic packet (UDP broadcast) that wakes the computer with this MAC address. The computer must have WoL enabled in its BIOS and network card.",
+            "send": "Send packet",
+            "sent": "Packet for {{mac}} sent to: {{to}}",
+            "note": "The packet goes to the global broadcast and, for a host of the inventory, to the broadcast of its /24 subnet. Sending it does not prove the computer woke up. One packet per address every few seconds."
+        },
+        "snmp": {
+            "intro": "Reads one OID (GET) or a subtree (WALK) from a host the inventory knows. Read only - there is deliberately no SET. Community: from the stored credential of the device, or typed here (it is not saved).",
+            "stored": "community stored",
+            "community": "community",
+            "none": "No results.",
+            "cut": "The first 300 rows are shown."
+        },
+        "rdap": {
+            "intro": "Who owns a public address, a domain or an AS number (the public RDAP service). The query leaves the network, so it runs only when you ask; internal addresses are never sent.",
+            "name": "Name",
+            "range": "Range",
+            "country": "Country",
+            "status": "Status",
+            "ns": "Name servers",
+            "events": "Events",
+            "entities": "Entities",
+            "note": "Data from the public rdap.org service (it redirects to the right registry)."
+        },
+        "path": {
+            "intro": "Traceroute to an address or name, shown as a chain of hops: names from the inventory, the latency of each hop and how much it adds to the whole.",
+            "running": "Tracing the path…",
+            "reached": "Target reached",
+            "notReached": "Target not reached (a firewall may block the answers)",
+            "legend": "Green: internal network · purple: public · amber: the hop adds over 40 ms. Hops that do not answer are common with firewalls, not a fault."
+        }
     },
     "traffic": {
         "title": "Traffic analyzer",
