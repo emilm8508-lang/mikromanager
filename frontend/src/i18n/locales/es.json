@@ -35,6 +35,7 @@
                 "nettools": "Herramientas",
                 "palette": "Buscar",
                 "playbook": "Plan de corrección",
+                "onboarding": "Conectar dispositivos",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2290,6 +2291,62 @@
     "playbook": {
         "button": "Plan de corrección (.md)",
         "hint": "Descargue el plan de corrección de este activo como archivo Markdown: vulnerabilidades más urgentes, qué hacer con cada producto, certificados TLS y lista de verificación (en polaco o inglés, según el idioma de la interfaz)"
+    },
+    "onboarding": {
+        "title": "Conectar dispositivos de red",
+        "subtitle": "Qué funciona en cada dispositivo (prueba en vivo), por qué algo no funciona y asignar credenciales guardadas a muchos dispositivos a la vez. El acceso completo (REST/API en RouterOS, SSH en Cisco SB) da todo: recursos, firmware, historial de configuración. SNMP solo da lectura.",
+        "noRanges": "No hay ningún rango de análisis activo, así que el analizador no encontrará nada. Las redes en las que está el equipo del agente:",
+        "uncoveredRanges": "Redes del equipo del agente que ningún rango de análisis cubre:",
+        "addRange": "Añadir {{cidr}} ({{hosts}} direcciones)",
+        "ranges": "Rangos de análisis",
+        "off": "desactivado",
+        "openScanner": "Abrir el analizador",
+        "state": {
+            "no_credential": "Sin credencial",
+            "snmp": "Solo SNMP",
+            "unverified": "Sin verificar",
+            "ok": "Funciona"
+        },
+        "selectNeedy": "Seleccionar los que requieren atención ({{n}})",
+        "assign": "Asignar credenciales ({{n}})",
+        "assigning": "Asignando…",
+        "assignedTo": "asignada: {{name}}",
+        "unchanged": "sin cambios",
+        "empty": "No hay dispositivos. Añada un rango de análisis y ejecute el analizador, o añada un dispositivo a mano.",
+        "col": {
+            "device": "Dispositivo",
+            "vendor": "Fabricante",
+            "credential": "Credencial",
+            "state": "Estado"
+        },
+        "offline": "sin conexión",
+        "portsBlocked": "puertos de gestión bloqueados",
+        "test": "Probar",
+        "testing": "Probando…",
+        "level": {
+            "full": "Acceso completo",
+            "snmp": "Solo lectura (SNMP)",
+            "none": "Sin acceso"
+        },
+        "code": {
+            "auth": "inicio de sesión rechazado",
+            "closed": "servicio apagado",
+            "timeout": "sin respuesta",
+            "other": "error"
+        },
+        "bestCredential": "Mejor credencial: {{name}}",
+        "notAssigned": "no asignada a este dispositivo",
+        "advice": {
+            "no_credential": "El dispositivo no tiene credencial asignada. Use «Asignar credenciales» o asígnela a mano en la página del dispositivo.",
+            "login_refused": "Se rechazó el usuario o la contraseña. Revise la cuenta (mejor una dedicada de solo lectura) y la contraseña; tras cambiar una contraseña en el router, actualice la credencial en la aplicación.",
+            "service_off_mikrotik": "Los servicios de gestión del router están apagados. En RouterOS actívelos: /ip service enable api (o www y www-ssl para REST) y compruebe que la dirección del agente esté permitida en «available-from».",
+            "service_off_cisco-sb": "SSH en el conmutador está apagado. En un Cisco SB active SSH (Security -> TCP/UDP Services -> SSH Service) y genere la clave.",
+            "no_answer": "Sin respuesta en los puertos de gestión: un cortafuegos en el dispositivo o en el camino bloquea la dirección del agente (en RouterOS revise /ip firewall address-list y filter), o la dirección / el segmento no es alcanzable desde el equipo del agente.",
+            "only_snmp": "Solo funciona SNMP, así que es una vista de solo lectura: sin detalles, firmware ni historial de configuración. Arregle el acceso de gestión para obtener todos los datos.",
+            "snmp_only_device": "Este dispositivo solo ofrece SNMP (p. ej. MikroTik SwOS Lite, conmutadores antiguos, impresoras): disponibilidad, puertos y tráfico son visibles, pero sin historial de configuración ni acciones. No es una avería.",
+            "snmp_failed": "SNMP no responde: revise la community, la versión (v1/v2c), que SNMP esté activado y que la dirección del agente esté permitida.",
+            "failed": "No se pudo establecer la conexión; los detalles están en los canales de arriba."
+        }
     },
     "traffic": {
         "title": "Analizador de tráfico",

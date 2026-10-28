@@ -35,6 +35,7 @@
                 "nettools": "Tools",
                 "palette": "Search",
                 "playbook": "Remediation plan",
+                "onboarding": "Connecting devices",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2290,6 +2291,62 @@
     "playbook": {
         "button": "Remediation plan (.md)",
         "hint": "Download the remediation plan of this asset as a Markdown file: the most urgent vulnerabilities, what to do for each product, TLS certificates and a verification checklist (Polish or English, depending on the interface language)"
+    },
+    "onboarding": {
+        "title": "Connecting network devices",
+        "subtitle": "What works for each device (a live test), why something does not, and fitting stored credentials to many devices at once. Full access (REST/API for RouterOS, SSH for Cisco SB) gives everything: resources, firmware, configuration history. SNMP gives read only.",
+        "noRanges": "There is no active scan range, so the scanner will find nothing. The networks the agent's computer is in:",
+        "uncoveredRanges": "Networks of the agent's computer that no scan range covers:",
+        "addRange": "Add {{cidr}} ({{hosts}} addresses)",
+        "ranges": "Scan ranges",
+        "off": "off",
+        "openScanner": "Open the scanner",
+        "state": {
+            "no_credential": "No credential",
+            "snmp": "SNMP only",
+            "unverified": "Not verified",
+            "ok": "Working"
+        },
+        "selectNeedy": "Select the ones needing attention ({{n}})",
+        "assign": "Fit credentials ({{n}})",
+        "assigning": "Fitting…",
+        "assignedTo": "assigned: {{name}}",
+        "unchanged": "unchanged",
+        "empty": "No devices. Add a scan range and run the scanner, or add a device by hand.",
+        "col": {
+            "device": "Device",
+            "vendor": "Vendor",
+            "credential": "Credential",
+            "state": "State"
+        },
+        "offline": "offline",
+        "portsBlocked": "management ports blocked",
+        "test": "Test",
+        "testing": "Testing…",
+        "level": {
+            "full": "Full access",
+            "snmp": "Read only (SNMP)",
+            "none": "No access"
+        },
+        "code": {
+            "auth": "login refused",
+            "closed": "service off",
+            "timeout": "no answer",
+            "other": "error"
+        },
+        "bestCredential": "Best credential: {{name}}",
+        "notAssigned": "not assigned to this device",
+        "advice": {
+            "no_credential": "The device has no credential assigned. Use \"Fit credentials\", or assign one by hand on the device page.",
+            "login_refused": "The login or password was refused. Check the account (best a dedicated read-only one) and the password; after changing a password on the router, update the credential in the application.",
+            "service_off_mikrotik": "The management services on the router are off. In RouterOS turn them on: /ip service enable api (or www and www-ssl for REST) and check that the agent's address is allowed in \"available-from\".",
+            "service_off_cisco-sb": "SSH on the switch is off. On a Cisco SB turn SSH on (Security -> TCP/UDP Services -> SSH Service) and generate the key.",
+            "no_answer": "No answer on the management ports: a firewall on the device or on the way blocks the agent's address (in RouterOS check /ip firewall address-list and filter), or the address / segment cannot be reached from the agent's computer.",
+            "only_snmp": "Only SNMP works, so this is a read-only view: no details, firmware or configuration history. Fix the management access to get the full data.",
+            "snmp_only_device": "This device offers only SNMP (e.g. MikroTik SwOS Lite, older switches, printers): availability, ports and traffic are visible, but there is no configuration history and no actions. This is not a fault.",
+            "snmp_failed": "SNMP does not answer: check the community, the version (v1/v2c), that SNMP is on and that the agent's address is allowed.",
+            "failed": "The connection could not be made; the details are with the channels above."
+        }
     },
     "traffic": {
         "title": "Traffic analyzer",

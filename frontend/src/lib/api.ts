@@ -1422,6 +1422,21 @@ export const soarApi = {
   decide: (id: number, approve: boolean) => api.post<SoarAction>(`/soar/${id}/decide`, { approve }).then(r => r.data),
   unblock: (target: string) => api.post('/soar/unblock', { target }).then(r => r.data),
 }
+// Connecting the devices (services/onboarding.py)
+export interface OnboardingDevice {
+  id: number; name: string; ip: string; vendor: string; model: string | null; online: boolean; mgmt_ok: boolean | null; credential: string | null; has_login: boolean; has_snmp_community: boolean
+  state: 'no_credential' | 'snmp' | 'unverified' | 'ok'; last_read: string | null; ports: { api: boolean; ssh: boolean; web: boolean; snmp: boolean }
+}
+export interface OnboardingChannel { ok: boolean; detail?: string; code?: 'auth' | 'closed' | 'timeout' | 'other'; message?: string }
+export interface OnboardingDiagnosis {
+  device_id: number; name: string; ip: string; vendor: string; level: 'full' | 'snmp' | 'none'; channels: Record<string, OnboardingChannel>; best_credential: string | null
+  best_credential_id: number | null; own_credential_id: number | null; tried: number; advice: string[]; results: Array<{ credential_id: number; credential: string; own: boolean; level: string }>
+}
+export const onboardingApi = {
+  overview: () => api.get<{ devices: OnboardingDevice[]; ranges: Array<{ id: number; cidr: string; label: string | null; active: boolean }>; credentials: number; suggested_ranges: Array<{ cidr: string; hosts: number }> }>('/onboarding').then(r => r.data),
+  test: (id: number) => api.post<OnboardingDiagnosis>(`/onboarding/test/${id}`, undefined, { timeout: 120000 }).then(r => r.data),
+  assign: (ids: number[]) => api.post<{ results: Array<{ device_id: number; name: string; level: string; assigned: string | null; advice: string[] }> }>('/onboarding/assign', { device_ids: ids }, { timeout: 300000 }).then(r => r.data),
+}
 // Small network tools (services/netkit.py): Wake on LAN, SNMP browser, RDAP, path to a host
 export interface NetkitHost { name: string; ip: string; mac: string | null; snmp: boolean; type: string }
 export interface RdapResult { kind: string; handle: string | null; name: string | null; status: string[]; events: Array<{ action: string; date: string | null }>

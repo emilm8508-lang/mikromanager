@@ -35,6 +35,7 @@
                 "nettools": "Werkzeuge",
                 "palette": "Suchen",
                 "playbook": "Maßnahmenplan",
+                "onboarding": "Geräte anbinden",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2290,6 +2291,62 @@
     "playbook": {
         "button": "Maßnahmenplan (.md)",
         "hint": "Den Maßnahmenplan dieses Geräts als Markdown-Datei herunterladen: dringendste Schwachstellen, was je Produkt zu tun ist, TLS-Zertifikate und eine Prüfliste (Polnisch oder Englisch, je nach Oberflächensprache)"
+    },
+    "onboarding": {
+        "title": "Netzwerkgeräte anbinden",
+        "subtitle": "Was bei jedem Gerät funktioniert (Live-Test), warum etwas nicht geht, und gespeicherte Zugangsdaten für viele Geräte auf einmal zuordnen. Voller Zugriff (REST/API bei RouterOS, SSH bei Cisco SB) liefert alles: Ressourcen, Firmware, Konfigurationsverlauf. SNMP liefert nur Lesen.",
+        "noRanges": "Es gibt keinen aktiven Scanbereich, der Scanner findet daher nichts. Die Netze, in denen der Rechner des Agenten steht:",
+        "uncoveredRanges": "Netze des Agentenrechners, die kein Scanbereich abdeckt:",
+        "addRange": "{{cidr}} hinzufügen ({{hosts}} Adressen)",
+        "ranges": "Scanbereiche",
+        "off": "aus",
+        "openScanner": "Scanner öffnen",
+        "state": {
+            "no_credential": "Keine Zugangsdaten",
+            "snmp": "Nur SNMP",
+            "unverified": "Ungeprüft",
+            "ok": "Funktioniert"
+        },
+        "selectNeedy": "Auffällige auswählen ({{n}})",
+        "assign": "Zugangsdaten zuordnen ({{n}})",
+        "assigning": "Ordne zu…",
+        "assignedTo": "zugeordnet: {{name}}",
+        "unchanged": "unverändert",
+        "empty": "Keine Geräte. Scanbereich hinzufügen und Scanner starten, oder ein Gerät von Hand hinzufügen.",
+        "col": {
+            "device": "Gerät",
+            "vendor": "Hersteller",
+            "credential": "Zugangsdaten",
+            "state": "Zustand"
+        },
+        "offline": "offline",
+        "portsBlocked": "Verwaltungsports gesperrt",
+        "test": "Testen",
+        "testing": "Teste…",
+        "level": {
+            "full": "Voller Zugriff",
+            "snmp": "Nur Lesen (SNMP)",
+            "none": "Kein Zugriff"
+        },
+        "code": {
+            "auth": "Anmeldung abgelehnt",
+            "closed": "Dienst aus",
+            "timeout": "keine Antwort",
+            "other": "Fehler"
+        },
+        "bestCredential": "Beste Zugangsdaten: {{name}}",
+        "notAssigned": "diesem Gerät nicht zugeordnet",
+        "advice": {
+            "no_credential": "Dem Gerät sind keine Zugangsdaten zugeordnet. „Zugangsdaten zuordnen“ nutzen oder auf der Geräteseite von Hand zuordnen.",
+            "login_refused": "Benutzername oder Passwort wurden abgelehnt. Konto (am besten ein eigenes Nur-Lesen-Konto) und Passwort prüfen; nach einer Passwortänderung am Router die Zugangsdaten in der Anwendung aktualisieren.",
+            "service_off_mikrotik": "Die Verwaltungsdienste des Routers sind aus. In RouterOS einschalten: /ip service enable api (oder www und www-ssl für REST) und prüfen, ob die Adresse des Agenten in „available-from“ erlaubt ist.",
+            "service_off_cisco-sb": "SSH am Switch ist aus. Beim Cisco SB SSH einschalten (Security -> TCP/UDP Services -> SSH Service) und den Schlüssel erzeugen.",
+            "no_answer": "Keine Antwort auf den Verwaltungsports: Eine Firewall am Gerät oder auf dem Weg sperrt die Adresse des Agenten (in RouterOS /ip firewall address-list und filter prüfen), oder Adresse / Segment sind vom Agentenrechner nicht erreichbar.",
+            "only_snmp": "Nur SNMP funktioniert, daher nur lesend: keine Details, Firmware oder Konfigurationsverlauf. Verwaltungszugriff reparieren, um alle Daten zu erhalten.",
+            "snmp_only_device": "Dieses Gerät bietet nur SNMP (z. B. MikroTik SwOS Lite, ältere Switches, Drucker): Verfügbarkeit, Ports und Verkehr sind sichtbar, aber kein Konfigurationsverlauf und keine Aktionen. Das ist kein Fehler.",
+            "snmp_failed": "SNMP antwortet nicht: Community, Version (v1/v2c) prüfen, ob SNMP an ist und die Adresse des Agenten erlaubt ist.",
+            "failed": "Die Verbindung konnte nicht hergestellt werden; Einzelheiten bei den Kanälen oben."
+        }
     },
     "traffic": {
         "title": "Verkehrsanalyse",

@@ -35,6 +35,7 @@
                 "nettools": "Outils",
                 "palette": "Rechercher",
                 "playbook": "Plan de correction",
+                "onboarding": "Connexion des équipements",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2290,6 +2291,62 @@
     "playbook": {
         "button": "Plan de correction (.md)",
         "hint": "Télécharger le plan de correction de cet équipement en fichier Markdown : vulnérabilités les plus urgentes, que faire pour chaque produit, certificats TLS et liste de vérification (en polonais ou en anglais selon la langue de l'interface)"
+    },
+    "onboarding": {
+        "title": "Connexion des équipements réseau",
+        "subtitle": "Ce qui fonctionne pour chaque équipement (test en direct), pourquoi quelque chose ne fonctionne pas, et l'attribution d'identifiants enregistrés à plusieurs équipements à la fois. Un accès complet (REST/API pour RouterOS, SSH pour Cisco SB) donne tout : ressources, firmware, historique de configuration. SNMP ne donne que la lecture.",
+        "noRanges": "Aucune plage d'analyse n'est active, l'analyseur ne trouvera donc rien. Les réseaux où se trouve l'ordinateur de l'agent :",
+        "uncoveredRanges": "Réseaux de l'ordinateur de l'agent qu'aucune plage d'analyse ne couvre :",
+        "addRange": "Ajouter {{cidr}} ({{hosts}} adresses)",
+        "ranges": "Plages d'analyse",
+        "off": "désactivée",
+        "openScanner": "Ouvrir l'analyseur",
+        "state": {
+            "no_credential": "Sans identifiant",
+            "snmp": "SNMP seul",
+            "unverified": "Non vérifié",
+            "ok": "Fonctionne"
+        },
+        "selectNeedy": "Sélectionner ceux qui demandent attention ({{n}})",
+        "assign": "Attribuer les identifiants ({{n}})",
+        "assigning": "Attribution…",
+        "assignedTo": "attribué : {{name}}",
+        "unchanged": "inchangé",
+        "empty": "Aucun équipement. Ajoutez une plage d'analyse et lancez l'analyseur, ou ajoutez un équipement à la main.",
+        "col": {
+            "device": "Équipement",
+            "vendor": "Fabricant",
+            "credential": "Identifiant",
+            "state": "État"
+        },
+        "offline": "hors ligne",
+        "portsBlocked": "ports de gestion bloqués",
+        "test": "Tester",
+        "testing": "Test…",
+        "level": {
+            "full": "Accès complet",
+            "snmp": "Lecture seule (SNMP)",
+            "none": "Aucun accès"
+        },
+        "code": {
+            "auth": "connexion refusée",
+            "closed": "service arrêté",
+            "timeout": "pas de réponse",
+            "other": "erreur"
+        },
+        "bestCredential": "Meilleur identifiant : {{name}}",
+        "notAssigned": "non attribué à cet équipement",
+        "advice": {
+            "no_credential": "L'équipement n'a pas d'identifiant attribué. Utilisez « Attribuer les identifiants » ou attribuez-en un à la main sur la page de l'équipement.",
+            "login_refused": "L'identifiant ou le mot de passe a été refusé. Vérifiez le compte (idéalement un compte dédié en lecture seule) et le mot de passe ; après un changement de mot de passe sur le routeur, mettez à jour l'identifiant dans l'application.",
+            "service_off_mikrotik": "Les services de gestion du routeur sont arrêtés. Dans RouterOS, activez-les : /ip service enable api (ou www et www-ssl pour REST) et vérifiez que l'adresse de l'agent est autorisée dans « available-from ».",
+            "service_off_cisco-sb": "SSH sur le commutateur est arrêté. Sur un Cisco SB, activez SSH (Security -> TCP/UDP Services -> SSH Service) et générez la clé.",
+            "no_answer": "Pas de réponse sur les ports de gestion : un pare-feu sur l'équipement ou en chemin bloque l'adresse de l'agent (dans RouterOS, vérifiez /ip firewall address-list et filter), ou l'adresse / le segment est inaccessible depuis l'ordinateur de l'agent.",
+            "only_snmp": "Seul SNMP fonctionne, c'est donc une vue en lecture seule : ni détails, ni firmware, ni historique de configuration. Réparez l'accès de gestion pour obtenir toutes les données.",
+            "snmp_only_device": "Cet équipement n'offre que SNMP (p. ex. MikroTik SwOS Lite, anciens commutateurs, imprimantes) : disponibilité, ports et trafic sont visibles, mais ni historique de configuration ni actions. Ce n'est pas une panne.",
+            "snmp_failed": "SNMP ne répond pas : vérifiez la community, la version (v1/v2c), que SNMP est activé et que l'adresse de l'agent est autorisée.",
+            "failed": "La connexion n'a pas pu être établie ; les détails sont avec les canaux ci-dessus."
+        }
     },
     "traffic": {
         "title": "Analyseur de trafic",

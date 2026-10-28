@@ -35,6 +35,7 @@
                 "nettools": "Narzędzia",
                 "palette": "Szukaj",
                 "playbook": "Plan naprawy",
+                "onboarding": "Podłączanie urządzeń",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2454,6 +2455,62 @@
     "playbook": {
         "button": "Plan naprawy (.md)",
         "hint": "Pobierz plan naprawy tego zasobu jako plik Markdown: najpilniejsze podatności, co zrobić dla każdego produktu, certyfikaty TLS i lista kontrolna weryfikacji (po polsku lub angielsku, zależnie od języka interfejsu)"
+    },
+    "onboarding": {
+        "title": "Podłączanie urządzeń sieciowych",
+        "subtitle": "Co działa dla każdego urządzenia (żywy test), dlaczego coś nie działa i dopasowanie zapisanych poświadczeń do wielu urządzeń naraz. Pełny dostęp (REST/API dla RouterOS, SSH dla Cisco SB) daje wszystko: zasoby, firmware, historię konfiguracji. SNMP daje tylko odczyt.",
+        "noRanges": "Nie ma żadnego aktywnego zakresu skanowania, więc skaner niczego nie znajdzie. Sieci, w których stoi komputer agenta:",
+        "uncoveredRanges": "Sieci komputera agenta, których nie obejmuje żaden zakres skanowania:",
+        "addRange": "Dodaj {{cidr}} ({{hosts}} adresów)",
+        "ranges": "Zakresy skanowania",
+        "off": "wyłączony",
+        "openScanner": "Otwórz skaner",
+        "state": {
+            "no_credential": "Brak poświadczeń",
+            "snmp": "Tylko SNMP",
+            "unverified": "Niesprawdzone",
+            "ok": "Działa"
+        },
+        "selectNeedy": "Zaznacz wymagające uwagi ({{n}})",
+        "assign": "Dopasuj poświadczenia ({{n}})",
+        "assigning": "Dopasowuję…",
+        "assignedTo": "przypisano: {{name}}",
+        "unchanged": "bez zmian",
+        "empty": "Brak urządzeń. Dodaj zakres skanowania i uruchom skaner, albo dodaj urządzenie ręcznie.",
+        "col": {
+            "device": "Urządzenie",
+            "vendor": "Producent",
+            "credential": "Poświadczenie",
+            "state": "Stan"
+        },
+        "offline": "offline",
+        "portsBlocked": "porty zarządzania zablokowane",
+        "test": "Testuj",
+        "testing": "Testuję…",
+        "level": {
+            "full": "Pełny dostęp",
+            "snmp": "Tylko odczyt (SNMP)",
+            "none": "Brak dostępu"
+        },
+        "code": {
+            "auth": "login odrzucony",
+            "closed": "usługa wyłączona",
+            "timeout": "brak odpowiedzi",
+            "other": "błąd"
+        },
+        "bestCredential": "Najlepsze poświadczenie: {{name}}",
+        "notAssigned": "nie przypisane do tego urządzenia",
+        "advice": {
+            "no_credential": "Urządzenie nie ma przypisanego poświadczenia. Użyj „Dopasuj poświadczenia” albo przypisz je ręcznie na stronie urządzenia.",
+            "login_refused": "Login lub hasło zostały odrzucone. Sprawdź konto (najlepiej dedykowane, tylko do odczytu) i hasło; po zmianie hasła na routerze zaktualizuj poświadczenie w aplikacji.",
+            "service_off_mikrotik": "Usługi zarządzania na routerze są wyłączone. W RouterOS włącz je: /ip service enable api (albo www i www-ssl dla REST) i sprawdź, czy adres agenta jest dozwolony w polu „available-from”.",
+            "service_off_cisco-sb": "SSH na przełączniku jest wyłączony. W Cisco SB włącz SSH (Security → TCP/UDP Services → SSH Service) i wygeneruj klucz.",
+            "no_answer": "Brak odpowiedzi na portach zarządzania: zapora na urządzeniu lub po drodze blokuje adres agenta (w RouterOS sprawdź /ip firewall address-list i filter), albo adres/segment jest nieosiągalny z komputera agenta.",
+            "only_snmp": "Działa tylko SNMP, więc to widok tylko do odczytu: brak szczegółów, firmware i historii konfiguracji. Napraw dostęp zarządzania, żeby uzyskać pełne dane.",
+            "snmp_only_device": "To urządzenie udostępnia tylko SNMP (np. MikroTik SwOS Lite, starsze przełączniki, drukarki): dostępność, porty i ruch są widoczne, ale nie ma historii konfiguracji ani akcji. To nie jest awaria.",
+            "snmp_failed": "SNMP nie odpowiada: sprawdź community, wersję (v1/v2c) i czy SNMP jest włączony oraz czy adres agenta jest dozwolony.",
+            "failed": "Nie udało się nawiązać połączenia; szczegóły przy kanałach powyżej."
+        }
     },
     "traffic": {
         "title": "Analizator ruchu",
