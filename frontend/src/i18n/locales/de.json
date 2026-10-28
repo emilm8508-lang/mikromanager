@@ -31,6 +31,7 @@
                 "ups": "USV und Sensoren",
                 "coverage": "Quellenabdeckung",
                 "soar": "Reaktion",
+                "tls": "TLS-Zertifikate",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -1482,6 +1483,12 @@
             "host_service_down": "Dienst läuft nicht",
             "asset_down": "Gerät antwortet nicht",
             "bizservice_problem": "Geschäftsdienst beeinträchtigt",
+            "tls_expired": "TLS-Zertifikat abgelaufen",
+            "tls_expiring": "TLS-Zertifikat läuft bald ab",
+            "tls_self_signed": "Selbstsigniertes TLS-Zertifikat",
+            "tls_weak_key": "Schwacher Schlüssel im TLS-Zertifikat",
+            "tls_weak_signature": "Schwache Signatur des TLS-Zertifikats",
+            "tls_legacy_protocol": "Dienst akzeptiert ein veraltetes TLS-Protokoll",
             "config_changed": "Router-Konfiguration geändert",
             "syslog": {
                 "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
@@ -2117,6 +2124,7 @@
             "config_history": "Router-Konfigurationsverlauf",
             "topology": "Netzwerkkarte",
             "vuln_scan": "Schwachstellenscan",
+            "tls": "TLS-Zertifikate",
             "exploit_intel": "CISA KEV und EPSS"
         }
     },
@@ -2173,6 +2181,57 @@
             "sent_approve": "Freigabe gesendet - der Agent führt sie in etwa 2 Min. aus.",
             "sent_reject": "Ablehnung gesendet - der Agent holt sie in etwa 2 Min. ab."
         }
+    },
+    "tls": {
+        "title": "TLS-Zertifikate und -Protokolle",
+        "subtitle": "Liest Zertifikate und Protokolle der Dienste, die der Schwachstellenscan offen gefunden hat (443, 8443, 993, 636 ...): was abläuft, was schwach ist, was noch TLS 1.0 akzeptiert. Nur Lesen - eine gewöhnliche TLS-Verbindung, keine Anfragen.",
+        "scanNow": "Jetzt scannen",
+        "intercepted": "Der Rechner des Agenten signiert Zertifikate neu (Virenschutz oder Proxy): {{n}} Messungen sind das Zertifikat dieses Programms, nicht das des Servers - sie sagen nichts über den Server. TLS-Scan im Virenschutz für den Agenten ausschalten oder den Agenten auf einem Rechner ohne so etwas betreiben.",
+        "kpi": {
+            "expired": "Abgelaufen",
+            "expiring": "Läuft bald ab",
+            "weak": "Schwach",
+            "selfSigned": "Selbstsigniert",
+            "total": "Zertifikate"
+        },
+        "empty": "Noch keine TLS-Dienste. Sie erscheinen nach einem Schwachstellenscan; unten kann auch eine Adresse von Hand hinzugefügt werden.",
+        "noTls": "kein TLS",
+        "days": "{{n}} Tage",
+        "expiredAgo": "seit {{n}} Tagen abgelaufen",
+        "remove": "Entfernen",
+        "none": "keine",
+        "col": {
+            "host": "Gerät",
+            "port": "Port",
+            "subject": "Subjekt",
+            "expires": "Läuft ab in",
+            "findings": "Befunde"
+        },
+        "finding": {
+            "expired": "abgelaufen",
+            "expiring": "läuft ab",
+            "self_signed": "selbstsigniert",
+            "weak_key": "schwacher Schlüssel",
+            "weak_signature": "schwache Signatur",
+            "legacy_protocol": "altes TLS",
+            "intercepted": "abgefangen"
+        },
+        "f": {
+            "issuer": "Aussteller",
+            "names": "Namen",
+            "valid": "Gültig",
+            "key": "Schlüssel",
+            "protocol": "Protokoll",
+            "legacy": "Akzeptierte alte Protokolle",
+            "findings": "Befunde",
+            "error": "Fehler"
+        },
+        "addTarget": "Adresse hinzufügen (nur dem Inventar bekannte):",
+        "add": "Hinzufügen",
+        "enabled": "Zertifikate alle 6 Stunden prüfen",
+        "warnDays": "Warnen ab (Tage vorher)",
+        "critDays": "Hohe Schwere ab (Tage vorher)",
+        "lastRun": "Zuletzt"
     },
     "traffic": {
         "title": "Verkehrsanalyse",

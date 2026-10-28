@@ -31,6 +31,7 @@
                 "ups": "UPS and sensors",
                 "coverage": "Source coverage",
                 "soar": "Response",
+                "tls": "TLS certificates",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -1482,6 +1483,12 @@
             "host_service_down": "Service not running",
             "asset_down": "Device not answering",
             "bizservice_problem": "Business service impaired",
+            "tls_expired": "TLS certificate expired",
+            "tls_expiring": "TLS certificate about to expire",
+            "tls_self_signed": "Self-signed TLS certificate",
+            "tls_weak_key": "Weak key in a TLS certificate",
+            "tls_weak_signature": "Weak signature of a TLS certificate",
+            "tls_legacy_protocol": "Service accepts an outdated TLS protocol",
             "config_changed": "Router configuration changed",
             "syslog": {
                 "auth_failure": "Repeated failed logins",
@@ -2117,6 +2124,7 @@
             "config_history": "Router configuration history",
             "topology": "Network map",
             "vuln_scan": "Vulnerability scan",
+            "tls": "TLS certificates",
             "exploit_intel": "CISA KEV and EPSS"
         }
     },
@@ -2173,6 +2181,57 @@
             "sent_approve": "Approval sent - the agent carries it out within about 2 min.",
             "sent_reject": "Rejection sent - the agent picks it up within about 2 min."
         }
+    },
+    "tls": {
+        "title": "TLS certificates and protocols",
+        "subtitle": "Reads the certificates and protocols of the services the vulnerability scan found open (443, 8443, 993, 636 ...): what runs out, what is weak, what still accepts TLS 1.0. Read only - an ordinary TLS connection, no requests.",
+        "scanNow": "Scan now",
+        "intercepted": "The agent's computer re-signs certificates (antivirus or proxy): {{n}} readings are that program's certificate, not the server's - they say nothing about the server. Turn off HTTPS/TLS scanning in the antivirus for the agent, or run the agent on a machine without one.",
+        "kpi": {
+            "expired": "Expired",
+            "expiring": "Expiring soon",
+            "weak": "Weak",
+            "selfSigned": "Self-signed",
+            "total": "Certificates"
+        },
+        "empty": "No TLS services yet. They appear after a vulnerability scan; you can also add an address by hand below.",
+        "noTls": "no TLS",
+        "days": "{{n}} days",
+        "expiredAgo": "expired {{n}} days ago",
+        "remove": "Remove",
+        "none": "none",
+        "col": {
+            "host": "Device",
+            "port": "Port",
+            "subject": "Subject",
+            "expires": "Expires in",
+            "findings": "Findings"
+        },
+        "finding": {
+            "expired": "expired",
+            "expiring": "expiring",
+            "self_signed": "self-signed",
+            "weak_key": "weak key",
+            "weak_signature": "weak signature",
+            "legacy_protocol": "old TLS",
+            "intercepted": "intercepted"
+        },
+        "f": {
+            "issuer": "Issuer",
+            "names": "Names",
+            "valid": "Valid",
+            "key": "Key",
+            "protocol": "Protocol",
+            "legacy": "Legacy protocols accepted",
+            "findings": "Findings",
+            "error": "Error"
+        },
+        "addTarget": "Add an address (only ones the inventory knows):",
+        "add": "Add",
+        "enabled": "Check certificates every 6 hours",
+        "warnDays": "Warn at (days before)",
+        "critDays": "High severity at (days before)",
+        "lastRun": "Last run"
     },
     "traffic": {
         "title": "Traffic analyzer",

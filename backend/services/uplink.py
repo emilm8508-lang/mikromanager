@@ -575,6 +575,8 @@ async def _build_snapshot() -> dict:
             soc_status["configs"] = config_history.public_summary()             # routers whose configuration changed lately
             from services import soar
             soc_status["soar"] = soar.public_summary()                          # response actions waiting for approval
+            from services import tls_scan
+            soc_status["tls"] = tls_scan.public_summary()                       # certificates that expired / are about to, weak ones
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:

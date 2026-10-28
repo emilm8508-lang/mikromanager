@@ -165,6 +165,9 @@ def report(now: Optional[datetime] = None) -> dict:
         st = _stale(cfg_rows, lambda d: (checks.get(d.id).last_check_at if checks.get(d.id) else None), interval_s, now, lambda d: d.name or d.ip)
         add(_item("config_history", "soc", "Router configuration history", last_ok=max((c.last_check_at for c in checks.values() if c.last_check_at and not c.last_error), default=None), expected_s=interval_s, now=now,
                   off=not config_history.settings().get("enabled") or not cfg_rows, stale_items=st, total=len(cfg_rows)))
+        from services import tls_scan
+        add(_item("tls", "soc", "TLS certificates", last_ok=_parse(tls_scan._last.get("at")), expected_s=tls_scan.INTERVAL_SEC, now=now, off=not tls_scan.settings().get("enabled"),
+                  error=tls_scan._last.get("error")))
         mm = topology_map.map_state()
         add(_item("topology", "soc", "Network map", last_ok=_parse(mm.get("at")), expected_s=int(getattr(topology_map, "TTL", 900)), now=now))
         vs = vuln_scan.status()

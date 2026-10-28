@@ -31,6 +31,7 @@
                 "ups": "UPS i czujniki",
                 "coverage": "Pokrycie źródeł",
                 "soar": "Reakcje",
+                "tls": "Certyfikaty TLS",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -1646,6 +1647,12 @@
             "host_service_down": "Usługa nie działa",
             "asset_down": "Urządzenie nie odpowiada",
             "bizservice_problem": "Usługa biznesowa ma problem",
+            "tls_expired": "Certyfikat TLS wygasł",
+            "tls_expiring": "Certyfikat TLS wkrótce wygasa",
+            "tls_self_signed": "Certyfikat TLS jest samopodpisany",
+            "tls_weak_key": "Słaby klucz w certyfikacie TLS",
+            "tls_weak_signature": "Słaby podpis certyfikatu TLS",
+            "tls_legacy_protocol": "Usługa przyjmuje stary protokół TLS",
             "config_changed": "Zmieniono konfigurację routera",
             "syslog": {
                 "auth_failure": "Powtarzające się nieudane logowania",
@@ -2281,6 +2288,7 @@
             "config_history": "Historia konfiguracji routerów",
             "topology": "Mapa sieci",
             "vuln_scan": "Skan podatności",
+            "tls": "Certyfikaty TLS",
             "exploit_intel": "CISA KEV i EPSS"
         }
     },
@@ -2337,6 +2345,57 @@
             "sent_approve": "Zatwierdzenie wysłane — agent wykona je w ciągu ok. 2 min.",
             "sent_reject": "Odrzucenie wysłane — agent odbierze je w ciągu ok. 2 min."
         }
+    },
+    "tls": {
+        "title": "Certyfikaty i protokoły TLS",
+        "subtitle": "Odczyt certyfikatów i protokołów usług, które skan podatności znalazł otwarte (443, 8443, 993, 636 …): co wygasa, co jest słabe, co nadal przyjmuje TLS 1.0. Tylko odczyt — zwykłe połączenie TLS, bez żadnych żądań.",
+        "scanNow": "Skanuj teraz",
+        "intercepted": "Komputer agenta podmienia certyfikaty (antywirus lub proxy): {{n}} odczytów to certyfikat tego programu, nie serwera — nic o serwerze nie mówią. Wyłącz skanowanie HTTPS/TLS w antywirusie dla agenta albo uruchom agenta na maszynie bez takiego programu.",
+        "kpi": {
+            "expired": "Wygasły",
+            "expiring": "Wygasa wkrótce",
+            "weak": "Słabe",
+            "selfSigned": "Samopodpisane",
+            "total": "Certyfikatów"
+        },
+        "empty": "Brak usług TLS. Pojawią się po skanie podatności; można też dodać adres ręcznie poniżej.",
+        "noTls": "brak TLS",
+        "days": "{{n}} dni",
+        "expiredAgo": "wygasł {{n}} dni temu",
+        "remove": "Usuń",
+        "none": "brak",
+        "col": {
+            "host": "Urządzenie",
+            "port": "Port",
+            "subject": "Podmiot",
+            "expires": "Wygasa za",
+            "findings": "Uwagi"
+        },
+        "finding": {
+            "expired": "wygasł",
+            "expiring": "wygasa",
+            "self_signed": "samopodpisany",
+            "weak_key": "słaby klucz",
+            "weak_signature": "słaby podpis",
+            "legacy_protocol": "stary TLS",
+            "intercepted": "przechwycony"
+        },
+        "f": {
+            "issuer": "Wystawca",
+            "names": "Nazwy",
+            "valid": "Ważny",
+            "key": "Klucz",
+            "protocol": "Protokół",
+            "legacy": "Stare protokoły przyjmowane",
+            "findings": "Ustalenia",
+            "error": "Błąd"
+        },
+        "addTarget": "Dodaj adres (tylko znane w inwentarzu):",
+        "add": "Dodaj",
+        "enabled": "Sprawdzaj certyfikaty co 6 godzin",
+        "warnDays": "Ostrzegaj na (dni przed)",
+        "critDays": "Wysoka waga na (dni przed)",
+        "lastRun": "Ostatnio"
     },
     "traffic": {
         "title": "Analizator ruchu",

@@ -587,6 +587,31 @@ class MaintenanceWindow(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class TlsCheck(Base):
+    """One TLS endpoint (ip:port) the agent reads the certificate and protocols of (services/tls_scan.py)."""
+    __tablename__ = "tls_checks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False, index=True)
+    port = Column(Integer, nullable=False)
+    manual = Column(Boolean, nullable=False, default=False)      # added by hand (kept even when the vulnerability scan no longer sees the service)
+    subject = Column(String, nullable=True)
+    issuer = Column(String, nullable=True)
+    names = Column(Text, nullable=True)                          # JSON list of the names in the certificate
+    not_before = Column(DateTime, nullable=True)
+    not_after = Column(DateTime, nullable=True, index=True)
+    key_desc = Column(String, nullable=True)
+    sig_alg = Column(String, nullable=True)
+    self_signed = Column(Boolean, nullable=False, default=False)
+    protocol = Column(String, nullable=True)                     # the one negotiated
+    cipher = Column(String, nullable=True)
+    legacy = Column(Text, nullable=True)                         # JSON list of the legacy protocols still accepted
+    findings = Column(Text, nullable=True)                       # JSON list of {code, severity, message}
+    last_check_at = Column(DateTime, nullable=True)
+    last_ok_at = Column(DateTime, nullable=True)
+    error = Column(String, nullable=True)
+
+
 class SoarAction(Base):
     """A response action (services/soar.py): proposed by a person or from an alert, executed only after approval. For block_ip the address goes on the router's block list with a timeout."""
     __tablename__ = "soar_actions"

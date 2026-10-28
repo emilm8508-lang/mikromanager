@@ -31,6 +31,7 @@
                 "ups": "Onduleurs et capteurs",
                 "coverage": "Couverture des sources",
                 "soar": "Réponse",
+                "tls": "Certificats TLS",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -1482,6 +1483,12 @@
             "host_service_down": "Service arrêté",
             "asset_down": "L'appareil ne répond pas",
             "bizservice_problem": "Service métier dégradé",
+            "tls_expired": "Certificat TLS expiré",
+            "tls_expiring": "Certificat TLS sur le point d'expirer",
+            "tls_self_signed": "Certificat TLS auto-signé",
+            "tls_weak_key": "Clé faible dans un certificat TLS",
+            "tls_weak_signature": "Signature faible d'un certificat TLS",
+            "tls_legacy_protocol": "Le service accepte un protocole TLS obsolète",
             "config_changed": "Configuration du routeur modifiée",
             "syslog": {
                 "auth_failure": "Échecs de connexion répétés",
@@ -2117,6 +2124,7 @@
             "config_history": "Historique de configuration des routeurs",
             "topology": "Carte du réseau",
             "vuln_scan": "Analyse de vulnérabilités",
+            "tls": "Certificats TLS",
             "exploit_intel": "CISA KEV et EPSS"
         }
     },
@@ -2173,6 +2181,57 @@
             "sent_approve": "Approbation envoyée : l'agent l'exécute dans environ 2 min.",
             "sent_reject": "Rejet envoyé : l'agent le récupère dans environ 2 min."
         }
+    },
+    "tls": {
+        "title": "Certificats et protocoles TLS",
+        "subtitle": "Lit les certificats et protocoles des services que l'analyse de vulnérabilités a trouvés ouverts (443, 8443, 993, 636 ...) : ce qui expire, ce qui est faible, ce qui accepte encore TLS 1.0. Lecture seule : une connexion TLS ordinaire, aucune requête.",
+        "scanNow": "Analyser maintenant",
+        "intercepted": "L'ordinateur de l'agent re-signe les certificats (antivirus ou proxy) : {{n}} lectures sont le certificat de ce programme, pas celui du serveur, et ne disent rien du serveur. Désactivez l'analyse TLS de l'antivirus pour l'agent ou exécutez l'agent sur une machine qui n'en a pas.",
+        "kpi": {
+            "expired": "Expirés",
+            "expiring": "Expirent bientôt",
+            "weak": "Faibles",
+            "selfSigned": "Auto-signés",
+            "total": "Certificats"
+        },
+        "empty": "Aucun service TLS pour l'instant. Ils apparaissent après une analyse de vulnérabilités ; vous pouvez aussi ajouter une adresse à la main ci-dessous.",
+        "noTls": "pas de TLS",
+        "days": "{{n}} jours",
+        "expiredAgo": "expiré il y a {{n}} jours",
+        "remove": "Retirer",
+        "none": "aucun",
+        "col": {
+            "host": "Équipement",
+            "port": "Port",
+            "subject": "Sujet",
+            "expires": "Expire dans",
+            "findings": "Constats"
+        },
+        "finding": {
+            "expired": "expiré",
+            "expiring": "expire",
+            "self_signed": "auto-signé",
+            "weak_key": "clé faible",
+            "weak_signature": "signature faible",
+            "legacy_protocol": "ancien TLS",
+            "intercepted": "intercepté"
+        },
+        "f": {
+            "issuer": "Émetteur",
+            "names": "Noms",
+            "valid": "Valide",
+            "key": "Clé",
+            "protocol": "Protocole",
+            "legacy": "Anciens protocoles acceptés",
+            "findings": "Constats",
+            "error": "Erreur"
+        },
+        "addTarget": "Ajouter une adresse (seulement celles de l'inventaire) :",
+        "add": "Ajouter",
+        "enabled": "Vérifier les certificats toutes les 6 heures",
+        "warnDays": "Avertir à (jours avant)",
+        "critDays": "Gravité haute à (jours avant)",
+        "lastRun": "Dernière fois"
     },
     "traffic": {
         "title": "Analyseur de trafic",

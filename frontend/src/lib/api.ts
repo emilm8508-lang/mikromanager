@@ -1421,6 +1421,20 @@ export const soarApi = {
   decide: (id: number, approve: boolean) => api.post<SoarAction>(`/soar/${id}/decide`, { approve }).then(r => r.data),
   unblock: (target: string) => api.post('/soar/unblock', { target }).then(r => r.data),
 }
+// TLS certificates and protocols (services/tls_scan.py)
+export interface TlsFinding { code: string; severity: 'high' | 'medium' | 'low' | 'info'; message: string }
+export interface TlsRow {
+  id: number; ip: string; name: string; port: number; manual: boolean; subject: string | null; issuer: string | null; names: string[]; not_before: string | null; not_after: string | null
+  days: number | null; key: string | null; sig: string | null; self_signed: boolean; protocol: string | null; cipher: string | null; legacy: string[]; findings: TlsFinding[]; last_check_at: string | null; error: string | null
+}
+export interface TlsOverview { settings: { enabled: boolean; warn_days: number; crit_days: number }; running: boolean; last: { at: string | null; error: string | null }; items: TlsRow[] }
+export const tlsApi = {
+  overview: () => api.get<TlsOverview>('/tls').then(r => r.data),
+  settings: (body: { enabled?: boolean; warn_days?: number; crit_days?: number }) => api.put('/tls/settings', body).then(r => r.data),
+  run: () => api.post<{ ok: boolean; checked: number }>('/tls/run').then(r => r.data),
+  add: (ip: string, port: number) => api.post<{ id: number }>('/tls/targets', { ip, port }).then(r => r.data),
+  remove: (id: number) => api.delete(`/tls/targets/${id}`).then(r => r.data),
+}
 // UPS units and SNMP sensors (services/ups_monitor.py)
 export interface UpsState { source: string; battery: string; charge: number | null; minutes: number | null; load: number | null; temp: number | null; voltage: number | null; alarms: number; model: string | null; on_battery_s: number }
 export interface UpsRow { id: number; name: string; ip: string; port: number; enabled: boolean; has_community: boolean; state: UpsState | null; last_check: string | null; last_ok: string | null; error: string | null }
@@ -1572,6 +1586,7 @@ export interface CentralSoc {
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
+  tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   soar?: { enabled: boolean; central_approval: boolean; active: number
            pending: Array<{ id: number; kind: 'block_ip' | 'install_rule'; target: string | null; devices: string[]; ttl_min: number; reason: string; by: string | null; at: string | null; internal: boolean }> }
   configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }

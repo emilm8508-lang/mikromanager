@@ -31,6 +31,7 @@
                 "ups": "SAI y sensores",
                 "coverage": "Cobertura de fuentes",
                 "soar": "Respuesta",
+                "tls": "Certificados TLS",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -1482,6 +1483,12 @@
             "host_service_down": "Servicio detenido",
             "asset_down": "El dispositivo no responde",
             "bizservice_problem": "Servicio de negocio afectado",
+            "tls_expired": "Certificado TLS caducado",
+            "tls_expiring": "Certificado TLS a punto de caducar",
+            "tls_self_signed": "Certificado TLS autofirmado",
+            "tls_weak_key": "Clave débil en un certificado TLS",
+            "tls_weak_signature": "Firma débil de un certificado TLS",
+            "tls_legacy_protocol": "El servicio acepta un protocolo TLS obsoleto",
             "config_changed": "Configuración del router modificada",
             "syslog": {
                 "auth_failure": "Inicios de sesión fallidos repetidos",
@@ -2117,6 +2124,7 @@
             "config_history": "Historial de configuración de routers",
             "topology": "Mapa de red",
             "vuln_scan": "Análisis de vulnerabilidades",
+            "tls": "Certificados TLS",
             "exploit_intel": "CISA KEV y EPSS"
         }
     },
@@ -2173,6 +2181,57 @@
             "sent_approve": "Aprobación enviada: el agente la ejecuta en unos 2 min.",
             "sent_reject": "Rechazo enviado: el agente lo recoge en unos 2 min."
         }
+    },
+    "tls": {
+        "title": "Certificados y protocolos TLS",
+        "subtitle": "Lee los certificados y protocolos de los servicios que el análisis de vulnerabilidades encontró abiertos (443, 8443, 993, 636 ...): qué caduca, qué es débil, qué acepta aún TLS 1.0. Solo lectura: una conexión TLS normal, sin peticiones.",
+        "scanNow": "Analizar ahora",
+        "intercepted": "El equipo del agente vuelve a firmar los certificados (antivirus o proxy): {{n}} lecturas son el certificado de ese programa, no el del servidor, y no dicen nada del servidor. Desactive el análisis TLS del antivirus para el agente o ejecute el agente en una máquina sin él.",
+        "kpi": {
+            "expired": "Caducados",
+            "expiring": "Caducan pronto",
+            "weak": "Débiles",
+            "selfSigned": "Autofirmados",
+            "total": "Certificados"
+        },
+        "empty": "Aún no hay servicios TLS. Aparecen tras un análisis de vulnerabilidades; también puede añadir una dirección a mano abajo.",
+        "noTls": "sin TLS",
+        "days": "{{n}} días",
+        "expiredAgo": "caducó hace {{n}} días",
+        "remove": "Quitar",
+        "none": "ninguno",
+        "col": {
+            "host": "Dispositivo",
+            "port": "Puerto",
+            "subject": "Sujeto",
+            "expires": "Caduca en",
+            "findings": "Hallazgos"
+        },
+        "finding": {
+            "expired": "caducado",
+            "expiring": "caduca",
+            "self_signed": "autofirmado",
+            "weak_key": "clave débil",
+            "weak_signature": "firma débil",
+            "legacy_protocol": "TLS antiguo",
+            "intercepted": "interceptado"
+        },
+        "f": {
+            "issuer": "Emisor",
+            "names": "Nombres",
+            "valid": "Válido",
+            "key": "Clave",
+            "protocol": "Protocolo",
+            "legacy": "Protocolos antiguos aceptados",
+            "findings": "Hallazgos",
+            "error": "Error"
+        },
+        "addTarget": "Añadir una dirección (solo las que conoce el inventario):",
+        "add": "Añadir",
+        "enabled": "Comprobar certificados cada 6 horas",
+        "warnDays": "Avisar a (días antes)",
+        "critDays": "Gravedad alta a (días antes)",
+        "lastRun": "Última vez"
     },
     "traffic": {
         "title": "Analizador de tráfico",
