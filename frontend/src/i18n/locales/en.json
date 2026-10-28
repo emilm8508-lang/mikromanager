@@ -33,6 +33,7 @@
                 "soar": "Response",
                 "tls": "TLS certificates",
                 "nettools": "Tools",
+                "palette": "Search",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2276,6 +2277,14 @@
             "notReached": "Target not reached (a firewall may block the answers)",
             "legend": "Green: internal network · purple: public · amber: the hop adds over 40 ms. Hops that do not answer are common with firewalls, not a fault."
         }
+    },
+    "palette": {
+        "open": "Search…",
+        "placeholder": "Go to a page or an asset: type a part of its name or address",
+        "none": "Nothing found.",
+        "central": "Central",
+        "asset": "asset",
+        "hint": "↑ ↓ choose · Enter opens · Esc closes · Ctrl+K opens from anywhere"
     },
     "traffic": {
         "title": "Traffic analyzer",

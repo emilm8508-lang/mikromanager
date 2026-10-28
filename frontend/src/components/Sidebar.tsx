@@ -245,24 +245,14 @@ function AccountPanel() {
   )
 }
 
-type NavItem = { to: string; label: string; icon: typeof Server }
-type NavGroup = { key: string; label: string; icon: typeof Server; items: NavItem[] }
-type NavEntry = NavItem | NavGroup
+export const PALETTE_EVENT = 'mm-palette-open'
+export type NavItem = { to: string; label: string; icon: typeof Server }
+export type NavGroup = { key: string; label: string; icon: typeof Server; items: NavItem[] }
+export type NavEntry = NavItem | NavGroup
 const NAV_OPEN_KEY = 'mikromanager_nav_open'
 
-export function Sidebar() {
-  const { t } = useTranslation()
-  const { role } = useAuth()
-  const [mode, setMode] = useState<UiMode>(uiMode.load())
-
-  const setModeAndSave = (m: UiMode) => {
-    uiMode.save(m)
-    setMode(m)
-  }
-
-  // The menu is grouped: a few always-visible entries on top, then collapsible groups. A group opens by itself when
-  // the page you are on belongs to it, and what you open or close is remembered.
-  const admin = role === 'admin'
+/** The menu of both modes: also what the command palette (Ctrl-K) lists. */
+export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav: NavEntry[]; centralNav: NavEntry[] } {
   const item = (to: string, label: string, icon: NavItem['icon']): NavItem => ({ to, label, icon })
 
   const agentNav: NavEntry[] = [
@@ -361,6 +351,24 @@ export function Sidebar() {
       item('/central/netmap', t('nav.netmap') as string, Waypoints),
     ] },
   ]
+  return { agentNav, centralNav }
+}
+
+export function Sidebar() {
+  const { t } = useTranslation()
+  const { role } = useAuth()
+  const [mode, setMode] = useState<UiMode>(uiMode.load())
+
+  const setModeAndSave = (m: UiMode) => {
+    uiMode.save(m)
+    setMode(m)
+  }
+
+  // The menu is grouped: a few always-visible entries on top, then collapsible groups. A group opens by itself when
+  // the page you are on belongs to it, and what you open or close is remembered.
+  const admin = role === 'admin'
+
+  const { agentNav, centralNav } = buildNav(t, admin)
   const nav = mode === 'central' ? centralNav : agentNav
 
   // which groups are open: remembered, and the group of the current page is always open
@@ -393,6 +401,13 @@ export function Sidebar() {
             <p className="text-[10px] text-slate-500 mt-0.5">RouterOS v6 / v7</p>
           </div>
         </div>
+      </div>
+
+      {/* Command palette (Ctrl+K) */}
+      <div className="px-3 pt-3">
+        <button onClick={() => window.dispatchEvent(new Event(PALETTE_EVENT))} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-500 hover:text-slate-700">
+          <Search size={13} /> <span className="flex-1 text-left">{t('palette.open')}</span> <kbd className="text-[10px] border border-slate-200 rounded px-1 bg-white">Ctrl K</kbd>
+        </button>
       </div>
 
       {/* Agent/Central UI mode toggle */}

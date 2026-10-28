@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
+import { CommandPalette } from './components/CommandPalette'
 import { Dashboard } from './pages/Dashboard'
 import { Devices } from './pages/Devices'
 import { DeviceDetail } from './pages/DeviceDetail'
@@ -71,6 +72,7 @@ export default function App() {
     <AuthGate>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
+        <CommandPalette />
         <main className="flex-1 overflow-y-auto scrollbar-thin">
           <Routes>
             <Route path="/" element={<Dashboard />} />

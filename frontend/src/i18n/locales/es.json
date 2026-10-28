@@ -33,6 +33,7 @@
                 "soar": "Respuesta",
                 "tls": "Certificados TLS",
                 "nettools": "Herramientas",
+                "palette": "Buscar",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2276,6 +2277,14 @@
             "notReached": "Destino no alcanzado (un cortafuegos puede bloquear las respuestas)",
             "legend": "Verde: red interna · morado: pública · ámbar: el salto añade más de 40 ms. Los saltos sin respuesta son habituales con cortafuegos, no una avería."
         }
+    },
+    "palette": {
+        "open": "Buscar…",
+        "placeholder": "Ir a una página o un activo: escriba parte del nombre o de la dirección",
+        "none": "No se encontró nada.",
+        "central": "Central",
+        "asset": "activo",
+        "hint": "↑ ↓ elegir · Enter abre · Esc cierra · Ctrl+K abre desde cualquier sitio"
     },
     "traffic": {
         "title": "Analizador de tráfico",

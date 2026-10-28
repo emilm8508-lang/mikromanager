@@ -33,6 +33,7 @@
                 "soar": "Reaktion",
                 "tls": "TLS-Zertifikate",
                 "nettools": "Werkzeuge",
+                "palette": "Suchen",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2276,6 +2277,14 @@
             "notReached": "Ziel nicht erreicht (eine Firewall kann Antworten blockieren)",
             "legend": "Grün: internes Netz · lila: öffentlich · gelb: der Hop fügt über 40 ms hinzu. Hops ohne Antwort sind bei Firewalls üblich, kein Fehler."
         }
+    },
+    "palette": {
+        "open": "Suchen…",
+        "placeholder": "Zu einer Seite oder einem Gerät springen: Teil des Namens oder der Adresse eingeben",
+        "none": "Nichts gefunden.",
+        "central": "Zentrale",
+        "asset": "Gerät",
+        "hint": "↑ ↓ wählen · Enter öffnet · Esc schließt · Strg+K öffnet von überall"
     },
     "traffic": {
         "title": "Verkehrsanalyse",

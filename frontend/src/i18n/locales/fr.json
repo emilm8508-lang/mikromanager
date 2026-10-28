@@ -33,6 +33,7 @@
                 "soar": "Réponse",
                 "tls": "Certificats TLS",
                 "nettools": "Outils",
+                "palette": "Rechercher",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2276,6 +2277,14 @@
             "notReached": "Cible non atteinte (un pare-feu peut bloquer les réponses)",
             "legend": "Vert : réseau interne · violet : public · ambre : le saut ajoute plus de 40 ms. Des sauts sans réponse sont courants avec des pare-feu, pas une panne."
         }
+    },
+    "palette": {
+        "open": "Rechercher…",
+        "placeholder": "Aller à une page ou un équipement : tapez une partie du nom ou de l'adresse",
+        "none": "Rien trouvé.",
+        "central": "Centrale",
+        "asset": "équipement",
+        "hint": "↑ ↓ choisir · Entrée ouvre · Échap ferme · Ctrl+K ouvre de partout"
     },
     "traffic": {
         "title": "Analyseur de trafic",

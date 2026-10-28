@@ -33,6 +33,7 @@
                 "soar": "Reakcje",
                 "tls": "Certyfikaty TLS",
                 "nettools": "Narzędzia",
+                "palette": "Szukaj",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2440,6 +2441,14 @@
             "notReached": "Cel nieosiągnięty (zapora może blokować odpowiedzi)",
             "legend": "Zielony: sieć wewnętrzna · fioletowy: publiczna · żółty: skok dokłada ponad 40 ms. Skoki bez odpowiedzi to częsta cecha zapór, nie awaria."
         }
+    },
+    "palette": {
+        "open": "Szukaj…",
+        "placeholder": "Idź do strony lub zasobu: wpisz część nazwy lub adresu",
+        "none": "Nic nie znaleziono.",
+        "central": "Centrala",
+        "asset": "zasób",
+        "hint": "↑ ↓ wybór · Enter otwiera · Esc zamyka · Ctrl+K otwiera z każdego miejsca"
     },
     "traffic": {
         "title": "Analizator ruchu",
