@@ -13,6 +13,7 @@ import { Server, Trash2, ExternalLink, Plus, ArrowUpCircle, CheckCircle2, Refres
 import { Link } from 'react-router-dom'
 import { formatDate } from '../lib/utils'
 import { useTranslation } from 'react-i18next'
+import { HostLink } from '../components/HostLink'
 
 const CRITICALITY_BADGE: Record<string, 'gray' | 'blue' | 'yellow' | 'red'> = {
   low: 'gray', medium: 'blue', high: 'yellow', critical: 'red',
@@ -436,7 +437,7 @@ export function Devices() {
                   </td>
                   <td className="px-5 py-3">
                     {isLocal ? (
-                      <Link to={detailPath} className="text-indigo-600 hover:underline font-mono block">{d.ip}</Link>
+                      <HostLink ip={d.ip} name={d.name ?? d.identity} fallback={detailPath} className="font-mono block" />
                     ) : (
                       <span className="text-slate-700 font-mono block">{d.ip}</span>
                     )}

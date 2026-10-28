@@ -7,6 +7,7 @@ import { formatDate } from '../lib/utils'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
+import { HostLink } from '../components/HostLink'
 
 function ComplianceBar({ label, pct, known, total }: { label: string; pct: number | null; known: number; total: number }) {
   const { t } = useTranslation()
@@ -76,9 +77,7 @@ function FirmwareComplianceCard() {
             <ul className="space-y-1.5">
               {nonCompliant.slice(0, 8).map(d => (
                 <li key={d.device_id} className="flex items-center justify-between text-xs">
-                  <Link to={`/devices/${d.device_id}`} className="text-indigo-600 hover:underline font-medium">
-                    {d.name}
-                  </Link>
+                  <HostLink name={d.name} fallback={`/devices/${d.device_id}`} className="font-medium" />
                   <span className="text-slate-500 font-mono">
                     {d.ros_status === 'outdated' && `RouterOS ${d.ros_version} → ${d.ros_target}`}
                     {d.ros_status === 'outdated' && d.ros_source === 'global_fallback' && ` (${t('dashboard.complianceFallbackTag')})`}
@@ -249,8 +248,7 @@ export function Dashboard() {
                   {criticalLogs.map((l, i) => (
                     <tr key={i} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-2.5">
-                        <Link to={`/devices/${l.device_id}`}
-                          className="text-indigo-600 hover:underline font-medium block">{l.device_label}</Link>
+                        <HostLink ip={l.device_ip} name={l.device_label} fallback={`/devices/${l.device_id}`} className="font-medium block" />
                         <span className="text-[10px] text-slate-400 font-mono">{l.device_ip}</span>
                       </td>
                       <td className="px-5 py-2.5 font-mono text-xs text-slate-600 whitespace-nowrap">{l.time ?? ''}</td>
@@ -298,7 +296,7 @@ export function Dashboard() {
                 {recent.map(d => (
                   <tr key={d.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                     <td className="px-5 py-3">
-                      <Link to={`/devices/${d.id}`} className="text-indigo-600 hover:underline font-mono">{d.ip}</Link>
+                      <HostLink ip={d.ip} name={d.name} fallback={`/devices/${d.id}`} className="font-mono" />
                     </td>
                     <td className="px-5 py-3 text-slate-700">{d.identity || d.name || '—'}</td>
                     <td className="px-5 py-3 text-slate-600">{d.model || '—'}</td>

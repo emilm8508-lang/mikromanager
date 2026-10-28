@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import type { AssetAttach, AssetLifecycle, AssetScanLevel, AssetType, AssetVulnCounts } from '../lib/api'
 import { cn } from '../lib/utils'
 import { Monitor, Terminal, Router, Printer, Layers, Server, HelpCircle, Camera, Smartphone, Tv, AlertTriangle, CheckCircle2, ShieldCheck, Radio, Eye } from 'lucide-react'
+import { HostLink } from './HostLink'
 
 // Small shared pieces of the asset pages: type icon / colour, and the pills used in the list and on the card.
 
@@ -117,7 +117,7 @@ export function AttachDetail({ at }: { at?: AssetAttach | null }) {
   return (
     <div className="space-y-0.5">
       <div className="text-sm text-slate-800">
-        <Link to={`/inventory/${at.to_id}`} className="text-indigo-600 hover:underline">{at.to}</Link>
+        <HostLink assetId={at.to_id} name={at.to}>{at.to}</HostLink>
         {at.port && <> · <b>{t('assets.attach.port', { port: at.port })}</b></>}
         {at.kind === 'wifi' && <> · <b>{t('assets.attach.wifi', { ssid: at.ssid ?? at.iface ?? '' })}</b></>}
         {at.vlan ? <span className="text-slate-500"> · {t('assets.attach.vlan', { vlan: at.vlan })}</span> : null}

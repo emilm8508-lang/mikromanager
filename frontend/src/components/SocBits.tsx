@@ -7,6 +7,7 @@ import { socApi, SOC_SEVERITIES, SOC_STATUSES, type AssetType, type SocAlert, ty
 import { Pill, TypeIcon } from './AssetBits'
 import { cn } from '../lib/utils'
 import { BlockBox } from './SoarBits'
+import { HostLink } from './HostLink'
 
 // The pieces of the SOC pages shared by the agent (triage: acknowledge, take, close) and Central (the same queue, read-only).
 
@@ -233,7 +234,7 @@ export function SocTable({ alerts, readOnly, selected, setSelected, onUpdate, on
                 {line && <div className="text-xs text-slate-500 truncate" title={line}>{line}</div>}
               </div>
               <div className="px-2 py-2 min-w-0 truncate" onClick={e => e.stopPropagation()}>
-                {a.device_name ? (a.asset_id && !readOnly ? <Link to={`/inventory/${a.asset_id}`} className="text-indigo-600 hover:underline">{a.device_name}</Link>
+                {a.device_name ? (a.asset_id && !readOnly ? <HostLink assetId={a.asset_id} name={a.device_name}>{a.device_name}</HostLink>
                   : a.asset_id && onOpenAsset ? <button className="text-indigo-600 hover:underline" onClick={() => onOpenAsset(a.asset_id!)}>{a.device_name}</button> : a.device_name) : '—'}
                 <div className="text-[11px] text-slate-400 truncate">{t(`soc.source.${a.source}`, { defaultValue: a.source })} · {t(`soc.category.${a.category}`, { defaultValue: a.category })}</div>
               </div>

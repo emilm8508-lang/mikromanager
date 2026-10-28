@@ -12,6 +12,7 @@ import { FleetActions } from '../components/FleetActions'
 import { FleetGroups } from '../components/FleetGroups'
 import { Router, RefreshCw, Download, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn, formatBytes } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 export function formatUptime(sec: number | null | undefined): string {
   if (sec == null) return '—'
@@ -121,7 +122,7 @@ function Inventory({ data }: { data: FleetOverview }) {
                     <tr className="border-b border-slate-100 hover:bg-slate-50 align-top">
                       <td className="px-4 py-2"><OnlineBadge online={d.online} mgmtOk={d.mgmt_ok} /></td>
                       <td className="py-2 pr-3">
-                        <Link to={`/devices/${d.id}`} className="text-indigo-600 hover:underline font-medium">{d.name}</Link>
+                        <HostLink ip={d.ip} name={d.name} fallback={`/devices/${d.id}`} className="font-medium" />
                         <div className="text-[11px] font-mono text-slate-400">{d.ip}</div>
                       </td>
                       <td className="pr-3 text-slate-700">{d.model ?? '—'}<div className="text-[11px] text-slate-400">{d.board_name ?? ''}</div></td>

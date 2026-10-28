@@ -36,6 +36,7 @@
                 "palette": "Search",
                 "playbook": "Remediation plan",
                 "onboarding": "Connecting devices",
+                "hostcard": "Host card",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2377,6 +2378,159 @@
             "snmp_only_device": "This device offers only SNMP (e.g. MikroTik SwOS Lite, older switches, printers): availability, ports and traffic are visible, but there is no configuration history and no actions. This is not a fault.",
             "snmp_failed": "SNMP does not answer: check the community, the version (v1/v2c), that SNMP is on and that the agent's address is allowed.",
             "failed": "The connection could not be made; the details are with the channels above."
+        }
+    },
+    "card": {
+        "open": "Open the host card",
+        "notInInventory": "not in the inventory"
+    },
+    "hostcard": {
+        "notFound": "The application does not know this host.",
+        "health": {
+            "ok": "healthy",
+            "warn": "attention",
+            "crit": "problem"
+        },
+        "class": {
+            "network_device": "network device",
+            "printer": "printer",
+            "virtual_machine": "virtual machine",
+            "server": "server",
+            "workstation": "workstation",
+            "other": "other"
+        },
+        "ciStatus": {
+            "operational": "in use",
+            "inactive": "inactive (not seen for a week)",
+            "unknown": "unknown"
+        },
+        "reason": {
+            "down": "not answering",
+            "unreachable": "unreachable (the device it hangs on is down)",
+            "kev": "vulnerability exploited in attacks (KEV)",
+            "vuln_critical": "critical vulnerabilities",
+            "vuln_high": "high vulnerabilities",
+            "tls_expired": "TLS certificate expired",
+            "tls_issue": "certificate / TLS problem",
+            "reboot_required": "needs a restart",
+            "updates_pending": "updates pending",
+            "os_eol": "operating system out of support",
+            "os_ending": "operating system support ends soon"
+        },
+        "inMaintenance": "In a maintenance window: {{name}}",
+        "editAsset": "Edit asset",
+        "deviceDetails": "Device details",
+        "testAccess": "Test access",
+        "partial": "The card is incomplete (some sources failed)",
+        "tile": {
+            "availability": "Availability",
+            "alerts": "Open alerts",
+            "vulns": "Vulnerabilities",
+            "tls": "TLS problems",
+            "updates": "Updates",
+            "lastBoot": "Last restart"
+        },
+        "lastBoot": {
+            "approx": "approximate",
+            "unknown": "cannot be told",
+            "asOf": "read {{when}}",
+            "noticed": "restarts noticed: {{n}}",
+            "source": {
+                "hardware_scan": "from the system boot time",
+                "snmp": "from the uptime (SNMP)",
+                "routeros": "from the router uptime",
+                "hyperv": "from the VM uptime"
+            }
+        },
+        "avail": {
+            "up": "up",
+            "down": "down",
+            "unreachable": "unreachable"
+        },
+        "uptime30": "30-day uptime",
+        "closed30": "{{n}} closed (30 days)",
+        "tlsChecked": "checked: {{n}}",
+        "reboot": "needs a restart",
+        "sec": {
+            "ci": "Asset data",
+            "status": "State and access",
+            "alerts": "Alerts",
+            "vulns": "Vulnerabilities",
+            "tls": "TLS certificates",
+            "services": "Services and ports",
+            "updates": "Updates",
+            "resources": "Resources",
+            "config": "Configuration history",
+            "syslog": "Syslog events",
+            "relations": "Relationships",
+            "response": "Responses (blocks)",
+            "sources": "Where it is known",
+            "timeline": "Timeline"
+        },
+        "f": {
+            "type": "Class",
+            "vendor": "Manufacturer / model",
+            "serial": "Serial number",
+            "os": "System",
+            "support": "System support",
+            "owner": "Owner",
+            "criticality": "Criticality",
+            "place": "Place",
+            "location": "Location",
+            "tags": "Tags",
+            "firstSeen": "First seen",
+            "lastSeen": "Last seen",
+            "scan": "Scan",
+            "notes": "Notes",
+            "software": "Installed programs",
+            "credential": "Credential",
+            "online": "State",
+            "mgmt": "Management",
+            "channels": "Available channels",
+            "windowsUpdates": "Windows Update",
+            "linuxUpdates": "Linux packages",
+            "routeros": "RouterOS",
+            "firmware": "Routerboard firmware",
+            "titles": "Pending"
+        },
+        "scanError": "the last scan failed",
+        "since": "since {{when}}",
+        "affects": "Unreachable because of it",
+        "notMonitored": "Not monitored for availability.",
+        "noCredential": "none",
+        "noAlerts": "No open alerts.",
+        "accepted": "accepted/mitigated: {{n}}",
+        "pending": "pending",
+        "lastChange": "Last change: {{when}}",
+        "noChange": "No changes recorded.",
+        "in24h": "{{n}} in 24 h",
+        "dependsOn": "Depends on",
+        "supports": "Depended on by",
+        "bizServices": "Business services",
+        "hostedOn": "Runs on",
+        "vms": "Virtual machines",
+        "peripherals": "Peripherals",
+        "source": {
+            "asset": "Inventory",
+            "device": "Router list",
+            "windows": "Windows hosts",
+            "linux": "Linux hosts",
+            "dell": "Dell servers",
+            "hyperv": "Hyper-V",
+            "vuln": "Vulnerability scan",
+            "ups": "UPS",
+            "availability": "Availability"
+        },
+        "sourcesNote": "The card puts together the data of all these places; click one to see the details in that module.",
+        "tl": {
+            "alert_opened": "alert opened",
+            "alert_closed": "alert closed",
+            "availability": "availability",
+            "config": "configuration change",
+            "syslog": "syslog",
+            "response": "response",
+            "first_seen": "first seen",
+            "scan": "scan"
         }
     },
     "traffic": {

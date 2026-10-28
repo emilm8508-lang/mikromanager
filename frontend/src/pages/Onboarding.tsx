@@ -7,6 +7,7 @@ import { onboardingApi, scannerApi, type OnboardingDiagnosis } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { AccountSnippets } from '../components/AccountSnippets'
 import { cn } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 const errText = (e: unknown) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? (e as Error)?.message ?? ''
 const STATE: Record<string, string> = {
@@ -103,7 +104,7 @@ export function Onboarding() {
             <div key={x.id} className="border-t border-slate-100">
               <div className="grid grid-cols-[2rem_minmax(0,1.6fr)_7rem_minmax(0,1.2fr)_minmax(0,1.4fr)_6rem] gap-2 px-4 py-2 items-center">
                 <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggle(x.id)} />
-                <div className="min-w-0"><div className="font-medium text-slate-900 truncate">{x.name}</div><div className="text-[11px] text-slate-400">{x.ip}{x.model ? ` · ${x.model}` : ''}</div></div>
+                <div className="min-w-0"><div className="font-medium truncate"><HostLink ip={x.ip} name={x.name}>{x.name}</HostLink></div><div className="text-[11px] text-slate-400">{x.ip}{x.model ? ` · ${x.model}` : ''}</div></div>
                 <div className="text-xs text-slate-600">{x.vendor}</div>
                 <div className="text-xs text-slate-600 truncate">{x.credential ?? '—'}</div>
                 <div className="flex flex-wrap items-center gap-1.5">

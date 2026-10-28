@@ -1422,6 +1422,42 @@ export const soarApi = {
   decide: (id: number, approve: boolean) => api.post<SoarAction>(`/soar/${id}/decide`, { approve }).then(r => r.data),
   unblock: (target: string) => api.post('/soar/unblock', { target }).then(r => r.data),
 }
+// The card of one host (services/hostcard.py)
+export interface HostCardAlert { id: number; rule: string; title: string | null; severity: SocSeverity; status: string; source: string; category: string; count: number; first_seen: string | null; last_seen: string | null; message: string }
+export interface HostCard {
+  ref: string; asset_id: number; name: string; ip: string | null
+  ci: { class: string; type: string; role: string | null; manufacturer: string | null; model: string | null; serial: string | null; os: string | null; os_version: string | null
+        lifecycle: { product: string | null; status: string; eol: string | null; days_left: number | null } | null; owner: string | null; criticality: string | null; place: string | null; location: string | null
+        tags: string[]; groups: string[]; notes: string | null; first_seen: string | null; last_seen: string | null; ci_status: 'operational' | 'inactive' | 'unknown'; mac: string | null
+        scan: { level: string; last_scan_at: string | null; status: string | null; error: string | null } | null }
+  status: { availability: { state: string; since: string | null; uptime: number | null; outages: Array<{ from: string; to: string | null; seconds: number; kind: string; cause: string | null }>; affects: Array<{ id: number; name: string; ip: string | null }> } | null
+            maintenance: Array<{ id: number; name: string; until: string | null; weekly?: boolean }>; health: { level: 'ok' | 'warn' | 'crit'; critical: string[]; warnings: string[] } }
+  sources: Array<{ kind: string; label?: string; id: number | null; path: string }>
+  alerts: { open: HostCardAlert[]; open_count: number; closed_30d: number; recent_closed: HostCardAlert[] }
+  vulnerabilities: { counts: Record<string, number>; total: number; kev: number; accepted: number; top: Array<{ cve_id: string; severity: string | null; cvss: number | null; kev: boolean; epss: number | null; product: string | null; version: string | null; summary: string; url: string | null }> } | null
+  tls: Array<{ port: number; subject: string | null; issuer: string | null; days: number | null; protocol: string | null; findings: Array<{ code: string; severity: string; message: string }>; error: string | null }>
+  services: Array<{ port: number; proto: string; service: string | null; product: string | null; version: string | null; seen: string | null }>
+  updates: { windows?: { id: number; upgradable: number | null; reboot_required: boolean; last_check: string | null; last_upgrade: string | null; titles: string[]; status: string | null; error: string | null; managed: boolean }
+            linux?: { id: number; upgradable: number | null; reboot_required: boolean; last_check: string | null; last_upgrade: string | null; packages: unknown[]; status: string | null; error: string | null; managed: boolean; distro: string | null }
+            device?: { id: number; version: string | null; latest: string | null; update_status: string | null; firmware: string | null; upgrade_firmware: string | null } } | null
+  resources: { now: { cpu: number | null; mem: number | null; disk: number | null; temp: number | null; at: string; source: string } | null; series: Array<{ key: string; name: string; kind: string; unit: string | null; value: number | null; at: string | null }> } | null
+  config: { device_id: number; last_check: string | null; last_change: string | null; error: string | null; versions: number; recent: Array<{ id: number; at: string; added: number | null; removed: number | null; sections: string[] }> } | null
+  syslog: { count_24h: number; recent: Array<{ at: string; severity: string | null; kind: string | null; app: string | null; message: string }> } | null
+  network: { attached_to: { id: number | null; name: string | null; ip: string | null; port: string | null; vlan: number | null; kind: string | null } | null; children: Array<{ id: number; name: string | null; port: string | null; vlan: number | null; kind: string | null }> } | null
+  relationships: { depends_on: Array<{ id: number | null; name: string | null; ip: string | null; via: string | null }>; supports: Array<{ id: number; name: string | null; via: string | null }>; business_services: Array<{ id: number; name: string; mode: string }>
+                   hosted_on: { name?: string } | null; hosts: Array<{ name: string; state: string | null }>; peripherals: Array<{ kind: string; name: string | null }> }
+  response: Array<{ id: number; kind: string; status: string; reason: string; at: string | null; until: string | null }>
+  access: { device_id: number; vendor: string | null; credential: string | null; online: boolean; mgmt_ok: boolean | null; last_seen: string | null; ports: { api: boolean; ssh: boolean; web: boolean; snmp: boolean } } | null
+  software_count: number | null
+  last_boot: { boot: { at: string; source: 'hardware_scan' | 'snmp' | 'routeros' | 'hyperv'; as_of: string; uptime_sec: number | null; approx: boolean; age_sec: number | null } | null; restarts: Array<{ at: string; count: number }> } | null
+  timeline: Array<{ at: string; kind: string; severity: string; text: string; ref: number | null }>
+  errors: string[]
+}
+export const hostCardApi = { get: (ref: string) => api.get<HostCard>(`/hostcard/${encodeURIComponent(ref)}`).then(r => r.data) }
+// Which inventory asset an address or a name belongs to (services/last_boot.py), for links that only know a name
+export const cardApi = {
+  resolve: (ip?: string | null, name?: string | null) => api.get<{ asset_id: number | null }>('/card/resolve', { params: { ip: ip || undefined, name: name || undefined } }).then(r => r.data.asset_id),
+}
 // Connecting the devices (services/onboarding.py)
 export interface OnboardingDevice {
   id: number; name: string; ip: string; vendor: string; model: string | null; online: boolean; mgmt_ok: boolean | null; credential: string | null; has_login: boolean; has_snmp_community: boolean

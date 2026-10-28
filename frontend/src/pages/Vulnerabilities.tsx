@@ -13,6 +13,7 @@ import {
   RefreshCw, Server, ChevronDown, ChevronUp, CheckCircle2, Download, Clock,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { HostLink } from '../components/HostLink'
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const
 
@@ -104,7 +105,7 @@ function HostCard({ host, findings, credentials }: {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Server size={14} className="text-slate-400 shrink-0" />
-            <span className="font-mono text-sm text-slate-900">{host.ip}</span>
+            <HostLink ip={host.ip} name={host.device_name} className="font-mono text-sm" />
             {host.device_name && <Badge variant="gray">{host.device_name}</Badge>}
             {findings.length === 0 ? (
               <Badge variant="green"><CheckCircle2 size={11} className="mr-1 inline" />{t('vuln.clean')}</Badge>

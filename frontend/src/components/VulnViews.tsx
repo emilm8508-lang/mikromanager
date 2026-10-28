@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assetsApi, vulnApi, type VulnFindingOut, type VulnRemediationStatus } from '../lib/api'
@@ -8,6 +8,7 @@ import { Pill } from './AssetBits'
 import { useAuth } from '../pages/Login'
 import { ExternalLink, Search, ArrowDown, ArrowUp, ChevronRight, Download } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { HostLink } from './HostLink'
 
 export const STATUSES: VulnRemediationStatus[] = ['open', 'in_progress', 'accepted_risk', 'resolved']
 const ACTIVE = new Set<string>(['open', 'in_progress'])
@@ -68,7 +69,7 @@ export function RemediationPanel({ finding, assetLinks }: { finding: VulnFinding
           {uniqueIps(finding).map(ip => {
             const a = assetLinks.get(ip)
             return a
-              ? <Link key={ip} to={`/inventory/${a.id}`} className="text-[11px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-indigo-700 hover:bg-indigo-50">{a.name} <span className="font-mono text-slate-400">{ip}</span></Link>
+              ? <HostLink key={ip} ip={ip} assetId={a.id} name={a.name} className="text-[11px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-indigo-700 hover:bg-indigo-50 no-underline">{a.name} <span className="font-mono text-slate-400">{ip}</span></HostLink>
               : <span key={ip} className="text-[11px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 font-mono text-slate-600">{ip}</span>
           })}
         </div>

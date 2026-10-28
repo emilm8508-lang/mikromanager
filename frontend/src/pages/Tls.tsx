@@ -5,6 +5,7 @@ import { LockKeyhole, RefreshCw, Trash2 } from 'lucide-react'
 import { tlsApi, type TlsRow } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 const errText = (e: unknown) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? (e as Error)?.message ?? ''
 const SEV: Record<string, string> = {
@@ -24,7 +25,7 @@ function Row({ r, onRemove }: { r: TlsRow; onRemove: (id: number) => void }) {
   return (
     <div className="border-t border-slate-100">
       <div className="grid grid-cols-[minmax(0,1.6fr)_4rem_minmax(0,1.6fr)_7rem_minmax(0,2fr)_2rem] gap-2 px-4 py-2 items-center cursor-pointer hover:bg-slate-50" onClick={() => setOpen(!open)}>
-        <div className="min-w-0"><div className="font-medium text-slate-900 truncate">{r.name}</div><div className="text-[11px] text-slate-400">{r.ip}</div></div>
+        <div className="min-w-0"><div className="font-medium truncate"><HostLink ip={r.ip} name={r.name}>{r.name}</HostLink></div><div className="text-[11px] text-slate-400">{r.ip}</div></div>
         <div className="text-slate-600 tabular-nums">{r.port}</div>
         <div className="min-w-0 text-xs text-slate-600 truncate" title={r.subject ?? ''}>{r.subject ?? (r.error ? <span className="text-slate-400">{t('tls.noTls')}</span> : '—')}</div>
         <div className={cn('text-xs font-semibold tabular-nums', worst)}>{daysText(t, r.days)}</div>

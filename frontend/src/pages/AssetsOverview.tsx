@@ -9,6 +9,7 @@ import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import { Button } from '../components/ui/Button'
 import { Boxes, RefreshCw, ArrowUp, ArrowDown, MapPin, ScanSearch, Radar } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { hostPath } from '../components/HostLink'
 
 // Asset overview: how many things are on the network, what they are, where, how old their systems are, how exposed.
 export function AssetsOverview() {
@@ -180,7 +181,7 @@ export function AssetsOverview() {
               </tr></thead>
               <tbody>
                 {data.top_risk.map(a => (
-                  <tr key={a.id} onClick={() => nav(`/inventory/${a.id}`)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
+                  <tr key={a.id} onClick={() => nav(hostPath(a.ip, a.id) ?? `/inventory/${a.id}`)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
                     <td className="px-4 py-2.5"><span className="inline-flex items-center gap-2 text-slate-800 font-medium"><TypeIcon type={a.type as AssetType} />{a.name}</span></td>
                     <td><TypePill type={a.type} role={a.role} /></td>
                     <td><VulnPill v={a.vulns} /></td>

@@ -36,6 +36,7 @@
                 "palette": "Suchen",
                 "playbook": "Maßnahmenplan",
                 "onboarding": "Geräte anbinden",
+                "hostcard": "Host-Karte",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2377,6 +2378,159 @@
             "snmp_only_device": "Dieses Gerät bietet nur SNMP (z. B. MikroTik SwOS Lite, ältere Switches, Drucker): Verfügbarkeit, Ports und Verkehr sind sichtbar, aber kein Konfigurationsverlauf und keine Aktionen. Das ist kein Fehler.",
             "snmp_failed": "SNMP antwortet nicht: Community, Version (v1/v2c) prüfen, ob SNMP an ist und die Adresse des Agenten erlaubt ist.",
             "failed": "Die Verbindung konnte nicht hergestellt werden; Einzelheiten bei den Kanälen oben."
+        }
+    },
+    "card": {
+        "open": "Gerätekarte öffnen",
+        "notInInventory": "nicht im Inventar"
+    },
+    "hostcard": {
+        "notFound": "Die Anwendung kennt diesen Host nicht.",
+        "health": {
+            "ok": "in Ordnung",
+            "warn": "Hinweise",
+            "crit": "Problem"
+        },
+        "class": {
+            "network_device": "Netzwerkgerät",
+            "printer": "Drucker",
+            "virtual_machine": "virtuelle Maschine",
+            "server": "Server",
+            "workstation": "Arbeitsplatzrechner",
+            "other": "sonstiges"
+        },
+        "ciStatus": {
+            "operational": "in Benutzung",
+            "inactive": "inaktiv (seit einer Woche nicht gesehen)",
+            "unknown": "unbekannt"
+        },
+        "reason": {
+            "down": "antwortet nicht",
+            "unreachable": "nicht erreichbar (das Gerät davor ist ausgefallen)",
+            "kev": "in Angriffen ausgenutzte Schwachstelle (KEV)",
+            "vuln_critical": "kritische Schwachstellen",
+            "vuln_high": "hohe Schwachstellen",
+            "tls_expired": "TLS-Zertifikat abgelaufen",
+            "tls_issue": "Zertifikats- / TLS-Problem",
+            "reboot_required": "Neustart nötig",
+            "updates_pending": "Updates ausstehend",
+            "os_eol": "Betriebssystem ohne Herstellersupport",
+            "os_ending": "Support des Betriebssystems endet bald"
+        },
+        "inMaintenance": "Im Wartungsfenster: {{name}}",
+        "editAsset": "Gerät bearbeiten",
+        "deviceDetails": "Gerätedetails",
+        "testAccess": "Zugriff testen",
+        "partial": "Die Karte ist unvollständig (einige Quellen sind ausgefallen)",
+        "tile": {
+            "availability": "Verfügbarkeit",
+            "alerts": "Offene Alarme",
+            "vulns": "Schwachstellen",
+            "tls": "TLS-Probleme",
+            "updates": "Updates",
+            "lastBoot": "Letzter Neustart"
+        },
+        "lastBoot": {
+            "approx": "ungefähr",
+            "unknown": "nicht feststellbar",
+            "asOf": "gelesen {{when}}",
+            "noticed": "bemerkte Neustarts: {{n}}",
+            "source": {
+                "hardware_scan": "aus der Systemstartzeit",
+                "snmp": "aus der Laufzeit (SNMP)",
+                "routeros": "aus der Router-Laufzeit",
+                "hyperv": "aus der Laufzeit der VM"
+            }
+        },
+        "avail": {
+            "up": "läuft",
+            "down": "ausgefallen",
+            "unreachable": "nicht erreichbar"
+        },
+        "uptime30": "Verfügbarkeit 30 Tage",
+        "closed30": "{{n}} geschlossen (30 Tage)",
+        "tlsChecked": "geprüft: {{n}}",
+        "reboot": "Neustart nötig",
+        "sec": {
+            "ci": "Gerätedaten",
+            "status": "Zustand und Zugriff",
+            "alerts": "Alarme",
+            "vulns": "Schwachstellen",
+            "tls": "TLS-Zertifikate",
+            "services": "Dienste und Ports",
+            "updates": "Updates",
+            "resources": "Ressourcen",
+            "config": "Konfigurationsverlauf",
+            "syslog": "Syslog-Ereignisse",
+            "relations": "Beziehungen",
+            "response": "Reaktionen (Sperren)",
+            "sources": "Wo bekannt",
+            "timeline": "Zeitverlauf"
+        },
+        "f": {
+            "type": "Klasse",
+            "vendor": "Hersteller / Modell",
+            "serial": "Seriennummer",
+            "os": "System",
+            "support": "Systemsupport",
+            "owner": "Eigentümer",
+            "criticality": "Kritikalität",
+            "place": "Ort",
+            "location": "Standort",
+            "tags": "Markierungen",
+            "firstSeen": "Erstmals gesehen",
+            "lastSeen": "Zuletzt gesehen",
+            "scan": "Scan",
+            "notes": "Notizen",
+            "software": "Installierte Programme",
+            "credential": "Zugangsdaten",
+            "online": "Zustand",
+            "mgmt": "Verwaltung",
+            "channels": "Verfügbare Kanäle",
+            "windowsUpdates": "Windows Update",
+            "linuxUpdates": "Linux-Pakete",
+            "routeros": "RouterOS",
+            "firmware": "Routerboard-Firmware",
+            "titles": "Ausstehend"
+        },
+        "scanError": "der letzte Scan ist fehlgeschlagen",
+        "since": "seit {{when}}",
+        "affects": "Dadurch nicht erreichbar",
+        "notMonitored": "Wird nicht auf Verfügbarkeit überwacht.",
+        "noCredential": "keine",
+        "noAlerts": "Keine offenen Alarme.",
+        "accepted": "akzeptiert/gemildert: {{n}}",
+        "pending": "ausstehend",
+        "lastChange": "Letzte Änderung: {{when}}",
+        "noChange": "Keine Änderungen aufgezeichnet.",
+        "in24h": "{{n}} in 24 h",
+        "dependsOn": "Hängt ab von",
+        "supports": "Davon abhängig",
+        "bizServices": "Geschäftsdienste",
+        "hostedOn": "Läuft auf",
+        "vms": "Virtuelle Maschinen",
+        "peripherals": "Peripheriegeräte",
+        "source": {
+            "asset": "Inventar",
+            "device": "Routerliste",
+            "windows": "Windows-Hosts",
+            "linux": "Linux-Hosts",
+            "dell": "Dell-Server",
+            "hyperv": "Hyper-V",
+            "vuln": "Schwachstellenscan",
+            "ups": "USV",
+            "availability": "Verfügbarkeit"
+        },
+        "sourcesNote": "Die Karte fügt die Daten all dieser Stellen zusammen; anklicken, um die Einzelheiten im jeweiligen Modul zu sehen.",
+        "tl": {
+            "alert_opened": "Alarm geöffnet",
+            "alert_closed": "Alarm geschlossen",
+            "availability": "Verfügbarkeit",
+            "config": "Konfigurationsänderung",
+            "syslog": "Syslog",
+            "response": "Reaktion",
+            "first_seen": "erstmals gesehen",
+            "scan": "Scan"
         }
     },
     "traffic": {

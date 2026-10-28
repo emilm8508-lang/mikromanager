@@ -24,6 +24,7 @@ import { SocResponse } from './pages/SocResponse'
 import { Tls } from './pages/Tls'
 import { NetTools } from './pages/NetTools'
 import { Onboarding } from './pages/Onboarding'
+import { HostCard } from './pages/HostCard'
 import { CentralServicesPage, CentralAvailabilityPage, CentralConfigsPage, CentralSyslogPage } from './pages/CentralNetwork'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
@@ -115,6 +116,7 @@ export default function App() {
             <Route path="/soc/tls" element={<Tls />} />
             <Route path="/tools" element={<NetTools />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/host/:ref" element={<HostCard />} />
             <Route path="/central/services" element={<CentralServicesPage />} />
             <Route path="/central/availability" element={<CentralAvailabilityPage />} />
             <Route path="/central/configs" element={<CentralConfigsPage />} />

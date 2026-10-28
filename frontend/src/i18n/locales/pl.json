@@ -36,6 +36,7 @@
                 "palette": "Szukaj",
                 "playbook": "Plan naprawy",
                 "onboarding": "Podłączanie urządzeń",
+                "hostcard": "Karta hosta",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2541,6 +2542,159 @@
             "snmp_only_device": "To urządzenie udostępnia tylko SNMP (np. MikroTik SwOS Lite, starsze przełączniki, drukarki): dostępność, porty i ruch są widoczne, ale nie ma historii konfiguracji ani akcji. To nie jest awaria.",
             "snmp_failed": "SNMP nie odpowiada: sprawdź community, wersję (v1/v2c) i czy SNMP jest włączony oraz czy adres agenta jest dozwolony.",
             "failed": "Nie udało się nawiązać połączenia; szczegóły przy kanałach powyżej."
+        }
+    },
+    "card": {
+        "open": "Otwórz kartę urządzenia",
+        "notInInventory": "brak w inwentarzu"
+    },
+    "hostcard": {
+        "notFound": "Aplikacja nie zna takiego hosta.",
+        "health": {
+            "ok": "w porządku",
+            "warn": "uwagi",
+            "crit": "problem"
+        },
+        "class": {
+            "network_device": "urządzenie sieciowe",
+            "printer": "drukarka",
+            "virtual_machine": "maszyna wirtualna",
+            "server": "serwer",
+            "workstation": "stacja robocza",
+            "other": "inne"
+        },
+        "ciStatus": {
+            "operational": "w użyciu",
+            "inactive": "nieaktywny (nie widziany od tygodnia)",
+            "unknown": "nieznany"
+        },
+        "reason": {
+            "down": "nie odpowiada",
+            "unreachable": "nieosiągalny (awaria urządzenia, za którym stoi)",
+            "kev": "podatność wykorzystywana w atakach (KEV)",
+            "vuln_critical": "krytyczne podatności",
+            "vuln_high": "wysokie podatności",
+            "tls_expired": "certyfikat TLS wygasł",
+            "tls_issue": "problem z certyfikatem / TLS",
+            "reboot_required": "wymaga restartu",
+            "updates_pending": "oczekują aktualizacje",
+            "os_eol": "system bez wsparcia producenta",
+            "os_ending": "wsparcie systemu wkrótce się kończy"
+        },
+        "inMaintenance": "W oknie serwisowym: {{name}}",
+        "editAsset": "Edytuj zasób",
+        "deviceDetails": "Szczegóły urządzenia",
+        "testAccess": "Test dostępu",
+        "partial": "Karta jest niepełna (część źródeł zawiodła)",
+        "tile": {
+            "availability": "Dostępność",
+            "alerts": "Otwarte alerty",
+            "vulns": "Podatności",
+            "tls": "Problemy TLS",
+            "updates": "Aktualizacje",
+            "lastBoot": "Ostatni restart"
+        },
+        "lastBoot": {
+            "approx": "przybliżone",
+            "unknown": "nie da się ustalić",
+            "asOf": "odczyt {{when}}",
+            "noticed": "zauważone restarty: {{n}}",
+            "source": {
+                "hardware_scan": "z czasu uruchomienia systemu",
+                "snmp": "z czasu pracy (SNMP)",
+                "routeros": "z czasu pracy routera",
+                "hyperv": "z czasu pracy maszyny wirtualnej"
+            }
+        },
+        "avail": {
+            "up": "działa",
+            "down": "nie działa",
+            "unreachable": "nieosiągalny"
+        },
+        "uptime30": "dostępność 30 dni",
+        "closed30": "{{n}} zamkniętych (30 dni)",
+        "tlsChecked": "sprawdzono: {{n}}",
+        "reboot": "wymaga restartu",
+        "sec": {
+            "ci": "Dane zasobu",
+            "status": "Stan i dostęp",
+            "alerts": "Alerty",
+            "vulns": "Podatności",
+            "tls": "Certyfikaty TLS",
+            "services": "Usługi i porty",
+            "updates": "Aktualizacje",
+            "resources": "Zasoby",
+            "config": "Historia konfiguracji",
+            "syslog": "Zdarzenia syslog",
+            "relations": "Powiązania",
+            "response": "Reakcje (blokady)",
+            "sources": "Gdzie jest znany",
+            "timeline": "Oś czasu"
+        },
+        "f": {
+            "type": "Klasa",
+            "vendor": "Producent / model",
+            "serial": "Numer seryjny",
+            "os": "System",
+            "support": "Wsparcie systemu",
+            "owner": "Właściciel",
+            "criticality": "Krytyczność",
+            "place": "Miejsce",
+            "location": "Lokalizacja",
+            "tags": "Etykiety",
+            "firstSeen": "Pierwszy raz widziany",
+            "lastSeen": "Ostatnio widziany",
+            "scan": "Skan",
+            "notes": "Notatki",
+            "software": "Zainstalowane programy",
+            "credential": "Poświadczenie",
+            "online": "Stan",
+            "mgmt": "Zarządzanie",
+            "channels": "Dostępne kanały",
+            "windowsUpdates": "Windows Update",
+            "linuxUpdates": "Pakiety Linux",
+            "routeros": "RouterOS",
+            "firmware": "Firmware routerboard",
+            "titles": "Oczekujące"
+        },
+        "scanError": "ostatni skan z błędem",
+        "since": "od {{when}}",
+        "affects": "Przez to nieosiągalne",
+        "notMonitored": "Nie jest monitorowany pod kątem dostępności.",
+        "noCredential": "brak",
+        "noAlerts": "Brak otwartych alertów.",
+        "accepted": "zaakceptowane/złagodzone: {{n}}",
+        "pending": "oczekuje",
+        "lastChange": "Ostatnia zmiana: {{when}}",
+        "noChange": "Brak zarejestrowanych zmian.",
+        "in24h": "{{n}} w 24 h",
+        "dependsOn": "Zależy od",
+        "supports": "Od niego zależą",
+        "bizServices": "Usługi biznesowe",
+        "hostedOn": "Działa na",
+        "vms": "Maszyny wirtualne",
+        "peripherals": "Urządzenia peryferyjne",
+        "source": {
+            "asset": "Inwentarz",
+            "device": "Lista routerów",
+            "windows": "Hosty Windows",
+            "linux": "Hosty Linux",
+            "dell": "Serwery Dell",
+            "hyperv": "Hyper-V",
+            "vuln": "Skan podatności",
+            "ups": "UPS",
+            "availability": "Dostępność"
+        },
+        "sourcesNote": "Karta składa dane ze wszystkich tych miejsc; kliknij, żeby zobaczyć szczegóły w danym module.",
+        "tl": {
+            "alert_opened": "alert otwarty",
+            "alert_closed": "alert zamknięty",
+            "availability": "dostępność",
+            "config": "zmiana konfiguracji",
+            "syslog": "syslog",
+            "response": "reakcja",
+            "first_seen": "pierwszy raz widziany",
+            "scan": "skan"
         }
     },
     "traffic": {

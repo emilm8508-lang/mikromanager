@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 interface ScanProgressEvent {
   type: 'phase' | 'progress' | 'done' | 'result' | 'error'
@@ -281,7 +282,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
     <div className="border border-slate-200 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <span className="font-mono text-sm text-slate-800">{host.ip}</span>
+          <HostLink ip={host.ip} name={host.hostname} className="font-mono text-sm" />
           {host.hostname && <span className="text-xs text-slate-500 ml-2">{host.hostname}</span>}
           {host.source === 'auto' && !host.managed && (
             <Badge variant="gray" className="text-[10px] ml-2">{t('linux.pending')}</Badge>

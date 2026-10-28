@@ -36,6 +36,7 @@
                 "palette": "Rechercher",
                 "playbook": "Plan de correction",
                 "onboarding": "Connexion des équipements",
+                "hostcard": "Fiche de l'hôte",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2377,6 +2378,159 @@
             "snmp_only_device": "Cet équipement n'offre que SNMP (p. ex. MikroTik SwOS Lite, anciens commutateurs, imprimantes) : disponibilité, ports et trafic sont visibles, mais ni historique de configuration ni actions. Ce n'est pas une panne.",
             "snmp_failed": "SNMP ne répond pas : vérifiez la community, la version (v1/v2c), que SNMP est activé et que l'adresse de l'agent est autorisée.",
             "failed": "La connexion n'a pas pu être établie ; les détails sont avec les canaux ci-dessus."
+        }
+    },
+    "card": {
+        "open": "Ouvrir la fiche de l'équipement",
+        "notInInventory": "absent de l'inventaire"
+    },
+    "hostcard": {
+        "notFound": "L'application ne connaît pas cet hôte.",
+        "health": {
+            "ok": "correct",
+            "warn": "avertissements",
+            "crit": "problème"
+        },
+        "class": {
+            "network_device": "équipement réseau",
+            "printer": "imprimante",
+            "virtual_machine": "machine virtuelle",
+            "server": "serveur",
+            "workstation": "poste de travail",
+            "other": "autre"
+        },
+        "ciStatus": {
+            "operational": "en service",
+            "inactive": "inactif (non vu depuis une semaine)",
+            "unknown": "inconnu"
+        },
+        "reason": {
+            "down": "ne répond pas",
+            "unreachable": "injoignable (l'équipement dont il dépend est en panne)",
+            "kev": "vulnérabilité exploitée dans des attaques (KEV)",
+            "vuln_critical": "vulnérabilités critiques",
+            "vuln_high": "vulnérabilités élevées",
+            "tls_expired": "certificat TLS expiré",
+            "tls_issue": "problème de certificat / TLS",
+            "reboot_required": "redémarrage nécessaire",
+            "updates_pending": "mises à jour en attente",
+            "os_eol": "système sans support du fabricant",
+            "os_ending": "le support du système se termine bientôt"
+        },
+        "inMaintenance": "En fenêtre de maintenance : {{name}}",
+        "editAsset": "Modifier l'équipement",
+        "deviceDetails": "Détails de l'équipement",
+        "testAccess": "Tester l'accès",
+        "partial": "La fiche est incomplète (certaines sources ont échoué)",
+        "tile": {
+            "availability": "Disponibilité",
+            "alerts": "Alertes ouvertes",
+            "vulns": "Vulnérabilités",
+            "tls": "Problèmes TLS",
+            "updates": "Mises à jour",
+            "lastBoot": "Dernier redémarrage"
+        },
+        "lastBoot": {
+            "approx": "approximatif",
+            "unknown": "impossible à déterminer",
+            "asOf": "lu {{when}}",
+            "noticed": "redémarrages constatés : {{n}}",
+            "source": {
+                "hardware_scan": "d'après l'heure de démarrage du système",
+                "snmp": "d'après la durée de fonctionnement (SNMP)",
+                "routeros": "d'après la durée de fonctionnement du routeur",
+                "hyperv": "d'après la durée de fonctionnement de la VM"
+            }
+        },
+        "avail": {
+            "up": "en marche",
+            "down": "en panne",
+            "unreachable": "injoignable"
+        },
+        "uptime30": "disponibilité 30 jours",
+        "closed30": "{{n}} fermées (30 jours)",
+        "tlsChecked": "vérifiés : {{n}}",
+        "reboot": "redémarrage nécessaire",
+        "sec": {
+            "ci": "Données de l'équipement",
+            "status": "État et accès",
+            "alerts": "Alertes",
+            "vulns": "Vulnérabilités",
+            "tls": "Certificats TLS",
+            "services": "Services et ports",
+            "updates": "Mises à jour",
+            "resources": "Ressources",
+            "config": "Historique de configuration",
+            "syslog": "Événements syslog",
+            "relations": "Relations",
+            "response": "Réponses (blocages)",
+            "sources": "Où il est connu",
+            "timeline": "Chronologie"
+        },
+        "f": {
+            "type": "Classe",
+            "vendor": "Fabricant / modèle",
+            "serial": "Numéro de série",
+            "os": "Système",
+            "support": "Support du système",
+            "owner": "Propriétaire",
+            "criticality": "Criticité",
+            "place": "Emplacement",
+            "location": "Site",
+            "tags": "Étiquettes",
+            "firstSeen": "Vu pour la première fois",
+            "lastSeen": "Vu pour la dernière fois",
+            "scan": "Analyse",
+            "notes": "Notes",
+            "software": "Programmes installés",
+            "credential": "Identifiant",
+            "online": "État",
+            "mgmt": "Gestion",
+            "channels": "Canaux disponibles",
+            "windowsUpdates": "Windows Update",
+            "linuxUpdates": "Paquets Linux",
+            "routeros": "RouterOS",
+            "firmware": "Firmware routerboard",
+            "titles": "En attente"
+        },
+        "scanError": "la dernière analyse a échoué",
+        "since": "depuis {{when}}",
+        "affects": "Injoignables à cause de lui",
+        "notMonitored": "Disponibilité non surveillée.",
+        "noCredential": "aucun",
+        "noAlerts": "Aucune alerte ouverte.",
+        "accepted": "acceptées/atténuées : {{n}}",
+        "pending": "en attente",
+        "lastChange": "Dernier changement : {{when}}",
+        "noChange": "Aucun changement enregistré.",
+        "in24h": "{{n}} en 24 h",
+        "dependsOn": "Dépend de",
+        "supports": "Des équipements en dépendent",
+        "bizServices": "Services métier",
+        "hostedOn": "Fonctionne sur",
+        "vms": "Machines virtuelles",
+        "peripherals": "Périphériques",
+        "source": {
+            "asset": "Inventaire",
+            "device": "Liste des routeurs",
+            "windows": "Hôtes Windows",
+            "linux": "Hôtes Linux",
+            "dell": "Serveurs Dell",
+            "hyperv": "Hyper-V",
+            "vuln": "Analyse de vulnérabilités",
+            "ups": "Onduleur",
+            "availability": "Disponibilité"
+        },
+        "sourcesNote": "La fiche rassemble les données de tous ces endroits ; cliquez pour voir les détails dans le module concerné.",
+        "tl": {
+            "alert_opened": "alerte ouverte",
+            "alert_closed": "alerte fermée",
+            "availability": "disponibilité",
+            "config": "changement de configuration",
+            "syslog": "syslog",
+            "response": "réponse",
+            "first_seen": "vu pour la première fois",
+            "scan": "analyse"
         }
     },
     "traffic": {

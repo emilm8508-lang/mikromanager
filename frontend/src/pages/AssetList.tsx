@@ -8,6 +8,7 @@ import { AssetBulkBar } from '../components/AssetActions'
 import { Button } from '../components/ui/Button'
 import { Boxes, Download, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { hostPath } from '../components/HostLink'
 
 // Same OWASP CSV-formula-injection guard + BOM as the other exports in the app.
 function csvSafe(v: unknown): string {
@@ -162,7 +163,7 @@ export function AssetList() {
               </tr></thead>
               <tbody>
                 {shown.map(a => (
-                  <tr key={a.id} onClick={() => nav(`/inventory/${a.id}`)} className={cn('border-b border-slate-100 hover:bg-slate-50 cursor-pointer', !a.active && 'opacity-60')}>
+                  <tr key={a.id} onClick={() => nav(hostPath(a.ip, a.id) ?? `/inventory/${a.id}`)} className={cn('border-b border-slate-100 hover:bg-slate-50 cursor-pointer', !a.active && 'opacity-60')}>
                     <td className="pl-4 w-8" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={picked.has(a.id)} onChange={e => setPicked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.id) : n.delete(a.id); return n })} />
                     </td>

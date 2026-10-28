@@ -1,11 +1,11 @@
 import { useState, Fragment } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, HeartPulse, RefreshCw } from 'lucide-react'
 import { availApi, AvailItem } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 const STATE_STYLE: Record<string, string> = {
   up: 'bg-green-50 text-green-700 border-green-200',
@@ -43,7 +43,7 @@ function Outages({ id }: { id: number }) {
         <div>
           <div className="font-medium text-slate-700 mb-1">{t('avail.affected', { count: d.affected.length })}</div>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {d.affected.map(a => <Link key={a.id} to={`/inventory/${a.id}`} className="text-indigo-600 hover:underline">{a.name}</Link>)}
+            {d.affected.map(a => <HostLink key={a.id} assetId={a.id} name={a.name}>{a.name}</HostLink>)}
           </div>
         </div>
       )}
@@ -125,7 +125,7 @@ export function Availability() {
               <div className={cn('grid items-center border-t border-slate-100 cursor-pointer hover:bg-slate-50', grid)} onClick={() => setOpen(open === r.id ? null : r.id)}>
                 <div className="px-2 text-slate-400">{open === r.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
                 <div className="px-2 py-2 min-w-0" onClick={e => e.stopPropagation()}>
-                  <Link to={`/inventory/${r.id}`} className="text-indigo-600 hover:underline truncate block">{r.name}</Link>
+                  <HostLink assetId={r.id} name={r.name} className="truncate block">{r.name}</HostLink>
                   <div className="text-[11px] text-slate-400">{r.ip}</div>
                 </div>
                 <div className="px-2"><StatePill s={r.state} /></div>

@@ -1,13 +1,13 @@
 import { useState, Fragment } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Layers3, Pencil, Plus, Trash2 } from 'lucide-react'
 import { assetsApi, bizApi, BizBody, BizService } from '../lib/api'
 import { Modal } from '../components/ui/Modal'
 import { StatePill, formatDur } from './Availability'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 const SVC_STYLE: Record<string, string> = {
   ok: 'bg-green-50 text-green-700 border-green-200',
@@ -53,7 +53,7 @@ function Detail({ id }: { id: number }) {
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {d.member_states.map(m => (
             <span key={m.id} className="inline-flex items-center gap-1.5">
-              <Link to={`/inventory/${m.id}`} className="text-indigo-600 hover:underline">{m.name}</Link>
+              <HostLink assetId={m.id} name={m.name}>{m.name}</HostLink>
               <StatePill s={m.state} />
               {m.root && <span className="text-slate-400">{t('svc.memberCause', { name: m.root })}</span>}
             </span>

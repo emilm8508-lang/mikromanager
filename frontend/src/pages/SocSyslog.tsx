@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { Radio, Plus, Trash2 } from 'lucide-react'
 import { syslogApi, SyslogRule } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
+import { HostLink } from '../components/HostLink'
 
 const SEV_STYLE = ['bg-red-100 text-red-800', 'bg-red-100 text-red-800', 'bg-red-50 text-red-700', 'bg-orange-50 text-orange-700', 'bg-amber-50 text-amber-700',
                    'bg-sky-50 text-sky-700', 'bg-slate-100 text-slate-600', 'bg-slate-50 text-slate-400']
@@ -181,7 +181,7 @@ function Events() {
           {(ev.data?.items ?? []).map(e => (
             <div key={e.id} className="grid grid-cols-[7rem_minmax(0,1.2fr)_5.5rem_minmax(0,1fr)_minmax(0,3fr)] border-t border-slate-100 items-start">
               <div className="px-2 py-1 text-slate-500" title={new Date(e.at).toLocaleString()}>{ago(e.at)}</div>
-              <div className="px-2 py-1 min-w-0 truncate">{e.asset_id ? <Link className="text-indigo-600 hover:underline" to={`/inventory/${e.asset_id}`}>{e.name ?? e.ip}</Link> : (e.name ?? e.ip)}<div className="text-[10px] text-slate-400">{e.ip}</div></div>
+              <div className="px-2 py-1 min-w-0 truncate"><HostLink ip={e.ip} assetId={e.asset_id} name={e.name}>{e.name ?? e.ip}</HostLink><div className="text-[10px] text-slate-400">{e.ip}</div></div>
               <div className="px-2 py-1"><span className={cn('inline-block rounded px-1.5 py-0.5', SEV_STYLE[e.severity] ?? SEV_STYLE[6])}>{t(`syslog.sev.${e.severity}`)}</span></div>
               <div className="px-2 py-1 text-slate-500 truncate" title={e.app ?? ''}>{e.kind === 'trap' ? 'SNMP' : 'syslog'}{e.app ? ` · ${e.app}` : ''}</div>
               <div className="px-2 py-1 text-slate-800 break-words">{e.message}{e.raised.length > 0 && <span className="ml-2 text-[10px] bg-red-50 text-red-700 border border-red-200 rounded px-1">{t('syslog.events.raised')}</span>}</div>

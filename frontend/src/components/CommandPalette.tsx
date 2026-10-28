@@ -7,6 +7,7 @@ import { assetsApi } from '../lib/api'
 import { buildNav, PALETTE_EVENT, type NavEntry, type NavItem } from './Sidebar'
 import { useAuth } from '../pages/Login'
 import { cn } from '../lib/utils'
+import { hostPath } from './HostLink'
 
 type Hit = { key: string; label: string; hint: string; to: string; kind: 'page' | 'central' | 'asset'; Icon?: NavItem['icon'] }
 
@@ -48,7 +49,7 @@ export function CommandPalette() {
     return [...flatten(agentNav, false), ...flatten(centralNav, true)]
   }, [t, role])
   const hits = useMemo(() => {
-    const all: Hit[] = [...pages, ...(assets.data ?? []).filter(a => a.id != null).map((a): Hit => ({ key: `s:${a.id}`, label: a.name || a.ip || `#${a.id}`, hint: [a.ip, a.type].filter(Boolean).join(' · '), to: `/inventory/${a.id}`, kind: 'asset' }))]
+    const all: Hit[] = [...pages, ...(assets.data ?? []).filter(a => a.id != null).map((a): Hit => ({ key: `s:${a.id}`, label: a.name || a.ip || `#${a.id}`, hint: [a.ip, a.type].filter(Boolean).join(' · '), to: hostPath(a.ip, a.id) ?? `/inventory/${a.id}`, kind: 'asset' }))]
     const tokens = fold(q).split(/\s+/).filter(Boolean)
     if (tokens.length === 0) return pages.filter(p => p.kind === 'page').slice(0, 12)
     const scored: Array<[number, Hit]> = []
