@@ -39,6 +39,7 @@
                 "hostcard": "Fiche de l'hôte",
                 "bmc": "BMC",
                 "assetmerge": "Fusion des équipements",
+                "vulnsla": "SLA des vulnérabilités",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -778,6 +779,13 @@
         "overdue": "Délai SLA dépassé",
         "dueDate": "Échéance SLA",
         "lastUpdatedBy": "Dernière modification par {{username}}",
+        "exception": {
+            "reason": "Motif de l'acceptation du risque (obligatoire)",
+            "validUntil": "Exception valable jusqu'au :",
+            "save": "Enregistrer l'exception",
+            "hint": "Après cette date la vulnérabilité est de nouveau ouverte. L'approbateur est l'utilisateur connecté.",
+            "until": "Exception jusqu'au {{date}} (approuvée par : {{who}})"
+        },
         "notePlaceholder": "Note (p. ex. raison de l'acceptation du risque)",
         "exportCsv": "Exporter en CSV",
         "status": {
@@ -2607,6 +2615,40 @@
         "confirm": "Fusionner {{count}} entrée(s) dans « {{name}} » ? C'est irréversible.",
         "merged": "Entrées fusionnées : {{count}}."
     },
+    "vulnsla": {
+        "title": "SLA des vulnérabilités et exceptions",
+        "subtitle": "À quelle vitesse les vulnérabilités sont corrigées, ce qui est en retard et quels risques ont été acceptés volontairement (jusqu'à quand et par qui). Preuve pour un audit : NIS2 art. 21(2)(e), ISO 27001 A.8.8.",
+        "tile": {
+            "open": "Ouvertes",
+            "overdue": "En retard",
+            "due7": "Échéance sous 7 jours",
+            "met": "Dans le SLA",
+            "mttr": "Délai moyen de correction",
+            "exceptions": "Exceptions"
+        },
+        "last90": "corrigées en 90 jours : {{n}}",
+        "days": "jours",
+        "expiring": "{{n}} expirent sous 30 jours",
+        "col": {
+            "severity": "Gravité",
+            "sla": "SLA (jours)",
+            "open": "Ouvertes",
+            "overdue": "En retard",
+            "due7": "Sous 7 j",
+            "fixed90": "Corrigées (90 j)",
+            "met": "Dans le SLA",
+            "mttr": "Moyenne (jours)"
+        },
+        "note": "Le SLA court à partir de la première détection. Une vulnérabilité que l'analyse ne trouve plus est marquée corrigée avec son délai de correction ; elle redevient ouverte si elle réapparaît. Un administrateur peut modifier les jours du SLA.",
+        "overdueTitle": "En retard (les plus anciennes)",
+        "noOverdue": "Rien n'est en retard.",
+        "daysOverdue": "{{n}} jours de retard",
+        "exceptionsTitle": "Risques acceptés (exceptions)",
+        "exceptionsNote": "Une exception a un motif, un approbateur et une date de validité (90 jours par défaut, un an au plus). Après cette date la vulnérabilité est de nouveau ouverte et compte dans le SLA.",
+        "noReason": "sans justification",
+        "approvedBy": "approuvé par : {{who}}",
+        "daysLeft": "il reste {{n}} jours"
+    },
     "traffic": {
         "title": "Analyseur de trafic",
         "subtitle": "Qui parle à qui à travers un routeur, maintenant : les flux que RouterOS Torch signale pour l'interface choisie, actualisés toutes les quelques secondes. Rien n'est modifié sur le routeur et l'ordinateur de l'agent ne capture rien.",
@@ -3156,6 +3198,9 @@
             "disk_used_pct": "Disque utilisé",
             "disk_total_bytes": "Taille du disque"
         },
+        "owner": "Propriétaire (personne ou équipe)",
+        "criticality": "Criticité métier",
+        "crit": {"low": "faible", "medium": "moyenne", "high": "élevée", "critical": "critique"},
         "filterKeyword": "Filtrer par mot-clé",
         "version": "Version",
         "noSoftware": "Pas de liste de logiciels. Elle vient d'une analyse authentifiée de l'appareil.",

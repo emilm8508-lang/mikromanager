@@ -92,12 +92,12 @@ def _ci(ctx: _Ctx) -> dict:
             status = "operational" if datetime.utcnow() - datetime.fromisoformat(last.replace("Z", "")) < timedelta(days=7) else "inactive"
         except ValueError:
             pass
-    owner = crit = None
-    if ctx.device_id:
+    owner, crit = a.get("owner"), a.get("criticality")        # the asset's own; a router's record fills what is empty
+    if ctx.device_id and not (owner and crit):
         with SessionLocal() as db:
             d = db.get(Device, ctx.device_id)
             if d is not None:
-                owner, crit = d.owner, d.criticality
+                owner, crit = owner or d.owner, crit or d.criticality
     return {"class": cls, "type": typ, "role": a.get("role"), "manufacturer": a.get("manufacturer"), "model": a.get("model"), "serial": a.get("serial"), "os": a.get("os_name"),
             "os_version": a.get("os_version"), "lifecycle": a.get("lifecycle_detail"), "owner": owner, "criticality": crit, "place": a.get("place"), "location": a.get("location"),
             "tags": a.get("manual_groups") or [], "groups": a.get("groups") or [], "notes": a.get("notes"), "first_seen": a.get("first_seen_at"), "last_seen": last, "ci_status": status,

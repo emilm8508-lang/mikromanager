@@ -522,6 +522,8 @@ async def record_vuln_day() -> None:
         assets += 1 if c["total"] else 0
         for k in tot:
             tot[k] += c[k]
+    from services import vuln_sla
+    await vuln_sla.run_maintenance()            # findings that are gone are marked fixed, expired exceptions reopened
     day = datetime.utcnow().strftime("%Y-%m-%d")
     with SessionLocal() as db:
         row = db.get(VulnDaily, day) or VulnDaily(day=day)
@@ -789,7 +791,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
                 if tgt and tgt.id != a.id:
                     p["details"] = {**p["details"], "asset_id": tgt.id, "asset_name": tgt.name or tgt.ip}
         row.update({
-            "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
+            "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "owner": a.owner, "criticality": a.criticality, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
             "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,
@@ -834,6 +836,13 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             a.place = (fields["place"] or "").strip()[:128] or None
         if "notes" in fields:
             a.notes = (fields["notes"] or "").strip()[:2000] or None
+        if "owner" in fields:
+            a.owner = (fields["owner"] or "").strip()[:128] or None
+        if "criticality" in fields:
+            v = (fields["criticality"] or "").strip().lower()
+            if v and v not in ("low", "medium", "high", "critical"):
+                raise ValueError("criticality is low, medium, high or critical")
+            a.criticality = v or None
         if "asset_type" in fields or "role" in fields:
             d = _jload(a.details, {})
             over = d.get("_over", {})

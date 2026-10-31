@@ -125,15 +125,17 @@ function Overview({ a }: { a: Detail }) {
   const [location, setLocation] = useState(a.location_override ?? '')
   const [place, setPlace] = useState(a.place ?? '')
   const [notes, setNotes] = useState(a.notes ?? '')
+  const [owner, setOwner] = useState(a.owner ?? '')
+  const [criticality, setCriticality] = useState(a.criticality ?? '')
   const [tags, setTags] = useState<string[]>(a.manual_groups)
   const [tag, setTag] = useState('')
   const [kind, setKind] = useState(a.override.type ?? 'auto')
   const [role, setRole] = useState(a.override.role ?? 'auto')
   const save = useMutation({
-    mutationFn: () => assetsApi.update(a.id, { location_override: location, place, notes, manual_groups: tags, asset_type: kind, role }),
+    mutationFn: () => assetsApi.update(a.id, { location_override: location, place, notes, owner, criticality, manual_groups: tags, asset_type: kind, role }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['asset', a.id] }); qc.invalidateQueries({ queryKey: ['assets'] }); qc.invalidateQueries({ queryKey: ['asset-summary'] }) },
   })
-  const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || place !== (a.place ?? '') || notes !== (a.notes ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
+  const dirty = kind !== (a.override.type ?? 'auto') || role !== (a.override.role ?? 'auto') || location !== (a.location_override ?? '') || place !== (a.place ?? '') || notes !== (a.notes ?? '') || owner !== (a.owner ?? '') || criticality !== (a.criticality ?? '') || tags.join('\u0000') !== a.manual_groups.join('\u0000')
   return (
     <div className="space-y-4">
       {a.type === 'monitor' && (a.installed_on ?? []).length > 0 && (
@@ -184,6 +186,14 @@ function Overview({ a }: { a: Detail }) {
               </form>
             </div>
           </div>
+          <label className="block"><span className="text-xs text-slate-500">{t('assets.owner')}</span>
+            <input value={owner} onChange={e => setOwner(e.target.value)} maxLength={128} className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+          </label>
+          <label className="block"><span className="text-xs text-slate-500">{t('assets.criticality')}</span>
+            <select value={criticality} onChange={e => setCriticality(e.target.value)} className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white">
+              <option value="">—</option>{(['low', 'medium', 'high', 'critical'] as const).map(k => <option key={k} value={k}>{t(`assets.crit.${k}`)}</option>)}
+            </select>
+          </label>
           <label className="block"><span className="text-xs text-slate-500">{t('assets.notes')}</span>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={2000} className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5" /></label>
           <Button size="sm" variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}><Save size={12} /> {t('common.save')}</Button>

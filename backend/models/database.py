@@ -374,6 +374,10 @@ class VulnRemediation(Base):
     updated_by = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
     first_seen_at = Column(DateTime, default=datetime.utcnow)
+    # an accepted risk is an exception: who approved it and until when (after that it is an open finding again); resolved_at is when it was fixed (set when the scan no longer finds it)
+    approved_by = Column(String, nullable=True)
+    valid_until = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_remediation"),)
 
@@ -413,6 +417,8 @@ class Asset(Base):
     os_version = Column(String, nullable=True)
     location_override = Column(String, nullable=True)
     place = Column(String, nullable=True)                          # where it physically is, as written by the operator: room, desk, wall socket / patch panel port
+    owner = Column(String, nullable=True)                          # who is responsible for it (a person or a team)
+    criticality = Column(String, nullable=True)                    # low | medium | high | critical - what its loss means for the business
     monitor = Column(Integer, nullable=True)                       # availability monitoring (services/availability.py): 1 on, 0 off, NULL = automatic (network gear, servers, anything others hang on)
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
@@ -1558,6 +1564,17 @@ def _migrate_add_columns():
         if "monitor" not in as_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE assets ADD COLUMN monitor INTEGER"))
+        for name, ddl in (("owner", "VARCHAR"), ("criticality", "VARCHAR")):
+            if name not in as_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+
+    if "vuln_remediation" in inspector.get_table_names():
+        vr_cols = {c["name"] for c in inspector.get_columns("vuln_remediation")}
+        for name, ddl in (("approved_by", "VARCHAR"), ("valid_until", "DATETIME"), ("resolved_at", "DATETIME")):
+            if name not in vr_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE vuln_remediation ADD COLUMN {name} {ddl}"))
 
     if "soc_alerts" in inspector.get_table_names():
         sa_cols = {c["name"] for c in inspector.get_columns("soc_alerts")}

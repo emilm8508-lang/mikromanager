@@ -965,6 +965,8 @@ export interface VulnFindingOut {
   note: string | null
   updated_by: string | null
   updated_at: string | null
+  valid_until?: string | null
+  approved_by?: string | null
   first_seen_at: string | null
   due_date: string | null
   overdue: boolean
@@ -1004,8 +1006,10 @@ export const vulnApi = {
   packages: (params?: { host_id?: number; q?: string }) =>
     api.get<VulnPackageOut[]>('/vuln/packages', { params }).then(r => r.data),
   hosts: () => api.get<VulnHostOut[]>('/vuln/hosts').then(r => r.data),
-  setRemediation: (data: { product: string; version: string; cve_id: string; status: VulnRemediationStatus; note?: string }) =>
+  setRemediation: (data: { product: string; version: string; cve_id: string; status: VulnRemediationStatus; note?: string; valid_until?: string }) =>
     api.put('/vuln/remediation', data).then(r => r.data),
+  sla: () => api.get<VulnSlaReport>('/vuln/sla').then(r => r.data),
+  slaSettings: (body: Partial<Record<'critical' | 'high' | 'medium' | 'low', number>>) => api.put<Record<string, number>>('/vuln/sla/settings', body).then(r => r.data),
   exportUrl: (severity?: string) =>
     '/api/vuln/findings/export' + (severity ? `?severity=${encodeURIComponent(severity)}` : ''),
   findings: (severity?: string) =>
@@ -1173,6 +1177,8 @@ export interface AssetPeripheralOut {
 
 export interface AssetDetail extends AssetRow {
   notes: string | null
+  owner?: string | null
+  criticality?: string | null
   manual_groups: string[]
   location_override: string | null
   lifecycle_detail: { product: string | null; status: AssetLifecycle; eol: string | null; days_left: number | null }
@@ -1217,7 +1223,7 @@ export const assetsApi = {
   vulnHistory: (days = 90) => api.get<{ points: Array<{ day: string; assets: number; critical: number; high: number; medium: number; low: number }> }>('/assets/vuln-history', { params: { days } }).then(r => r.data),
   scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
   scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
-  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; place?: string | null; notes?: string | null; manual_groups?: string[] }) =>
+  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; place?: string | null; notes?: string | null; owner?: string | null; criticality?: string | null; manual_groups?: string[] }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
   tool: (id: number, tool: 'ping' | 'traceroute' | 'portscan', ports?: string) => api.post<{ job: string }>(`/assets/${id}/tools`, { tool, ports }).then(r => r.data),
@@ -1466,6 +1472,15 @@ export const hostCardApi = { get: (ref: string) => api.get<HostCard>(`/hostcard/
 // Which inventory asset an address or a name belongs to (services/last_boot.py), for links that only know a name
 export const cardApi = {
   resolve: (ip?: string | null, name?: string | null) => api.get<{ asset_id: number | null }>('/card/resolve', { params: { ip: ip || undefined, name: name || undefined } }).then(r => r.data.asset_id),
+}
+// How fast vulnerabilities are fixed and the accepted risks (services/vuln_sla.py)
+export interface VulnSlaRow { severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; sla_days: number; open: number; overdue: number; due_7d: number; resolved_90d: number; met: number; met_pct: number | null; mttr_days: number | null }
+export interface VulnSlaReport {
+  settings: Record<string, number>; by_severity: VulnSlaRow[]
+  totals: { open: number; overdue: number; due_7d: number; resolved_90d: number; met: number; met_pct: number | null; mttr_days: number | null }
+  overdue: Array<{ product: string; version: string; cve_id: string; severity: string; days_overdue: number; status: string; first_seen: string | null }>
+  exceptions: Array<{ product: string; version: string; cve_id: string; severity: string; reason: string | null; approved_by: string | null; valid_until: string | null; days_left: number | null; expired: boolean; no_reason: boolean; since: string | null }>
+  exceptions_expiring_30d: number; exceptions_no_reason: number
 }
 // Connecting the devices (services/onboarding.py)
 export interface OnboardingDevice {

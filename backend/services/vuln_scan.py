@@ -1527,7 +1527,8 @@ VALID_REMEDIATION_STATUSES = frozenset({"open", "in_progress", "accepted_risk", 
 
 
 def set_remediation_status(product: str, version: str, cve_id: str, status: str,
-                            note: Optional[str], updated_by: str) -> dict:
+                            note: Optional[str], updated_by: str,
+                            valid_until: Optional[datetime] = None, approved_by: Optional[str] = None) -> dict:
     """Explicit, user/command-driven remediation status change — distinct
     from _ensure_remediation_row() above (which only ever creates a fresh
     "open" row the first time a CVE is seen, never touches an existing
@@ -1550,10 +1551,19 @@ def set_remediation_status(product: str, version: str, cve_id: str, status: str,
             row = VulnRemediation(product=product, version=version, cve_id=cve_id,
                                    first_seen_at=datetime.utcnow())
             db.add(row)
+        now = datetime.utcnow()
+        if status == "accepted_risk":
+            # an accepted risk is an exception: it ends on a date (90 days when none is given) and records who approved it - see services/vuln_sla.py
+            from services import vuln_sla
+            row.valid_until = vuln_sla.exception_until(valid_until, now)
+            row.approved_by = approved_by or updated_by
+        else:
+            row.valid_until = row.approved_by = None
+        row.resolved_at = now if status == "resolved" else None
         row.status = status
         row.note = note
         row.updated_by = updated_by
-        row.updated_at = datetime.utcnow()
+        row.updated_at = now
         db.commit()
     return {"ok": True}
 

@@ -39,6 +39,7 @@
                 "hostcard": "Karta hosta",
                 "bmc": "BMC",
                 "assetmerge": "Scalanie zasobów",
+                "vulnsla": "SLA podatności",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -942,6 +943,13 @@
         "overdue": "Po terminie SLA",
         "dueDate": "Termin SLA",
         "lastUpdatedBy": "Ostatnio zmienione przez {{username}}",
+        "exception": {
+            "reason": "Powód zaakceptowania ryzyka (wymagany)",
+            "validUntil": "Wyjątek ważny do:",
+            "save": "Zapisz wyjątek",
+            "hint": "Po tej dacie podatność wraca jako otwarta. Zatwierdzającym jest zalogowany użytkownik.",
+            "until": "Wyjątek do {{date}} (zatwierdził: {{who}})"
+        },
         "notePlaceholder": "Notatka (np. powód zaakceptowania ryzyka)",
         "exportCsv": "Eksportuj CSV",
         "status": {
@@ -2771,6 +2779,40 @@
         "confirm": "Scalić {{count}} wpis(y) z wpisem „{{name}}”? Tego nie da się cofnąć.",
         "merged": "Scalono wpisów: {{count}}."
     },
+    "vulnsla": {
+        "title": "SLA podatności i wyjątki",
+        "subtitle": "Jak szybko naprawiane są podatności, co jest po terminie i które ryzyka zaakceptowano świadomie (do kiedy i przez kogo). Dowód dla audytu: NIS2 art. 21(2)(e), ISO 27001 A.8.8.",
+        "tile": {
+            "open": "Otwarte",
+            "overdue": "Po terminie",
+            "due7": "Termin w 7 dni",
+            "met": "W terminie SLA",
+            "mttr": "Średni czas naprawy",
+            "exceptions": "Wyjątki"
+        },
+        "last90": "naprawione w 90 dni: {{n}}",
+        "days": "dni",
+        "expiring": "{{n}} wygasa w 30 dni",
+        "col": {
+            "severity": "Waga",
+            "sla": "SLA (dni)",
+            "open": "Otwarte",
+            "overdue": "Po terminie",
+            "due7": "Do 7 dni",
+            "fixed90": "Naprawione (90 d)",
+            "met": "W terminie",
+            "mttr": "Średnio (dni)"
+        },
+        "note": "SLA liczy się od pierwszego wykrycia. Podatność, której skan już nie znajduje, jest oznaczana jako naprawiona z czasem naprawy; wróci jako otwarta, jeśli pojawi się ponownie. Terminy SLA może zmieniać administrator.",
+        "overdueTitle": "Po terminie (najstarsze)",
+        "noOverdue": "Nic nie jest po terminie.",
+        "daysOverdue": "{{n}} dni po terminie",
+        "exceptionsTitle": "Zaakceptowane ryzyka (wyjątki)",
+        "exceptionsNote": "Wyjątek ma powód, osobę zatwierdzającą i datę ważności (domyślnie 90 dni, najwyżej rok). Po tej dacie podatność znów jest otwarta i liczy się do SLA.",
+        "noReason": "brak uzasadnienia",
+        "approvedBy": "zatwierdził: {{who}}",
+        "daysLeft": "{{n}} dni do końca"
+    },
     "traffic": {
         "title": "Analizator ruchu",
         "subtitle": "Kto z kim rozmawia przez router, teraz: przepływy z RouterOS Torch dla wybranego interfejsu, odświeżane co kilka sekund. Nic nie jest zmieniane na routerze, a komputer agenta niczego nie przechwytuje.",
@@ -3320,6 +3362,9 @@
             "disk_used_pct": "Dysk zajęty",
             "disk_total_bytes": "Rozmiar dysku"
         },
+        "owner": "Właściciel (osoba lub zespół)",
+        "criticality": "Krytyczność dla biznesu",
+        "crit": {"low": "niska", "medium": "średnia", "high": "wysoka", "critical": "krytyczna"},
         "filterKeyword": "Filtruj po słowie",
         "version": "Wersja",
         "noSoftware": "Brak listy oprogramowania. Pochodzi ze skanu poświadczonego urządzenia.",

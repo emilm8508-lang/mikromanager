@@ -170,12 +170,17 @@ class AssetEdit(BaseModel):
     location_override: Optional[str] = None
     place: Optional[str] = None
     notes: Optional[str] = None
+    owner: Optional[str] = None
+    criticality: Optional[str] = None            # low | medium | high | critical
     manual_groups: Optional[List[str]] = None
 
 
 @router.put("/{asset_id}")
 async def update(asset_id: int, body: AssetEdit):
-    r = assets.update_asset(asset_id, body.model_dump(exclude_unset=True))
+    try:
+        r = assets.update_asset(asset_id, body.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if r is None:
         raise HTTPException(404, "asset not found")
     return r

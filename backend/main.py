@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, config_history, ai_assistant, escalation, host_logs, metrics, ups_monitor, coverage, soar, tls_scan
+from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, config_history, ai_assistant, escalation, host_logs, metrics, ups_monitor, coverage, soar, tls_scan, vuln_sla
 
 
 @asynccontextmanager
@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
     escalation.load_settings()
     soar.load_settings()
     tls_scan.load_settings()
+    vuln_sla.load_settings()
     host_logs.load_settings()
     host_logs.start()
     metrics.start()

@@ -54,10 +54,14 @@ export function RemediationPanel({ finding, assetLinks }: { finding: VulnFinding
   const { role } = useAuth()
   const qc = useQueryClient()
   const [note, setNote] = useState(finding.note ?? '')
+  const [exception, setException] = useState(false)               // accepting a risk asks for a reason and the date the exception ends
+  const [until, setUntil] = useState(() => new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10))
+  const [err, setErr] = useState<string | null>(null)
   const setRemediation = useMutation({
-    mutationFn: (data: { status: VulnRemediationStatus; note?: string }) =>
-      vulnApi.setRemediation({ product: finding.product, version: finding.version, cve_id: finding.cve_id, status: data.status, note: data.note }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vuln-findings'] }),
+    mutationFn: (data: { status: VulnRemediationStatus; note?: string; valid_until?: string }) =>
+      vulnApi.setRemediation({ product: finding.product, version: finding.version, cve_id: finding.cve_id, status: data.status, note: data.note, valid_until: data.valid_until }),
+    onSuccess: () => { setErr(null); setException(false); void qc.invalidateQueries({ queryKey: ['vuln-findings'] }); void qc.invalidateQueries({ queryKey: ['vuln-sla'] }) },
+    onError: (e: unknown) => setErr((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? (e as Error)?.message ?? ''),
   })
   return (
     <div className="space-y-2 text-sm">
@@ -83,13 +87,24 @@ export function RemediationPanel({ finding, assetLinks }: { finding: VulnFinding
       )}
       {role === 'admin' && (
         <div className="flex items-center gap-2 pt-1">
-          <select value={finding.status} onChange={e => setRemediation.mutate({ status: e.target.value as VulnRemediationStatus, note })} className="text-xs border border-slate-300 rounded px-1.5 py-1">
+          <select value={exception ? 'accepted_risk' : finding.status} onChange={e => { if (e.target.value === 'accepted_risk') setException(true); else { setException(false); setRemediation.mutate({ status: e.target.value as VulnRemediationStatus, note }) } }} className="text-xs border border-slate-300 rounded px-1.5 py-1">
             {STATUSES.map(s => <option key={s} value={s}>{t(`vuln.status.${s}`)}</option>)}
           </select>
           <input value={note} onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (finding.note ?? '')) setRemediation.mutate({ status: finding.status, note }) }}
-            placeholder={t('vuln.notePlaceholder') as string} className="flex-1 text-xs border border-slate-300 rounded px-2 py-1" />
+            placeholder={(exception ? t('vuln.exception.reason') : t('vuln.notePlaceholder')) as string} className="flex-1 text-xs border border-slate-300 rounded px-2 py-1" />
         </div>
       )}
+      {role === 'admin' && exception && (
+        <div className="flex flex-wrap items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded p-2">
+          <span className="text-amber-900">{t('vuln.exception.validUntil')}</span>
+          <input type="date" value={until} onChange={e => setUntil(e.target.value)} className="border border-slate-300 rounded px-1.5 py-1 bg-white" />
+          <button className="px-2.5 py-1 rounded bg-indigo-600 text-white disabled:opacity-40" disabled={!note.trim() || setRemediation.isPending} onClick={() => setRemediation.mutate({ status: 'accepted_risk', note, valid_until: `${until}T23:59:59` })}>{t('vuln.exception.save')}</button>
+          <button className="text-slate-500 hover:underline" onClick={() => setException(false)}>{t('common.cancel')}</button>
+          <span className="text-amber-900/70 basis-full">{t('vuln.exception.hint')}</span>
+        </div>
+      )}
+      {finding.status === 'accepted_risk' && finding.valid_until && <p className="text-xs text-amber-800">{t('vuln.exception.until', { date: new Date(finding.valid_until).toLocaleDateString(), who: finding.approved_by ?? finding.updated_by ?? '?' })}</p>}
+      {err && <p className="text-xs text-red-600">{err}</p>}
     </div>
   )
 }

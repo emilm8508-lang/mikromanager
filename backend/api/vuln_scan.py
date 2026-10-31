@@ -334,6 +334,8 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
             "note": r.note if r else None,
             "updated_by": r.updated_by if r else None,
             "updated_at": r.updated_at.isoformat() if r and r.updated_at else None,
+            "valid_until": r.valid_until.isoformat() if r and r.valid_until else None,
+            "approved_by": r.approved_by if r else None,
             "first_seen_at": r.first_seen_at.isoformat() if r and r.first_seen_at else None,
             "due_date": due.isoformat() if due else None,
             "overdue": bool(due and now > due and status in ("open", "in_progress")),
@@ -359,6 +361,7 @@ class RemediationIn(BaseModel):
     cve_id: str
     status: str
     note: Optional[str] = None
+    valid_until: Optional[str] = None        # accepted_risk: the date (ISO) the exception ends; 90 days when omitted
 
 
 @router.put("/remediation")
@@ -375,12 +378,43 @@ async def set_remediation(data: RemediationIn, session: dict = Depends(require_l
     handler, updated_by="Centrala") — single source of truth for this
     write, this route just supplies the local session's username."""
     try:
+        until = None
+        if data.valid_until:
+            try:
+                until = datetime.fromisoformat(data.valid_until.replace("Z", "")[:19])
+            except ValueError:
+                raise HTTPException(400, "valid_until must be an ISO date")
         return vuln_scan.set_remediation_status(
             data.product, data.version, data.cve_id, data.status, data.note,
-            updated_by=session.get("username"),
+            updated_by=session.get("username"), valid_until=until,
         )
-    except ValueError:
-        raise HTTPException(400, f"invalid status — must be one of {sorted(vuln_scan.VALID_REMEDIATION_STATUSES)}")
+    except ValueError as e:
+        if data.status not in vuln_scan.VALID_REMEDIATION_STATUSES:
+            raise HTTPException(400, f"invalid status — must be one of {sorted(vuln_scan.VALID_REMEDIATION_STATUSES)}")
+        raise HTTPException(400, str(e))
+
+
+class SlaSettingsIn(BaseModel):
+    critical: Optional[int] = None
+    high: Optional[int] = None
+    medium: Optional[int] = None
+    low: Optional[int] = None
+
+
+@router.get("/sla")
+def sla_report():
+    """How fast findings are fixed (SLA met, mean time to fix, overdue), and the accepted risks with the days they have left."""
+    from services import vuln_sla
+    return vuln_sla.report()
+
+
+@router.put("/sla/settings")
+def sla_settings(body: SlaSettingsIn, session: dict = Depends(require_login)):
+    from services import vuln_sla
+    try:
+        return vuln_sla.update_settings({k: v for k, v in body.model_dump().items() if v is not None})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 def _csv_safe(value) -> str:

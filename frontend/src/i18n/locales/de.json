@@ -39,6 +39,7 @@
                 "hostcard": "Host-Karte",
                 "bmc": "BMC",
                 "assetmerge": "Geräte zusammenführen",
+                "vulnsla": "Schwachstellen-SLA",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -778,6 +779,13 @@
         "overdue": "Über SLA-Frist",
         "dueDate": "SLA-Frist",
         "lastUpdatedBy": "Zuletzt geändert von {{username}}",
+        "exception": {
+            "reason": "Grund für die Risikoakzeptanz (erforderlich)",
+            "validUntil": "Ausnahme gültig bis:",
+            "save": "Ausnahme speichern",
+            "hint": "Nach diesem Datum ist die Schwachstelle wieder offen. Genehmiger ist der angemeldete Benutzer.",
+            "until": "Ausnahme bis {{date}} (genehmigt von: {{who}})"
+        },
         "notePlaceholder": "Notiz (z. B. Grund für die Risikoakzeptanz)",
         "exportCsv": "CSV exportieren",
         "status": {
@@ -2607,6 +2615,40 @@
         "confirm": "{{count}} Eintrag/Einträge mit „{{name}}“ zusammenführen? Das lässt sich nicht rückgängig machen.",
         "merged": "Zusammengeführte Einträge: {{count}}."
     },
+    "vulnsla": {
+        "title": "Schwachstellen-SLA und Ausnahmen",
+        "subtitle": "Wie schnell Schwachstellen behoben werden, was überfällig ist und welche Risiken bewusst akzeptiert wurden (bis wann und von wem). Nachweis für ein Audit: NIS2 Art. 21(2)(e), ISO 27001 A.8.8.",
+        "tile": {
+            "open": "Offen",
+            "overdue": "Überfällig",
+            "due7": "Fällig in 7 Tagen",
+            "met": "Innerhalb des SLA",
+            "mttr": "Mittlere Behebungszeit",
+            "exceptions": "Ausnahmen"
+        },
+        "last90": "in 90 Tagen behoben: {{n}}",
+        "days": "Tage",
+        "expiring": "{{n}} laufen in 30 Tagen ab",
+        "col": {
+            "severity": "Schwere",
+            "sla": "SLA (Tage)",
+            "open": "Offen",
+            "overdue": "Überfällig",
+            "due7": "Fällig in 7 T.",
+            "fixed90": "Behoben (90 T.)",
+            "met": "Im SLA",
+            "mttr": "Mittel (Tage)"
+        },
+        "note": "Das SLA zählt ab der ersten Erkennung. Eine Schwachstelle, die der Scan nicht mehr findet, wird mit ihrer Behebungszeit als behoben markiert; sie wird wieder offen, wenn sie erneut auftaucht. Die SLA-Tage kann ein Administrator ändern.",
+        "overdueTitle": "Überfällig (älteste)",
+        "noOverdue": "Nichts ist überfällig.",
+        "daysOverdue": "{{n}} Tage überfällig",
+        "exceptionsTitle": "Akzeptierte Risiken (Ausnahmen)",
+        "exceptionsNote": "Eine Ausnahme hat eine Begründung, einen Genehmiger und ein Gültigkeitsdatum (standardmäßig 90 Tage, höchstens ein Jahr). Danach ist die Schwachstelle wieder offen und zählt zum SLA.",
+        "noReason": "keine Begründung",
+        "approvedBy": "genehmigt von: {{who}}",
+        "daysLeft": "noch {{n}} Tage"
+    },
     "traffic": {
         "title": "Verkehrsanalyse",
         "subtitle": "Wer mit wem über einen Router spricht, jetzt: die Flows, die RouterOS Torch für die gewählte Schnittstelle meldet, alle paar Sekunden aktualisiert. Am Router wird nichts geändert, der Agent-Rechner schneidet nichts mit.",
@@ -3156,6 +3198,9 @@
             "disk_used_pct": "Datenträger belegt",
             "disk_total_bytes": "Datenträgergröße"
         },
+        "owner": "Eigentümer (Person oder Team)",
+        "criticality": "Geschäftskritikalität",
+        "crit": {"low": "niedrig", "medium": "mittel", "high": "hoch", "critical": "kritisch"},
         "filterKeyword": "Nach Stichwort filtern",
         "version": "Version",
         "noSoftware": "Keine Softwareliste. Sie stammt aus einem Scan des Geräts mit Zugangsdaten.",

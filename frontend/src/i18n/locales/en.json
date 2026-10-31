@@ -39,6 +39,7 @@
                 "hostcard": "Host card",
                 "bmc": "BMC",
                 "assetmerge": "Merging assets",
+                "vulnsla": "Vulnerability SLA",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -778,6 +779,13 @@
         "overdue": "Past SLA due date",
         "dueDate": "SLA due date",
         "lastUpdatedBy": "Last changed by {{username}}",
+        "exception": {
+            "reason": "Reason for accepting the risk (required)",
+            "validUntil": "Exception valid until:",
+            "save": "Save exception",
+            "hint": "After this date the vulnerability is open again. The approver is the logged-in user.",
+            "until": "Exception until {{date}} (approved by: {{who}})"
+        },
         "notePlaceholder": "Note (e.g. reason for accepting the risk)",
         "exportCsv": "Export CSV",
         "status": {
@@ -2607,6 +2615,40 @@
         "confirm": "Merge {{count}} entr(y/ies) into \"{{name}}\"? This cannot be undone.",
         "merged": "Entries merged: {{count}}."
     },
+    "vulnsla": {
+        "title": "Vulnerability SLA and exceptions",
+        "subtitle": "How fast vulnerabilities are fixed, what is overdue and which risks were accepted on purpose (until when and by whom). Evidence for an audit: NIS2 art. 21(2)(e), ISO 27001 A.8.8.",
+        "tile": {
+            "open": "Open",
+            "overdue": "Overdue",
+            "due7": "Due within 7 days",
+            "met": "Within the SLA",
+            "mttr": "Mean time to fix",
+            "exceptions": "Exceptions"
+        },
+        "last90": "fixed in 90 days: {{n}}",
+        "days": "days",
+        "expiring": "{{n}} expire within 30 days",
+        "col": {
+            "severity": "Severity",
+            "sla": "SLA (days)",
+            "open": "Open",
+            "overdue": "Overdue",
+            "due7": "Due in 7 d",
+            "fixed90": "Fixed (90 d)",
+            "met": "Within SLA",
+            "mttr": "Mean (days)"
+        },
+        "note": "The SLA counts from the first detection. A vulnerability the scan no longer finds is marked fixed with its time to fix; it comes back as open if it appears again. The SLA days can be changed by an administrator.",
+        "overdueTitle": "Overdue (oldest)",
+        "noOverdue": "Nothing is overdue.",
+        "daysOverdue": "{{n}} days overdue",
+        "exceptionsTitle": "Accepted risks (exceptions)",
+        "exceptionsNote": "An exception has a reason, an approver and a validity date (90 days by default, one year at most). After that date the vulnerability is open again and counts towards the SLA.",
+        "noReason": "no justification",
+        "approvedBy": "approved by: {{who}}",
+        "daysLeft": "{{n}} days left"
+    },
     "traffic": {
         "title": "Traffic analyzer",
         "subtitle": "Who talks to whom through a router, right now: the flows RouterOS Torch reports for the chosen interface, refreshed every few seconds. Nothing is changed on the router and the agent computer captures nothing.",
@@ -3156,6 +3198,9 @@
             "disk_used_pct": "Disk used",
             "disk_total_bytes": "Disk size"
         },
+        "owner": "Owner (person or team)",
+        "criticality": "Business criticality",
+        "crit": {"low": "low", "medium": "medium", "high": "high", "critical": "critical"},
         "filterKeyword": "Filter by keyword",
         "version": "Version",
         "noSoftware": "No software list. It comes from a credentialed scan of the device.",
