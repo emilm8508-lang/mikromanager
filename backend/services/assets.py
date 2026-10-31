@@ -371,7 +371,7 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
         by_ref = {}
         for a in existing:                                    # the managed object behind an asset outlives its address
             for k, v in _jload(a.refs, {}).items():
-                if k in ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id") and isinstance(v, int):
+                if k in ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id", "dell_server_id") and isinstance(v, int):
                     by_ref.setdefault((k, v), a)
         used = set()
         for r in recs.values():
@@ -441,7 +441,9 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
         db.commit()
     if gone:
         print(f"[assets] removed {gone} asset(s) that nothing lists any more")
-    return {"created": created, "updated": updated, "total": len(recs), "baseline": baseline, "pruned": gone}
+    from services import asset_merge
+    joined = asset_merge.auto_merge(set(recs.keys()))           # the same machine under two entries (a changed address, two sources): joined when it is certain
+    return {"created": created, "updated": updated, "total": len(recs), "baseline": baseline, "pruned": gone, "joined": joined}
 
 
 _state = {"last_refresh": None, "running": False}

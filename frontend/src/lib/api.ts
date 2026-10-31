@@ -1199,6 +1199,10 @@ export interface AssetFinding {
   note: string | null
 }
 
+export interface AssetDuplicateGroup {
+  ids: number[]; reasons: Array<'ref' | 'mac' | 'name'>; auto: boolean; keep: number
+  assets: Array<{ id: number; name: string; ip: string | null; mac: string | null; type: string; last_seen_at: string | null; alive: boolean; managed: string[]; has_notes: boolean }>
+}
 export const assetsApi = {
   summary: () => api.get<AssetSummary>('/assets/summary').then(r => r.data),
   list: () => api.get<{ assets: AssetRow[] }>('/assets').then(r => r.data.assets),
@@ -1218,6 +1222,8 @@ export const assetsApi = {
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
   tool: (id: number, tool: 'ping' | 'traceroute' | 'portscan', ports?: string) => api.post<{ job: string }>(`/assets/${id}/tools`, { tool, ports }).then(r => r.data),
   toolOutput: (job: string, since = 0) => api.get<{ kind: string; ip: string; lines: string[]; next: number; done: boolean }>(`/assets/tools/${job}`, { params: { since } }).then(r => r.data),
+  duplicates: () => api.get<{ groups: AssetDuplicateGroup[] }>('/assets/duplicates').then(r => r.data.groups),
+  merge: (keepId: number, dropIds: number[]) => api.post<{ merged: number }>('/assets/merge', { keep_id: keepId, drop_ids: dropIds }).then(r => r.data),
   bulkDelete: (ids: number[]) => api.post<{ deleted: number; managed: number }>('/assets/bulk', { ids, action: 'delete' }).then(r => r.data),
   bulkType: (ids: number[], asset_type: string) => api.post<{ changed: number }>('/assets/bulk', { ids, action: 'type', asset_type }).then(r => r.data),
 }

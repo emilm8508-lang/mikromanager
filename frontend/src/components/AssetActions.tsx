@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { assetsApi, devicesApi, fleetActionsApi, hypervApi, linuxApi, windowsApi, type AssetDetail as Detail, type AssetRow, type HypervActionKind } from '../lib/api'
 import { Button } from './ui/Button'
 import { Pill, TYPE_ORDER } from './AssetBits'
-import { ExternalLink, Play, Power, PowerOff, RefreshCw, RotateCcw, Download, Camera, ShieldCheck, Loader2, Trash2 } from 'lucide-react'
+import { ExternalLink, Play, Power, PowerOff, RefreshCw, RotateCcw, Download, Camera, ShieldCheck, Loader2, Trash2, Merge } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // "Akcje" tab of the asset card: the actions the agent already has for this kind of device (check / install updates and restart for
@@ -272,6 +272,14 @@ export function AssetBulkBar({ rows, onClear, total, onSelectAll }: { rows: Asse
       window.alert((t('assets.bulk.deleted', { count: r.deleted }) as string) + (r.managed ? ' ' + (t('assets.bulk.deletedManaged', { count: r.managed }) as string) : ''))
     } catch (e) { fail(e) } finally { setBusy(null) }
   }
+  // join the selected entries into the one seen most recently (they are the same machine under two entries)
+  const mergeSelected = async () => {
+    const best = [...rows].sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''))[0]
+    if (!confirm(t('assetmerge.confirm', { name: best.name, count: rows.length - 1 }) as string)) return
+    setBusy('merge'); setMsg(null)
+    try { const r = await assetsApi.merge(best.id, rows.filter(x => x.id !== best.id).map(x => x.id)); refreshAssets(); onClear(); window.alert(t('assetmerge.merged', { count: r.merged }) as string) }
+    catch (e) { fail(e) } finally { setBusy(null) }
+  }
   const actionable = p.linux.length + p.windows.length + p.routers.length
 
   return (
@@ -298,6 +306,7 @@ export function AssetBulkBar({ rows, onClear, total, onSelectAll }: { rows: Asse
           </select>
         </label>
         <Btn busy={busy} k="type" disabled={!newType} icon={<RefreshCw size={13} />} onClick={changeType}>{t('assets.bulk.apply')}</Btn>
+        <Btn busy={busy} k="merge" disabled={rows.length < 2} icon={<Merge size={13} />} onClick={mergeSelected}>{t('assetmerge.mergeSelected')}</Btn>
         <Btn busy={busy} k="delete" danger icon={<Trash2 size={13} />} onClick={remove}>{t('assets.bulk.delete')}</Btn>
         {onSelectAll && total != null && total > rows.length && <button className="text-xs text-indigo-700 hover:underline" onClick={onSelectAll}>{t('assets.bulk.selectAll', { count: total })}</button>}
       </div>

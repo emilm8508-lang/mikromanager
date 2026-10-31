@@ -38,6 +38,7 @@
                 "onboarding": "Podłączanie urządzeń",
                 "hostcard": "Karta hosta",
                 "bmc": "BMC",
+                "assetmerge": "Scalanie zasobów",
                 "netmap": "Mapa całej sieci",
                 "traffic": "Analizator ruchu",
                 "theme": {
@@ -2750,6 +2751,25 @@
             "Warning": "Ostrzeżenie",
             "Critical": "Krytyczny"
         }
+    },
+    "assetmerge": {
+        "title": "Możliwe duplikaty zasobów: {{count}}",
+        "intro": "To samo urządzenie pod dwoma wpisami (np. po zmianie adresu IP). Wybierz wpis, który zostaje, i scal: brakujące dane, etykiety i notatki zostają przejęte, a alerty, historia dostępności, metryki, syslog i szafy rack wskazują na wpis wynikowy. Wpisy martwe od kilku dni z żywym wpisem o tej samej nazwie lub tym samym obiekcie zarządzanym agent scala sam przy przebudowie inwentarza.",
+        "reason": {
+            "ref": "ten sam obiekt zarządzany (serwer, router, host)",
+            "mac": "ten sam adres MAC",
+            "name": "ta sama nazwa"
+        },
+        "auto": "agent scali to sam",
+        "alive": "działa",
+        "silent": "milczy od",
+        "managed": "zarządzany",
+        "hasNotes": "ma notatki lub etykiety",
+        "remove": "Usuń wpis",
+        "merge": "Scal w wybrany",
+        "mergeSelected": "Scal zaznaczone",
+        "confirm": "Scalić {{count}} wpis(y) z wpisem „{{name}}”? Tego nie da się cofnąć.",
+        "merged": "Scalono wpisów: {{count}}."
     },
     "traffic": {
         "title": "Analizator ruchu",

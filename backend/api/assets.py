@@ -107,6 +107,28 @@ async def tool_output(job: str, since: int = 0):
     return r
 
 
+@router.get("/duplicates")
+async def duplicates():
+    """The entries that look like one machine (same managed object, MAC address or name): [{ids, reasons, auto, keep, assets}]. `auto` ones are joined by the next inventory rebuild."""
+    from services import asset_merge
+    return {"groups": asset_merge.duplicates()}
+
+
+class MergeIn(BaseModel):
+    keep_id: int
+    drop_ids: List[int]
+
+
+@router.post("/merge")
+async def merge(body: MergeIn):
+    """Joins the entries `drop_ids` into `keep_id`: facts, tags and notes are combined and everything that pointed at a dropped entry (alerts, availability, metrics, syslog, racks ...) points at the survivor."""
+    from services import asset_merge
+    try:
+        return asset_merge.merge(body.keep_id, body.drop_ids)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get("/{asset_id}")
 async def get_asset(asset_id: int):
     a = await assets.get_asset(asset_id)

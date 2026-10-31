@@ -38,6 +38,7 @@
                 "onboarding": "Conectar dispositivos",
                 "hostcard": "Ficha del host",
                 "bmc": "BMC",
+                "assetmerge": "Unir activos",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2586,6 +2587,25 @@
             "Warning": "Advertencia",
             "Critical": "Crítico"
         }
+    },
+    "assetmerge": {
+        "title": "Posibles activos duplicados: {{count}}",
+        "intro": "El mismo dispositivo con dos entradas (p. ej. tras cambiar su dirección IP). Elija la entrada que se queda y únalas: los datos que faltan, las etiquetas y las notas se conservan, y las alertas, el historial de disponibilidad, las métricas, el syslog y los racks apuntan al resultado. Las entradas inactivas desde hace días junto a una activa con el mismo nombre o el mismo objeto gestionado las une el propio agente al reconstruir el inventario.",
+        "reason": {
+            "ref": "el mismo objeto gestionado (servidor, router, host)",
+            "mac": "la misma dirección MAC",
+            "name": "el mismo nombre"
+        },
+        "auto": "el agente la unirá solo",
+        "alive": "activo",
+        "silent": "inactivo desde",
+        "managed": "gestionado",
+        "hasNotes": "tiene notas o etiquetas",
+        "remove": "Eliminar entrada",
+        "merge": "Unir en la elegida",
+        "mergeSelected": "Unir seleccionadas",
+        "confirm": "¿Unir {{count}} entrada(s) con «{{name}}»? No se puede deshacer.",
+        "merged": "Entradas unidas: {{count}}."
     },
     "traffic": {
         "title": "Analizador de tráfico",

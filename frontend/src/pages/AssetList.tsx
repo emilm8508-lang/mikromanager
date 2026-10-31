@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { assetsApi, type AssetRow, type AssetType } from '../lib/api'
 import { TypeIcon, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, AttachCell, attachText, ago } from '../components/AssetBits'
 import { AssetBulkBar } from '../components/AssetActions'
+import { AssetDuplicates } from '../components/AssetDuplicates'
 import { Button } from '../components/ui/Button'
 import { Boxes, Download, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -145,6 +146,8 @@ export function AssetList() {
         </select>
         <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={inactive} onChange={e => { setInactive(e.target.checked); setPage(0) }} />{t('assets.showInactive')}</label>
       </div>
+
+      <AssetDuplicates />
 
       {selectedRows.length > 0 && <AssetBulkBar rows={selectedRows} onClear={() => setPicked(new Set())} total={rows.length} onSelectAll={() => setPicked(new Set(rows.map(r => r.id)))} />}
 

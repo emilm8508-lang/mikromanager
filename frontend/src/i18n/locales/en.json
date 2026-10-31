@@ -38,6 +38,7 @@
                 "onboarding": "Connecting devices",
                 "hostcard": "Host card",
                 "bmc": "BMC",
+                "assetmerge": "Merging assets",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2586,6 +2587,25 @@
             "Warning": "Warning",
             "Critical": "Critical"
         }
+    },
+    "assetmerge": {
+        "title": "Possible duplicate assets: {{count}}",
+        "intro": "The same device under two entries (e.g. after its IP address changed). Choose the entry that stays and merge: the missing facts, tags and notes are taken over, and alerts, availability history, metrics, syslog and racks point at the result. Entries that have been silent for days next to a live entry with the same name or the same managed object are joined by the agent itself when the inventory is rebuilt.",
+        "reason": {
+            "ref": "the same managed object (server, router, host)",
+            "mac": "the same MAC address",
+            "name": "the same name"
+        },
+        "auto": "the agent will join it itself",
+        "alive": "alive",
+        "silent": "silent since",
+        "managed": "managed",
+        "hasNotes": "has notes or tags",
+        "remove": "Delete entry",
+        "merge": "Merge into the chosen one",
+        "mergeSelected": "Merge selected",
+        "confirm": "Merge {{count}} entr(y/ies) into \"{{name}}\"? This cannot be undone.",
+        "merged": "Entries merged: {{count}}."
     },
     "traffic": {
         "title": "Traffic analyzer",

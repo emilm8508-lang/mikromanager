@@ -38,6 +38,7 @@
                 "onboarding": "Geräte anbinden",
                 "hostcard": "Host-Karte",
                 "bmc": "BMC",
+                "assetmerge": "Geräte zusammenführen",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2586,6 +2587,25 @@
             "Warning": "Warnung",
             "Critical": "Kritisch"
         }
+    },
+    "assetmerge": {
+        "title": "Mögliche doppelte Geräte: {{count}}",
+        "intro": "Dasselbe Gerät unter zwei Einträgen (z. B. nach einer IP-Änderung). Den Eintrag wählen, der bleibt, und zusammenführen: fehlende Angaben, Markierungen und Notizen werden übernommen, Alarme, Verfügbarkeitsverlauf, Metriken, Syslog und Racks zeigen auf das Ergebnis. Seit Tagen stille Einträge neben einem aktiven Eintrag mit gleichem Namen oder gleichem verwaltetem Objekt führt der Agent beim Neuaufbau des Inventars selbst zusammen.",
+        "reason": {
+            "ref": "dasselbe verwaltete Objekt (Server, Router, Host)",
+            "mac": "dieselbe MAC-Adresse",
+            "name": "derselbe Name"
+        },
+        "auto": "der Agent führt es selbst zusammen",
+        "alive": "aktiv",
+        "silent": "still seit",
+        "managed": "verwaltet",
+        "hasNotes": "hat Notizen oder Markierungen",
+        "remove": "Eintrag löschen",
+        "merge": "In den gewählten zusammenführen",
+        "mergeSelected": "Ausgewählte zusammenführen",
+        "confirm": "{{count}} Eintrag/Einträge mit „{{name}}“ zusammenführen? Das lässt sich nicht rückgängig machen.",
+        "merged": "Zusammengeführte Einträge: {{count}}."
     },
     "traffic": {
         "title": "Verkehrsanalyse",

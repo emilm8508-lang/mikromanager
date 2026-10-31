@@ -38,6 +38,7 @@
                 "onboarding": "Connexion des équipements",
                 "hostcard": "Fiche de l'hôte",
                 "bmc": "BMC",
+                "assetmerge": "Fusion des équipements",
                 "netmap": "Carte de tout le réseau",
                 "traffic": "Analyseur de trafic",
                 "theme": {
@@ -2586,6 +2587,25 @@
             "Warning": "Avertissement",
             "Critical": "Critique"
         }
+    },
+    "assetmerge": {
+        "title": "Doublons possibles : {{count}}",
+        "intro": "Le même équipement sous deux entrées (p. ex. après un changement d'adresse IP). Choisissez l'entrée qui reste et fusionnez : les informations manquantes, étiquettes et notes sont reprises, et les alertes, l'historique de disponibilité, les métriques, le syslog et les baies pointent vers le résultat. Les entrées muettes depuis des jours à côté d'une entrée active de même nom ou de même objet géré sont fusionnées par l'agent lui-même lors de la reconstruction de l'inventaire.",
+        "reason": {
+            "ref": "le même objet géré (serveur, routeur, hôte)",
+            "mac": "la même adresse MAC",
+            "name": "le même nom"
+        },
+        "auto": "l'agent la fusionnera seul",
+        "alive": "actif",
+        "silent": "muet depuis",
+        "managed": "géré",
+        "hasNotes": "a des notes ou étiquettes",
+        "remove": "Supprimer l'entrée",
+        "merge": "Fusionner dans celle choisie",
+        "mergeSelected": "Fusionner la sélection",
+        "confirm": "Fusionner {{count}} entrée(s) dans « {{name}} » ? C'est irréversible.",
+        "merged": "Entrées fusionnées : {{count}}."
     },
     "traffic": {
         "title": "Analyseur de trafic",
