@@ -26,6 +26,7 @@ import { NetTools } from './pages/NetTools'
 import { Onboarding } from './pages/Onboarding'
 import { HostCard } from './pages/HostCard'
 import { VulnSla } from './pages/VulnSla'
+import { Evidence } from './pages/Evidence'
 import { CentralServicesPage, CentralAvailabilityPage, CentralConfigsPage, CentralSyslogPage } from './pages/CentralNetwork'
 import { OnSite } from './pages/OnSite'
 import { CentralSoc } from './pages/CentralSoc'
@@ -119,6 +120,7 @@ export default function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/host/:ref" element={<HostCard />} />
             <Route path="/vulnerabilities/sla" element={<VulnSla />} />
+            <Route path="/compliance/evidence" element={<Evidence />} />
             <Route path="/central/services" element={<CentralServicesPage />} />
             <Route path="/central/availability" element={<CentralAvailabilityPage />} />
             <Route path="/central/configs" element={<CentralConfigsPage />} />

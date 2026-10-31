@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -296,6 +296,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
     { key: 'compliance', label: t('nav.groupCompliance') as string, icon: ShieldCheck, items: [
       item('/vulnerabilities', t('nav.vulnerabilities') as string, ShieldAlert),
       item('/vulnerabilities/sla', t('nav.vulnsla') as string, Timer),
+      item('/compliance/evidence', t('nav.evidence') as string, FileCheck2),
       item('/compliance', t('nav.compliance') as string, ListChecks),
       // Read-only accounts can't act on any admin-action trail meaningfully (the endpoints are admin-only too — this
       // just avoids a dead link + surprise 403 in the nav).

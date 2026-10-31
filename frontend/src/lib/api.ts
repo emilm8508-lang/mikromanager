@@ -1473,6 +1473,12 @@ export const hostCardApi = { get: (ref: string) => api.get<HostCard>(`/hostcard/
 export const cardApi = {
   resolve: (ip?: string | null, name?: string | null) => api.get<{ asset_id: number | null }>('/card/resolve', { params: { ip: ip || undefined, name: name || undefined } }).then(r => r.data.asset_id),
 }
+// NIS2 / ISO 27001 requirements mapped onto what the application measures (services/compliance_map.py)
+export type EvidenceStatus = 'ok' | 'warn' | 'gap' | 'manual' | 'external' | 'na'
+export interface EvidenceCheck { key: string; status: EvidenceStatus; params: Record<string, number | string | boolean | null>; link: string | null; error?: string }
+export interface EvidenceReq { id: string; nis2: string; iso: string[]; status: EvidenceStatus; automated: number; checks: EvidenceCheck[] }
+export interface EvidenceReport { at: string; requirements: EvidenceReq[]; summary: Record<'ok' | 'warn' | 'gap' | 'manual' | 'na', number>; bars: { ok: number; warn: number; backup_days: number; config_check_hours: number; key_rotation_days: number; log_retention_days: number } }
+export const evidenceApi = { get: () => api.get<EvidenceReport>('/evidence').then(r => r.data) }
 // How fast vulnerabilities are fixed and the accepted risks (services/vuln_sla.py)
 export interface VulnSlaRow { severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; sla_days: number; open: number; overdue: number; due_7d: number; resolved_90d: number; met: number; met_pct: number | null; mttr_days: number | null }
 export interface VulnSlaReport {
