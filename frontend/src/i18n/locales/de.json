@@ -37,6 +37,7 @@
                 "playbook": "Maßnahmenplan",
                 "onboarding": "Geräte anbinden",
                 "hostcard": "Host-Karte",
+                "bmc": "BMC",
                 "netmap": "Gesamtnetz-Karte",
                 "traffic": "Verkehrsanalyse",
                 "theme": {
@@ -2551,6 +2552,39 @@
             "response": "Reaktion",
             "first_seen": "erstmals gesehen",
             "scan": "Scan"
+        }
+    },
+    "bmc": {
+        "title": "Server-BMC (iDRAC / iLO)",
+        "model": "Modell",
+        "tag": "Service-Tag",
+        "bios": "BIOS",
+        "power": "Stromversorgung",
+        "access": "Zugriff",
+        "health": "Zustand",
+        "lastCheck": "Letzte Prüfung",
+        "sel": "Hardware-Ereignisprotokoll (SEL)",
+        "openBmc": "BMC-Karte",
+        "noSel": "Keine Einträge.",
+        "checkError": "die letzte Prüfung ist fehlgeschlagen",
+        "reason": {
+            "critical": "Serverhardware kritisch (BMC)",
+            "warning": "Serverhardware mit Warnung (BMC)",
+            "unreachable": "das BMC antwortet nicht"
+        },
+        "tl": "Hardware-Ereignis",
+        "comp": {
+            "system": "System",
+            "cpu": "Prozessoren",
+            "memory": "Speicher",
+            "power": "Netzteile",
+            "fans_temperature": "Lüfter und Temperatur",
+            "storage": "Speicher (Laufwerke)"
+        },
+        "value": {
+            "OK": "OK",
+            "Warning": "Warnung",
+            "Critical": "Kritisch"
         }
     },
     "traffic": {

@@ -50,7 +50,7 @@ export function HostCard() {
   const ci = c.ci
   const av = c.status.availability
   const health = c.status.health
-  const reason = (code: string) => code.startsWith('alert:') ? t(`soc.rule.${code.slice(6)}`, { defaultValue: code.slice(6) }) : t(`hostcard.reason.${code}`, { defaultValue: code })
+  const reason = (code: string) => code.startsWith('alert:') ? t(`soc.rule.${code.slice(6)}`, { defaultValue: code.slice(6) }) : code.startsWith('bmc_') ? t(`bmc.reason.${code.slice(4)}`) : t(`hostcard.reason.${code}`, { defaultValue: code })
   const vc = c.vulnerabilities?.counts
   const tlsBad = c.tls.filter(x => x.findings.length > 0).length
   const upd = c.updates
@@ -183,6 +183,23 @@ export function HostCard() {
           </Section>
         )}
 
+        {c.bmc && c.bmc.map(b => (
+          <Section key={b.id} title={`${t('bmc.title')}${b.name ? ` — ${b.name}` : ''}`} wide={b.sel.length > 0}>
+            <Kv rows={[
+              [t('bmc.model') as string, [b.vendor ? b.vendor.toUpperCase() : null, b.model].filter(Boolean).join(' ')], [t('bmc.tag') as string, b.service_tag], [t('bmc.bios') as string, b.bios],
+              [t('bmc.power') as string, b.power], [t('bmc.access') as string, b.access],
+              [t('bmc.lastCheck') as string, b.last_check ? `${ago(b.last_check)}${b.status === 'error' ? ' · ' + t('bmc.checkError') : ''}` : null],
+              ['BMC', b.bmc_ref ? <HostLink ip={b.bmc_ref}>{b.idrac_ip}</HostLink> : b.idrac_ip]]} />
+            {b.status === 'error' && b.error && <p className="text-xs text-amber-800 mt-1 break-words">{b.error}</p>}
+            <div className="flex flex-wrap gap-1.5 mt-3 text-xs">
+              <span className={cn('border rounded-full px-2 py-0.5 font-medium', b.health === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : b.health === 'Warning' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-green-50 text-green-700 border-green-200')}>{t('bmc.health')}: {b.health ? t(`bmc.value.${b.health}`) : '—'}</span>
+              {Object.entries(b.components).map(([k, v]) => <span key={k} className={cn('border rounded px-1.5 py-0.5', v === 'Critical' ? 'border-red-200 text-red-700 bg-red-50' : v === 'Warning' ? 'border-amber-200 text-amber-800 bg-amber-50' : 'border-slate-200 text-slate-600')}>{t(`bmc.comp.${k}`, { defaultValue: k })}{v && v !== 'OK' ? `: ${t(`bmc.value.${v}`)}` : ''}</span>)}
+            </div>
+            {b.sel.length > 0 && <div className="mt-3"><div className="text-xs font-semibold text-slate-500 mb-1">{t('bmc.sel')}</div><ul className="text-xs space-y-0.5">{b.sel.map((e, i) => <li key={i} className={cn('truncate', e.severity === 'Critical' && 'text-red-700')}><span className="text-slate-400">{ago(e.at)}</span> {e.message}</li>)}</ul></div>}
+            <p className="text-xs mt-2"><Link to="/dell-servers" className="text-indigo-600 hover:underline">{t('nav.dellServers')}</Link></p>
+          </Section>
+        ))}
+
         {c.resources && (
           <Section title={t('hostcard.sec.resources') as string}>
             {c.resources.now && <p className="text-xs text-slate-700 mb-2">{[['CPU', c.resources.now.cpu], ['RAM', c.resources.now.mem], ['Disk', c.resources.now.disk]].filter(([, v]) => v != null).map(([k, v]) => `${k} ${v}%`).join(' · ')}{c.resources.now.temp != null ? ` · ${c.resources.now.temp}°C` : ''} <span className="text-slate-400">{ago(c.resources.now.at)}</span></p>}
@@ -232,7 +249,7 @@ export function HostCard() {
           {c.timeline.length === 0 ? <p className="text-slate-400">—</p> : (
             <ul className="divide-y divide-slate-100 text-xs max-h-96 overflow-y-auto -my-1">
               {c.timeline.map((e, i) => (
-                <li key={i} className="py-1 flex gap-3 items-start"><span className="w-36 shrink-0 text-slate-400" title={new Date(e.at).toLocaleString()}>{ago(e.at)}</span><span className="w-28 shrink-0 text-slate-500">{t(`hostcard.tl.${e.kind}`, { defaultValue: e.kind })}</span>
+                <li key={i} className="py-1 flex gap-3 items-start"><span className="w-36 shrink-0 text-slate-400" title={new Date(e.at).toLocaleString()}>{ago(e.at)}</span><span className="w-28 shrink-0 text-slate-500">{e.kind === 'bmc' ? t('bmc.tl') : t(`hostcard.tl.${e.kind}`, { defaultValue: e.kind })}</span>
                   <span className={cn('min-w-0 break-words', e.severity === 'high' || e.severity === 'critical' ? 'text-red-700' : 'text-slate-800')}>{e.kind.startsWith('alert') ? t(`soc.rule.${e.text}`, { defaultValue: e.text }) : e.text}</span></li>
               ))}
             </ul>

@@ -1448,6 +1448,9 @@ export interface HostCard {
                    hosted_on: { name?: string } | null; hosts: Array<{ name: string; state: string | null }>; peripherals: Array<{ kind: string; name: string | null }> }
   response: Array<{ id: number; kind: string; status: string; reason: string; at: string | null; until: string | null }>
   access: { device_id: number; vendor: string | null; credential: string | null; online: boolean; mgmt_ok: boolean | null; last_seen: string | null; ports: { api: boolean; ssh: boolean; web: boolean; snmp: boolean } } | null
+  bmc: Array<{ id: number; name: string | null; vendor: string | null; idrac_ip: string | null; bmc_ref: string | null; model: string | null; service_tag: string | null; bios: string | null; power: string | null
+               health: 'OK' | 'Warning' | 'Critical' | null; access: string | null; last_check: string | null; status: 'ok' | 'error' | null; error: string | null; components: Record<string, 'OK' | 'Warning' | 'Critical' | null>
+               sel: Array<{ severity: string | null; message: string; at: string | null }> }> | null
   software_count: number | null
   last_boot: { boot: { at: string; source: 'hardware_scan' | 'snmp' | 'routeros' | 'hyperv'; as_of: string; uptime_sec: number | null; approx: boolean; age_sec: number | null } | null; restarts: Array<{ at: string; count: number }> } | null
   timeline: Array<{ at: string; kind: string; severity: string; text: string; ref: number | null }>

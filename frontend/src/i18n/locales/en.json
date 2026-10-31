@@ -37,6 +37,7 @@
                 "playbook": "Remediation plan",
                 "onboarding": "Connecting devices",
                 "hostcard": "Host card",
+                "bmc": "BMC",
                 "netmap": "Whole-network map",
                 "traffic": "Traffic analyzer",
                 "theme": {
@@ -2551,6 +2552,39 @@
             "response": "response",
             "first_seen": "first seen",
             "scan": "scan"
+        }
+    },
+    "bmc": {
+        "title": "Server BMC (iDRAC / iLO)",
+        "model": "Model",
+        "tag": "Service tag",
+        "bios": "BIOS",
+        "power": "Power",
+        "access": "Access",
+        "health": "Health",
+        "lastCheck": "Last check",
+        "sel": "Hardware event log (SEL)",
+        "openBmc": "BMC card",
+        "noSel": "No entries.",
+        "checkError": "the last check failed",
+        "reason": {
+            "critical": "server hardware is critical (BMC)",
+            "warning": "server hardware has a warning (BMC)",
+            "unreachable": "the BMC does not answer"
+        },
+        "tl": "hardware event",
+        "comp": {
+            "system": "System",
+            "cpu": "Processors",
+            "memory": "Memory",
+            "power": "Power supplies",
+            "fans_temperature": "Fans and temperature",
+            "storage": "Storage"
+        },
+        "value": {
+            "OK": "OK",
+            "Warning": "Warning",
+            "Critical": "Critical"
         }
     },
     "traffic": {

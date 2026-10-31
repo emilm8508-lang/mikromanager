@@ -22,7 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 from sqlalchemy import select, func
 
 from models.database import (SessionLocal, Asset, Device, WindowsHost, LinuxHost, DellServer, HypervHost, HypervVM, VulnHost, VulnService, SocAlert, AvailState, AvailEvent,
-                             BizService, ConfigCheck, ConfigSnapshot, SyslogEvent, TlsCheck, SoarAction, MaintenanceWindow, Credential, AssetPeripheral, MetricSeries, UpsTarget)
+                             BizService, ConfigCheck, ConfigSnapshot, SyslogEvent, TlsCheck, SoarAction, MaintenanceWindow, Credential, AssetPeripheral, MetricSeries, UpsTarget, DellServerSelEntry)
 
 TIMELINE_MAX = 60
 OPEN = ("new", "ack", "in_progress")
@@ -66,6 +66,7 @@ class _Ctx:
         self.vuln_id = refs.get("vuln_host_id")
         self.dell_id = refs.get("dell_server_id")
         self.vm_id = refs.get("hyperv_vm_id")
+        self.bmc_ids: List[int] = []          # BMC (iDRAC / iLO ...) servers tied to this host: its own, or the one of the Windows host / address it is
         self.errors: List[str] = []
 
 
@@ -291,6 +292,31 @@ def _relationships(ctx: _Ctx, net: Optional[dict]) -> dict:
     return out
 
 
+def _bmc(ctx: _Ctx) -> Optional[List[dict]]:
+    """The BMC (iDRAC / iLO / ...) of this host: the server record that is this asset (its address is the BMC's), or the one tied to the Windows host that is this asset."""
+    with SessionLocal() as db:
+        servers: List[DellServer] = []
+        if ctx.dell_id:
+            s = db.get(DellServer, ctx.dell_id)
+            if s is not None:
+                servers.append(s)
+        if ctx.win_id:
+            servers += list(db.execute(select(DellServer).where(DellServer.windows_host_id == ctx.win_id)).scalars().all())
+        if ctx.ip and not servers:
+            servers += list(db.execute(select(DellServer).where(DellServer.idrac_ip == ctx.ip)).scalars().all())
+        servers = list({s.id: s for s in servers}.values())
+        ctx.bmc_ids = [s.id for s in servers]
+        out = []
+        for s in servers:
+            sel = db.execute(select(DellServerSelEntry).where(DellServerSelEntry.server_id == s.id).order_by(DellServerSelEntry.id.desc()).limit(6)).scalars().all()
+            bmc_asset = db.execute(select(Asset).where(Asset.ip == s.idrac_ip).limit(1)).scalars().first() if s.idrac_ip else None
+            out.append({"id": s.id, "name": s.name, "vendor": s.vendor, "idrac_ip": s.idrac_ip, "bmc_ref": (s.idrac_ip if bmc_asset is not None and bmc_asset.id != ctx.id else None), "model": s.model,
+                        "service_tag": s.service_tag, "bios": s.bios_version, "power": s.power_state, "health": s.health_rollup, "access": s.access_method, "last_check": _iso(s.last_check_at),
+                        "status": s.last_status, "error": s.last_error, "components": _j(s.components_json, {}),
+                        "sel": [{"severity": e.severity, "message": (e.message or "")[:160], "at": _iso(e.logged_at or e.seen_at)} for e in sel]})
+        return out or None
+
+
 def _response(ctx: _Ctx) -> List[dict]:
     if not ctx.ip:
         return []
@@ -319,8 +345,8 @@ def _sources(ctx: _Ctx) -> List[dict]:
         out.append({"kind": "windows", "id": ctx.win_id, "path": "/windows"})
     if ctx.lin_id:
         out.append({"kind": "linux", "id": ctx.lin_id, "path": "/linux"})
-    if ctx.dell_id:
-        out.append({"kind": "dell", "id": ctx.dell_id, "path": "/dell"})
+    if ctx.dell_id or ctx.bmc_ids:
+        out.append({"kind": "dell", "id": ctx.dell_id or (ctx.bmc_ids[0] if ctx.bmc_ids else None), "path": "/dell-servers"})
     if ctx.vm_id:
         out.append({"kind": "hyperv", "id": ctx.vm_id, "path": "/hyperv"})
     if ctx.vuln_id:
@@ -350,6 +376,9 @@ def _timeline(ctx: _Ctx) -> List[dict]:
                 ev.append({"at": _iso(s.at), "kind": "syslog", "severity": s.severity or "info", "text": (s.message or "")[:160], "ref": s.id})
             for a in db.execute(select(SoarAction).where(SoarAction.target == ctx.ip).order_by(SoarAction.id.desc()).limit(10)).scalars().all():
                 ev.append({"at": _iso(a.executed_at or a.proposed_at), "kind": "response", "severity": "info", "text": f"{a.kind}: {a.status}", "ref": a.id})
+        for sid in ctx.bmc_ids:
+            for e in db.execute(select(DellServerSelEntry).where(DellServerSelEntry.server_id == sid).order_by(DellServerSelEntry.id.desc()).limit(8)).scalars().all():
+                ev.append({"at": _iso(e.logged_at or e.seen_at), "kind": "bmc", "severity": "high" if (e.severity or "").lower() == "critical" else "info", "text": (e.message or "")[:160], "ref": e.id})
         a = db.get(Asset, ctx.id)
         if a is not None:
             ev.append({"at": _iso(a.first_seen_at), "kind": "first_seen", "severity": "info", "text": "", "ref": None})
@@ -360,7 +389,7 @@ def _timeline(ctx: _Ctx) -> List[dict]:
     return ev[:TIMELINE_MAX]
 
 
-def _health(ctx: _Ctx, avail, alerts, vulns, tls, updates, ci) -> dict:
+def _health(ctx: _Ctx, avail, alerts, vulns, tls, updates, ci, bmc=None) -> dict:
     """A verdict (ok / warn / crit) and the reasons it follows from, as codes the page turns into text."""
     crit: List[str] = []
     warn: List[str] = []
@@ -390,6 +419,14 @@ def _health(ctx: _Ctx, avail, alerts, vulns, tls, updates, ci) -> dict:
             warn.append("reboot_required")
         if u and (u.get("upgradable") or 0) > 0:
             warn.append("updates_pending")
+    for b in bmc or []:
+        h = (b.get("health") or "").lower()
+        if h == "critical":
+            crit.append("bmc_critical")
+        elif h == "warning":
+            warn.append("bmc_warning")
+        if b.get("status") == "error":
+            warn.append("bmc_unreachable")
     lc = (ci.get("lifecycle") or {}).get("status")
     if lc == "eol":
         warn.append("os_eol")
@@ -424,12 +461,13 @@ async def build(ref: str) -> Optional[dict]:
     tls = _section(ctx, "tls", lambda: _tls(ctx), [])
     updates = _section(ctx, "updates", lambda: _updates(ctx))
     net = _section(ctx, "network", lambda: _network(ctx))
+    bmc = _section(ctx, "bmc", lambda: _bmc(ctx))
     maint = _section(ctx, "maintenance", lambda: _maintenance(ctx), [])
     card = {
         "ref": ctx.ip or f"a{ctx.id}", "asset_id": ctx.id, "name": ctx.name, "ip": ctx.ip, "ci": ci,
-        "status": {"availability": avail, "maintenance": maint, "health": _health(ctx, avail, alerts, vulns, tls, updates, ci)},
+        "status": {"availability": avail, "maintenance": maint, "health": _health(ctx, avail, alerts, vulns, tls, updates, ci, bmc)},
         "sources": _section(ctx, "sources", lambda: _sources(ctx), []), "alerts": alerts, "vulnerabilities": vulns, "tls": tls,
-        "services": _section(ctx, "services", lambda: _services(ctx), []), "updates": updates, "resources": _section(ctx, "resources", lambda: _resources(ctx)),
+        "services": _section(ctx, "services", lambda: _services(ctx), []), "updates": updates, "bmc": bmc, "resources": _section(ctx, "resources", lambda: _resources(ctx)),
         "config": _section(ctx, "config", lambda: _config(ctx)), "syslog": _section(ctx, "syslog", lambda: _syslog(ctx)), "network": net,
         "relationships": _section(ctx, "relationships", lambda: _relationships(ctx, net), {}), "response": _section(ctx, "response", lambda: _response(ctx), []),
         "access": _section(ctx, "access", lambda: _access(ctx)), "last_boot": _section(ctx, "last_boot", lambda: _last_boot(ctx)), "hardware": asset.get("hardware"), "software_count": asset.get("software_count"),

@@ -37,6 +37,7 @@
                 "playbook": "Plan de corrección",
                 "onboarding": "Conectar dispositivos",
                 "hostcard": "Ficha del host",
+                "bmc": "BMC",
                 "netmap": "Mapa de toda la red",
                 "traffic": "Analizador de tráfico",
                 "theme": {
@@ -2551,6 +2552,39 @@
             "response": "respuesta",
             "first_seen": "visto por primera vez",
             "scan": "análisis"
+        }
+    },
+    "bmc": {
+        "title": "BMC del servidor (iDRAC / iLO)",
+        "model": "Modelo",
+        "tag": "Etiqueta de servicio",
+        "bios": "BIOS",
+        "power": "Alimentación",
+        "access": "Acceso",
+        "health": "Salud",
+        "lastCheck": "Última comprobación",
+        "sel": "Registro de eventos de hardware (SEL)",
+        "openBmc": "Ficha del BMC",
+        "noSel": "Sin entradas.",
+        "checkError": "la última comprobación falló",
+        "reason": {
+            "critical": "hardware del servidor en estado crítico (BMC)",
+            "warning": "hardware del servidor con advertencia (BMC)",
+            "unreachable": "el BMC no responde"
+        },
+        "tl": "evento de hardware",
+        "comp": {
+            "system": "Sistema",
+            "cpu": "Procesadores",
+            "memory": "Memoria",
+            "power": "Fuentes de alimentación",
+            "fans_temperature": "Ventiladores y temperatura",
+            "storage": "Almacenamiento"
+        },
+        "value": {
+            "OK": "OK",
+            "Warning": "Advertencia",
+            "Critical": "Crítico"
         }
     },
     "traffic": {
