@@ -2368,6 +2368,26 @@
             "noteCisco": "El nivel de privilegio 15 es necesario para leer la configuración completa por SSH. Para monitorizar basta una community SNMP de solo lectura (ro) y no hace falta cuenta.",
             "noteCheck": "Los comandos no se han probado en un dispositivo real de cada versión: tras pegarlos, use «Probar» en esta página."
         },
+        "syslog": {
+            "title": "Syslog de los dispositivos al agente",
+            "intro": "El propio dispositivo envía su registro al receptor syslog del agente: inicios de sesión fallidos, cambios de configuración, reinicios, cambios de enlace. Funciona también donde el agente no puede consultar el dispositivo (un cortafuegos, otro segmento) y no necesita cuenta.",
+            "target": {
+                "ros": "RouterOS",
+                "cisco": "Cisco SB",
+                "swos": "SwOS Lite",
+                "firewall": "Cortafuegos de Windows (agente)"
+            },
+            "listening": "El receptor escucha (UDP {{port}})",
+            "notListening": "Activado pero no escucha (revise el error y si el puerto está ocupado)",
+            "off": "El receptor está apagado",
+            "enable": "Activar el receptor",
+            "received": "eventos guardados en 24 h: {{n}}",
+            "unknown": "Algo ya envía syslog pero no es un dispositivo conocido, así que los mensajes solo se cuentan: {{ips}}. Añádalo al inventario o a la lista de dispositivos.",
+            "noteKnown": "El receptor solo acepta mensajes de dispositivos que el agente conoce (inventario o lista de dispositivos); los demás solo se cuentan, así que el puerto no sirve para escribir en la cola de alertas. Cada fuente tiene un límite de velocidad.",
+            "noteRos": "Las reglas envían errores, advertencias, inicios de sesión, cambios de configuración y de enlace. No envíe los temas «firewall» ni «debug»: inundan el receptor.",
+            "noteCisco": "La sintaxis depende de la serie y del firmware del conmutador (SB antiguos: «logging host ...»); si da error, revise «logging ?» en el dispositivo.",
+            "noteCheck": "Plantillas, no probadas en un dispositivo real de cada versión: tras pegarlas, provoque un evento (p. ej. un inicio de sesión fallido) y compruebe en la página Syslog que llegó."
+        },
         "advice": {
             "no_credential": "El dispositivo no tiene credencial asignada. Use «Asignar credenciales» o asígnela a mano en la página del dispositivo.",
             "login_refused": "Se rechazó el usuario o la contraseña. Revise la cuenta (mejor una dedicada de solo lectura) y la contraseña; tras cambiar una contraseña en el router, actualice la credencial en la aplicación.",

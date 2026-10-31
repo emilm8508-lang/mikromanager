@@ -2368,6 +2368,26 @@
             "noteCisco": "Privilege level 15 is needed to read the full configuration over SSH. For monitoring alone a read-only SNMP community (ro) is enough and no account is needed.",
             "noteCheck": "The commands have not been tried on a real device of every version: after pasting, use \"Test\" on this page."
         },
+        "syslog": {
+            "title": "Syslog from the devices to the agent",
+            "intro": "The device itself sends its log to the agent's syslog receiver: failed logins, configuration changes, restarts, link changes. It also works where the agent cannot query the device (a firewall, another segment) and needs no account.",
+            "target": {
+                "ros": "RouterOS",
+                "cisco": "Cisco SB",
+                "swos": "SwOS Lite",
+                "firewall": "Windows firewall (agent)"
+            },
+            "listening": "The receiver is listening (UDP {{port}})",
+            "notListening": "Switched on but not listening (check the error and whether the port is taken)",
+            "off": "The receiver is off",
+            "enable": "Turn the receiver on",
+            "received": "events stored in 24 h: {{n}}",
+            "unknown": "Something is already sending syslog but it is not a known device, so the messages are only counted: {{ips}}. Add it to the inventory or the device list.",
+            "noteKnown": "The receiver only accepts messages from devices the agent knows (the inventory or the device list); others are only counted, so the port is no way to write into the alert queue. Every source has a rate limit.",
+            "noteRos": "The rules send errors, warnings, logins, configuration changes and link changes. Do not send the \"firewall\" or \"debug\" topics: they flood the receiver.",
+            "noteCisco": "The syntax depends on the switch series and firmware (older SB: \"logging host ...\"); on an error check \"logging ?\" on the device.",
+            "noteCheck": "Templates, not tried on a real device of every version: after pasting, cause an event (e.g. a failed login) and check on the Syslog page that it arrived."
+        },
         "advice": {
             "no_credential": "The device has no credential assigned. Use \"Fit credentials\", or assign one by hand on the device page.",
             "login_refused": "The login or password was refused. Check the account (best a dedicated read-only one) and the password; after changing a password on the router, update the credential in the application.",

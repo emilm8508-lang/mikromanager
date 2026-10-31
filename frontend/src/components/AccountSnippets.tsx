@@ -32,7 +32,7 @@ export function snippet(target: Target, profile: Profile, agentIp: string, pass:
       '',
       `# services the agent uses, reachable from the agent only`,
       `/ip service set api disabled=no address=${ip}/32`,
-      ...(v7 ? [`/ip service set www disabled=no address=${ip}/32      # REST`] : []),
+      ...(v7 ? [`# REST is served by the www service`, `/ip service set www disabled=no address=${ip}/32`] : []),
       `/ip service set ssh disabled=no address=${ip}/32`,
     ].join('\n')
   }

@@ -2532,6 +2532,26 @@
             "noteCisco": "Poziom uprawnień 15 jest potrzebny do odczytu pełnej konfiguracji przez SSH. Do samego monitoringu wystarczy odczyt SNMP (community ro) i nie trzeba konta.",
             "noteCheck": "Polecenia nie były sprawdzone na prawdziwym urządzeniu każdej wersji: po wklejeniu użyj „Testuj” na tej stronie."
         },
+        "syslog": {
+            "title": "Syslog z urządzeń do agenta",
+            "intro": "Urządzenie samo wysyła swój dziennik do odbiornika syslog agenta: nieudane logowania, zmiany konfiguracji, restarty, zmiany łączy. Działa także tam, gdzie agent nie może odpytywać urządzenia (zapora, inny segment) i nie wymaga żadnego konta.",
+            "target": {
+                "ros": "RouterOS",
+                "cisco": "Cisco SB",
+                "swos": "SwOS Lite",
+                "firewall": "Zapora Windows (agent)"
+            },
+            "listening": "Odbiornik nasłuchuje (UDP {{port}})",
+            "notListening": "Włączony, ale nie nasłuchuje (sprawdź błąd i zajęty port)",
+            "off": "Odbiornik jest wyłączony",
+            "enable": "Włącz odbiornik",
+            "received": "zapisanych zdarzeń w 24 h: {{n}}",
+            "unknown": "Ktoś już wysyła syslog, ale to nie są znane urządzenia, więc wiadomości są tylko liczone: {{ips}}. Dodaj je do inwentarza lub urządzeń.",
+            "noteKnown": "Odbiornik przyjmuje tylko wiadomości od urządzeń znanych agentowi (inwentarz lub lista urządzeń); inne są tylko liczone, więc port nie służy do wpisywania alertów do kolejki. Każde źródło ma limit szybkości.",
+            "noteRos": "Reguły wysyłają błędy, ostrzeżenia, logowania, zmiany konfiguracji i łącza. Nie wysyłaj tematu „firewall” ani „debug”: zalewają odbiornik.",
+            "noteCisco": "Składnia zależy od serii i firmware przełącznika (u starszych SB: „logging host … ”); w razie błędu sprawdź „logging ?” na urządzeniu.",
+            "noteCheck": "Szablony, nie sprawdzone na prawdziwym urządzeniu każdej wersji: po wklejeniu wywołaj zdarzenie (np. nieudane logowanie) i sprawdź na stronie Syslog, czy dotarło."
+        },
         "advice": {
             "no_credential": "Urządzenie nie ma przypisanego poświadczenia. Użyj „Dopasuj poświadczenia” albo przypisz je ręcznie na stronie urządzenia.",
             "login_refused": "Login lub hasło zostały odrzucone. Sprawdź konto (najlepiej dedykowane, tylko do odczytu) i hasło; po zmianie hasła na routerze zaktualizuj poświadczenie w aplikacji.",

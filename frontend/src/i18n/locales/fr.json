@@ -2368,6 +2368,26 @@
             "noteCisco": "Le niveau de privilège 15 est nécessaire pour lire la configuration complète par SSH. Pour la seule supervision, une community SNMP en lecture seule (ro) suffit et aucun compte n'est nécessaire.",
             "noteCheck": "Les commandes n'ont pas été essayées sur un équipement réel de chaque version : après le collage, utilisez « Tester » sur cette page."
         },
+        "syslog": {
+            "title": "Syslog des équipements vers l'agent",
+            "intro": "L'équipement envoie lui-même son journal au récepteur syslog de l'agent : connexions échouées, changements de configuration, redémarrages, changements de liaison. Cela marche aussi là où l'agent ne peut pas interroger l'équipement (pare-feu, autre segment) et ne demande aucun compte.",
+            "target": {
+                "ros": "RouterOS",
+                "cisco": "Cisco SB",
+                "swos": "SwOS Lite",
+                "firewall": "Pare-feu Windows (agent)"
+            },
+            "listening": "Le récepteur écoute (UDP {{port}})",
+            "notListening": "Activé mais n'écoute pas (vérifiez l'erreur et si le port est pris)",
+            "off": "Le récepteur est arrêté",
+            "enable": "Activer le récepteur",
+            "received": "événements enregistrés en 24 h : {{n}}",
+            "unknown": "Quelque chose envoie déjà du syslog mais ce n'est pas un équipement connu, les messages sont seulement comptés : {{ips}}. Ajoutez-le à l'inventaire ou à la liste des équipements.",
+            "noteKnown": "Le récepteur n'accepte que les messages des équipements connus de l'agent (inventaire ou liste des équipements) ; les autres sont seulement comptés, le port ne permet donc pas d'écrire dans la file d'alertes. Chaque source a une limite de débit.",
+            "noteRos": "Les règles envoient erreurs, avertissements, connexions, changements de configuration et de liaison. N'envoyez pas les thèmes « firewall » et « debug » : ils inondent le récepteur.",
+            "noteCisco": "La syntaxe dépend de la série et du firmware du commutateur (anciens SB : « logging host ... ») ; en cas d'erreur, vérifiez « logging ? » sur l'équipement.",
+            "noteCheck": "Modèles, non essayés sur un équipement réel de chaque version : après le collage, provoquez un événement (p. ex. une connexion échouée) et vérifiez sur la page Syslog qu'il est arrivé."
+        },
         "advice": {
             "no_credential": "L'équipement n'a pas d'identifiant attribué. Utilisez « Attribuer les identifiants » ou attribuez-en un à la main sur la page de l'équipement.",
             "login_refused": "L'identifiant ou le mot de passe a été refusé. Vérifiez le compte (idéalement un compte dédié en lecture seule) et le mot de passe ; après un changement de mot de passe sur le routeur, mettez à jour l'identifiant dans l'application.",

@@ -2368,6 +2368,26 @@
             "noteCisco": "Berechtigungsstufe 15 ist nötig, um die vollständige Konfiguration über SSH zu lesen. Für reine Überwachung genügt eine SNMP-Read-only-Community (ro), ein Konto ist nicht nötig.",
             "noteCheck": "Die Befehle wurden nicht auf einem echten Gerät jeder Version erprobt: nach dem Einfügen „Testen“ auf dieser Seite nutzen."
         },
+        "syslog": {
+            "title": "Syslog von den Geräten zum Agenten",
+            "intro": "Das Gerät sendet sein Protokoll selbst an den Syslog-Empfänger des Agenten: fehlgeschlagene Anmeldungen, Konfigurationsänderungen, Neustarts, Link-Wechsel. Es funktioniert auch dort, wo der Agent das Gerät nicht abfragen kann (Firewall, anderes Segment), und braucht kein Konto.",
+            "target": {
+                "ros": "RouterOS",
+                "cisco": "Cisco SB",
+                "swos": "SwOS Lite",
+                "firewall": "Windows-Firewall (Agent)"
+            },
+            "listening": "Der Empfänger lauscht (UDP {{port}})",
+            "notListening": "Eingeschaltet, lauscht aber nicht (Fehler und belegten Port prüfen)",
+            "off": "Der Empfänger ist aus",
+            "enable": "Empfänger einschalten",
+            "received": "gespeicherte Ereignisse in 24 h: {{n}}",
+            "unknown": "Jemand sendet bereits Syslog, aber es sind keine bekannten Geräte, die Nachrichten werden nur gezählt: {{ips}}. Zum Inventar oder zur Geräteliste hinzufügen.",
+            "noteKnown": "Der Empfänger nimmt nur Nachrichten von Geräten an, die der Agent kennt (Inventar oder Geräteliste); andere werden nur gezählt, der Port ist also kein Weg, in die Alarmwarteschlange zu schreiben. Jede Quelle hat ein Ratenlimit.",
+            "noteRos": "Die Regeln senden Fehler, Warnungen, Anmeldungen, Konfigurations- und Link-Änderungen. Die Themen „firewall“ und „debug“ nicht senden: sie überfluten den Empfänger.",
+            "noteCisco": "Die Syntax hängt von Serie und Firmware des Switches ab (ältere SB: „logging host ...“); bei einem Fehler „logging ?“ am Gerät prüfen.",
+            "noteCheck": "Vorlagen, nicht auf einem echten Gerät jeder Version erprobt: nach dem Einfügen ein Ereignis auslösen (z. B. eine fehlgeschlagene Anmeldung) und auf der Syslog-Seite prüfen, ob es ankam."
+        },
         "advice": {
             "no_credential": "Dem Gerät sind keine Zugangsdaten zugeordnet. „Zugangsdaten zuordnen“ nutzen oder auf der Geräteseite von Hand zuordnen.",
             "login_refused": "Benutzername oder Passwort wurden abgelehnt. Konto (am besten ein eigenes Nur-Lesen-Konto) und Passwort prüfen; nach einer Passwortänderung am Router die Zugangsdaten in der Anwendung aktualisieren.",

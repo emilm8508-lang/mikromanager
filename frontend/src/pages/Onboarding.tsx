@@ -6,6 +6,7 @@ import { Cable, Check, X } from 'lucide-react'
 import { onboardingApi, scannerApi, type OnboardingDiagnosis } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { AccountSnippets } from '../components/AccountSnippets'
+import { SyslogSetup } from '../components/SyslogSetup'
 import { cn } from '../lib/utils'
 import { HostLink } from '../components/HostLink'
 
@@ -121,6 +122,7 @@ export function Onboarding() {
         </div>
       )}
       {d && <AccountSnippets key={d.agent_ip ?? 'none'} agentIp={d.agent_ip} />}
+      {d && <SyslogSetup key={`s${d.agent_ip ?? 'none'}`} agentIp={d.agent_ip} />}
     </div>
   )
 }
