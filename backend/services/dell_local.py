@@ -40,9 +40,13 @@ from services import windows_manage
 
 # ── Method 1: iDRAC Service Module (WMI) ───────────────────────────────────
 
+# Namespace confirmed live (root\cimv2\dell does not exist; iSM registers
+# root\cimv2\DCIM). With iDRAC's "WMI Information" option disabled that
+# namespace holds only DCIM_iSMService, so this fails with "Invalid class"
+# and RACADM takes over. The class name itself is still unverified.
 _ISM_SCRIPT = r"""
 try {
-    $cs = Get-CimInstance -Namespace root\cimv2\dell -ClassName DCIM_ComputerSystem -ErrorAction Stop
+    $cs = Get-CimInstance -Namespace root\cimv2\DCIM -ClassName DCIM_ComputerSystem -ErrorAction Stop
     $cs | Select-Object * | ConvertTo-Json -Compress -Depth 4
 } catch {
     "@@ERROR@@" + $_.Exception.Message
@@ -180,13 +184,16 @@ def _check_racadm_sync(ip: str, port: int, username: str, password: str, domain:
 
 
 _SYSINFO_LINE_RE = re.compile(r"^([A-Za-z][\w .()/-]*?)\s*=\s*(.+)$", re.MULTILINE)
-# getsensorinfo's table columns: Type, Name, Status, Reading, Units — names
-# and thresholds can contain spaces, so this only anchors on the trailing
-# status word (a small fixed vocabulary) rather than trying to split all
-# columns positionally.
-_SENSOR_LINE_RE = re.compile(
-    r"^(Fan|Temp|Voltage|Battery|Power Supply|Amperage|Memory|CPU)\S*\s+.+?\s+"
-    r"(Ok|Critical|Warning|Non-Critical|Non-Recoverable|Unknown)\b", re.MULTILINE | re.IGNORECASE,
+# Confirmed live (PowerEdge T150, racadm 10.3): getsensorinfo prints one
+# table per "Sensor Type : TEMPERATURE" / FAN / VOLTAGE / PROCESSOR /
+# MEMORY / ... header, each row "<Sensor Name>  <Status>  <Reading> ...".
+# Names contain single spaces, columns are separated by 2+ spaces, so a
+# row is anchored on the first status word after such a gap. Rows without
+# a status word (INTRUSION, REDUNDANCY, MAX DIMM TEMPERATURE, "N/A" for
+# empty DIMM slots) simply don't match.
+_SENSOR_TYPE_RE = re.compile(r"^\s*Sensor Type\s*:\s*(.+?)\s*$", re.IGNORECASE)
+_SENSOR_ROW_RE = re.compile(
+    r"^\S.*?\s{2,}(Ok|Critical|Warning|Non-Critical|Non-Recoverable|Unknown)\b", re.IGNORECASE,
 )
 
 _RACADM_STATUS_MAP = {
@@ -196,18 +203,31 @@ _RACADM_STATUS_MAP = {
 
 
 def _parse_racadm(sysinfo: str, sensors: str) -> dict:
-    fields = dict(_SYSINFO_LINE_RE.findall(sysinfo))
+    # Strip both sides — WinRM output carries \r\n line endings, and "."
+    # in the regex happily swallows the \r into the value.
+    fields = {k.strip(): v.strip() for k, v in _SYSINFO_LINE_RE.findall(sysinfo)}
+    # Confirmed live (PowerEdge T150, iDRAC 7.30, racadm 10.3): the overall
+    # health line is "RollupStatus = Ok" — the other keys are kept for
+    # older RACADM versions that may name it differently.
     overall = None
-    for key in ("System Health", "Health", "Overall Health"):
+    for key in ("RollupStatus", "System Health", "Health", "Overall Health"):
         if key in fields:
-            overall = fields[key].strip()
+            overall = _RACADM_STATUS_MAP.get(fields[key].lower(), fields[key])
             break
+    power = fields.get("Power Status")
 
     sensor_healths = []
-    for sensor_type, status in _SENSOR_LINE_RE.findall(sensors):
-        mapped = _RACADM_STATUS_MAP.get(status.strip().lower())
-        if mapped:
-            sensor_healths.append((sensor_type.strip().lower(), mapped))
+    sensor_type = ""
+    for line in sensors.splitlines():
+        m = _SENSOR_TYPE_RE.match(line)
+        if m:
+            sensor_type = m.group(1).lower()
+            continue
+        m = _SENSOR_ROW_RE.match(line)
+        if m and sensor_type:
+            mapped = _RACADM_STATUS_MAP.get(m.group(1).lower())
+            if mapped:
+                sensor_healths.append((sensor_type, mapped))
 
     def _worst_for(*prefixes: str) -> Optional[str]:
         # NOT "_worst_for(a) or _worst_for(b)" — "OK" is a non-empty,
@@ -223,9 +243,12 @@ def _parse_racadm(sysinfo: str, sensors: str) -> dict:
         "health_rollup": overall,
         "model": fields.get("System Model") or fields.get("Model"),
         "service_tag": fields.get("Service Tag") or fields.get("System Service Tag"),
-        "bios_version": fields.get("BIOS Version"),
+        "bios_version": fields.get("System BIOS Version") or fields.get("BIOS Version"),
+        "power_state": power.capitalize() if power else None,
         "fans_temperature": _worst_for("fan", "temp"),
-        "power": _worst_for("power", "voltage"),
+        "power": _worst_for("power", "voltage", "battery", "current", "amperage"),
+        "cpu": _worst_for("processor"),
+        "memory": _worst_for("memory"),
     }
 
 
@@ -402,10 +425,10 @@ async def collect_local_health(host_id: int) -> dict:
     if racadm.get("ok") and racadm.get("available"):
         parsed = _parse_racadm(racadm["sysinfo"], racadm["sensors"])
         return {"ok": True, "access_method": "local_racadm", **parsed,
-                "power_state": None, "service_tag": parsed.get("service_tag"),
+                "service_tag": parsed.get("service_tag"),
                 "components": {
                     "system": parsed.get("health_rollup"),
-                    "cpu": None, "memory": None,
+                    "cpu": parsed.get("cpu"), "memory": parsed.get("memory"),
                     "power": parsed.get("power"), "fans_temperature": parsed.get("fans_temperature"),
                     "storage": None,
                 }, "sel_entries": []}

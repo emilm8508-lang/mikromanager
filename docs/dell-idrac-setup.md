@@ -122,6 +122,13 @@ winmgmt /verifyrepository
   najpewniejsza przyczyna to niedokończona/uszkodzona instalacja iSM.
   **Rozwiązanie: odinstaluj iSM całkowicie i zainstaluj od nowa** (świeży
   instalator ze strony Della).
+- Jeśli zamiast tego jest błąd **"Invalid class"**, namespace istnieje, a
+  iSM jest zainstalowane poprawnie. Sprawdź listę klas:
+  `Get-CimClass -Namespace root\cimv2\DCIM | Where-Object CimClassName -like "DCIM_*"`.
+  Jeśli jest tylko `DCIM_iSMService`, w iDRAC wyłączona jest opcja
+  "WMI Information" (`racadm get iDRAC.ServiceModule.WMIInfo`). Reinstalacja
+  iSM tego nie zmieni — agent i tak użyje RACADM, jeśli `racadm getsysinfo`
+  działa lokalnie (sprawdzone na PowerEdge T150).
 - Jeśli to nie pomoże, zostań przy RACADM albo OMSA na tym konkretnym
   serwerze — nie ma potrzeby naprawiać wszystkich trzech metod naraz,
   wystarczy że jedna działa.
