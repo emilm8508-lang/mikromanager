@@ -3879,5 +3879,59 @@
             "SystemHealth": "Sistema",
             "TempStatistics": "Estad. temp."
         }
+    },
+    "dellFleet": {
+        "kicker": "Flota de servidores",
+        "title": "Servidores físicos · {{hosts}} hosts · {{tenants}} clientes",
+        "tab": {
+            "overview": "Resumen de la flota",
+            "inventory": "Inventario de hardware",
+            "servers": "Estado de servidores"
+        },
+        "score": "Puntuación de la flota",
+        "scoreHowShort": "OK 100 · aviso 50 · crít. 0",
+        "scoreHow": "Media de los servidores con lectura: OK = 100, aviso = 50, crítico = 0. Los servidores sin datos no cuentan.",
+        "h": {
+            "OK": "Sanos",
+            "Warning": "Aviso",
+            "Critical": "Críticos",
+            "none": "Sin datos"
+        },
+        "cpu": "Núcleos CPU · hilos",
+        "threadsShort": "hil.",
+        "sockets": "{{n}} CPU en {{hosts}} servidores",
+        "memory": "Memoria",
+        "slotsFree": "{{n}} ranuras DIMM libres",
+        "storage": "Capacidad bruta",
+        "disks": "discos",
+        "drivesBad": "{{n}} discos no OK",
+        "warnings": "Problemas abiertos",
+        "hostsUnit": "servidores no OK",
+        "psuIssues": "Problema de fuente: {{n}}",
+        "biosDrift": "BIOS más antigua que en el mismo modelo: {{n}}",
+        "noData": "Sin datos: {{n}}",
+        "power": "Consumo actual",
+        "powerHosts": "suma de {{n}} servidores",
+        "hottest": "entrada más caliente: {{name}} {{c}} °C",
+        "tenants": "Clientes",
+        "hostsN": "{{n}} serv.",
+        "capacityKicker": "Capacidad por host",
+        "capacityTitle": "RAM, almacenamiento y núcleos por servidor",
+        "ramPerHost": "RAM por host",
+        "storagePerHost": "Almacenamiento por host",
+        "coresPerHost": "Núcleos por host",
+        "coresLegend": "núcleos · hilos en la etiqueta",
+        "search": "Buscar: servidor, modelo, service tag, CPU, BIOS…",
+        "col": {
+            "tenant": "Cliente",
+            "server": "Servidor",
+            "model": "Modelo",
+            "cpu": "CPU",
+            "storage": "Discos",
+            "inlet": "Entrada",
+            "health": "Estado"
+        },
+        "biosBehind": "Ya hay una BIOS más nueva en otro servidor del mismo modelo",
+        "nothing": "Nada coincide con la búsqueda."
     }
 }

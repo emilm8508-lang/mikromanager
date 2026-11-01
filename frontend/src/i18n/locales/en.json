@@ -3879,5 +3879,59 @@
             "SystemHealth": "System",
             "TempStatistics": "Temp. statistics"
         }
+    },
+    "dellFleet": {
+        "kicker": "Server fleet",
+        "title": "Physical servers · {{hosts}} hosts · {{tenants}} clients",
+        "tab": {
+            "overview": "Fleet overview",
+            "inventory": "Hardware inventory",
+            "servers": "Server health"
+        },
+        "score": "Fleet health score",
+        "scoreHowShort": "OK 100 · warn 50 · crit 0",
+        "scoreHow": "Average over the servers with a reading: OK = 100, warning = 50, critical = 0. Servers without data are not counted.",
+        "h": {
+            "OK": "Healthy",
+            "Warning": "Warning",
+            "Critical": "Critical",
+            "none": "No data"
+        },
+        "cpu": "CPU cores · threads",
+        "threadsShort": "thr.",
+        "sockets": "{{n}} CPUs in {{hosts}} servers",
+        "memory": "Memory",
+        "slotsFree": "{{n}} DIMM slots free",
+        "storage": "Raw storage",
+        "disks": "disks",
+        "drivesBad": "{{n}} disks not OK",
+        "warnings": "Open problems",
+        "hostsUnit": "servers not OK",
+        "psuIssues": "Power supply problem: {{n}}",
+        "biosDrift": "BIOS older than on the same model: {{n}}",
+        "noData": "No data: {{n}}",
+        "power": "Power draw now",
+        "powerHosts": "sum of {{n}} servers",
+        "hottest": "hottest inlet: {{name}} {{c}} °C",
+        "tenants": "Clients",
+        "hostsN": "{{n}} srv.",
+        "capacityKicker": "Capacity per host",
+        "capacityTitle": "RAM, storage and cores per server",
+        "ramPerHost": "RAM per host",
+        "storagePerHost": "Storage per host",
+        "coresPerHost": "Cores per host",
+        "coresLegend": "cores · threads in the label",
+        "search": "Search: server, model, service tag, CPU, BIOS…",
+        "col": {
+            "tenant": "Client",
+            "server": "Server",
+            "model": "Model",
+            "cpu": "CPU",
+            "storage": "Storage",
+            "inlet": "Inlet",
+            "health": "Health"
+        },
+        "biosBehind": "A newer BIOS already runs on another server of the same model",
+        "nothing": "Nothing matches the search."
     }
 }

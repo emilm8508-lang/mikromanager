@@ -3879,5 +3879,59 @@
             "SystemHealth": "Система",
             "TempStatistics": "Стат. темп."
         }
+    },
+    "dellFleet": {
+        "kicker": "Парк серверів",
+        "title": "Фізичні сервери · {{hosts}} хостів · {{tenants}} клієнтів",
+        "tab": {
+            "overview": "Огляд парку",
+            "inventory": "Інвентар обладнання",
+            "servers": "Стан серверів"
+        },
+        "score": "Оцінка парку",
+        "scoreHowShort": "OK 100 · попер. 50 · крит. 0",
+        "scoreHow": "Середнє по серверах з даними: OK = 100, попередження = 50, критично = 0. Сервери без даних не враховуються.",
+        "h": {
+            "OK": "Справні",
+            "Warning": "Попередження",
+            "Critical": "Критично",
+            "none": "Немає даних"
+        },
+        "cpu": "Ядра CPU · потоки",
+        "threadsShort": "пот.",
+        "sockets": "{{n}} CPU у {{hosts}} серверах",
+        "memory": "Пам'ять",
+        "slotsFree": "Вільно слотів DIMM: {{n}}",
+        "storage": "Сирий обсяг дисків",
+        "disks": "дисків",
+        "drivesBad": "Дисків не OK: {{n}}",
+        "warnings": "Відкриті проблеми",
+        "hostsUnit": "серверів не OK",
+        "psuIssues": "Проблема з БЖ: {{n}}",
+        "biosDrift": "BIOS старіший, ніж на тій самій моделі: {{n}}",
+        "noData": "Без даних: {{n}}",
+        "power": "Споживання зараз",
+        "powerHosts": "сума з {{n}} серверів",
+        "hottest": "найтепліший вхід: {{name}} {{c}} °C",
+        "tenants": "Клієнти",
+        "hostsN": "{{n}} серв.",
+        "capacityKicker": "Ємність на хост",
+        "capacityTitle": "RAM, диски та ядра кожного сервера",
+        "ramPerHost": "RAM на хост",
+        "storagePerHost": "Диски на хост",
+        "coresPerHost": "Ядра на хост",
+        "coresLegend": "ядра · потоки в підписі",
+        "search": "Пошук: сервер, модель, service tag, CPU, BIOS…",
+        "col": {
+            "tenant": "Клієнт",
+            "server": "Сервер",
+            "model": "Модель",
+            "cpu": "CPU",
+            "storage": "Диски",
+            "inlet": "Вхід",
+            "health": "Стан"
+        },
+        "biosBehind": "Новіший BIOS уже стоїть на іншому сервері тієї самої моделі",
+        "nothing": "Нічого не знайдено."
     }
 }

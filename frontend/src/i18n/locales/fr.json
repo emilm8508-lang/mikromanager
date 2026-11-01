@@ -3879,5 +3879,59 @@
             "SystemHealth": "Système",
             "TempStatistics": "Stat. temp."
         }
+    },
+    "dellFleet": {
+        "kicker": "Parc de serveurs",
+        "title": "Serveurs physiques · {{hosts}} hôtes · {{tenants}} clients",
+        "tab": {
+            "overview": "Vue du parc",
+            "inventory": "Inventaire matériel",
+            "servers": "État des serveurs"
+        },
+        "score": "Score du parc",
+        "scoreHowShort": "OK 100 · alerte 50 · crit. 0",
+        "scoreHow": "Moyenne des serveurs ayant une mesure : OK = 100, alerte = 50, critique = 0. Les serveurs sans données ne comptent pas.",
+        "h": {
+            "OK": "Sains",
+            "Warning": "Alerte",
+            "Critical": "Critiques",
+            "none": "Sans données"
+        },
+        "cpu": "Cœurs CPU · threads",
+        "threadsShort": "thr.",
+        "sockets": "{{n}} CPU dans {{hosts}} serveurs",
+        "memory": "Mémoire",
+        "slotsFree": "{{n}} emplacements DIMM libres",
+        "storage": "Capacité brute",
+        "disks": "disques",
+        "drivesBad": "{{n}} disques non OK",
+        "warnings": "Problèmes ouverts",
+        "hostsUnit": "serveurs non OK",
+        "psuIssues": "Problème d'alimentation : {{n}}",
+        "biosDrift": "BIOS plus ancien que sur le même modèle : {{n}}",
+        "noData": "Sans données : {{n}}",
+        "power": "Consommation actuelle",
+        "powerHosts": "somme de {{n}} serveurs",
+        "hottest": "entrée la plus chaude : {{name}} {{c}} °C",
+        "tenants": "Clients",
+        "hostsN": "{{n}} serv.",
+        "capacityKicker": "Capacité par hôte",
+        "capacityTitle": "RAM, stockage et cœurs par serveur",
+        "ramPerHost": "RAM par hôte",
+        "storagePerHost": "Stockage par hôte",
+        "coresPerHost": "Cœurs par hôte",
+        "coresLegend": "cœurs · threads dans le libellé",
+        "search": "Rechercher : serveur, modèle, numéro de service, CPU, BIOS…",
+        "col": {
+            "tenant": "Client",
+            "server": "Serveur",
+            "model": "Modèle",
+            "cpu": "CPU",
+            "storage": "Stockage",
+            "inlet": "Entrée",
+            "health": "État"
+        },
+        "biosBehind": "Un BIOS plus récent tourne déjà sur un autre serveur du même modèle",
+        "nothing": "Rien ne correspond à la recherche."
     }
 }

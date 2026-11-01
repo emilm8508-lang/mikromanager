@@ -3879,5 +3879,59 @@
             "SystemHealth": "System",
             "TempStatistics": "Temp.-Statistik"
         }
+    },
+    "dellFleet": {
+        "kicker": "Serverflotte",
+        "title": "Physische Server · {{hosts}} Hosts · {{tenants}} Kunden",
+        "tab": {
+            "overview": "Flottenübersicht",
+            "inventory": "Hardware-Inventar",
+            "servers": "Serverzustand"
+        },
+        "score": "Flotten-Score",
+        "scoreHowShort": "OK 100 · Warn. 50 · Krit. 0",
+        "scoreHow": "Mittelwert über die Server mit Messwert: OK = 100, Warnung = 50, kritisch = 0. Server ohne Daten werden nicht gezählt.",
+        "h": {
+            "OK": "Gesund",
+            "Warning": "Warnung",
+            "Critical": "Kritisch",
+            "none": "Keine Daten"
+        },
+        "cpu": "CPU-Kerne · Threads",
+        "threadsShort": "Thr.",
+        "sockets": "{{n}} CPUs in {{hosts}} Servern",
+        "memory": "Arbeitsspeicher",
+        "slotsFree": "{{n}} DIMM-Steckplätze frei",
+        "storage": "Rohkapazität",
+        "disks": "Laufwerke",
+        "drivesBad": "{{n}} Laufwerke nicht OK",
+        "warnings": "Offene Probleme",
+        "hostsUnit": "Server nicht OK",
+        "psuIssues": "Netzteilproblem: {{n}}",
+        "biosDrift": "BIOS älter als auf demselben Modell: {{n}}",
+        "noData": "Ohne Daten: {{n}}",
+        "power": "Leistungsaufnahme jetzt",
+        "powerHosts": "Summe aus {{n}} Servern",
+        "hottest": "wärmster Einlass: {{name}} {{c}} °C",
+        "tenants": "Kunden",
+        "hostsN": "{{n}} Srv.",
+        "capacityKicker": "Kapazität pro Host",
+        "capacityTitle": "RAM, Speicher und Kerne pro Server",
+        "ramPerHost": "RAM pro Host",
+        "storagePerHost": "Speicher pro Host",
+        "coresPerHost": "Kerne pro Host",
+        "coresLegend": "Kerne · Threads in der Beschriftung",
+        "search": "Suche: Server, Modell, Service-Tag, CPU, BIOS…",
+        "col": {
+            "tenant": "Kunde",
+            "server": "Server",
+            "model": "Modell",
+            "cpu": "CPU",
+            "storage": "Speicher",
+            "inlet": "Einlass",
+            "health": "Zustand"
+        },
+        "biosBehind": "Ein neueres BIOS läuft bereits auf einem anderen Server desselben Modells",
+        "nothing": "Nichts passt zur Suche."
     }
 }
