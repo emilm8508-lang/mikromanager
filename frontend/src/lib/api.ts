@@ -2483,6 +2483,7 @@ export interface DellServerOut {
   vendor: DellVendor
   idrac_ip: string | null
   idrac_port: number
+  redfish_host_header: string | null
   windows_host_id: number | null
   credential_id: number | null
   access_method: 'redfish' | 'local_ism' | 'local_racadm' | 'local_omsa' | null
@@ -2512,6 +2513,7 @@ export interface DellServerInput {
   vendor?: DellVendor
   idrac_ip?: string
   idrac_port?: number
+  redfish_host_header?: string
   windows_host_id?: number | null
   credential_id?: number | null
 }

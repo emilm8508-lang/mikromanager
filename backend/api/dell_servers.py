@@ -15,6 +15,7 @@ class ServerIn(BaseModel):
     vendor: str | None = None  # "dell" | "hp" | "fujitsu" | "lenovo" | None (-> "dell")
     idrac_ip: str | None = None
     idrac_port: int = 443
+    redfish_host_header: str | None = None
     windows_host_id: int | None = None
     credential_id: int | None = None
 
@@ -24,6 +25,7 @@ class ServerUpdateIn(BaseModel):
     vendor: str | None = None
     idrac_ip: str | None = None
     idrac_port: int | None = None
+    redfish_host_header: str | None = None  # "" clears it
     windows_host_id: int | None = None
     credential_id: int | None = None
 
@@ -38,6 +40,7 @@ async def add_server(payload: ServerIn):
     return dell_monitor.add_server(
         payload.name, payload.idrac_ip, payload.idrac_port,
         payload.windows_host_id, payload.credential_id, payload.vendor,
+        payload.redfish_host_header,
     )
 
 

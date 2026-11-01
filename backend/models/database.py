@@ -1439,6 +1439,11 @@ class DellServer(Base):
     vendor = Column(String, nullable=True)
     idrac_ip = Column(String, nullable=True, unique=True)
     idrac_port = Column(Integer, nullable=False, default=443)
+    # Host header sent with Redfish requests instead of idrac_ip:idrac_port.
+    # Needed when iDRAC is reached through iSM's "iDRAC access via Host OS"
+    # (host IP, port 1266) and its HostHeaderCheck is on: iDRAC then only
+    # accepts its own USB NIC address (e.g. 169.254.1.1). Confirmed live.
+    redfish_host_header = Column(String, nullable=True)
     windows_host_id = Column(Integer, ForeignKey("windows_hosts.id"), nullable=True)
     # iDRAC has its own local account, separate from the Windows/domain
     # credential used for the WinRM local-fallback path — reuses the same
@@ -1627,6 +1632,8 @@ def _migrate_add_columns():
                 # through Dell-specific discovery/add flows — safe to
                 # backfill them all as "dell" rather than leave NULL.
                 conn.execute(text("UPDATE dell_servers SET vendor = 'dell' WHERE vendor IS NULL"))
+            if "redfish_host_header" not in ds_cols:
+                conn.execute(text("ALTER TABLE dell_servers ADD COLUMN redfish_host_header VARCHAR(255)"))
 
     if "windows_hosts" in inspector.get_table_names():
         wh_cols = {c["name"] for c in inspector.get_columns("windows_hosts")}

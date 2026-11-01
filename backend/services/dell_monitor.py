@@ -75,6 +75,7 @@ async def check_server(server_id: int) -> dict:
         if not server:
             return {"ok": False, "error": "server not found"}
         idrac_ip, idrac_port = server.idrac_ip, server.idrac_port
+        host_header = (server.redfish_host_header or "").strip() or None
         windows_host_id = server.windows_host_id
         credential_id = server.credential_id
         # Legacy rows predate the vendor column and were only ever
@@ -114,7 +115,7 @@ async def check_server(server_id: int) -> dict:
         if username:
             base_url = f"{_REDFISH_SCHEME}://{idrac_ip}:{idrac_port}"
             try:
-                health = await idrac_client.collect_health(base_url, username, password)
+                health = await idrac_client.collect_health(base_url, username, password, host_header)
             except Exception as e:
                 health = {"ok": False, "error": f"{type(e).__name__}: {e}"}
             if health.get("ok"):
@@ -472,6 +473,7 @@ async def discover_servers(on_event=None) -> dict:
 def _server_to_dict(s: DellServer) -> dict:
     return {
         "id": s.id, "name": s.name, "vendor": s.vendor, "idrac_ip": s.idrac_ip, "idrac_port": s.idrac_port,
+        "redfish_host_header": s.redfish_host_header,
         "windows_host_id": s.windows_host_id, "credential_id": s.credential_id,
         "access_method": s.access_method,
         "last_check_at": s.last_check_at.isoformat() if s.last_check_at else None,
@@ -512,14 +514,14 @@ def public_summary() -> list:
 
 def add_server(name: Optional[str], idrac_ip: Optional[str], idrac_port: int,
                windows_host_id: Optional[int], credential_id: Optional[int],
-               vendor: Optional[str] = None) -> dict:
+               vendor: Optional[str] = None, redfish_host_header: Optional[str] = None) -> dict:
     if not idrac_ip and not windows_host_id:
         return {"error": "podaj adres iDRAC albo powiąż z hostem Windows (albo oba)"}
     with SessionLocal() as db:
         server = DellServer(
             name=name or None, idrac_ip=idrac_ip or None, idrac_port=idrac_port or 443,
             windows_host_id=windows_host_id, credential_id=credential_id,
-            vendor=vendor or "dell",
+            vendor=vendor or "dell", redfish_host_header=(redfish_host_header or "").strip() or None,
         )
         db.add(server)
         try:

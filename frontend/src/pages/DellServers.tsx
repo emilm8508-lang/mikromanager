@@ -130,6 +130,7 @@ function ServerForm({ initial, onSave, onCancel }: {
     vendor: (initial?.vendor ?? 'dell') as DellVendor,
     idrac_ip: initial?.idrac_ip ?? '',
     idrac_port: initial?.idrac_port ?? 443,
+    redfish_host_header: initial?.redfish_host_header ?? '',
     windows_host_id: initial?.windows_host_id != null ? String(initial.windows_host_id) : '',
     credential_id: initial?.credential_id != null ? String(initial.credential_id) : '',
   })
@@ -165,6 +166,7 @@ function ServerForm({ initial, onSave, onCancel }: {
       vendor: form.vendor,
       idrac_ip: form.idrac_ip || undefined,
       idrac_port: form.idrac_port,
+      redfish_host_header: form.redfish_host_header.trim(),
       windows_host_id: form.windows_host_id ? parseInt(form.windows_host_id) : null,
       credential_id: form.credential_id ? parseInt(form.credential_id) : null,
     })
@@ -198,6 +200,13 @@ function ServerForm({ initial, onSave, onCancel }: {
           onChange={e => setForm(f => ({ ...f, idrac_port: parseInt(e.target.value) || 443 }))} />
       </div>
       <p className="text-[11px] text-slate-500 -mt-2">{t('dell.idracIpHint')}</p>
+
+      <div>
+        <Input label={t('dell.hostHeaderLabel')} value={form.redfish_host_header}
+          onChange={e => setForm(f => ({ ...f, redfish_host_header: e.target.value }))}
+          placeholder="169.254.1.1" />
+        <p className="text-[11px] text-slate-500 mt-1">{t('dell.hostHeaderHint')}</p>
+      </div>
 
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1">{t('dell.windowsHostLabel')}</label>

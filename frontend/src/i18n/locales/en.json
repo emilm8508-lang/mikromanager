@@ -3737,6 +3737,8 @@
         "idracIpLabel": "iDRAC IP address",
         "idracPortLabel": "Port",
         "idracIpHint": "Leave blank if iDRAC/BMC has no network address of its own — then pick a companion Windows host below for local querying (Dell only for now).",
+        "hostHeaderLabel": "Redfish Host header (optional)",
+        "hostHeaderHint": "Only when iDRAC is reached through iSM (\"iDRAC access via Host OS\": the Windows server's address, port 1266) and has HostHeaderCheck on — then enter iDRAC's UsbNicIpAddress (racadm get iDRAC.OS-BMC), usually 169.254.1.1. Otherwise leave blank.",
         "windowsHostLabel": "Companion Windows host (for local querying)",
         "windowsHostNone": "— none —",
         "windowsHostHint": "Used when iDRAC has no network address — the agent will WinRM into this host and try iDRAC Service Module, RACADM, then OMSA locally (Dell only).",

@@ -28,12 +28,18 @@ missing/differently-shaped resource is skipped, never raised, and the
 caller always gets back whatever partial data it could read.
 """
 import asyncio
+import contextvars
 import ssl
 from typing import Optional
 
 import aiohttp
 
 REQUEST_TIMEOUT_SEC = 10
+
+# Host header override for every _get() of one collect_health() run — set
+# there, read in _get(), so the per-component helpers keep their
+# signatures. See DellServer.redfish_host_header for why it exists.
+_host_header: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("_host_header", default=None)
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -50,13 +56,16 @@ async def _get(base_url: str, path: str, username: str, password: str) -> Option
     collect_health() below reports the overall failure if EVERYTHING
     fails)."""
     url = f"{base_url.rstrip('/')}{path}"
+    headers = {"Accept": "application/json"}
+    if _host_header.get():
+        headers["Host"] = _host_header.get()
     try:
         timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SEC)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url, auth=aiohttp.BasicAuth(username, password),
                 ssl=_ssl_context(), timeout=timeout,
-                headers={"Accept": "application/json"},
+                headers=headers,
             ) as resp:
                 if resp.status != 200:
                     return None
@@ -308,13 +317,15 @@ async def get_sel_entries(base_url: str, username: str, password: str, limit: in
     return out[:limit]
 
 
-async def collect_health(base_url: str, username: str, password: str) -> dict:
+async def collect_health(base_url: str, username: str, password: str,
+                         host_header: Optional[str] = None) -> dict:
     """One health snapshot combining every component check above. Never
     raises — a total connection failure (wrong credential, BMC
     unreachable, TLS handshake failure) surfaces as {"ok": False, "error":
     ...}; a partial failure (e.g. a resource missing on a given
     vendor/firmware) just leaves that one component's health as None
     rather than failing the whole check."""
+    _host_header.set(host_header or None)
     try:
         summary = await asyncio.wait_for(get_system_summary(base_url, username, password), timeout=15)
     except Exception as e:

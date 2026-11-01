@@ -133,6 +133,21 @@ winmgmt /verifyrepository
   serwerze — nie ma potrzeby naprawiać wszystkich trzech metod naraz,
   wystarczy że jedna działa.
 
+### Opcjonalnie: pełny Redfish przez iSM (port 1266)
+
+RACADM nie daje dziennika SEL ani stanu dysków. Jeśli w iDRAC włączone
+jest "iDRAC access via Host OS", Redfish iDRAC jest dostępny pod adresem
+serwera Windows na porcie 1266. iDRAC z włączonym `HostHeaderCheck`
+odrzuca wtedy zapytania (`QueryNotSupported` / `400 Bad Request`), bo
+nagłówek Host nie jest jego adresem. W edycji serwera ustaw: adres iDRAC
+= adres serwera Windows, port = 1266, poświadczenie = konto iDRAC, oraz
+"Nagłówek Host dla Redfish" = `UsbNicIpAddress` z
+`racadm get iDRAC.OS-BMC` (zwykle `169.254.1.1`). Sprawdzenie ręczne:
+
+```powershell
+curl.exe -k -u root -H "Host: 169.254.1.1" https://<adres-serwera>:1266/redfish/v1/Systems/System.Embedded.1
+```
+
 ### Krok 4: WinRM w ogóle nie łączy się (żaden z trzech komunikatów, tylko błąd połączenia)
 
 Sprawdź, że host jest widoczny w zakładce **Windows** w agencie (jeśli
