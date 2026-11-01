@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Cpu, MemoryStick, HardDrive, Thermometer } from 'lucide-react'
 import { centralApi, centralConfig, type AlertChannel, type AlertRule, type AlertHistoryEntry, type EdgeDevice, type EdgeEvent, type CentralSupplyChainStatus, type CentralSupplyChainToolSummary, type CentralLinuxHostStatus, type CentralWindowsHostStatus, type CentralTunnelStatus, type CentralHypervHostStatus, type CentralDellServerStatus, type CentralWanLinkStatus, type CentralRouterStatus } from '../lib/api'
 import { VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
+import { DellServerDetail, DellSummaryStats } from '../components/DellServerDetail'
+import { Modal } from '../components/ui/Modal'
 import { HostUtilizationRow, UtilizationTile, temperatureColor } from '../components/UtilizationTile'
 
 function formatDate(iso: string): string {
@@ -1837,6 +1839,7 @@ export function PhysicalServersPanel() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busyCheck, setBusyCheck] = useState<string | null>(null)
+  const [detail, setDetail] = useState<{ tenant: string; server: CentralDellServerStatus } | null>(null)
 
   const reload = async () => {
     try {
@@ -1935,7 +1938,9 @@ export function PhysicalServersPanel() {
                 <div key={server.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
-                      <span className="font-mono text-sm text-slate-800">{server.name || '—'}</span>
+                      <button onClick={() => setDetail({ tenant, server })} className="font-mono text-sm text-slate-800 hover:text-indigo-600 hover:underline">
+                        {server.name || '—'}
+                      </button>
                       {server.model && <span className="text-xs text-slate-500 ml-2">{server.model}</span>}
                       <span className="text-[10px] ml-2 inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                         {VENDOR_LABELS[server.vendor ?? 'dell'] ?? server.vendor}
@@ -1956,8 +1961,15 @@ export function PhysicalServersPanel() {
                     ))}
                   </div>
 
+                  <DellSummaryStats details={server.details} />
+
                   <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
-                    <span>{server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}</span>
+                    <span>
+                      {server.last_check_at ? new Date(server.last_check_at).toLocaleString() : '—'}
+                      {server.details && (
+                        <button onClick={() => setDetail({ tenant, server })} className="ml-3 text-indigo-600 hover:underline">{t('dellDetail.open')}</button>
+                      )}
+                    </span>
                     {queued ? (
                       <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">{t('dellCentral.queued')}</span>
                     ) : (
@@ -1973,6 +1985,13 @@ export function PhysicalServersPanel() {
           </div>
         ))
       )}
+
+      <Modal open={detail !== null} onClose={() => setDetail(null)} className="max-w-6xl"
+        title={detail ? `${detail.tenant} · ${detail.server.name || '—'}${detail.server.model ? ` — ${detail.server.model}` : ''}` : ''}>
+        <div className="max-h-[78vh] overflow-y-auto pr-1">
+          {detail && <DellServerDetail details={detail.server.details} history={detail.server.history ?? {}} />}
+        </div>
+      </Modal>
     </div>
   )
 }

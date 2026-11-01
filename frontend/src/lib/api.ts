@@ -658,6 +658,8 @@ export interface CentralDellServerStatus {
   }
   last_check_at: string | null
   last_status: string | null
+  details?: DellDetails | null
+  history?: DellHistory
 }
 
 // Redacted CPU/RAM/disk/temperature summary for a Mikrotik device an agent
@@ -2499,7 +2501,47 @@ export interface DellServerOut {
     system?: DellHealth; cpu?: DellHealth; memory?: DellHealth; power?: DellHealth
     fans_temperature?: DellHealth; storage?: DellHealth
   }
+  details: DellDetails | null
 }
+
+// Detailed BMC readings (services/bmc_details.py) — the same shape from
+// Redfish and from RACADM; any part may be missing.
+export interface DellDetails {
+  source?: 'redfish' | 'racadm'
+  error?: string
+  system?: {
+    model?: string | null; service_tag?: string | null; bios?: string | null; hostname?: string | null
+    power_state?: string | null; idrac_fw?: string | null; generation?: string | null
+    exhaust_c?: number | null; airflow_cfm?: number | null; dimm_slots?: number | null; dimm_populated?: number | null
+    mem_gb?: number | null; health?: DellHealth; rollups?: Record<string, DellHealth>
+  }
+  cpus?: Array<{ name?: string | null; model?: string | null; cores?: number | null; threads?: number | null; mhz?: number | null; max_mhz?: number | null; health?: DellHealth }>
+  dimms?: Array<{ slot?: string | null; gb?: number | null; type?: string | null; mhz?: number | null; vendor?: string | null; part?: string | null; ranks?: string | number | null; health?: DellHealth }>
+  storage?: {
+    controllers?: Array<{ name?: string | null; firmware?: string | null; cache_mb?: number | null; health?: DellHealth }>
+    drives?: Array<{ name?: string | null; model?: string | null; media?: string | null; protocol?: string | null; gb?: number | null; failure_predicted?: boolean | null; life_left_pct?: number | null; firmware?: string | null; serial?: string | null; state?: string | null; health?: DellHealth }>
+    volumes?: Array<{ name?: string | null; raid?: string | null; gb?: number | null; state?: string | null; health?: DellHealth }>
+  }
+  temps?: Array<{ name?: string | null; c?: number | null; warn?: number | null; crit?: number | null; health?: DellHealth }>
+  fans?: Array<{ name?: string | null; rpm?: number | null; pwm?: number | null; health?: DellHealth }>
+  fan_redundancy?: DellHealth
+  power?: {
+    watts?: number | null; capacity_w?: number | null; min_w?: number | null; avg_w?: number | null; max_w?: number | null
+    redundancy?: DellHealth
+    psus?: Array<{ name?: string | null; model?: string | null; capacity_w?: number | null; output_w?: number | null; input_v?: number | null; firmware?: string | null; state?: string | null; health?: DellHealth }>
+  }
+  nics?: Array<{ name?: string | null; model?: string | null; mac?: string | null; speed_mbps?: number | null; link?: string | null; health?: DellHealth }>
+  batteries?: Array<{ name?: string | null; health?: DellHealth }>
+  intrusion?: string | null
+  summary?: {
+    power_w?: number | null; inlet_c?: number | null; cpu_c?: number | null; exhaust_c?: number | null; fan_rpm?: number | null
+    mem_gb?: number | null; cpus?: number | null; cores?: number | null; drives?: number | null; drives_bad?: number
+    volumes?: number | null; psus?: number | null; psus_bad?: number
+  }
+}
+
+// The last day of the recorded series, as [iso time, value] pairs (Central).
+export type DellHistory = Partial<Record<'power_w' | 'inlet_c' | 'cpu_c' | 'exhaust_c' | 'fan_rpm', Array<[string, number]>>>
 
 export interface DellSelEntry {
   id: number

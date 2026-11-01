@@ -317,6 +317,159 @@ async def get_sel_entries(base_url: str, username: str, password: str, limit: in
     return out[:limit]
 
 
+# ── Detailed readings (the per-server detail view) ──────────────────────────
+
+def _h(obj) -> Optional[str]:
+    """One element's own health (not the rollup), None for an absent slot."""
+    st = obj.get("Status") if isinstance(obj, dict) else None
+    if not isinstance(st, dict) or st.get("State") == "Absent":
+        return None
+    return st.get("Health") or st.get("HealthRollup")
+
+
+def _absent(obj) -> bool:
+    st = obj.get("Status") if isinstance(obj, dict) else None
+    return isinstance(st, dict) and st.get("State") in ("Absent", "Disabled") and not st.get("Health")
+
+
+def _gb(n, div) -> Optional[float]:
+    try:
+        return round(float(n) / div, 1) if n is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+async def _members(base_url: str, path: Optional[str], username: str, password: str, cap: int = 64) -> list:
+    """Every member of a collection, expanded. iDRAC9 answers $expand in one
+    request; older firmware (or another vendor) that refuses it gets the
+    members fetched one by one, a few at a time."""
+    if not path:
+        return []
+    data = await _get(base_url, f"{path}?$expand=*($levels=1)", username, password)
+    members = (data or {}).get("Members") or []
+    if members and all(isinstance(m, dict) and len(m) > 1 for m in members):
+        return members[:cap]
+    if not data:
+        data = await _get(base_url, path, username, password)
+    ids = [m.get("@odata.id") for m in ((data or {}).get("Members") or []) if isinstance(m, dict) and m.get("@odata.id")][:cap]
+    sem = asyncio.Semaphore(6)
+
+    async def one(p):
+        async with sem:
+            return await _get(base_url, p, username, password)
+    got = await asyncio.gather(*(one(p) for p in ids))
+    return [g for g in got if g]
+
+
+async def collect_details(base_url: str, username: str, password: str) -> dict:
+    """Everything the detail view shows: CPUs, DIMMs, controllers / drives /
+    volumes, every temperature and fan reading, power draw and the power
+    supplies, NICs, intrusion. Field names are the DMTF ones iDRAC9 uses;
+    each part is best-effort and simply missing when the BMC lacks it."""
+    out: dict = {"source": "redfish"}
+    system_path = await _first_member(base_url, "/redfish/v1/Systems", username, password)
+    chassis_path = await _first_member(base_url, "/redfish/v1/Chassis", username, password)
+    manager_path = await _first_member(base_url, "/redfish/v1/Managers", username, password)
+    sys_ = await _get(base_url, system_path, username, password) if system_path else None
+    sys_ = sys_ or {}
+    dell = ((sys_.get("Oem") or {}).get("Dell") or {}).get("DellSystem") or {}
+    manager = await _get(base_url, manager_path, username, password) if manager_path else None
+
+    out["system"] = {
+        "model": sys_.get("Model"), "service_tag": sys_.get("SKU") or sys_.get("SerialNumber"),
+        "bios": sys_.get("BiosVersion"), "hostname": sys_.get("HostName"),
+        "power_state": sys_.get("PowerState"), "idrac_fw": (manager or {}).get("FirmwareVersion"),
+        "generation": dell.get("SystemGeneration"),
+        "exhaust_c": dell.get("EstimatedExhaustTemperatureCelsius"),
+        "airflow_cfm": dell.get("EstimatedSystemAirflowCFM"),
+        "dimm_slots": dell.get("MaxDIMMSlots"), "dimm_populated": dell.get("PopulatedDIMMSlots"),
+        "mem_gb": (sys_.get("MemorySummary") or {}).get("TotalSystemMemoryGiB"),
+        "health": _health(sys_),
+    }
+
+    cpus = await _members(base_url, (sys_.get("Processors") or {}).get("@odata.id"), username, password)
+    out["cpus"] = [{
+        "name": c.get("Name") or c.get("Id"), "model": c.get("Model"),
+        "cores": c.get("TotalCores"), "threads": c.get("TotalThreads"),
+        "mhz": c.get("OperatingSpeedMHz") or c.get("MaxSpeedMHz"), "max_mhz": c.get("MaxSpeedMHz"),
+        "health": _h(c),
+    } for c in cpus if not _absent(c) and (c.get("ProcessorType") in (None, "CPU"))]
+
+    dimms = await _members(base_url, (sys_.get("Memory") or {}).get("@odata.id"), username, password)
+    out["dimms"] = [{
+        "slot": d.get("DeviceLocator") or d.get("Name") or d.get("Id"),
+        "gb": _gb(d.get("CapacityMiB"), 1024), "type": d.get("MemoryDeviceType"),
+        "mhz": d.get("OperatingSpeedMhz"), "vendor": d.get("Manufacturer"),
+        "part": (d.get("PartNumber") or "").strip() or None, "ranks": d.get("RankCount"),
+        "health": _h(d),
+    } for d in dimms if not _absent(d) and d.get("CapacityMiB")]
+
+    controllers, drives, volumes = [], [], []
+    for ctl in await _members(base_url, (sys_.get("Storage") or {}).get("@odata.id"), username, password, cap=16):
+        sc = (ctl.get("StorageControllers") or [{}])[0] if isinstance(ctl.get("StorageControllers"), list) else {}
+        drive_refs = [d.get("@odata.id") for d in (ctl.get("Drives") or []) if isinstance(d, dict)]
+        if not drive_refs and not ctl.get("Volumes"):
+            continue                                  # an empty embedded AHCI port — nothing to show
+        controllers.append({
+            "name": sc.get("Name") or ctl.get("Name") or ctl.get("Id"), "firmware": sc.get("FirmwareVersion"),
+            "cache_mb": (sc.get("CacheSummary") or {}).get("TotalCacheSizeMiB"), "health": _h(ctl),
+        })
+        got = await asyncio.gather(*(_get(base_url, p, username, password) for p in drive_refs if p))
+        for d in got:
+            if not d:
+                continue
+            drives.append({
+                "name": d.get("Name") or d.get("Id"), "model": d.get("Model"), "media": d.get("MediaType"),
+                "protocol": d.get("Protocol"), "gb": _gb(d.get("CapacityBytes"), 1e9),
+                "failure_predicted": d.get("FailurePredicted"), "life_left_pct": d.get("PredictedMediaLifeLeftPercent"),
+                "firmware": d.get("Revision"), "serial": d.get("SerialNumber"), "health": _h(d),
+            })
+        for v in await _members(base_url, (ctl.get("Volumes") or {}).get("@odata.id"), username, password, cap=32):
+            volumes.append({
+                "name": v.get("Name") or v.get("Id"), "raid": v.get("RAIDType") or v.get("VolumeType"),
+                "gb": _gb(v.get("CapacityBytes"), 1e9), "health": _h(v),
+            })
+    out["storage"] = {"controllers": controllers, "drives": drives, "volumes": volumes}
+
+    if chassis_path:
+        thermal, power, chassis = await asyncio.gather(
+            _get(base_url, f"{chassis_path}/Thermal", username, password),
+            _get(base_url, f"{chassis_path}/Power", username, password),
+            _get(base_url, chassis_path, username, password),
+        )
+        thermal, power, chassis = thermal or {}, power or {}, chassis or {}
+        out["temps"] = [{
+            "name": t.get("Name"), "c": t.get("ReadingCelsius"),
+            "warn": t.get("UpperThresholdNonCritical"), "crit": t.get("UpperThresholdCritical"), "health": _h(t),
+        } for t in thermal.get("Temperatures") or [] if isinstance(t, dict) and t.get("ReadingCelsius") is not None]
+        out["fans"] = [{
+            "name": f.get("Name") or f.get("FanName"), "rpm": f.get("Reading") if (f.get("ReadingUnits") or "RPM") == "RPM" else None,
+            "pwm": f.get("Reading") if f.get("ReadingUnits") == "Percent" else None, "health": _h(f),
+        } for f in thermal.get("Fans") or [] if isinstance(f, dict) and not _absent(f)]
+        out["fan_redundancy"] = _worst(*(_h(r) for r in thermal.get("Redundancy") or [] if isinstance(r, dict)))
+        pc = (power.get("PowerControl") or [{}])[0] if isinstance(power.get("PowerControl"), list) and power.get("PowerControl") else {}
+        pm = pc.get("PowerMetrics") or {}
+        out["power"] = {
+            "watts": pc.get("PowerConsumedWatts"), "capacity_w": pc.get("PowerCapacityWatts"),
+            "min_w": pm.get("MinConsumedWatts"), "avg_w": pm.get("AverageConsumedWatts"), "max_w": pm.get("MaxConsumedWatts"),
+            "redundancy": _worst(*(_h(r) for r in power.get("Redundancy") or [] if isinstance(r, dict))),
+            "psus": [{
+                "name": p.get("Name") or p.get("MemberId"), "model": p.get("Model"),
+                "capacity_w": p.get("PowerCapacityWatts"), "output_w": p.get("LastPowerOutputWatts"),
+                "input_v": p.get("LineInputVoltage"), "firmware": p.get("FirmwareVersion"), "health": _h(p),
+            } for p in power.get("PowerSupplies") or [] if isinstance(p, dict) and not _absent(p)],
+        }
+        out["intrusion"] = (chassis.get("PhysicalSecurity") or {}).get("IntrusionSensor")
+
+    if system_path:
+        nics = await _members(base_url, f"{system_path}/EthernetInterfaces", username, password, cap=32)
+        out["nics"] = [{
+            "name": n.get("Id") or n.get("Name"), "mac": n.get("MACAddress") or n.get("PermanentMACAddress"),
+            "speed_mbps": n.get("SpeedMbps"), "link": n.get("LinkStatus"), "health": _h(n),
+        } for n in nics]
+    return out
+
+
 async def collect_health(base_url: str, username: str, password: str,
                          host_header: Optional[str] = None) -> dict:
     """One health snapshot combining every component check above. Never
@@ -352,6 +505,10 @@ async def collect_health(base_url: str, username: str, password: str,
         sel = await asyncio.wait_for(get_sel_entries(base_url, username, password), timeout=15)
     except Exception:
         sel = []
+    try:
+        details = await asyncio.wait_for(collect_details(base_url, username, password), timeout=60)
+    except Exception as e:
+        details = {"source": "redfish", "error": f"{type(e).__name__}: {e}"[:300]}
 
     components = {
         # "system" makes the System resource's own aggregate visible on its
@@ -380,4 +537,5 @@ async def collect_health(base_url: str, username: str, password: str,
         "health_rollup": rollup,
         "components": components,
         "sel_entries": sel,
+        "details": details,
     }

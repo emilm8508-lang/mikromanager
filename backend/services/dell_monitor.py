@@ -31,6 +31,7 @@ from services import idrac_client
 from services import dell_local
 from services import windows_manage
 from services import activity
+from services import bmc_details
 
 DELL_CHECK_MIN = int(os.environ.get("MIKROTIK_DELL_CHECK_MIN", "30"))
 
@@ -160,6 +161,15 @@ async def check_server(server_id: int) -> dict:
             server.bios_version = result.get("bios_version") or server.bios_version
             server.power_state = result.get("power_state") or server.power_state
             server.components_json = json.dumps(result.get("components") or {})
+            details = result.get("details")
+            if details:
+                details["summary"] = bmc_details.summarize(details)
+                server.details_json = json.dumps(details)
+                try:
+                    bmc_details.record_metrics(server_id, server.name or server.service_tag or server.idrac_ip or f"dell-{server_id}",
+                                               details["summary"])
+                except Exception as e:
+                    print(f"[dell_monitor] metrics record error for server {server_id}: {e}")
         else:
             server.last_status = "error"
             server.last_error = result.get("error")
@@ -481,6 +491,7 @@ def _server_to_dict(s: DellServer) -> dict:
         "health_rollup": s.health_rollup, "service_tag": s.service_tag,
         "model": s.model, "bios_version": s.bios_version, "power_state": s.power_state,
         "components": json.loads(s.components_json) if s.components_json else {},
+        "details": json.loads(s.details_json) if s.details_json else None,
     }
 
 
@@ -509,7 +520,19 @@ def public_summary() -> list:
             "components": json.loads(s.components_json) if s.components_json else {},
             "last_check_at": s.last_check_at.isoformat() if s.last_check_at else None,
             "last_status": s.last_status,
+            # The detail view in Central: readings without MAC addresses, and
+            # the last day of power / temperature / fan history for its charts.
+            "details": bmc_details.public(json.loads(s.details_json)) if s.details_json else None,
+            "history": _safe_history(s.id),
         } for s in servers]
+
+
+def _safe_history(server_id: int) -> dict:
+    try:
+        return bmc_details.history(server_id)
+    except Exception as e:
+        print(f"[dell_monitor] history error for server {server_id}: {e}")
+        return {}
 
 
 def add_server(name: Optional[str], idrac_ip: Optional[str], idrac_port: int,

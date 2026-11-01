@@ -10,6 +10,7 @@ import { Server, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, KeyRound, Penc
 import { useTranslation } from 'react-i18next'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import { healthBadgeVariant, VENDOR_LABELS, COMPONENT_ICONS, ComponentTile, DELL_COMPONENT_KEYS } from '../components/DellHealthTile'
+import { DellServerDetail, DellSummaryStats } from '../components/DellServerDetail'
 
 interface DellScanEvent {
   type: 'phase' | 'progress' | 'done' | 'result' | 'error'
@@ -288,6 +289,7 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [showSel, setShowSel] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
 
   const check = useMutation({
     mutationFn: () => dellApi.check(server.id),
@@ -305,7 +307,9 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
     <div className="border border-slate-200 rounded-lg p-3 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <span className="font-mono text-sm text-slate-800">{server.name || server.service_tag || server.idrac_ip}</span>
+          <button onClick={() => setShowDetail(true)} className="font-mono text-sm text-slate-800 hover:text-indigo-600 hover:underline">
+            {server.name || server.service_tag || server.idrac_ip}
+          </button>
           {server.model && <span className="text-xs text-slate-500 ml-2">{server.model}</span>}
           <Badge variant="gray" className="text-[10px] ml-2">{VENDOR_LABELS[server.vendor ?? 'dell'] ?? server.vendor}</Badge>
           {server.access_method && (
@@ -326,11 +330,14 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
         ))}
       </div>
 
+      <DellSummaryStats details={server.details} />
+
       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
         <div>
           {server.last_check_at && <span>{t('dell.lastCheck')}: {new Date(server.last_check_at).toLocaleString()}</span>}
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setShowDetail(true)}>{t('dellDetail.open')}</Button>
           <Button size="sm" variant="secondary" onClick={() => check.mutate()} disabled={check.isPending}>
             <RefreshCw size={12} className={check.isPending ? 'animate-spin' : ''} /> {t('dell.checkNow')}
           </Button>
@@ -345,6 +352,14 @@ function ServerCard({ server, onEdit }: { server: DellServerOut; onEdit: () => v
       </div>
 
       {showSel && <SelLogSection serverId={server.id} />}
+
+      <Modal open={showDetail} onClose={() => setShowDetail(false)} className="max-w-6xl"
+        title={`${server.name || server.service_tag || server.idrac_ip}${server.model ? ` — ${server.model}` : ''}`}>
+        <div className="max-h-[78vh] overflow-y-auto pr-1 space-y-3">
+          <DellServerDetail details={server.details} serverId={server.id} />
+          <SelLogSection serverId={server.id} />
+        </div>
+      </Modal>
 
       {server.last_status === 'error' && server.last_error && (
         <p className="text-xs text-red-600">{server.last_error}</p>
@@ -384,7 +399,7 @@ export function DellServers() {
   })
 
   return (
-    <div className="p-6 space-y-4 max-w-4xl">
+    <div className="p-6 space-y-4 max-w-5xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Server size={20} className="text-indigo-600" />

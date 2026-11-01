@@ -120,7 +120,7 @@ def _parse_ism(raw: dict) -> dict:
 # Run locally (no -r host) so it talks to whichever iDRAC is physically
 # attached to THIS machine over the internal channel, regardless of
 # whether that iDRAC has a routable IP at all.
-_RACADM_SCRIPT = r"""
+_RACADM_FIND = r"""
 $racadm = Get-Command racadm.exe -ErrorAction SilentlyContinue
 if (-not $racadm) {
     $candidates = @(
@@ -139,14 +139,25 @@ if (-not $racadm) {
         -Filter "racadm.exe" -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($found) { $racadm = $found }
 }
-if (-not $racadm) {
+# Get-Command gives .Source, a file found on disk only .FullName
+$exe = if ($racadm) { if ($racadm.Source) { $racadm.Source } else { $racadm.FullName } } else { $null }
+"""
+_RACADM_SCRIPT = _RACADM_FIND + r"""
+if (-not $exe) {
     Write-Output "@@NOT_FOUND@@"
 } else {
     Write-Output "@@SYSINFO@@"
-    & $racadm.Source getsysinfo
+    & $exe getsysinfo
     Write-Output "@@SENSORS@@"
-    & $racadm.Source getsensorinfo
+    & $exe getsensorinfo
 }
+"""
+# Full hardware inventory (CPUs, DIMMs, controllers, disks, virtual disks,
+# fans, power supplies, NICs, system rollups). Slow — racadm itself warns
+# it "may take several minutes" — so it runs as its own WinRM call with a
+# long timeout, and a failure here never loses getsysinfo/getsensorinfo.
+_RACADM_HWINV_SCRIPT = _RACADM_FIND + r"""
+if ($exe) { & $exe hwinventory }
 """
 
 
@@ -183,6 +194,25 @@ def _check_racadm_sync(ip: str, port: int, username: str, password: str, domain:
         vs._close_winrm(session)
 
 
+def _racadm_hwinventory_sync(ip: str, port: int, username: str, password: str, domain: Optional[str]) -> str:
+    """Blocking. The raw `racadm hwinventory` text, "" when it fails."""
+    import winrm
+    user = vs._ntlm_user(username, domain)
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman",
+        auth=(user, password),
+        transport="ntlm",
+        server_cert_validation="ignore",
+        read_timeout_sec=200, operation_timeout_sec=190,
+    )
+    try:
+        result = vs._run_ps_safe(session, _RACADM_HWINV_SCRIPT)
+        return result.std_out.decode("utf-8", errors="ignore") if result.status_code == 0 else ""
+    finally:
+        vs._close_winrm(session)
+
+
 _SYSINFO_LINE_RE = re.compile(r"^([A-Za-z][\w .()/-]*?)\s*=\s*(.+)$", re.MULTILINE)
 # Confirmed live (PowerEdge T150, racadm 10.3): getsensorinfo prints one
 # table per "Sensor Type : TEMPERATURE" / FAN / VOLTAGE / PROCESSOR /
@@ -196,10 +226,173 @@ _SENSOR_ROW_RE = re.compile(
     r"^\S.*?\s{2,}(Ok|Critical|Warning|Non-Critical|Non-Recoverable|Unknown)\b", re.IGNORECASE,
 )
 
+# "Error" / "Degraded" confirmed live in hwinventory on a PowerEdge R640
+# with a power supply that lost AC input (PrimaryStatus = Error).
 _RACADM_STATUS_MAP = {
-    "ok": "OK", "warning": "Warning", "non-critical": "Warning",
-    "critical": "Critical", "non-recoverable": "Critical", "unknown": None,
+    "ok": "OK", "warning": "Warning", "non-critical": "Warning", "degraded": "Warning",
+    "critical": "Critical", "non-recoverable": "Critical", "error": "Critical", "unknown": None,
 }
+
+
+def _st(v: Optional[str]) -> Optional[str]:
+    return _RACADM_STATUS_MAP.get((v or "").strip().lower()) if v else None
+
+
+def _num(v: Optional[str]) -> Optional[float]:
+    """Leading number of "32768 MB", "5640 RPM", "25 %", "2666 MT/s"."""
+    m = re.match(r"\s*(-?\d+(?:\.\d+)?)", v or "")
+    return float(m.group(1)) if m else None
+
+
+def _int(v: Optional[str]) -> Optional[int]:
+    n = _num(v)
+    return int(n) if n is not None else None
+
+
+def _sensor_readings(sensors: str) -> dict:
+    """Readings from getsensorinfo (format confirmed live on a T150): every
+    temperature with its upper thresholds, every fan's RPM and PWM, and the
+    power draw when the server has a power-consumption sensor. Columns are
+    separated by 2+ spaces: name, status, reading, then thresholds."""
+    temps, fans, watts = [], [], None
+    sensor_type = ""
+    for line in sensors.splitlines():
+        m = _SENSOR_TYPE_RE.match(line)
+        if m:
+            sensor_type = m.group(1).lower()
+            continue
+        if not line.strip() or line.lstrip().startswith(("<", "[")):
+            continue
+        cols = re.split(r"\s{2,}", line.strip())
+        if len(cols) < 3:
+            continue
+        name, status, reading = cols[0], cols[1], cols[2]
+        if sensor_type.startswith("temp") and reading.upper().endswith("C"):
+            crit = _num(cols[4]) if len(cols) > 4 else None
+            warn = _num(cols[6]) if len(cols) > 6 and not cols[6].upper().startswith("NA") else None
+            temps.append({"name": name, "c": _num(reading), "warn": warn, "crit": crit, "health": _st(status)})
+        elif sensor_type.startswith("fan") and "RPM" in reading.upper():
+            pwm = next((_num(c) for c in cols[3:] if c.endswith("%")), None)
+            fans.append({"name": name, "rpm": _num(reading), "pwm": pwm, "health": _st(status)})
+        elif ("pwr" in name.lower() or "power" in name.lower()) and reading.upper().endswith("W") and watts is None:
+            watts = _num(reading)
+    return {"temps": temps, "fans": fans, "watts": watts}
+
+
+def _parse_hwinventory(text: str) -> dict:
+    """racadm hwinventory → the same detail shape idrac_client.collect_details()
+    returns for Redfish. Format confirmed live (PowerEdge R640, iDRAC 7.00):
+    blocks "[InstanceID: FQDD]" of "Key = Value" lines, each with a "Device
+    Type"; the same FQDD can appear twice (once more as a PCIDevice)."""
+    blocks = []
+    for chunk in re.split(r"^\[InstanceID:", text, flags=re.MULTILINE)[1:]:
+        f = {}
+        for line in chunk.splitlines()[1:]:
+            if " = " in line or line.rstrip().endswith(" ="):
+                k, _, v = line.partition("=")
+                f[k.strip()] = v.strip()
+        if f.get("Device Type"):
+            blocks.append(f)
+    by = lambda t: [b for b in blocks if b.get("Device Type") == t]
+    if not blocks:
+        return {}
+
+    s = (by("System") or [{}])[0]
+    rollups = {k[:-len("RollupStatus")]: _st(v) for k, v in s.items()
+               if k.endswith("RollupStatus") and k != "RollupStatus" and _st(v)}
+    idrac = (by("iDRACCard") or [{}])[0]
+    out: dict = {"source": "racadm", "system": {
+        "model": s.get("Model"), "service_tag": s.get("ServiceTag"), "bios": s.get("BIOSVersionString"),
+        "hostname": s.get("HostName"), "power_state": s.get("PowerState"), "idrac_fw": idrac.get("FirmwareVersion"),
+        "generation": s.get("SystemGeneration"), "exhaust_c": _num(s.get("EstimatedExhaustTemperature")),
+        "airflow_cfm": _num(s.get("EstimatedSystemAirflow")), "dimm_slots": _int(s.get("MaxDIMMSlots")),
+        "dimm_populated": _int(s.get("PopulatedDIMMSlots")),
+        "mem_gb": round(_num(s.get("SysMemTotalSize")) / 1024, 1) if _num(s.get("SysMemTotalSize")) else None,
+        "health": _st(s.get("RollupStatus") or s.get("PrimaryStatus")), "rollups": rollups,
+    }}
+    out["cpus"] = [{
+        "name": c.get("DeviceDescription"), "model": c.get("Model"), "cores": _int(c.get("NumberOfEnabledCores")),
+        "threads": _int(c.get("NumberOfEnabledThreads")), "mhz": _int(c.get("CurrentClockSpeed")),
+        "max_mhz": _int(c.get("MaxClockSpeed")), "health": _st(c.get("PrimaryStatus")),
+    } for c in by("CPU")]
+    out["dimms"] = sorted([{
+        "slot": (d.get("DeviceDescription") or "").replace("DIMM ", "") or d.get("FQDD"),
+        "gb": round(_num(d.get("Size")) / 1024, 1) if _num(d.get("Size")) else None,
+        "type": " ".join(x for x in (d.get("MemoryType"), d.get("MemoryTypeExtended")) if x) or None,
+        "mhz": _int(d.get("CurrentOperatingSpeed")), "vendor": d.get("Manufacturer"),
+        "part": d.get("PartNumber") or None, "ranks": d.get("Rank"), "health": _st(d.get("PrimaryStatus")),
+    } for d in by("Memory")], key=lambda d: d["slot"] or "")
+
+    disks, vdisks = by("PhysicalDisk"), by("VirtualDisk")
+    used = {(x.get("FQDD") or "").split(":")[-1] for x in disks + vdisks}
+    media = {"Solid State Drive": "SSD", "Hard Disk Drive": "HDD"}
+    out["storage"] = {
+        "controllers": [{
+            "name": c.get("ProductName"), "firmware": c.get("ControllerFirmwareVersion"),
+            "cache_mb": _int(c.get("CacheSizeInMB")), "health": _st(c.get("RollupStatus") or c.get("PrimaryStatus")),
+        } for c in by("Controller") if c.get("FQDD") in used],
+        "drives": [{
+            "name": f"Disk {d.get('Slot')}" if d.get("Slot") else d.get("DeviceDescription"), "model": d.get("Model"),
+            "media": media.get(d.get("MediaType"), d.get("MediaType")), "protocol": d.get("BusProtocol"),
+            "gb": round(_num(d.get("SizeInBytes")) / 1e9, 1) if _num(d.get("SizeInBytes")) else None,
+            "failure_predicted": None if not d.get("PredictiveFailureState") else "present" in d["PredictiveFailureState"].lower(),
+            "life_left_pct": _num(d.get("RemainingRatedWriteEndurance")), "firmware": d.get("Revision"),
+            "serial": d.get("SerialNumber") or None, "state": d.get("RaidStatus"), "health": _st(d.get("PrimaryStatus")),
+        } for d in disks],
+        "volumes": [{
+            "name": v.get("Name"), "raid": v.get("RAIDTypes"),
+            "gb": round(_num(v.get("SizeInBytes")) / 1e9, 1) if _num(v.get("SizeInBytes")) else None,
+            "state": v.get("RAIDStatus"), "health": _st(v.get("PrimaryStatus")),
+        } for v in vdisks],
+    }
+    fans = by("Fan")
+    out["fans"] = [{
+        "name": f.get("DeviceDescription"), "rpm": _num(f.get("CurrentReading")), "pwm": _num(f.get("PWM")),
+        "health": _st(f.get("PrimaryStatus")),
+    } for f in fans]
+    fan_red = next((f.get("RedundancyStatus") for f in fans if f.get("RedundancyStatus")), None)
+    out["fan_redundancy"] = None if not fan_red else ("OK" if "full" in fan_red.lower() else "Warning")
+    psus = by("PowerSupply")
+    psu_red = next((p.get("RedundancyStatus") for p in psus if p.get("RedundancyStatus")), None)
+    out["power"] = {
+        "watts": None, "capacity_w": None,
+        "redundancy": None if not psu_red else ("OK" if "full" in psu_red.lower() else "Critical" if "lost" in psu_red.lower() else "Warning"),
+        "psus": [{
+            "name": p.get("DeviceDescription"), "model": p.get("Model"),
+            "capacity_w": _int(p.get("TotalOutputPower") or p.get("EffectiveCapacity")), "output_w": None,
+            "input_v": _num(p.get("InputVoltage")), "firmware": p.get("FirmwareVersion"),
+            "state": p.get("DetailedState"), "health": _st(p.get("PrimaryStatus")),
+        } for p in psus],
+    }
+    out["nics"] = [{
+        "name": n.get("DeviceDescription"), "model": re.sub(r"\s+-\s+[0-9A-F:]{17}$", "", n.get("ProductName") or "", flags=re.I) or None,
+        "mac": n.get("CurrentMACAddress"), "speed_mbps": _int(n.get("LinkSpeed")),
+        "link": "LinkUp" if n.get("LinkSpeed") else "LinkDown", "health": _st(n.get("PrimaryStatus")),
+    } for n in by("NIC")]
+    out["batteries"] = [{"name": b.get("DeviceDescription"), "health": _st(b.get("PrimaryStatus"))} for b in by("ControllerBattery")]
+    return out
+
+
+def _racadm_details(sysinfo: str, sensors: str, hwinv: str) -> dict:
+    """The RACADM detail view: hwinventory when it came back, with the live
+    temperatures (and fans, when hwinventory had none) from getsensorinfo."""
+    details = _parse_hwinventory(hwinv) if hwinv else {}
+    if not details:
+        fields = {k.strip(): v.strip() for k, v in _SYSINFO_LINE_RE.findall(sysinfo)}
+        details = {"source": "racadm", "system": {
+            "model": fields.get("System Model"), "service_tag": fields.get("Service Tag"),
+            "bios": fields.get("System BIOS Version"), "hostname": fields.get("Host Name"),
+            "power_state": (fields.get("Power Status") or "").capitalize() or None,
+            "idrac_fw": fields.get("Firmware Version"), "health": _st(fields.get("RollupStatus")),
+            "exhaust_c": _num(fields.get("EstimatedExhaustTemperature")),
+        }}
+    r = _sensor_readings(sensors)
+    details["temps"] = r["temps"]
+    if r["fans"] and not details.get("fans"):
+        details["fans"] = r["fans"]
+    if r["watts"] is not None:
+        details.setdefault("power", {"psus": []})["watts"] = r["watts"]
+    return details
 
 
 def _parse_racadm(sysinfo: str, sensors: str) -> dict:
@@ -424,14 +617,30 @@ async def collect_local_health(host_id: int) -> dict:
 
     if racadm.get("ok") and racadm.get("available"):
         parsed = _parse_racadm(racadm["sysinfo"], racadm["sensors"])
+        try:
+            hwinv = await asyncio.wait_for(
+                loop.run_in_executor(vs._EXECUTOR, _racadm_hwinventory_sync, ip, port, username, password, domain),
+                timeout=210,
+            )
+        except Exception:
+            hwinv = ""
+        details = _racadm_details(racadm["sysinfo"], racadm["sensors"], hwinv)
+        # hwinventory's own rollups (PSRollupStatus, StorageRollupStatus, ...)
+        # see what getsensorinfo does not — a power supply without AC input
+        # shows there as "Error" while every voltage sensor still reads Ok.
+        ru = (details.get("system") or {}).get("rollups") or {}
+        worst = lambda *v: next((h for h in ("Critical", "Warning", "OK") if h in v), None)
         return {"ok": True, "access_method": "local_racadm", **parsed,
                 "service_tag": parsed.get("service_tag"),
+                "health_rollup": worst(parsed.get("health_rollup"), (details.get("system") or {}).get("health")),
                 "components": {
-                    "system": parsed.get("health_rollup"),
-                    "cpu": parsed.get("cpu"), "memory": parsed.get("memory"),
-                    "power": parsed.get("power"), "fans_temperature": parsed.get("fans_temperature"),
-                    "storage": None,
-                }, "sel_entries": []}
+                    "system": worst(parsed.get("health_rollup"), (details.get("system") or {}).get("health")),
+                    "cpu": worst(parsed.get("cpu"), ru.get("CPU")),
+                    "memory": worst(parsed.get("memory"), ru.get("Memory")),
+                    "power": worst(parsed.get("power"), ru.get("PS"), ru.get("Volt"), ru.get("Current")),
+                    "fans_temperature": worst(parsed.get("fans_temperature"), ru.get("Fan"), ru.get("Temp")),
+                    "storage": ru.get("Storage"),
+                }, "sel_entries": [], "details": details}
 
     try:
         omsa = await asyncio.wait_for(

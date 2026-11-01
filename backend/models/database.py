@@ -1468,6 +1468,9 @@ class DellServer(Base):
     # the same component set, and this avoids a schema change every time
     # coverage grows.
     components_json = Column(Text, nullable=True)
+    # Detailed readings (CPUs, DIMMs, drives, sensors, power supplies, ...)
+    # in the shape of services/bmc_details.py, with a "summary" key.
+    details_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     credential = relationship("Credential")
@@ -1634,6 +1637,8 @@ def _migrate_add_columns():
                 conn.execute(text("UPDATE dell_servers SET vendor = 'dell' WHERE vendor IS NULL"))
             if "redfish_host_header" not in ds_cols:
                 conn.execute(text("ALTER TABLE dell_servers ADD COLUMN redfish_host_header VARCHAR(255)"))
+            if "details_json" not in ds_cols:
+                conn.execute(text("ALTER TABLE dell_servers ADD COLUMN details_json TEXT"))
 
     if "windows_hosts" in inspector.get_table_names():
         wh_cols = {c["name"] for c in inspector.get_columns("windows_hosts")}
