@@ -443,24 +443,21 @@ SUPPORTED_PACKAGE_MANAGERS = ("apt", "dnf")
 def _check_command(pkg_mgr: str) -> str:
     if pkg_mgr == "apt":
         # -s/--simulate predicts the SAME operation _upgrade_command()
-        # actually runs later (plain "upgrade", never "dist-upgrade") —
-        # deliberately NOT `apt list --upgradable`, which only lists
-        # already-installed packages that have a newer version and
-        # silently omits any NEW package apt's resolver has to install
-        # alongside them. A kernel update is the textbook case: the
-        # already-installed linux-generic/linux-image-generic/
-        # linux-headers-generic meta-packages show as "upgradable", but
-        # the real, much bigger download is the brand-new
-        # linux-image-X.Y.Z-N-generic + linux-headers-... +
-        # linux-modules-... packages apt installs alongside them (apt(8):
-        # "even if that means installing a new package instead of
-        # upgrading an existing one") — invisible to `apt list
-        # --upgradable`, which is exactly why Central showed "4 updates"
-        # for a host where a real `apt upgrade` needed 8 packages / 113 MB.
-        # Runs unprivileged like the old command did (simulate mode reads
-        # the index `apt-get update` just refreshed, doesn't need to lock
-        # anything for real).
-        return "apt-get update -qq && apt-get -s upgrade 2>/dev/null"
+        # actually runs later (an upgrade that may install new packages,
+        # never one that removes any - not "dist-upgrade") — deliberately
+        # NOT `apt list --upgradable`, which omits the NEW packages an
+        # update brings along. A kernel update is the textbook case: the
+        # linux-generic meta-packages are "upgradable", but the real, much
+        # bigger download is the brand-new linux-image-X.Y.Z-N-generic +
+        # linux-headers-... + linux-modules-... packages.
+        # --with-new-pkgs is what makes those count: plain `apt-get upgrade`
+        # never installs a new package and silently KEEPS BACK every package
+        # whose new version needs one (apt-get(8)), so it listed none of
+        # them - confirmed live: a host shown as up to date where `apt
+        # upgrade` (which uses --with-new-pkgs by default, apt(8)) then
+        # downloaded 300 MB. Runs unprivileged (simulate mode reads the
+        # index `apt-get update` just refreshed, doesn't lock anything).
+        return "apt-get update -qq && apt-get -s --with-new-pkgs upgrade 2>/dev/null"
     if pkg_mgr == "dnf":
         # Exit code 100 means "updates available" (NOT an error) — handled
         # specially by the caller, see check_updates()/_run_check().
@@ -470,7 +467,7 @@ def _check_command(pkg_mgr: str) -> str:
 
 def _upgrade_command(pkg_mgr: str) -> str:
     if pkg_mgr == "apt":
-        return ('DEBIAN_FRONTEND=noninteractive apt-get -y '
+        return ('DEBIAN_FRONTEND=noninteractive apt-get -y --with-new-pkgs '
                 '-o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade')
     if pkg_mgr == "dnf":
         return "dnf -y upgrade"
