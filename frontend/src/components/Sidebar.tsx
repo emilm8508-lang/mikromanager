@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2 } from 'lucide-react'
+import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -262,6 +262,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
     { key: 'soc', label: t('nav.groupSoc') as string, icon: Siren, items: [
       item('/soc', t('nav.socAlerts') as string, Siren),
       item('/soc/risk', t('nav.socRisk') as string, Gauge),
+      item('/soc/anomalies', t('nav.anomalies') as string, BrainCircuit),
       item('/soc/rules', t('nav.socRules') as string, ListChecks),
       item('/soc/syslog', t('nav.syslog') as string, Radio),
       item('/soc/hostlogs', t('nav.hostlogs') as string, ScrollText),
@@ -324,6 +325,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
     item('/central', t('nav.central') as string, Cloud),
     item('/central/security', t('nav.securitySummary') as string, PieChart),
     item('/central/soc', t('nav.soc') as string, Siren),
+    item('/central/anomalies', t('nav.anomalies') as string, BrainCircuit),
     { key: 'c-systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/central/fleet', t('fleetCentral.navLabel') as string, Router),
       item('/central/hosts', t('centralHosts.navLabel') as string, TerminalSquare),

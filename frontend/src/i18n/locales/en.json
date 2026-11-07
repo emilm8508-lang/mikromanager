@@ -28,6 +28,7 @@
                 "maint": "Maintenance windows",
                 "hostlogs": "Host logs",
                 "metrics": "Metrics and forecasts",
+                "anomalies": "Anomalies (ML)",
                 "ups": "UPS and sensors",
                 "coverage": "Source coverage",
                 "soar": "Response",
@@ -1492,6 +1493,7 @@
             "cut": "The most urgent alerts are shown (limit 80); the full queue is on the agent."
         },
         "rule": {
+            "ml": {"anomaly": "Unusual behaviour (anomaly)"},
             "failed_logins": "Repeated failed logins",
             "device_rebooted": "Device rebooted",
             "device_log_critical": "Critical entries in the device log",
@@ -3933,5 +3935,71 @@
         },
         "biosBehind": "A newer BIOS already runs on another server of the same model",
         "nothing": "Nothing matches the search."
+    },
+    "anomaly": {
+        "title": "Anomalies (ML)",
+        "subtitle": "Hosts behaving unlike themselves — every metric series compared with its own learned range for the same hour of the week.",
+        "runNow": "Check now",
+        "howTitle": "How it works",
+        "how": "For every series (CPU, memory, temperatures, UPS, the iDRAC's power draw and fans) the agent learns from the last 28 days the median and spread (MAD) separately for every hour of the week (for the hour of the day while there are less than 14 days of history). The score is how many standard deviations a reading is from the median of its hour, in the direction that matters (CPU, memory and temperature only upwards, UPS charge downwards, power and fans both ways). An anomaly opens when a score ≥ {{z}} lasts 2 cycles (20 min) and closes when everything is back under {{zc}}. A series needs {{days}} days of history before it is judged. Every anomaly opens a SOC alert; your verdict (real / false alarm) is kept and used to measure the precision.",
+        "stat": {
+            "judged": "Series judged",
+            "series": "of {{n}} series",
+            "learning": "Learning",
+            "learningSub": "need {{days}} days of history",
+            "open": "Open now",
+            "events": "Events (90 days)",
+            "labelled": "labelled: {{n}}",
+            "precision": "Precision",
+            "precisionSub": "{{t}} real · {{f}} false",
+            "noLabels": "no labels",
+            "events30": "Events (30 days)"
+        },
+        "openTitle": "Open anomalies",
+        "noneOpen": "No open anomalies — everything within its learned range.",
+        "cat": {
+            "resource": "resources",
+            "hardware": "hardware"
+        },
+        "peak": "score",
+        "since": "since {{at}} · {{min}} min",
+        "sinceShort": "since {{at}}",
+        "historyTitle": "History and verdicts",
+        "historyIntro": "Label every event: \"real\" — there was a real problem, \"false\" — nothing was wrong. Marking the SOC alert a false positive (also from Central) counts the same. The CSV export has every event with its label.",
+        "noHistory": "No closed events yet.",
+        "col": {
+            "host": "Host",
+            "start": "Start",
+            "minutes": "Min",
+            "peak": "Score",
+            "what": "What was off",
+            "verdict": "Verdict",
+            "series": "Series",
+            "now": "Now",
+            "usual": "Usually",
+            "limit": "Limit",
+            "score": "Score",
+            "tenant": "Client"
+        },
+        "usuallyShort": "usually",
+        "verdict": {
+            "true": "Real",
+            "false": "False",
+            "fromSoc": "Marked a false positive in the SOC"
+        },
+        "scoreHelp": "How many standard deviations from the median of this hour of the week (≥ 4 = anomaly)",
+        "noChart": "Not enough readings for a chart.",
+        "legend": {
+            "band": "normal range",
+            "median": "median of this hour",
+            "value": "reading",
+            "out": "out of range"
+        },
+        "learningSeries": "series still learning",
+        "centralTitle": "Anomalies (ML) — all clients",
+        "centralIntro": "Detection runs on every agent, on the history of its own hosts; here are the results of every client side by side.",
+        "centralLabelHint": "Label a false alarm in the SOC (status \"false positive\") or on the agent — it then counts towards the precision.",
+        "perTenant": "By client",
+        "noAgentData": "the agent does not send anomaly data yet (older than 3.43)"
     }
 }

@@ -28,6 +28,7 @@
                 "maint": "Okna serwisowe",
                 "hostlogs": "Dzienniki hostów",
                 "metrics": "Metryki i prognozy",
+                "anomalies": "Anomalie (ML)",
                 "ups": "UPS i czujniki",
                 "coverage": "Pokrycie źródeł",
                 "soar": "Reakcje",
@@ -1656,6 +1657,7 @@
             "cut": "Pokazano najpilniejsze alerty (limit 80); pełna kolejka jest na agencie."
         },
         "rule": {
+            "ml": {"anomaly": "Nietypowe zachowanie (anomalia)"},
             "failed_logins": "Powtarzające się nieudane logowania",
             "device_rebooted": "Urządzenie zostało zrestartowane",
             "device_log_critical": "Krytyczne wpisy w logu urządzenia",
@@ -4350,5 +4352,71 @@
         },
         "biosBehind": "Nowszy BIOS jest już na innym serwerze tego samego modelu",
         "nothing": "Nic nie pasuje do wyszukiwania."
+    },
+    "anomaly": {
+        "title": "Anomalie (ML)",
+        "subtitle": "Hosty, które zachowują się inaczej niż zwykle — każda seria metryk porównana z własnym, wyuczonym zakresem dla tej samej godziny tygodnia.",
+        "runNow": "Sprawdź teraz",
+        "howTitle": "Jak to działa",
+        "how": "Dla każdej serii (CPU, pamięć, temperatury, UPS, pobór mocy i wentylatory z iDRAC) agent uczy się z ostatnich 28 dni mediany i rozrzutu (MAD) osobno dla każdej godziny tygodnia (przy krótszej historii niż 14 dni — dla godziny doby). Wynik to liczba odchyleń standardowych od mediany tej godziny, liczona w kierunku, który ma znaczenie (CPU, pamięć i temperatura tylko w górę, ładowanie UPS w dół, moc i wentylatory w obie strony). Anomalia otwiera się, gdy wynik ≥ {{z}} utrzymuje się przez 2 cykle (20 min), i zamyka, gdy wszystko wróci poniżej {{zc}}. Seria potrzebuje {{days}} dni historii, zanim zacznie być oceniana. Każda anomalia otwiera alert SOC; Twoja ocena (trafny / fałszywy alarm) jest zapisywana i służy do liczenia precyzji.",
+        "stat": {
+            "judged": "Oceniane serie",
+            "series": "z {{n}} serii",
+            "learning": "W nauce",
+            "learningSub": "potrzebują {{days}} dni historii",
+            "open": "Otwarte teraz",
+            "events": "Zdarzenia (90 dni)",
+            "labelled": "ocenionych: {{n}}",
+            "precision": "Precyzja",
+            "precisionSub": "{{t}} trafnych · {{f}} fałszywych",
+            "noLabels": "brak ocen",
+            "events30": "Zdarzenia (30 dni)"
+        },
+        "openTitle": "Otwarte anomalie",
+        "noneOpen": "Brak otwartych anomalii — wszystko w wyuczonym zakresie.",
+        "cat": {
+            "resource": "zasoby",
+            "hardware": "sprzęt"
+        },
+        "peak": "wynik",
+        "since": "od {{at}} · {{min}} min",
+        "sinceShort": "od {{at}}",
+        "historyTitle": "Historia i ocena",
+        "historyIntro": "Oceń każde zdarzenie: „trafny” — był realny problem, „fałszywy” — nic się nie działo. Oznaczenie alertu SOC jako fałszywego alarmu (także z centrali) liczy się tak samo. Eksport CSV zawiera wszystkie zdarzenia z ocenami.",
+        "noHistory": "Jeszcze nie było zamkniętych zdarzeń.",
+        "col": {
+            "host": "Host",
+            "start": "Początek",
+            "minutes": "Min",
+            "peak": "Wynik",
+            "what": "Co odbiegało",
+            "verdict": "Ocena",
+            "series": "Seria",
+            "now": "Teraz",
+            "usual": "Zwykle",
+            "limit": "Granica",
+            "score": "Wynik",
+            "tenant": "Klient"
+        },
+        "usuallyShort": "zwykle",
+        "verdict": {
+            "true": "Trafny",
+            "false": "Fałszywy",
+            "fromSoc": "Oznaczone jako fałszywy alarm w SOC"
+        },
+        "scoreHelp": "Ile odchyleń standardowych od mediany tej godziny tygodnia (≥ 4 = anomalia)",
+        "noChart": "Za mało odczytów na wykres.",
+        "legend": {
+            "band": "zakres normalny",
+            "median": "mediana tej godziny",
+            "value": "odczyt",
+            "out": "poza zakresem"
+        },
+        "learningSeries": "seria jeszcze się uczy",
+        "centralTitle": "Anomalie (ML) — wszyscy klienci",
+        "centralIntro": "Wykrywanie działa na każdym agencie, na historii jego własnych hostów; tutaj widać wyniki wszystkich klientów obok siebie.",
+        "centralLabelHint": "Fałszywy alarm oznacz w SOC (status „fałszywy alarm”) albo na agencie — wtedy liczy się do precyzji.",
+        "perTenant": "Według klienta",
+        "noAgentData": "agent jeszcze nie wysyła danych o anomaliach (wersja starsza niż 3.43)"
     }
 }

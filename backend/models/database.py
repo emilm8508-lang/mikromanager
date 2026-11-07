@@ -560,6 +560,27 @@ class MetricSample(Base):
     value = Column(Float, nullable=False)
 
 
+class AnomalyEvent(Base):
+    """One stretch of unusual behaviour of a host found by services/anomaly.py: its metric series left their own learned range (per hour
+    of the week) and stayed out of it. `series` is what was unusual at the peak; `verdict` is the operator's label (true = a real
+    problem, false = a false alarm) - the ground truth the detector is measured against."""
+    __tablename__ = "anomaly_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_key = Column(String, nullable=False, index=True)          # "win:3", "bmc:2", "dev:12" - the prefix of the metric keys
+    host_name = Column(String, nullable=True)
+    category = Column(String, nullable=False, default="resource")  # resource | hardware
+    severity = Column(String, nullable=False, default="medium")
+    started_at = Column(DateTime, nullable=False, index=True)
+    last_seen = Column(DateTime, nullable=False)
+    ended_at = Column(DateTime, nullable=True, index=True)          # None while it is still open
+    peak_score = Column(Float, nullable=False, default=0.0)
+    series = Column(Text, nullable=True)                            # JSON [{key, name, unit, value, expected, low, high, score}]
+    verdict = Column(String, nullable=True)                         # None | "true" | "false"
+    verdict_by = Column(String, nullable=True)
+    verdict_at = Column(DateTime, nullable=True)
+
+
 class HostLogCursor(Base):
     """Where the reading of a host's security events (services/host_logs.py) got to: the time of the last successful read, the last error, how many events were seen."""
     __tablename__ = "host_log_cursors"

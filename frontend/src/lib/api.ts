@@ -1549,6 +1549,28 @@ export const upsApi = {
 // metrics with history, forecast and thresholds that last (services/metrics.py)
 export interface MetricSeriesRow { key: string; name: string; kind: string; unit: string; asset_id: number | null; value: number | null; at: string | null; slope: number | null; r2: number | null; days_to_full: number | null; samples: number; stale: boolean }
 export interface MetricRule { id?: string; name: string; kind: string; op: string; threshold: number; minutes: number; severity: string; match?: string | null; enabled: boolean }
+// Anomaly detection (services/anomaly.py): a host's series against their own learned range per hour of the week.
+export interface AnomalyItem { key?: string; name?: string; label: string; unit: string; kind?: string; value: number; expected: number; low: number; high: number; score: number }
+export interface AnomalyEvent {
+  id: number; host_key: string; host: string | null; category: 'resource' | 'hardware'; severity: string
+  started_at: string; last_seen: string; ended_at: string | null; minutes: number; peak_score: number; series: AnomalyItem[]
+  verdict: 'true' | 'false' | null; verdict_set: 'true' | 'false' | null; verdict_by: string | null; verdict_at: string | null
+}
+export interface AnomalyStats {
+  days: number; events: number; open: number; labelled: number; true: number; false: number; precision: number | null
+  z_open: number; z_close: number; min_span_days: number; at: string | null; series: number; learning: number; judged: number
+}
+export interface AnomalyBand {
+  key: string; name: string; unit: string; kind: string; direction: 'up' | 'down' | 'both'; learning: boolean; span_days: number | null
+  points: Array<{ t: string; v: number; m?: number; lo?: number | null; hi?: number | null; z?: number }>
+}
+export const anomaliesApi = {
+  overview: (days = 90) => api.get<{ events: AnomalyEvent[]; stats: AnomalyStats }>('/anomalies', { params: { days } }).then(r => r.data),
+  band: (key: string, days = 3) => api.get<AnomalyBand>('/anomalies/band', { params: { key, days } }).then(r => r.data),
+  verdict: (id: number, verdict: 'true' | 'false' | null) => api.put<AnomalyEvent>(`/anomalies/events/${id}/verdict`, { verdict }).then(r => r.data),
+  run: () => api.post('/anomalies/run').then(r => r.data),
+}
+
 export const metricsApi = {
   overview: () => api.get<{ series: MetricSeriesRow[]; rules: MetricRule[]; status: { at: string | null; series: number; error: string | null } }>('/metrics').then(r => r.data),
   series: (key: string, days: number) => api.get<{ key: string; points: Array<{ t: string; v: number }>; trend: { slope: number | null; r2: number | null; current: number | null; days_to_limit: number | null; span_days: number } }>('/metrics/series', { params: { key, days } }).then(r => r.data),
@@ -1684,6 +1706,8 @@ export interface CentralSoc {
   availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
+  anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null
+                open: Array<{ h: string | null; c: 'resource' | 'hardware'; sev: string; since: string; z: number; items: AnomalyItem[] }> }
   soar?: { enabled: boolean; central_approval: boolean; active: number
            pending: Array<{ id: number; kind: 'block_ip' | 'install_rule'; target: string | null; devices: string[]; ttl_min: number; reason: string; by: string | null; at: string | null; internal: boolean }> }
   configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }

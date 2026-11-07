@@ -18,6 +18,8 @@ import { Assistant } from './pages/Assistant'
 import { Maintenance } from './pages/Maintenance'
 import { HostLogs } from './pages/HostLogs'
 import { Metrics } from './pages/Metrics'
+import { Anomalies } from './pages/Anomalies'
+import { CentralAnomalies } from './pages/CentralAnomalies'
 import { Ups } from './pages/Ups'
 import { Coverage } from './pages/Coverage'
 import { SocResponse } from './pages/SocResponse'
@@ -112,6 +114,7 @@ export default function App() {
             <Route path="/maintenance" element={<Maintenance />} />
             <Route path="/soc/hostlogs" element={<HostLogs />} />
             <Route path="/metrics" element={<Metrics />} />
+            <Route path="/soc/anomalies" element={<Anomalies />} />
             <Route path="/ups" element={<Ups />} />
             <Route path="/soc/coverage" element={<Coverage />} />
             <Route path="/soc/response" element={<SocResponse />} />
@@ -126,6 +129,7 @@ export default function App() {
             <Route path="/central/configs" element={<CentralConfigsPage />} />
             <Route path="/central/syslog" element={<CentralSyslogPage />} />
             <Route path="/central/soc" element={<CentralSoc />} />
+            <Route path="/central/anomalies" element={<CentralAnomalies />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />

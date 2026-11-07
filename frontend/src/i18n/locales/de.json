@@ -28,6 +28,7 @@
                 "maint": "Wartungsfenster",
                 "hostlogs": "Host-Protokolle",
                 "metrics": "Metriken und Prognosen",
+                "anomalies": "Anomalien (ML)",
                 "ups": "USV und Sensoren",
                 "coverage": "Quellenabdeckung",
                 "soar": "Reaktion",
@@ -1492,6 +1493,7 @@
             "cut": "Die dringendsten Alarme werden angezeigt (Limit 80); die vollständige Warteschlange liegt auf dem Agenten."
         },
         "rule": {
+            "ml": {"anomaly": "Ungewöhnliches Verhalten (Anomalie)"},
             "failed_logins": "Wiederholte fehlgeschlagene Anmeldungen",
             "device_rebooted": "Gerät wurde neu gestartet",
             "device_log_critical": "Kritische Einträge im Gerätelog",
@@ -3933,5 +3935,71 @@
         },
         "biosBehind": "Ein neueres BIOS läuft bereits auf einem anderen Server desselben Modells",
         "nothing": "Nichts passt zur Suche."
+    },
+    "anomaly": {
+        "title": "Anomalien (ML)",
+        "subtitle": "Hosts, die sich anders als sonst verhalten — jede Metrikreihe gegen ihren eigenen gelernten Bereich für dieselbe Wochenstunde.",
+        "runNow": "Jetzt prüfen",
+        "howTitle": "So funktioniert es",
+        "how": "Für jede Reihe (CPU, Speicher, Temperaturen, USV, Leistungsaufnahme und Lüfter aus dem iDRAC) lernt der Agent aus den letzten 28 Tagen Median und Streuung (MAD), getrennt für jede Wochenstunde (bei weniger als 14 Tagen Verlauf für die Tagesstunde). Der Score gibt an, wie viele Standardabweichungen ein Messwert vom Median seiner Stunde entfernt ist, in der relevanten Richtung (CPU, Speicher, Temperatur nur nach oben, USV-Ladung nach unten, Leistung und Lüfter beidseitig). Eine Anomalie öffnet sich, wenn ein Score ≥ {{z}} 2 Zyklen (20 min) anhält, und schließt sich, wenn alles wieder unter {{zc}} liegt. Eine Reihe braucht {{days}} Tage Verlauf, bevor sie bewertet wird. Jede Anomalie öffnet einen SOC-Alarm; Ihre Bewertung (echt / Fehlalarm) wird gespeichert und zur Messung der Präzision genutzt.",
+        "stat": {
+            "judged": "Bewertete Reihen",
+            "series": "von {{n}} Reihen",
+            "learning": "Lernphase",
+            "learningSub": "brauchen {{days}} Tage Verlauf",
+            "open": "Jetzt offen",
+            "events": "Ereignisse (90 Tage)",
+            "labelled": "bewertet: {{n}}",
+            "precision": "Präzision",
+            "precisionSub": "{{t}} echt · {{f}} falsch",
+            "noLabels": "keine Bewertungen",
+            "events30": "Ereignisse (30 Tage)"
+        },
+        "openTitle": "Offene Anomalien",
+        "noneOpen": "Keine offenen Anomalien — alles im gelernten Bereich.",
+        "cat": {
+            "resource": "Ressourcen",
+            "hardware": "Hardware"
+        },
+        "peak": "Score",
+        "since": "seit {{at}} · {{min}} min",
+        "sinceShort": "seit {{at}}",
+        "historyTitle": "Verlauf und Bewertung",
+        "historyIntro": "Bewerten Sie jedes Ereignis: „echt“ — es gab ein Problem, „falsch“ — nichts war los. Einen SOC-Alarm als Fehlalarm zu markieren (auch aus der Zentrale) zählt genauso. Der CSV-Export enthält alle Ereignisse mit Bewertung.",
+        "noHistory": "Noch keine abgeschlossenen Ereignisse.",
+        "col": {
+            "host": "Host",
+            "start": "Beginn",
+            "minutes": "Min",
+            "peak": "Score",
+            "what": "Was abwich",
+            "verdict": "Bewertung",
+            "series": "Reihe",
+            "now": "Jetzt",
+            "usual": "Üblich",
+            "limit": "Grenze",
+            "score": "Score",
+            "tenant": "Kunde"
+        },
+        "usuallyShort": "üblich",
+        "verdict": {
+            "true": "Echt",
+            "false": "Falsch",
+            "fromSoc": "Im SOC als Fehlalarm markiert"
+        },
+        "scoreHelp": "Wie viele Standardabweichungen vom Median dieser Wochenstunde (≥ 4 = Anomalie)",
+        "noChart": "Zu wenige Messwerte für ein Diagramm.",
+        "legend": {
+            "band": "Normalbereich",
+            "median": "Median dieser Stunde",
+            "value": "Messwert",
+            "out": "außerhalb"
+        },
+        "learningSeries": "Reihe lernt noch",
+        "centralTitle": "Anomalien (ML) — alle Kunden",
+        "centralIntro": "Die Erkennung läuft auf jedem Agenten mit dem Verlauf seiner eigenen Hosts; hier stehen die Ergebnisse aller Kunden nebeneinander.",
+        "centralLabelHint": "Fehlalarm im SOC (Status „Fehlalarm“) oder am Agenten markieren — dann zählt er zur Präzision.",
+        "perTenant": "Nach Kunde",
+        "noAgentData": "der Agent sendet noch keine Anomaliedaten (älter als 3.43)"
     }
 }

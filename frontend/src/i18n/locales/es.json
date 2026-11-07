@@ -28,6 +28,7 @@
                 "maint": "Ventanas de mantenimiento",
                 "hostlogs": "Registros de hosts",
                 "metrics": "Métricas y previsiones",
+                "anomalies": "Anomalías (ML)",
                 "ups": "SAI y sensores",
                 "coverage": "Cobertura de fuentes",
                 "soar": "Respuesta",
@@ -1492,6 +1493,7 @@
             "cut": "Se muestran las alertas más urgentes (límite 80); la cola completa está en el agente."
         },
         "rule": {
+            "ml": {"anomaly": "Comportamiento inusual (anomalía)"},
             "failed_logins": "Inicios de sesión fallidos repetidos",
             "device_rebooted": "El dispositivo se reinició",
             "device_log_critical": "Entradas críticas en el registro del dispositivo",
@@ -3933,5 +3935,71 @@
         },
         "biosBehind": "Ya hay una BIOS más nueva en otro servidor del mismo modelo",
         "nothing": "Nada coincide con la búsqueda."
+    },
+    "anomaly": {
+        "title": "Anomalías (ML)",
+        "subtitle": "Hosts que se comportan distinto de lo habitual — cada serie de métricas frente a su propio rango aprendido para la misma hora de la semana.",
+        "runNow": "Comprobar ahora",
+        "howTitle": "Cómo funciona",
+        "how": "Para cada serie (CPU, memoria, temperaturas, SAI, consumo y ventiladores del iDRAC) el agente aprende de los últimos 28 días la mediana y la dispersión (MAD) por separado para cada hora de la semana (para la hora del día mientras haya menos de 14 días de historial). La puntuación es cuántas desviaciones estándar se aleja una lectura de la mediana de su hora, en la dirección que importa (CPU, memoria y temperatura solo hacia arriba, carga del SAI hacia abajo, consumo y ventiladores en ambos sentidos). Una anomalía se abre cuando una puntuación ≥ {{z}} dura 2 ciclos (20 min) y se cierra cuando todo vuelve por debajo de {{zc}}. Una serie necesita {{days}} días de historial antes de evaluarse. Cada anomalía abre una alerta SOC; tu valoración (real / falsa alarma) se guarda y sirve para medir la precisión.",
+        "stat": {
+            "judged": "Series evaluadas",
+            "series": "de {{n}} series",
+            "learning": "Aprendiendo",
+            "learningSub": "necesitan {{days}} días de historial",
+            "open": "Abiertas ahora",
+            "events": "Eventos (90 días)",
+            "labelled": "valorados: {{n}}",
+            "precision": "Precisión",
+            "precisionSub": "{{t}} reales · {{f}} falsos",
+            "noLabels": "sin valoraciones",
+            "events30": "Eventos (30 días)"
+        },
+        "openTitle": "Anomalías abiertas",
+        "noneOpen": "No hay anomalías abiertas — todo dentro de su rango aprendido.",
+        "cat": {
+            "resource": "recursos",
+            "hardware": "hardware"
+        },
+        "peak": "puntuación",
+        "since": "desde {{at}} · {{min}} min",
+        "sinceShort": "desde {{at}}",
+        "historyTitle": "Historial y valoración",
+        "historyIntro": "Valora cada evento: «real» — hubo un problema, «falso» — no pasaba nada. Marcar la alerta SOC como falso positivo (también desde la central) cuenta igual. La exportación CSV incluye todos los eventos con su valoración.",
+        "noHistory": "Aún no hay eventos cerrados.",
+        "col": {
+            "host": "Host",
+            "start": "Inicio",
+            "minutes": "Min",
+            "peak": "Puntuación",
+            "what": "Qué se desvió",
+            "verdict": "Valoración",
+            "series": "Serie",
+            "now": "Ahora",
+            "usual": "Habitual",
+            "limit": "Límite",
+            "score": "Puntuación",
+            "tenant": "Cliente"
+        },
+        "usuallyShort": "habitual",
+        "verdict": {
+            "true": "Real",
+            "false": "Falso",
+            "fromSoc": "Marcada como falso positivo en el SOC"
+        },
+        "scoreHelp": "Cuántas desviaciones estándar respecto a la mediana de esta hora de la semana (≥ 4 = anomalía)",
+        "noChart": "No hay suficientes lecturas para un gráfico.",
+        "legend": {
+            "band": "rango normal",
+            "median": "mediana de esta hora",
+            "value": "lectura",
+            "out": "fuera de rango"
+        },
+        "learningSeries": "la serie aún aprende",
+        "centralTitle": "Anomalías (ML) — todos los clientes",
+        "centralIntro": "La detección se ejecuta en cada agente, con el historial de sus propios hosts; aquí se ven los resultados de todos los clientes juntos.",
+        "centralLabelHint": "Marca una falsa alarma en el SOC (estado «falso positivo») o en el agente — así cuenta para la precisión.",
+        "perTenant": "Por cliente",
+        "noAgentData": "el agente aún no envía datos de anomalías (anterior a 3.43)"
     }
 }

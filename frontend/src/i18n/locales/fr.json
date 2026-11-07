@@ -28,6 +28,7 @@
                 "maint": "Fenêtres de maintenance",
                 "hostlogs": "Journaux des hôtes",
                 "metrics": "Métriques et prévisions",
+                "anomalies": "Anomalies (ML)",
                 "ups": "Onduleurs et capteurs",
                 "coverage": "Couverture des sources",
                 "soar": "Réponse",
@@ -1492,6 +1493,7 @@
             "cut": "Les alertes les plus urgentes sont affichées (limite 80) ; la file complète est sur l'agent."
         },
         "rule": {
+            "ml": {"anomaly": "Comportement inhabituel (anomalie)"},
             "failed_logins": "Échecs de connexion répétés",
             "device_rebooted": "L'équipement a redémarré",
             "device_log_critical": "Entrées critiques dans le journal de l'équipement",
@@ -3933,5 +3935,71 @@
         },
         "biosBehind": "Un BIOS plus récent tourne déjà sur un autre serveur du même modèle",
         "nothing": "Rien ne correspond à la recherche."
+    },
+    "anomaly": {
+        "title": "Anomalies (ML)",
+        "subtitle": "Les hôtes qui se comportent autrement que d'habitude — chaque série de métriques comparée à sa propre plage apprise pour la même heure de la semaine.",
+        "runNow": "Vérifier maintenant",
+        "howTitle": "Fonctionnement",
+        "how": "Pour chaque série (CPU, mémoire, températures, onduleur, consommation et ventilateurs de l'iDRAC), l'agent apprend sur les 28 derniers jours la médiane et la dispersion (MAD) séparément pour chaque heure de la semaine (pour l'heure de la journée tant qu'il y a moins de 14 jours d'historique). Le score indique de combien d'écarts-types une mesure s'éloigne de la médiane de son heure, dans le sens qui compte (CPU, mémoire et température vers le haut, charge de l'onduleur vers le bas, consommation et ventilateurs dans les deux sens). Une anomalie s'ouvre quand un score ≥ {{z}} dure 2 cycles (20 min) et se ferme quand tout repasse sous {{zc}}. Une série a besoin de {{days}} jours d'historique avant d'être évaluée. Chaque anomalie ouvre une alerte SOC ; votre verdict (réel / fausse alerte) est conservé et sert à mesurer la précision.",
+        "stat": {
+            "judged": "Séries évaluées",
+            "series": "sur {{n}} séries",
+            "learning": "En apprentissage",
+            "learningSub": "il faut {{days}} jours d'historique",
+            "open": "Ouvertes",
+            "events": "Événements (90 jours)",
+            "labelled": "évalués : {{n}}",
+            "precision": "Précision",
+            "precisionSub": "{{t}} réels · {{f}} faux",
+            "noLabels": "aucune évaluation",
+            "events30": "Événements (30 jours)"
+        },
+        "openTitle": "Anomalies ouvertes",
+        "noneOpen": "Aucune anomalie ouverte — tout est dans sa plage apprise.",
+        "cat": {
+            "resource": "ressources",
+            "hardware": "matériel"
+        },
+        "peak": "score",
+        "since": "depuis {{at}} · {{min}} min",
+        "sinceShort": "depuis {{at}}",
+        "historyTitle": "Historique et verdicts",
+        "historyIntro": "Évaluez chaque événement : « réel » — il y avait un problème, « faux » — rien d'anormal. Marquer l'alerte SOC comme faux positif (aussi depuis la centrale) compte de la même façon. L'export CSV contient tous les événements avec leur verdict.",
+        "noHistory": "Pas encore d'événements clos.",
+        "col": {
+            "host": "Hôte",
+            "start": "Début",
+            "minutes": "Min",
+            "peak": "Score",
+            "what": "Ce qui s'écartait",
+            "verdict": "Verdict",
+            "series": "Série",
+            "now": "Maintenant",
+            "usual": "Habituel",
+            "limit": "Limite",
+            "score": "Score",
+            "tenant": "Client"
+        },
+        "usuallyShort": "habituellement",
+        "verdict": {
+            "true": "Réel",
+            "false": "Faux",
+            "fromSoc": "Marquée faux positif dans le SOC"
+        },
+        "scoreHelp": "Nombre d'écarts-types par rapport à la médiane de cette heure de la semaine (≥ 4 = anomalie)",
+        "noChart": "Pas assez de mesures pour un graphique.",
+        "legend": {
+            "band": "plage normale",
+            "median": "médiane de cette heure",
+            "value": "mesure",
+            "out": "hors plage"
+        },
+        "learningSeries": "série encore en apprentissage",
+        "centralTitle": "Anomalies (ML) — tous les clients",
+        "centralIntro": "La détection tourne sur chaque agent, sur l'historique de ses propres hôtes ; on voit ici les résultats de tous les clients côte à côte.",
+        "centralLabelHint": "Marquez une fausse alerte dans le SOC (statut « faux positif ») ou sur l'agent — elle compte alors dans la précision.",
+        "perTenant": "Par client",
+        "noAgentData": "l'agent n'envoie pas encore de données d'anomalies (antérieur à 3.43)"
     }
 }

@@ -307,6 +307,11 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
     n = sample_resources(now)
     fc = check_forecasts(now)
     ru = check_rules(now)
+    try:
+        from services import anomaly
+        anomaly.run_cycle(now)                  # each series against its own learned range (services/anomaly.py)
+    except Exception as e:
+        print(f"[metrics] anomaly detection error: {e}")
     if time.time() - _last_rollup[0] > 86400:
         _last_rollup[0] = time.time()
         rollup(now)

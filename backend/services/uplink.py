@@ -577,6 +577,8 @@ async def _build_snapshot() -> dict:
             soc_status["soar"] = soar.public_summary()                          # response actions waiting for approval
             from services import tls_scan
             soc_status["tls"] = tls_scan.public_summary()                       # certificates that expired / are about to, weak ones
+            from services import anomaly
+            soc_status["anomalies"] = anomaly.public_summary()                  # hosts behaving unlike themselves, and the detector's numbers
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:
