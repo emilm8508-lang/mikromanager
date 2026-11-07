@@ -36,7 +36,7 @@ FORECAST_HORIZON_DAYS = 14
 MIN_SLOPE = 0.2                  # % of the disk per day: slower growth is not worth an alert
 MIN_R2 = 0.6                     # how well a straight line fits: below this the series is noise, not a trend
 MIN_CURRENT = 50.0
-KINDS = ("cpu", "mem", "disk", "temp", "ups_charge", "ups_load", "ups_runtime", "ups_temp", "other")
+KINDS = ("cpu", "mem", "disk", "temp", "ups_charge", "ups_load", "ups_runtime", "ups_temp", "net", "sec", "other")      # net: NetFlow per host, sec: Wazuh events per agent
 SEVERITIES = ("low", "medium", "high", "critical")
 
 _task: Optional[asyncio.Task] = None
@@ -308,10 +308,20 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
     fc = check_forecasts(now)
     ru = check_rules(now)
     try:
+        from services import wazuh_features
+        await wazuh_features.sample(now)        # Wazuh event counts per agent as series, when Wazuh is configured
+    except Exception as e:
+        print(f"[metrics] wazuh features error: {e}")
+    try:
         from services import anomaly
         anomaly.run_cycle(now)                  # each series against its own learned range (services/anomaly.py)
     except Exception as e:
         print(f"[metrics] anomaly detection error: {e}")
+    try:
+        from services import correlate
+        correlate.run(now)                      # signals from several sources about one machine
+    except Exception as e:
+        print(f"[metrics] correlation error: {e}")
     if time.time() - _last_rollup[0] > 86400:
         _last_rollup[0] = time.time()
         rollup(now)

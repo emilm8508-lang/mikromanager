@@ -233,6 +233,47 @@ async def list_recent_alerts(since_iso: str, min_level: int, size: int = 500, lo
     return out
 
 
+AUTH_GROUPS = ("authentication_failed", "authentication_failures", "invalid_login")
+
+
+async def alert_counts(since_iso: str, until_iso: str) -> Optional[dict]:
+    """How many alerts each Wazuh agent had between the two times (all levels), and of them the failed logins, the ones of level 10 and
+    up and the distinct source addresses - one aggregation query, no documents read (services/wazuh_features.py turns it into series).
+    {agent name: {"ip", "events", "auth", "high", "srcips"}}, or None when the indexer did not answer."""
+    if not is_configured():
+        return None
+    url = _config["indexer_url"].rstrip("/") + "/wazuh-alerts-*/_search"
+    body = {
+        "size": 0,
+        "query": {"bool": {"filter": [{"range": {"@timestamp": {"gte": since_iso, "lt": until_iso}}}]}},
+        "aggs": {"agents": {"terms": {"field": "agent.name", "size": 1000}, "aggs": {
+            "ip": {"terms": {"field": "agent.ip", "size": 1}},
+            "auth": {"filter": {"terms": {"rule.groups": list(AUTH_GROUPS)}}},
+            "high": {"filter": {"range": {"rule.level": {"gte": 10}}}},
+            "srcips": {"cardinality": {"field": "data.srcip"}},
+        }}},
+    }
+    connector = aiohttp.TCPConnector(ssl=_config["verify_ssl"])
+    try:
+        async with aiohttp.ClientSession(connector=connector, auth=_auth()) as session:
+            async with session.post(url, json=body, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+    except Exception as e:
+        print(f"[wazuh] alert_counts error: {e}")
+        return None
+    out = {}
+    for b in (((data.get("aggregations") or {}).get("agents") or {}).get("buckets") or []):
+        if not isinstance(b, dict) or not b.get("key"):
+            continue
+        ipb = ((b.get("ip") or {}).get("buckets") or [{}])
+        out[str(b["key"])] = {"ip": ipb[0].get("key") if ipb else None, "events": int(b.get("doc_count") or 0),
+                              "auth": int((b.get("auth") or {}).get("doc_count") or 0), "high": int((b.get("high") or {}).get("doc_count") or 0),
+                              "srcips": int((b.get("srcips") or {}).get("value") or 0)}
+    return out
+
+
 def has_secret() -> bool:
     return bool(_config["indexer_password"])
 

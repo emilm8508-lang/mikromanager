@@ -1,5 +1,6 @@
 {
     "nav":  {
+                "netflow": "Flux réseau (NetFlow)",
                 "dashboard":  "Tableau de bord",
                 "devices":  "Appareils",
                 "map":  "Carte réseau",
@@ -1493,7 +1494,7 @@
             "cut": "Les alertes les plus urgentes sont affichées (limite 80) ; la file complète est sur l'agent."
         },
         "rule": {
-            "ml": {"anomaly": "Comportement inhabituel (anomalie)"},
+            "ml": {"anomaly": "Comportement inhabituel (anomalie)", "correlated": "Signaux de plusieurs sources sur une machine"}, "net": {"portscan": "Scan de ports", "lateral": "Mouvement latéral", "beacon": "Beaconing", "scan_in": "Scan depuis l'extérieur"},
             "failed_logins": "Échecs de connexion répétés",
             "device_rebooted": "L'équipement a redémarré",
             "device_log_critical": "Entrées critiques dans le journal de l'équipement",
@@ -2048,6 +2049,7 @@
         },
         "note": "Les relevés viennent de ce que l'agent sait déjà des appareils et des hôtes (pas de nouvelles connexions) ; pleine résolution 14 jours, puis un relevé par heure jusqu'à 90 jours. La prévision concerne les disques : croissance régulière (ajustement de droite d'au moins 0,6, croissance d'au moins 0,2 point par jour) atteignant 100 % en 14 jours.",
         "kind": {
+            "net": "trafic réseau", "sec": "événements de sécurité",
             "cpu": "processeur",
             "mem": "mémoire",
             "disk": "disque",
@@ -3958,6 +3960,7 @@
         "openTitle": "Anomalies ouvertes",
         "noneOpen": "Aucune anomalie ouverte — tout est dans sa plage apprise.",
         "cat": {
+            "network": "réseau", "security": "sécurité",
             "resource": "ressources",
             "hardware": "matériel"
         },
@@ -4001,5 +4004,74 @@
         "centralLabelHint": "Marquez une fausse alerte dans le SOC (statut « faux positif ») ou sur l'agent — elle compte alors dans la précision.",
         "perTenant": "Par client",
         "noAgentData": "l'agent n'envoie pas encore de données d'anomalies (antérieur à 3.43)"
+    },
+    "netflow": {
+        "title": "Flux réseau (NetFlow)",
+        "subtitle": "Enregistrements de flux des routeurs (NetFlow v5 / v9 / IPFIX) : le trafic de chaque hôte sous forme de séries que l'étape 1 apprend à juger, et des détecteurs d'attaques réseau.",
+        "listening": "Réception sur UDP {{port}}",
+        "notListening": "Activé, mais n'écoute pas",
+        "off": "Désactivé",
+        "counts": "{{flows}} flux dans {{packets}} paquets · {{hosts}} hôtes suivis",
+        "enable": "Activer",
+        "disable": "Désactiver",
+        "wazuhOn": "Wazuh est configuré : les événements de {{agents}} agents Wazuh alimentent toutes les 10 minutes des séries (événements, échecs de connexion, niveau 10+, adresses source) et la corrélation.",
+        "wazuhOff": "Wazuh n'est pas configuré sur cet agent — une fois connecté, ses événements seront aussi jugés et corrélés.",
+        "setupTitle": "Configuration du routeur",
+        "setupIntro": "À coller sur le routeur MikroTik — il enverra ses flux à l'agent. L'adresse de l'agent et le port sont renseignés.",
+        "target": {
+            "ros7": "RouterOS 7",
+            "ros6": "RouterOS 6",
+            "firewall": "Pare-feu Windows de l'agent"
+        },
+        "copy": "Copier",
+        "copied": "Copié",
+        "setupNote": "Modèles — à vérifier sur votre version de RouterOS. Les flux ne sont acceptés que des équipements connus de l'agent (inventaire, équipements gérés).",
+        "flowsN": "{{n}} flux",
+        "unknown": "Refusés d'expéditeurs inconnus",
+        "set": {
+            "title": "Réglages et seuils",
+            "port": "Port UDP",
+            "scan_ports": "Scan : ports sur une cible",
+            "scan_hosts": "Scan : nombre de cibles",
+            "lateral_hosts": "Mouvement latéral : hôtes",
+            "max_hosts": "Hôtes suivis max.",
+            "local_nets": "Réseaux locaux (un par ligne)",
+            "beacon": "Détecter le beaconing",
+            "external_scans": "Alerter sur les scans externes (bruyant)",
+            "accept_unknown": "Accepter des expéditeurs inconnus"
+        },
+        "detTitle": "Détections réseau",
+        "det24": "{{n}} en 24 h",
+        "toSoc": "Alertes dans le SOC",
+        "detIntro": "Règles sur chaque fenêtre de 10 minutes : scan (≥ {{ports}} ports sur une cible ou ≥ {{hosts}} cibles, surtout sans réponse), mouvement latéral (ports d'administration sur ≥ {{lateral}} hôtes internes), beaconing (nouvelles connexions régulières vers la même adresse externe). Chaque détection est une alerte SOC avec son identifiant ATT&CK.",
+        "noDet": "Aucune détection.",
+        "rule": {
+            "portscan": "Scan",
+            "lateral": "Mouvement latéral",
+            "beacon": "Beaconing",
+            "scan_in": "Scan externe"
+        },
+        "topTitle": "Hôtes les plus actifs (10 dernières min)",
+        "topIntro": "Cliquez sur un hôte pour voir son trafic sortant et son nombre d'interlocuteurs face à sa plage apprise.",
+        "noWindow": "Aucune fenêtre close pour l'instant (la première 10 minutes après l'arrivée des flux).",
+        "col": {
+            "host": "Hôte",
+            "out": "Envoyé",
+            "in": "Reçu",
+            "peers": "Interlocuteurs",
+            "ports": "Ports",
+            "unanswered": "Sans réponse",
+            "src": "Source",
+            "dst": "Destination",
+            "proto": "Protocole",
+            "bytes": "Octets",
+            "state": "État",
+            "hosts": "Hôtes",
+            "busiest": "Plus actifs (env./reçu)"
+        },
+        "convTitle": "Plus grosses conversations (10 dernières min)",
+        "centralTitle": "Flux réseau (NetFlow)",
+        "centralNone": "Aucun agent ne reçoit encore de NetFlow.",
+        "centralOk": "reçoit de {{n}} routeurs"
     }
 }

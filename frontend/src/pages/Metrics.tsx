@@ -10,7 +10,7 @@ function errText(e: unknown): string {
   return x?.response?.data?.detail ?? x?.message ?? String(e)
 }
 
-const KINDS = ['cpu', 'mem', 'disk', 'temp', 'ups_charge', 'ups_load', 'ups_runtime', 'ups_temp', 'other']
+const KINDS = ['cpu', 'mem', 'disk', 'temp', 'ups_charge', 'ups_load', 'ups_runtime', 'ups_temp', 'net', 'sec', 'other']
 
 function Chart({ s }: { s: MetricSeriesRow }) {
   const { t } = useTranslation()

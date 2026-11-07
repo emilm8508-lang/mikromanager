@@ -1,5 +1,6 @@
 {
     "nav":  {
+                "netflow": "Network flows (NetFlow)",
                 "dashboard":  "Dashboard",
                 "devices":  "Devices",
                 "map":  "Network map",
@@ -1493,7 +1494,7 @@
             "cut": "The most urgent alerts are shown (limit 80); the full queue is on the agent."
         },
         "rule": {
-            "ml": {"anomaly": "Unusual behaviour (anomaly)"},
+            "ml": {"anomaly": "Unusual behaviour (anomaly)", "correlated": "Signals from several sources about one machine"}, "net": {"portscan": "Port scan", "lateral": "Lateral movement", "beacon": "Beaconing", "scan_in": "Inbound scan"},
             "failed_logins": "Repeated failed logins",
             "device_rebooted": "Device rebooted",
             "device_log_critical": "Critical entries in the device log",
@@ -2048,6 +2049,7 @@
         },
         "note": "The readings come from what the agent already knows about the devices and hosts (no new connections); full resolution for 14 days, then one reading an hour up to 90 days. The forecast is for disks: growing steadily (a straight-line fit of at least 0.6, growth of at least 0.2 points a day) and reaching 100% within 14 days.",
         "kind": {
+            "net": "network traffic", "sec": "security events",
             "cpu": "CPU",
             "mem": "memory",
             "disk": "disk",
@@ -3958,6 +3960,7 @@
         "openTitle": "Open anomalies",
         "noneOpen": "No open anomalies — everything within its learned range.",
         "cat": {
+            "network": "network", "security": "security",
             "resource": "resources",
             "hardware": "hardware"
         },
@@ -4001,5 +4004,74 @@
         "centralLabelHint": "Label a false alarm in the SOC (status \"false positive\") or on the agent — it then counts towards the precision.",
         "perTenant": "By client",
         "noAgentData": "the agent does not send anomaly data yet (older than 3.43)"
+    },
+    "netflow": {
+        "title": "Network flows (NetFlow)",
+        "subtitle": "Flow records from the routers (NetFlow v5 / v9 / IPFIX): every host's traffic as series that stage 1 learns to judge, and network attack detectors.",
+        "listening": "Receiving on UDP {{port}}",
+        "notListening": "On, but not listening",
+        "off": "Off",
+        "counts": "{{flows}} flows in {{packets}} packets · {{hosts}} hosts tracked",
+        "enable": "Turn on",
+        "disable": "Turn off",
+        "wazuhOn": "Wazuh is configured: the events of {{agents}} Wazuh agents go into series every 10 minutes (events, failed logins, level 10+, source addresses) and into the correlation.",
+        "wazuhOff": "Wazuh is not configured on this agent — once it is, its events are judged and correlated too.",
+        "setupTitle": "Router setup",
+        "setupIntro": "Paste on the MikroTik router — it will send its flows to the agent. The agent's address and the port are filled in.",
+        "target": {
+            "ros7": "RouterOS 7",
+            "ros6": "RouterOS 6",
+            "firewall": "Agent's Windows firewall"
+        },
+        "copy": "Copy",
+        "copied": "Copied",
+        "setupNote": "Templates — check them on your RouterOS version. Flows are taken only from devices the agent knows (inventory, managed devices).",
+        "flowsN": "{{n}} flows",
+        "unknown": "Turned away from unknown senders",
+        "set": {
+            "title": "Settings and thresholds",
+            "port": "UDP port",
+            "scan_ports": "Scan: ports on one target",
+            "scan_hosts": "Scan: number of targets",
+            "lateral_hosts": "Lateral movement: hosts",
+            "max_hosts": "Max. hosts tracked",
+            "local_nets": "Local networks (one per line)",
+            "beacon": "Detect beaconing",
+            "external_scans": "Alert on inbound scans (noisy)",
+            "accept_unknown": "Accept from unknown senders"
+        },
+        "detTitle": "Network detections",
+        "det24": "{{n}} in 24 h",
+        "toSoc": "Alerts in the SOC",
+        "detIntro": "Rules on every 10-minute window: scanning (≥ {{ports}} ports on one target or ≥ {{hosts}} targets, mostly unanswered), lateral movement (admin ports on ≥ {{lateral}} internal hosts), beaconing (regular new connections to the same outside address). Every detection is a SOC alert with its ATT&CK id.",
+        "noDet": "No detections.",
+        "rule": {
+            "portscan": "Scan",
+            "lateral": "Lateral movement",
+            "beacon": "Beaconing",
+            "scan_in": "Inbound scan"
+        },
+        "topTitle": "Busiest hosts (last 10 min)",
+        "topIntro": "Click a host to see its outbound traffic and its number of peers against its learned range.",
+        "noWindow": "No window closed yet (the first one 10 minutes after flows start coming).",
+        "col": {
+            "host": "Host",
+            "out": "Sent",
+            "in": "Received",
+            "peers": "Peers",
+            "ports": "Ports",
+            "unanswered": "Unanswered",
+            "src": "Source",
+            "dst": "Destination",
+            "proto": "Protocol",
+            "bytes": "Bytes",
+            "state": "State",
+            "hosts": "Hosts",
+            "busiest": "Busiest (sent/received)"
+        },
+        "convTitle": "Largest conversations (last 10 min)",
+        "centralTitle": "Network flows (NetFlow)",
+        "centralNone": "No agent receives NetFlow yet.",
+        "centralOk": "receiving from {{n}} routers"
     }
 }

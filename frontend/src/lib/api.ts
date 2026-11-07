@@ -1552,7 +1552,7 @@ export interface MetricRule { id?: string; name: string; kind: string; op: strin
 // Anomaly detection (services/anomaly.py): a host's series against their own learned range per hour of the week.
 export interface AnomalyItem { key?: string; name?: string; label: string; unit: string; kind?: string; value: number; expected: number; low: number; high: number; score: number }
 export interface AnomalyEvent {
-  id: number; host_key: string; host: string | null; category: 'resource' | 'hardware'; severity: string
+  id: number; host_key: string; host: string | null; category: 'resource' | 'hardware' | 'network' | 'security'; severity: string
   started_at: string; last_seen: string; ended_at: string | null; minutes: number; peak_score: number; series: AnomalyItem[]
   verdict: 'true' | 'false' | null; verdict_set: 'true' | 'false' | null; verdict_by: string | null; verdict_at: string | null
 }
@@ -1569,6 +1569,27 @@ export const anomaliesApi = {
   band: (key: string, days = 3) => api.get<AnomalyBand>('/anomalies/band', { params: { key, days } }).then(r => r.data),
   verdict: (id: number, verdict: 'true' | 'false' | null) => api.put<AnomalyEvent>(`/anomalies/events/${id}/verdict`, { verdict }).then(r => r.data),
   run: () => api.post('/anomalies/run').then(r => r.data),
+}
+
+// NetFlow / IPFIX collector and network detections (services/netflow.py), and the Wazuh series (services/wazuh_features.py).
+export interface NetflowSettings {
+  enabled: boolean; port: number; accept_unknown: boolean; local_nets: string[]; scan_ports: number; scan_hosts: number; lateral_hosts: number
+  beacon: boolean; external_scans: boolean; max_hosts: number
+}
+export interface NetflowTop { ip: string; name: string | null; out: number; in: number; peers: number; ports: number; unanswered: number }
+export interface NetflowDetection { at: string; rule: string; ip: string; name: string; severity: string; mitre: string; message: string }
+export interface NetflowStatus {
+  settings: NetflowSettings; listening: boolean; error: string | null; agent_ip: string | null
+  stats: { since: string | null; packets: number; flows: number; dropped_unknown: number; bad: number; no_template: number }
+  exporters: Array<{ ip: string; name: string; version: number; packets: number; flows: number; last: string | null }>
+  unknown: Array<{ ip: string; n: number }>; tracked: number
+  window: { start: string; hosts: number; bytes: number; top: NetflowTop[]; conv: Array<{ src: string; dst: string; dport: number; proto: number; bytes: number; src_name: string | null; dst_name: string | null }> } | null
+  detections: NetflowDetection[]; detections_24h: number
+  wazuh: { configured: boolean; at: string | null; agents: number; error: string | null }
+}
+export const netflowApi = {
+  status: () => api.get<NetflowStatus>('/netflow/status').then(r => r.data),
+  save: (s: Partial<NetflowSettings>) => api.put<NetflowSettings>('/netflow/settings', s).then(r => r.data),
 }
 
 export const metricsApi = {
@@ -1707,7 +1728,10 @@ export interface CentralSoc {
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null
-                open: Array<{ h: string | null; c: 'resource' | 'hardware'; sev: string; since: string; z: number; items: AnomalyItem[] }> }
+                open: Array<{ h: string | null; c: 'resource' | 'hardware' | 'network' | 'security'; sev: string; since: string; z: number; items: AnomalyItem[] }> }
+  netflow?: { on: boolean; listening: boolean; error: string | null; exporters: number; unknown: number; hosts: number; window_bytes: number | null; window_at: string | null
+              top: Array<{ n: string; out: number; in: number; peers: number }>; detections_24h: Record<string, number>
+              recent: Array<{ at: string; rule: string; n: string; sev: string; msg: string }> }
   soar?: { enabled: boolean; central_approval: boolean; active: number
            pending: Array<{ id: number; kind: 'block_ip' | 'install_rule'; target: string | null; devices: string[]; ttl_min: number; reason: string; by: string | null; at: string | null; internal: boolean }> }
   configs?: { tracked: number; changed_24h: Array<{ n: string; at: string; added: number | null; removed: number | null; sections: string[] }> }

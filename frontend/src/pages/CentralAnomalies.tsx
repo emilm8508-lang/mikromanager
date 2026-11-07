@@ -12,7 +12,7 @@ import { cn } from '../lib/utils'
 export function CentralAnomalies() {
   const { t } = useTranslation()
   const cfg = centralConfig.load()
-  const [rows, setRows] = useState<Array<{ tenant: string; a: NonNullable<CentralSoc['anomalies']> | null }>>([])
+  const [rows, setRows] = useState<Array<{ tenant: string; a: NonNullable<CentralSoc['anomalies']> | null; nf: NonNullable<CentralSoc['netflow']> | null }>>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -21,7 +21,7 @@ export function CentralAnomalies() {
     const load = async () => {
       try {
         const r = await centralApi.socStatusAll()
-        setRows(r.tenants.map(x => ({ tenant: x.tenant, a: x.soc?.anomalies ?? null })))
+        setRows(r.tenants.map(x => ({ tenant: x.tenant, a: x.soc?.anomalies ?? null, nf: x.soc?.netflow ?? null })))
         setErr(null)
       } catch (e) { setErr((e as Error).message) } finally { setLoading(false) }
     }
@@ -70,6 +70,34 @@ export function CentralAnomalies() {
                 </div>
               ))}
             <p className="text-[11px] text-slate-400">{t('anomaly.centralLabelHint')}</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+            <h2 className="text-sm font-semibold text-slate-700">{t('netflow.centralTitle')}</h2>
+            {rows.filter(r => r.nf?.on).length === 0 ? <p className="text-xs text-slate-400">{t('netflow.centralNone')}</p> : (
+              <table className="w-full text-xs">
+                <thead><tr className="text-left text-slate-400 border-b border-slate-200">
+                  <th className="font-medium px-2 py-1.5">{t('anomaly.col.tenant')}</th><th className="font-medium px-2 py-1.5">{t('netflow.col.state')}</th>
+                  <th className="font-medium px-2 py-1.5 text-right">{t('netflow.col.hosts')}</th><th className="font-medium px-2 py-1.5">{t('netflow.col.busiest')}</th>
+                  <th className="font-medium px-2 py-1.5">{t('netflow.detTitle')} (24 h)</th>
+                </tr></thead>
+                <tbody>
+                  {rows.filter(r => r.nf?.on).map(r => (
+                    <tr key={r.tenant} className="border-t border-slate-100 align-top">
+                      <td className="px-2 py-1.5 font-medium text-slate-800">{r.tenant}</td>
+                      <td className={cn('px-2 py-1.5', r.nf!.listening ? 'text-emerald-700' : 'text-red-600')}>{r.nf!.listening ? t('netflow.centralOk', { n: r.nf!.exporters }) : (r.nf!.error || t('netflow.notListening'))}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{r.nf!.hosts}</td>
+                      <td className="px-2 py-1.5 text-slate-600">{r.nf!.top.slice(0, 3).map(x => `${x.n} ${(x.out / 1e6).toFixed(0)}/${(x.in / 1e6).toFixed(0)} MB`).join(' · ') || '—'}</td>
+                      <td className="px-2 py-1.5">
+                        {Object.keys(r.nf!.detections_24h).length === 0 ? <span className="text-slate-400">—</span>
+                          : Object.entries(r.nf!.detections_24h).map(([k, n]) => <span key={k} className="mr-2 rounded px-1.5 py-0.5 bg-red-100 text-red-700 font-semibold">{t(`netflow.rule.${k.replace('net.', '')}`)} {n}</span>)}
+                        {r.nf!.recent.slice(0, 3).map((x, i) => <div key={i} className="text-slate-500 mt-1">{x.msg}</div>)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-3">

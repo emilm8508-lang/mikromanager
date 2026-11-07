@@ -19,6 +19,7 @@ import { Maintenance } from './pages/Maintenance'
 import { HostLogs } from './pages/HostLogs'
 import { Metrics } from './pages/Metrics'
 import { Anomalies } from './pages/Anomalies'
+import { NetFlow } from './pages/NetFlow'
 import { CentralAnomalies } from './pages/CentralAnomalies'
 import { Ups } from './pages/Ups'
 import { Coverage } from './pages/Coverage'
@@ -115,6 +116,7 @@ export default function App() {
             <Route path="/soc/hostlogs" element={<HostLogs />} />
             <Route path="/metrics" element={<Metrics />} />
             <Route path="/soc/anomalies" element={<Anomalies />} />
+            <Route path="/netflow" element={<NetFlow />} />
             <Route path="/ups" element={<Ups />} />
             <Route path="/soc/coverage" element={<Coverage />} />
             <Route path="/soc/response" element={<SocResponse />} />

@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api, assistant as assistant_api, maintenance as maintenance_api, host_logs as host_logs_api, metrics as metrics_api, anomalies as anomalies_api, ups as ups_api, coverage as coverage_api, soar as soar_api, tls as tls_api, netkit as netkit_api, onboarding as onboarding_api, card as card_api, hostcard as hostcard_api, evidence as evidence_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api, assistant as assistant_api, maintenance as maintenance_api, host_logs as host_logs_api, metrics as metrics_api, anomalies as anomalies_api, netflow as netflow_api, ups as ups_api, coverage as coverage_api, soar as soar_api, tls as tls_api, netkit as netkit_api, onboarding as onboarding_api, card as card_api, hostcard as hostcard_api, evidence as evidence_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -37,7 +37,7 @@ from services import host_services
 from services import fleet_schedule
 from services import hyperv_manage
 from services import hyperv_actions
-from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, config_history, ai_assistant, escalation, host_logs, metrics, ups_monitor, coverage, soar, tls_scan, vuln_sla
+from services import assets as assets_svc, asset_scan as asset_scan_svc, lan_sweep as lan_sweep_svc, servicedesk_tickets, exploit_intel, availability, syslog_receiver, netflow, config_history, ai_assistant, escalation, host_logs, metrics, ups_monitor, coverage, soar, tls_scan, vuln_sla
 
 
 @asynccontextmanager
@@ -80,6 +80,7 @@ async def lifespan(app: FastAPI):
     exploit_intel.start()
     availability.start()
     await syslog_receiver.start()
+    await netflow.start()
     config_history.start()
     ai_assistant.load_settings()
     escalation.load_settings()
@@ -114,6 +115,7 @@ async def lifespan(app: FastAPI):
         exploit_intel.stop()
         availability.stop()
         await syslog_receiver.stop()
+        await netflow.stop()
         config_history.stop()
         host_logs.stop()
         metrics.stop()
@@ -171,6 +173,7 @@ app.include_router(maintenance_api.router, dependencies=_protected)
 app.include_router(host_logs_api.router, dependencies=_protected)
 app.include_router(metrics_api.router, dependencies=_protected)
 app.include_router(anomalies_api.router, dependencies=_protected)
+app.include_router(netflow_api.router, dependencies=_protected)
 app.include_router(ups_api.router, dependencies=_protected)
 app.include_router(coverage_api.router, dependencies=_protected)
 app.include_router(soar_api.router, dependencies=_protected)

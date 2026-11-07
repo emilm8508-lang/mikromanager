@@ -579,6 +579,8 @@ async def _build_snapshot() -> dict:
             soc_status["tls"] = tls_scan.public_summary()                       # certificates that expired / are about to, weak ones
             from services import anomaly
             soc_status["anomalies"] = anomaly.public_summary()                  # hosts behaving unlike themselves, and the detector's numbers
+            from services import netflow
+            soc_status["netflow"] = netflow.public_summary()                    # flow collector state, busiest hosts, network detections
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:

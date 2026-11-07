@@ -569,7 +569,7 @@ class AnomalyEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     host_key = Column(String, nullable=False, index=True)          # "win:3", "bmc:2", "dev:12" - the prefix of the metric keys
     host_name = Column(String, nullable=True)
-    category = Column(String, nullable=False, default="resource")  # resource | hardware
+    category = Column(String, nullable=False, default="resource")  # resource | hardware | network (NetFlow) | security (Wazuh)
     severity = Column(String, nullable=False, default="medium")
     started_at = Column(DateTime, nullable=False, index=True)
     last_seen = Column(DateTime, nullable=False)

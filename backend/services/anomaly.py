@@ -65,7 +65,7 @@ def host_key(key: str) -> str:
 
 
 def direction(kind: str, unit: str) -> str:
-    if kind in ("cpu", "mem", "temp", "ups_temp"):
+    if kind in ("cpu", "mem", "temp", "ups_temp", "net", "sec"):       # traffic and security events: more is the risk
         return "up"
     if kind in ("ups_charge", "ups_runtime"):
         return "down"
@@ -83,6 +83,10 @@ def floor(unit: str, median: float) -> float:
         return max(5.0, abs(median) * 0.05)
     if u.upper() == "RPM":
         return max(100.0, abs(median) * 0.03)
+    if u == "MB":                                   # NetFlow traffic of a host per 10 minutes: bursty by nature
+        return max(5.0, abs(median) * 0.3)
+    if u in ("hosts", "ports", "conn", "events", "IPs"):
+        return max(5.0, abs(median) * 0.3)
     return max(1.0, abs(median) * 0.05)
 
 
@@ -206,7 +210,8 @@ def run_cycle(now: Optional[datetime] = None) -> dict:
             if firing:
                 _cool.pop(hk, None)
                 peak = max(i["score"] for i in items)
-                cat = "hardware" if hk.startswith(("bmc:", "ups:")) else "resource"
+                cat = ("hardware" if hk.startswith(("bmc:", "ups:")) else "network" if hk.startswith("net:")
+                       else "security" if hk.startswith("wz:") else "resource")
                 if ev is None:
                     ev = AnomalyEvent(host_key=hk, host_name=name, category=cat, severity=_severity(items), started_at=now, last_seen=now,
                                       peak_score=peak, series=json.dumps(items))
@@ -217,7 +222,7 @@ def run_cycle(now: Optional[datetime] = None) -> dict:
                     ev.last_seen = now
                     if peak > (ev.peak_score or 0):
                         ev.peak_score, ev.series, ev.severity = peak, json.dumps(items), _severity(items)
-                soc.raise_alert(rule=RULE, device=name, title="Unusual behaviour (anomaly)", severity=ev.severity, category=cat, fp_detail=hk,
+                soc.raise_alert(rule=RULE, device=name, title="Unusual behaviour (anomaly)", severity=ev.severity, category="detection" if cat == "security" else cat, fp_detail=hk,
                                 detail={"message": _message(items), "description": f"anomaly score {peak:.1f}"}, source="rules", now=now)
             elif ev is not None:
                 if all(i["score"] < Z_CLOSE for i in items):
