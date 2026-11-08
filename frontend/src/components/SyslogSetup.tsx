@@ -57,6 +57,9 @@ export function SyslogSetup({ agentIp }: { agentIp: string | null }) {
         <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2"><Radio size={16} className="text-indigo-600" /> {t('onboarding.syslog.title')}</h2>
         <p className="text-xs text-slate-500 mt-0.5">{t('onboarding.syslog.intro')}</p>
       </div>
+      <ol className="text-xs text-slate-700 space-y-1 list-decimal pl-5 bg-slate-50 border border-slate-200 rounded-lg p-3">
+        {[1, 2, 3, 4].map(n => <li key={n}>{t(`onboarding.syslog.step${n}`, { port })}</li>)}
+      </ol>
       {d && (
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <span className={cn('border rounded-full px-2.5 py-0.5', d.settings.enabled && d.listening.syslog ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-800 border-amber-200')}>

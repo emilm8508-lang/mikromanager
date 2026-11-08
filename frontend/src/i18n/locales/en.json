@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "Service accepts an outdated TLS protocol",
             "config_changed": "Router configuration changed",
             "syslog": {
-                "ipsec_probe": "IPsec negotiation attempts from outside", "auth_failure": "Repeated failed logins",
+                "ipsec_probe": "IPsec negotiation attempts from outside", "winbox_denied": "Denied Winbox connections", "loop": "Loop detected", "link_flap": "Unstable link", "link_slow": "Link at 10 Mb/s", "auth_failure": "Repeated failed logins",
                 "config_change": "Device configuration changed",
                 "restart": "Device restarted",
                 "critical": "Critical message",
@@ -1927,7 +1927,7 @@
             "devices": "Devices"
         },
         "rule": {
-            "ipsec_probe": {"name": "IPsec negotiation attempts from outside", "desc": "Ten failed IKE phase 1 negotiations on one device within an hour (RouterOS \"phase1 negotiation failed\"): someone is probing its VPN."}, "auth_failure": {
+            "ipsec_probe": {"name": "IPsec negotiation attempts from outside", "desc": "Ten failed IKE phase 1 negotiations on one device within an hour (RouterOS \"phase1 negotiation failed\"): someone is probing its VPN."}, "winbox_denied": {"name": "Denied Winbox connections", "desc": "Five refused Winbox / Dude connections on one device within ten minutes (RouterOS \"denied winbox/dude connect\"): its management port is reachable by someone who is not allowed."}, "loop": {"name": "Loop detected", "desc": "A device reports a layer-2 loop (RouterOS loop-protect \"transmit loop detected\", the bridge, a switch): it shuts the port or tunnel down for a while."}, "flap": {"name": "Unstable link", "desc": "An interface that went down 3 times within an hour, or came up at 10 Mb/s (a bad cable or port): an alert that does not close by itself at the next link up."}, "auth_failure": {
                 "name": "Repeated failed logins (syslog)",
                 "desc": "Five failed logins from the same device within five minutes."
             },
@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog from the devices to the agent",
-            "intro": "The device itself sends its log to the agent's syslog receiver: failed logins, configuration changes, restarts, link changes. It also works where the agent cannot query the device (a firewall, another segment) and needs no account.",
+            "step1": "Turn the agent's syslog receiver on (the button below, when it shows \"off\").", "step2": "On the agent's computer let UDP {{port}} in through the Windows firewall: the \"Windows firewall\" tab below, paste it into PowerShell run as administrator (replace <ADRESY-URZADZEN> with the routers' addresses).", "step3": "On the router open a Terminal (Winbox → New Terminal) and paste the commands of the RouterOS tab. Check that the agent's address is right.", "step4": "After a minute check the \"received in 24 h\" counter and the senders here. If the router is among the unknown senders, add it to Assets or Devices — the agent takes logs only from devices it knows.", "intro": "The device itself sends its log to the agent's syslog receiver: failed logins, configuration changes, restarts, link changes. It also works where the agent cannot query the device (a firewall, another segment) and needs no account.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",

@@ -6,6 +6,7 @@ import { syslogApi, SyslogRule } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
 import { HostLink } from '../components/HostLink'
+import { SyslogSetup } from '../components/SyslogSetup'
 
 const SEV_STYLE = ['bg-red-100 text-red-800', 'bg-red-100 text-red-800', 'bg-red-50 text-red-700', 'bg-orange-50 text-orange-700', 'bg-amber-50 text-amber-700',
                    'bg-sky-50 text-sky-700', 'bg-slate-100 text-slate-600', 'bg-slate-50 text-slate-400']
@@ -196,12 +197,14 @@ function Events() {
 // Syslog and SNMP traps of the devices that cannot run an agent: what is received, what it raised, and how to switch it on.
 export function SocSyslog() {
   const { t } = useTranslation()
+  const st = useQuery({ queryKey: ['syslog-status'], queryFn: syslogApi.status })
   return (
     <div className="p-6 space-y-4 max-w-[1300px]">
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Radio size={20} className="text-indigo-600" /> {t('syslog.title')}</h1>
         <p className="text-sm text-slate-500 mt-0.5">{t('syslog.subtitle')}</p>
       </div>
+      {st.data && <SyslogSetup key={st.data.agent_ip ?? 'none'} agentIp={st.data.agent_ip ?? null} />}
       <Settings />
       <Unknown />
       <Rules />

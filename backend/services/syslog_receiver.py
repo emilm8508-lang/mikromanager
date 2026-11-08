@@ -351,7 +351,18 @@ BUILTIN = [
     # arrives with the logging the syslog setup suggests (topics=error).
     ("ipsec_probe", "IPsec negotiation attempts from outside", "Ten failed IKE phase 1 negotiations on one device within an hour (RouterOS \"phase1 negotiation failed\"): someone is probing its VPN.",
      r"(phase ?1 negotiation failed|IKEv?2?.{0,40}negotiation failed)", "low", "network", "T1595", 10, 3600, "syslog"),
+    # Seen live on RouterOS: "denied winbox/dude connect from <ip>" (warning) - someone reaching the Winbox port that the service's
+    # allowed addresses then refused, six times within a minute from one internet address. Refused is good; reachable is the problem.
+    ("winbox_denied", "Denied Winbox connections", "Five refused Winbox / Dude connections on one device within ten minutes (RouterOS \"denied winbox/dude connect\"): its management port is reachable by someone who is not allowed.",
+     r"denied winbox(/dude)? connect", "low", "network", "T1595", 5, 600, "syslog"),
+    # Seen live on RouterOS: "eoip-R2 transmit loop detected, downing interface for 60 seconds" - a layer-2 loop through a tunnel
+    # (also "loop detected" of loop-protect and the bridge): the interface goes down, the sites lose each other.
+    ("loop", "Loop detected", "A device reports a layer-2 loop (RouterOS loop-protect \"transmit loop detected\", the bridge, a switch): it shuts the port or tunnel down for a while.",
+     r"loop detected", "medium", "network", None, 1, 60, "syslog"),
 ]
+FLAP_DOWNS = 3                    # link downs of one interface within FLAP_WINDOW that make it "unstable"
+FLAP_WINDOW = 3600
+_RE_LINK_SPEED = re.compile(r"link up \(speed (\d+(?:\.\d+)?)([KMG])", re.I)
 LINK_DOWN = [re.compile(p, re.I) for p in (r"^(\S+) link down", r"Interface (\S+), changed state to down", r"(\S+): link is down", r"%LINK-\d-UPDOWN: Interface (\S+), changed state to down")]
 LINK_UP = [re.compile(p, re.I) for p in (r"^(\S+) link up", r"Interface (\S+), changed state to up", r"(\S+): link (?:is )?up", r"%LINK-\d-UPDOWN: Interface (\S+), changed state to up")]
 
@@ -362,6 +373,8 @@ def rules_list() -> List[dict]:
             "pattern": r[3], "source": r[9]} for r in BUILTIN]
     out.append({"id": "link", "name": "Link down / up", "description": "A link that goes down (syslog or an SNMP linkDown trap) is an alert of the device until its link up arrives.",
                 "severity": "medium", "builtin": True, "enabled": "link" not in off, "threshold": 1, "window_sec": 0, "pattern": None, "source": "any"})
+    out.append({"id": "flap", "name": "Unstable link", "description": f"An interface that went down {FLAP_DOWNS} times within an hour, or came up at 10 Mb/s (a bad cable or port): an alert that does not close by itself at the next link up.",
+                "severity": "medium", "builtin": True, "enabled": "flap" not in off, "threshold": FLAP_DOWNS, "window_sec": FLAP_WINDOW, "pattern": None, "source": "any"})
     out.append({"id": "critical", "name": "Critical messages", "description": "Anything the device logs as critical, alert or emergency.", "severity": "high", "builtin": True,
                 "enabled": "critical" not in off, "threshold": 1, "window_sec": 0, "pattern": None, "source": "syslog"})
     return out + [{**c, "builtin": False} for c in (_settings.get("rules") or [])]
@@ -391,12 +404,11 @@ def evaluate(ev: dict, now: Optional[float] = None) -> List[str]:
     raised: List[str] = []
     from services import soc
     # links: down opens an alert of the interface, up closes it
-    if "link" not in off:
-        iface = None
+    iface, down = None, None
+    if "link" not in off or "flap" not in off:                # the unstable-link rule below reads the same link events
         if ev["kind"] == "trap" and ev.get("trap_name") in ("linkDown", "linkUp"):
             iface, down = trap_interface(ev["trap"]), ev["trap_name"] == "linkDown"
         else:
-            down = None
             for rx in LINK_DOWN:
                 m = rx.search(text)
                 if m:
@@ -408,12 +420,31 @@ def evaluate(ev: dict, now: Optional[float] = None) -> List[str]:
                     if m:
                         iface, down = m.group(1), False
                         break
+    if "link" not in off:
         if iface is not None and down is not None:
             if down:
                 _raise("link_down", f"Link down: {iface}" if iface else "Link down", ev, "medium", "network", detail_key=iface)
                 raised.append("link")
             else:
                 soc.resolve(rule="syslog.link_down", device=ev.get("name") or ev["ip"], fp_detail=iface)
+    # an unstable link: each down / up pair closes its own link-down alert, so a port that flaps every few minutes (or keeps falling
+    # back to 10 Mb/s - a bad cable) only ever showed short alerts that closed themselves; seen live: ether16 down / up four times
+    # in 45 minutes, alternating 1 Gb/s and 10 Mb/s. This one stays until someone closes it.
+    if "flap" not in off and iface:
+        if down:
+            n = _hit(f"flap|{iface}", ev["ip"], FLAP_DOWNS, FLAP_WINDOW, now)
+            if n:
+                _raise("link_flap", f"Unstable link: {iface}", ev, "medium", "network", detail_key=iface, count=n)
+                raised.append("flap")
+        elif down is False:
+            m = _RE_LINK_SPEED.search(text)
+            if m:
+                mbps = float(m.group(1)) * {"K": 0.001, "M": 1, "G": 1000}[m.group(2).upper()]
+                if mbps <= 10:
+                    _raise("link_slow", f"Link at {m.group(1)}{m.group(2)}b/s: {iface}", ev, "medium", "network", detail_key=iface)
+                    raised.append("flap")
+                else:
+                    soc.resolve(rule="syslog.link_slow", device=ev.get("name") or ev["ip"], fp_detail=iface)
     for r in BUILTIN:
         if r[0] in off or (r[9] != "any" and r[9] != ev["kind"]) or not re.search(r[3], text, re.I):
             continue

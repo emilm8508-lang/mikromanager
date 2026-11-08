@@ -1676,7 +1676,7 @@
             "tls_legacy_protocol": "Usługa przyjmuje stary protokół TLS",
             "config_changed": "Zmieniono konfigurację routera",
             "syslog": {
-                "ipsec_probe": "Próby IPsec z internetu", "auth_failure": "Powtarzające się nieudane logowania",
+                "ipsec_probe": "Próby IPsec z internetu", "winbox_denied": "Odrzucone połączenia Winbox", "loop": "Wykryta pętla", "link_flap": "Niestabilny link", "link_slow": "Link z prędkością 10 Mb/s", "auth_failure": "Powtarzające się nieudane logowania",
                 "config_change": "Zmiana konfiguracji urządzenia",
                 "restart": "Restart urządzenia",
                 "critical": "Komunikat krytyczny",
@@ -2091,7 +2091,7 @@
             "devices": "Urządzeń"
         },
         "rule": {
-            "ipsec_probe": {"name": "Próby IPsec z internetu", "desc": "Dziesięć nieudanych negocjacji IKE (faza 1) na jednym urządzeniu w ciągu godziny (RouterOS „phase1 negotiation failed”): ktoś sonduje jego VPN."}, "auth_failure": {
+            "ipsec_probe": {"name": "Próby IPsec z internetu", "desc": "Dziesięć nieudanych negocjacji IKE (faza 1) na jednym urządzeniu w ciągu godziny (RouterOS „phase1 negotiation failed”): ktoś sonduje jego VPN."}, "winbox_denied": {"name": "Odrzucone połączenia Winbox", "desc": "Pięć odrzuconych połączeń Winbox / Dude na jednym urządzeniu w ciągu dziesięciu minut (RouterOS „denied winbox/dude connect”): jego port zarządzania jest osiągalny dla kogoś, kto nie ma dostępu."}, "loop": {"name": "Wykryta pętla", "desc": "Urządzenie zgłasza pętlę warstwy 2 (RouterOS loop-protect „transmit loop detected”, bridge, przełącznik): wyłącza port lub tunel na pewien czas."}, "flap": {"name": "Niestabilny link", "desc": "Interfejs, który spadł 3 razy w ciągu godziny albo podniósł się z prędkością 10 Mb/s (zły kabel lub port): alert, który nie zamyka się sam przy kolejnym podniesieniu linku."}, "auth_failure": {
                 "name": "Powtarzające się nieudane logowania (syslog)",
                 "desc": "Pięć nieudanych logowań z jednego urządzenia w ciągu pięciu minut."
             },
@@ -2549,7 +2549,7 @@
         },
         "syslog": {
             "title": "Syslog z urządzeń do agenta",
-            "intro": "Urządzenie samo wysyła swój dziennik do odbiornika syslog agenta: nieudane logowania, zmiany konfiguracji, restarty, zmiany łączy. Działa także tam, gdzie agent nie może odpytywać urządzenia (zapora, inny segment) i nie wymaga żadnego konta.",
+            "step1": "Włącz odbiornik syslog na agencie (przycisk poniżej, jeśli pokazuje „wyłączony”).", "step2": "Na komputerze agenta wpuść UDP {{port}} w zaporze Windows: zakładka „Zapora Windows” poniżej, wklej w PowerShellu uruchomionym jako administrator (w miejsce <ADRESY-URZADZEN> wpisz adresy routerów).", "step3": "Na routerze otwórz Terminal (Winbox → New Terminal) i wklej komendy z zakładki RouterOS. Sprawdź, czy adres agenta jest właściwy.", "step4": "Po minucie sprawdź tutaj licznik „odebrane w ciągu 24 h” i listę nadawców. Jeśli router jest wśród nieznanych nadawców, dodaj go do Zasobów albo Urządzeń — agent przyjmuje logi tylko od urządzeń, które zna.", "intro": "Urządzenie samo wysyła swój dziennik do odbiornika syslog agenta: nieudane logowania, zmiany konfiguracji, restarty, zmiany łączy. Działa także tam, gdzie agent nie może odpytywać urządzenia (zapora, inny segment) i nie wymaga żadnego konta.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",

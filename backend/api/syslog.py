@@ -33,7 +33,8 @@ class SettingsBody(BaseModel):
 @router.get("/status")
 def status():
     """Whether the receiver listens, what came in, from which devices and which unknown sources were turned away; the detections."""
-    return syslog_receiver.status()
+    from services import onboarding
+    return {**syslog_receiver.status(), "agent_ip": onboarding.agent_ip()}
 
 
 @router.put("/settings")

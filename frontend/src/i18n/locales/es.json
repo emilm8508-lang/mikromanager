@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "El servicio acepta un protocolo TLS obsoleto",
             "config_changed": "Configuración del router modificada",
             "syslog": {
-                "ipsec_probe": "Intentos de negociación IPsec desde fuera", "auth_failure": "Inicios de sesión fallidos repetidos",
+                "ipsec_probe": "Intentos de negociación IPsec desde fuera", "winbox_denied": "Conexiones Winbox rechazadas", "loop": "Bucle detectado", "link_flap": "Enlace inestable", "link_slow": "Enlace a 10 Mb/s", "auth_failure": "Inicios de sesión fallidos repetidos",
                 "config_change": "Configuración del dispositivo modificada",
                 "restart": "Dispositivo reiniciado",
                 "critical": "Mensaje crítico",
@@ -1927,7 +1927,7 @@
             "devices": "Dispositivos"
         },
         "rule": {
-            "ipsec_probe": {"name": "Intentos de negociación IPsec desde fuera", "desc": "Diez negociaciones IKE de fase 1 fallidas en un dispositivo en una hora (RouterOS «phase1 negotiation failed»): alguien sondea su VPN."}, "auth_failure": {
+            "ipsec_probe": {"name": "Intentos de negociación IPsec desde fuera", "desc": "Diez negociaciones IKE de fase 1 fallidas en un dispositivo en una hora (RouterOS «phase1 negotiation failed»): alguien sondea su VPN."}, "winbox_denied": {"name": "Conexiones Winbox rechazadas", "desc": "Cinco conexiones Winbox / Dude rechazadas en un dispositivo en diez minutos (RouterOS «denied winbox/dude connect»): su puerto de gestión es accesible para alguien sin permiso."}, "loop": {"name": "Bucle detectado", "desc": "Un dispositivo informa de un bucle de capa 2 (RouterOS loop-protect «transmit loop detected», el bridge, un switch): apaga el puerto o el túnel un tiempo."}, "flap": {"name": "Enlace inestable", "desc": "Una interfaz que cayó 3 veces en una hora o subió a 10 Mb/s (cable o puerto defectuoso): una alerta que no se cierra sola al volver el enlace."}, "auth_failure": {
                 "name": "Inicios de sesión fallidos repetidos (syslog)",
                 "desc": "Cinco inicios de sesión fallidos del mismo dispositivo en cinco minutos."
             },
@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog de los dispositivos al agente",
-            "intro": "El propio dispositivo envía su registro al receptor syslog del agente: inicios de sesión fallidos, cambios de configuración, reinicios, cambios de enlace. Funciona también donde el agente no puede consultar el dispositivo (un cortafuegos, otro segmento) y no necesita cuenta.",
+            "step1": "Activa el receptor syslog del agente (el botón de abajo, si muestra «desactivado»).", "step2": "En el equipo del agente permite UDP {{port}} en el cortafuegos de Windows: pestaña «Cortafuegos de Windows» abajo, pégalo en PowerShell como administrador (cambia <ADRESY-URZADZEN> por las direcciones de los routers).", "step3": "En el router abre un Terminal (Winbox → New Terminal) y pega los comandos de la pestaña RouterOS. Comprueba que la dirección del agente es correcta.", "step4": "Tras un minuto revisa aquí el contador «recibidos en 24 h» y los remitentes. Si el router está entre los remitentes desconocidos, añádelo a Activos o Dispositivos — el agente solo acepta logs de dispositivos que conoce.", "intro": "El propio dispositivo envía su registro al receptor syslog del agente: inicios de sesión fallidos, cambios de configuración, reinicios, cambios de enlace. Funciona también donde el agente no puede consultar el dispositivo (un cortafuegos, otro segmento) y no necesita cuenta.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",

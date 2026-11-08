@@ -1658,6 +1658,7 @@ export interface SyslogRule {
   builtin?: boolean; description?: string | null
 }
 export interface SyslogStatus {
+  agent_ip?: string | null
   settings: { enabled: boolean; syslog_port: number; trap_port: number; accept_unknown: boolean; store_info: boolean; communities: number; rules: SyslogRule[]; disabled: string[] }
   listening: { syslog: boolean; trap: boolean }; errors: { syslog: string | null; trap: string | null }
   stats: { received: number; stored: number; unknown: number; rate_dropped: number; bad: number; traps: number; v3: number; bad_community: number; since: string | null }

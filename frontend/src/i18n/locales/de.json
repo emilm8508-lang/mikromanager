@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "Dienst akzeptiert ein veraltetes TLS-Protokoll",
             "config_changed": "Router-Konfiguration geändert",
             "syslog": {
-                "ipsec_probe": "IPsec-Verhandlungsversuche von außen", "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
+                "ipsec_probe": "IPsec-Verhandlungsversuche von außen", "winbox_denied": "Abgewiesene Winbox-Verbindungen", "loop": "Schleife erkannt", "link_flap": "Instabiler Link", "link_slow": "Link mit 10 Mb/s", "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
                 "config_change": "Gerätekonfiguration geändert",
                 "restart": "Gerät neu gestartet",
                 "critical": "Kritische Meldung",
@@ -1927,7 +1927,7 @@
             "devices": "Geräte"
         },
         "rule": {
-            "ipsec_probe": {"name": "IPsec-Verhandlungsversuche von außen", "desc": "Zehn fehlgeschlagene IKE-Phase-1-Verhandlungen auf einem Gerät innerhalb einer Stunde (RouterOS „phase1 negotiation failed“): jemand tastet sein VPN ab."}, "auth_failure": {
+            "ipsec_probe": {"name": "IPsec-Verhandlungsversuche von außen", "desc": "Zehn fehlgeschlagene IKE-Phase-1-Verhandlungen auf einem Gerät innerhalb einer Stunde (RouterOS „phase1 negotiation failed“): jemand tastet sein VPN ab."}, "winbox_denied": {"name": "Abgewiesene Winbox-Verbindungen", "desc": "Fünf abgewiesene Winbox-/Dude-Verbindungen auf einem Gerät innerhalb von zehn Minuten (RouterOS „denied winbox/dude connect“): sein Verwaltungsport ist für jemanden ohne Zugriff erreichbar."}, "loop": {"name": "Schleife erkannt", "desc": "Ein Gerät meldet eine Layer-2-Schleife (RouterOS loop-protect „transmit loop detected“, Bridge, Switch): es schaltet den Port oder Tunnel eine Zeit lang ab."}, "flap": {"name": "Instabiler Link", "desc": "Eine Schnittstelle, die innerhalb einer Stunde 3-mal ausfiel oder mit 10 Mb/s hochkam (schlechtes Kabel oder Port): ein Alarm, der sich beim nächsten Link-up nicht selbst schließt."}, "auth_failure": {
                 "name": "Wiederholte fehlgeschlagene Anmeldungen (Syslog)",
                 "desc": "Fünf fehlgeschlagene Anmeldungen desselben Geräts innerhalb von fünf Minuten."
             },
@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog von den Geräten zum Agenten",
-            "intro": "Das Gerät sendet sein Protokoll selbst an den Syslog-Empfänger des Agenten: fehlgeschlagene Anmeldungen, Konfigurationsänderungen, Neustarts, Link-Wechsel. Es funktioniert auch dort, wo der Agent das Gerät nicht abfragen kann (Firewall, anderes Segment), und braucht kein Konto.",
+            "step1": "Den Syslog-Empfänger des Agenten einschalten (Schaltfläche unten, wenn „aus“ angezeigt wird).", "step2": "Auf dem Rechner des Agenten UDP {{port}} in der Windows-Firewall freigeben: Reiter „Windows-Firewall“ unten, in PowerShell als Administrator einfügen (<ADRESY-URZADZEN> durch die Adressen der Router ersetzen).", "step3": "Auf dem Router ein Terminal öffnen (Winbox → New Terminal) und die Befehle des RouterOS-Reiters einfügen. Prüfen, ob die Adresse des Agenten stimmt.", "step4": "Nach einer Minute hier den Zähler „empfangen in 24 h“ und die Absender prüfen. Steht der Router unter den unbekannten Absendern, ihn unter Assets oder Geräte hinzufügen — der Agent nimmt nur Logs von bekannten Geräten an.", "intro": "Das Gerät sendet sein Protokoll selbst an den Syslog-Empfänger des Agenten: fehlgeschlagene Anmeldungen, Konfigurationsänderungen, Neustarts, Link-Wechsel. Es funktioniert auch dort, wo der Agent das Gerät nicht abfragen kann (Firewall, anderes Segment), und braucht kein Konto.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
