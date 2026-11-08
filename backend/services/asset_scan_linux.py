@@ -44,6 +44,10 @@ _VIRTUAL_USB = ("root hub", "linux foundation")
 
 def scan_sync(ip: str, username: str, password: str) -> dict:
     """Blocking. {"ok": True, "main": text, "dmi": text|""} or {"ok": False, "error": ..., "auth": bool}."""
+    from services import vuln_scan
+    banner = vuln_scan.network_os_ssh(ip)
+    if banner:                                  # a router / switch: no login, no Linux commands in its log
+        return {"ok": False, "error": f"network device, not Linux (SSH banner {banner})", "auth": False}
     import paramiko
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

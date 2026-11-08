@@ -439,9 +439,46 @@ _LINUX_DISTRO_NAMES = {
 }
 
 
+# SSH servers of network operating systems, by the identification string they send before any login (RFC 4253 4.2): RouterOS
+# "SSH-2.0-ROSSSH", Cisco IOS "SSH-2.0-Cisco-1.25", RomSShell (many switches), Huawei, H3C Comware.
+NETWORK_OS_SSH = ("ROSSSH", "Cisco", "RomSShell", "HUAWEI", "Comware")
+
+
+def ssh_banner(ip: str, port: int = 22, timeout: float = 5.0) -> Optional[str]:
+    """Blocking. The server's SSH identification line, read before authentication (nothing is logged on the device), or None."""
+    import socket
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            data = b""
+            while b"\n" not in data and len(data) < 512:
+                chunk = s.recv(256)
+                if not chunk:
+                    break
+                data += chunk
+    except OSError:
+        return None
+    for line in data.decode("utf-8", errors="ignore").splitlines():
+        if line.startswith("SSH-"):
+            return line.strip()
+    return None
+
+
+def network_os_ssh(ip: str, port: int = 22) -> Optional[str]:
+    """The SSH banner when it is a router's / switch's (RouterOS, Cisco ...), else None. The Linux probes check this first: logging in
+    there with the shared credential and running `cat /etc/os-release` only puts a login and "bad command name cat" into the
+    device's own log on every scan - confirmed live on a RouterOS router that was not in the device list."""
+    banner = ssh_banner(ip, port)
+    if banner and any(m.lower() in banner.lower() for m in NETWORK_OS_SSH):
+        return banner
+    return None
+
+
 def _ssh_identity_sync(ip: str, port: int, username: str, password: str) -> Optional[dict]:
     """Blocking — run via loop.run_in_executor. Read-only: only ever runs
     `cat /etc/os-release` and `uname -a`, nothing that changes device state."""
+    if network_os_ssh(ip, port):
+        return None
     import paramiko
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

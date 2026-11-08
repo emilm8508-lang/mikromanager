@@ -131,6 +131,9 @@ def _identify_host_sync(ip: str, username: str, password: str) -> dict:
     host": confirmed on a real network where a host clearly visible in
     Vulnerabilities (a DIFFERENT credential worked there) never appeared
     in Hosty Linux at all, with zero indication why."""
+    banner = vs.network_os_ssh(ip)
+    if banner:
+        return {"output": "", "error": f"network device, not Linux (SSH banner {banner}) - not logged in"}
     import paramiko
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
