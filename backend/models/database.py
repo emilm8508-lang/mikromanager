@@ -576,6 +576,7 @@ class AnomalyEvent(Base):
     ended_at = Column(DateTime, nullable=True, index=True)          # None while it is still open
     peak_score = Column(Float, nullable=False, default=0.0)
     series = Column(Text, nullable=True)                            # JSON [{key, name, unit, value, expected, low, high, score}]
+    if_score = Column(Float, nullable=True)                         # the host's multivariate (Isolation Forest) score at its highest, 0..1
     verdict = Column(String, nullable=True)                         # None | "true" | "false"
     verdict_by = Column(String, nullable=True)
     verdict_at = Column(DateTime, nullable=True)
@@ -1646,6 +1647,12 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_restart_at DATETIME"))
             if "last_restart_reason" not in lh_cols:
                 conn.execute(text("ALTER TABLE linux_hosts ADD COLUMN last_restart_reason TEXT"))
+
+    if "anomaly_events" in inspector.get_table_names():
+        ae_cols = {c["name"] for c in inspector.get_columns("anomaly_events")}
+        if "if_score" not in ae_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE anomaly_events ADD COLUMN if_score FLOAT"))
 
     if "dell_servers" in inspector.get_table_names():
         ds_cols = {c["name"] for c in inspector.get_columns("dell_servers")}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BrainCircuit, Check, X, RefreshCw, Download } from 'lucide-react'
-import { anomaliesApi, AnomalyEvent } from '../lib/api'
+import { anomaliesApi, AnomalyEvent, AnomalyMulti } from '../lib/api'
 import { AnomalyItems, AnomalyBandChart, scoreTone } from '../components/AnomalyParts'
 import { cn } from '../lib/utils'
 
@@ -10,6 +10,28 @@ import { cn } from '../lib/utils'
 // the week, with the operator's verdict on each event — the labels the detector is measured against.
 
 const ago = (iso: string) => new Date(iso).toLocaleString()
+const ifTone = (s: number | null | undefined) => s == null ? 'text-slate-400' : s >= 0.7 ? 'bg-red-100 text-red-700' : s >= 0.6 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+
+function Multivariate({ rows }: { rows: AnomalyMulti[] }) {
+  const { t } = useTranslation()
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+      <h2 className="text-sm font-semibold text-slate-700">{t('anomaly.multiTitle')}</h2>
+      <p className="text-xs text-slate-500">{t('anomaly.multiIntro')}</p>
+      {rows.length === 0 ? <p className="text-xs text-slate-400">{t('anomaly.multiNone')}</p> : (
+        <div className="space-y-1">
+          {rows.map(r => (
+            <div key={r.host_key} className="grid grid-cols-[12rem_1fr_3.5rem] items-center gap-2 text-xs">
+              <span className="truncate text-slate-700" title={r.host_key}>{r.name} <span className="text-slate-400">({r.n})</span></span>
+              <div className="h-2 bg-slate-100 rounded overflow-hidden"><div className={cn('h-full', r.score >= 0.7 ? 'bg-red-400' : r.score >= 0.6 ? 'bg-amber-400' : 'bg-slate-300')} style={{ width: `${Math.round(r.score * 100)}%` }} /></div>
+              <span className={cn('text-right font-mono rounded px-1', ifTone(r.score))}>{r.score.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -93,6 +115,7 @@ export function Anomalies() {
                 <span className="font-semibold text-slate-900">{e.host || e.host_key}</span>
                 <span className="text-xs text-slate-500">{t(`anomaly.cat.${e.category}`)}</span>
                 <span className={cn('text-[11px] rounded px-1.5 py-0.5 font-semibold', scoreTone(e.peak_score))}>{t('anomaly.peak')} {e.peak_score.toFixed(1)}</span>
+                {e.if_score != null && <span className={cn('text-[11px] rounded px-1.5 py-0.5 font-mono', ifTone(e.if_score))} title={t('anomaly.multiHelp') as string}>IF {e.if_score.toFixed(2)}</span>}
                 <span className="text-xs text-slate-500 ml-auto">{t('anomaly.since', { at: ago(e.started_at), min: e.minutes })}</span>
                 <Verdict ev={e} />
               </div>
@@ -101,6 +124,8 @@ export function Anomalies() {
             </div>
           ))}
       </div>
+
+      <Multivariate rows={q.data?.multivariate ?? []} />
 
       <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
         <h2 className="text-sm font-semibold text-slate-700">{t('anomaly.historyTitle')}</h2>
@@ -111,6 +136,7 @@ export function Anomalies() {
               <thead><tr className="text-left text-slate-400 border-b border-slate-200">
                 <th className="font-medium px-2 py-1.5">{t('anomaly.col.host')}</th><th className="font-medium px-2 py-1.5">{t('anomaly.col.start')}</th>
                 <th className="font-medium px-2 py-1.5 text-right">{t('anomaly.col.minutes')}</th><th className="font-medium px-2 py-1.5 text-right">{t('anomaly.col.peak')}</th>
+                <th className="font-medium px-2 py-1.5 text-right" title={t('anomaly.multiHelp') as string}>IF</th>
                 <th className="font-medium px-2 py-1.5">{t('anomaly.col.what')}</th><th className="font-medium px-2 py-1.5">{t('anomaly.col.verdict')}</th>
               </tr></thead>
               <tbody>
@@ -120,6 +146,7 @@ export function Anomalies() {
                     <td className="px-2 py-1.5 whitespace-nowrap text-slate-600">{ago(e.started_at)}</td>
                     <td className="px-2 py-1.5 text-right font-mono">{e.minutes}</td>
                     <td className="px-2 py-1.5 text-right"><span className={cn('rounded px-1.5 py-0.5 font-mono font-semibold', scoreTone(e.peak_score))}>{e.peak_score.toFixed(1)}</span></td>
+                    <td className="px-2 py-1.5 text-right">{e.if_score != null ? <span className={cn('rounded px-1 font-mono', ifTone(e.if_score))}>{e.if_score.toFixed(2)}</span> : <span className="text-slate-300">—</span>}</td>
                     <td className="px-2 py-1.5 text-slate-600">{[...e.series].sort((a, b) => b.score - a.score).slice(0, 3).map(s => `${s.label} ${s.value}${s.unit} (${t('anomaly.usuallyShort')} ${s.expected}${s.unit})`).join(' · ')}</td>
                     <td className="px-2 py-1.5"><Verdict ev={e} /></td>
                   </tr>

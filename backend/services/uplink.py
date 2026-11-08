@@ -581,6 +581,8 @@ async def _build_snapshot() -> dict:
             soc_status["anomalies"] = anomaly.public_summary()                  # hosts behaving unlike themselves, and the detector's numbers
             from services import netflow
             soc_status["netflow"] = netflow.public_summary()                    # flow collector state, busiest hosts, network detections
+            from services import indicators
+            soc_status["indicators"] = indicators.public_summary()              # outside addresses that probed this client, compared across clients in Central
         except Exception as e:
             print(f"[uplink] availability summary error: {e}")
     except Exception as e:

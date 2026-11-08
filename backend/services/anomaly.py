@@ -22,7 +22,9 @@ No machine-learning library is needed for this stage; the multivariate model (Is
 measure it against.
 """
 import json
+import math
 import os
+import random
 import statistics
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -37,6 +39,8 @@ WEEKLY_SPAN_DAYS = 14
 MIN_BUCKET = 12                 # readings a profile slot needs; with fewer the series' whole last week is used
 RECENT_MIN = 35                 # the "current" value: the median of the readings of the last 35 minutes
 PROFILE_TTL_SEC = 6 * 3600      # a profile changes slowly; it is rebuilt every 6 hours
+REBUILD_PER_CYCLE = 100         # at most this many expired profiles are rebuilt in one cycle, the rest keep the old one a little longer -
+                                # measured: rebuilding 860 profiles at once took 19 s (160 NetFlow hosts x 5 series + 60 more, 21 days)
 Z_OPEN = float(os.environ.get("MIKROTIK_ANOMALY_Z", "4.0"))
 Z_CLOSE = 2.5
 CYCLES_OPEN = 2
@@ -129,10 +133,11 @@ def score(value: float, med: float, sd: float, dirn: str) -> float:
     return z if dirn == "up" else -z if dirn == "down" else abs(z)
 
 
-def _profile(db, s: MetricSeries, now: datetime) -> Optional[dict]:
+def _profile(db, s: MetricSeries, now: datetime, budget: list) -> Optional[dict]:
     cached = _profiles.get(s.key)
-    if cached and now.timestamp() - cached[0] < PROFILE_TTL_SEC:
+    if cached and (now.timestamp() - cached[0] < PROFILE_TTL_SEC or budget[0] <= 0):
         return cached[1]
+    budget[0] -= 1
     rows = db.execute(select(MetricSample.at, MetricSample.value).where(
         MetricSample.key == s.key, MetricSample.at >= now - timedelta(days=HISTORY_DAYS), MetricSample.at < now - timedelta(minutes=RECENT_MIN),
     ).order_by(MetricSample.at)).all()
@@ -141,23 +146,121 @@ def _profile(db, s: MetricSeries, now: datetime) -> Optional[dict]:
     return p
 
 
+# ── Multivariate score: Isolation Forest over a host's series together ───────
+#
+# One series out of range is what the rule above alerts on. A host can also be unusual in the COMBINATION of its series while each one
+# is still within its own range (traffic out a little up, peers a little up and ports a little up at the same hour). An Isolation Forest
+# (Liu, Ting, Zhou 2008) learns that from the host's last 14 days: the points are the vectors of the host's per-series deviations
+# (each reading's distance from the median of its own hour, in robust standard deviations - so the seasonality is already taken out),
+# random trees split them, and a point that is isolated in few splits is rare. The score is in (0, 1): about 0.5 and below is ordinary,
+# close to 1 is a combination the host has not had. Plain Python, no library on the agents. It is computed, shown and kept with the
+# events (and in the CSV) but does not alert by itself yet: whether it adds anything is to be measured against the labelled events first.
+
+IF_TREES = 50
+IF_SAMPLE = 128
+IF_DAYS = 14
+IF_MIN_POINTS = 200
+IF_BUILD_PER_CYCLE = 30
+_EULER = 0.5772156649
+_forests: Dict[str, Tuple[float, Optional[dict]]] = {}      # host key -> (built at, {"keys", "trees", "c"} or None)
+_multi: Dict[str, dict] = {}                                 # host key -> {"score", "at", "name", "n"} of the last cycle
+
+
+def _c(n: int) -> float:
+    """Average path length of an unsuccessful search in a binary search tree of n points (the normaliser of the score)."""
+    if n > 2:
+        return 2.0 * (math.log(n - 1) + _EULER) - 2.0 * (n - 1) / n
+    return 1.0 if n == 2 else 0.0
+
+
+def _tree(points: List[List[float]], depth: int, limit: int, rnd: random.Random):
+    if depth >= limit or len(points) <= 1:
+        return len(points)
+    dims = len(points[0])
+    for _ in range(dims):                                    # a dimension that still varies here
+        f = rnd.randrange(dims)
+        lo = min(p[f] for p in points)
+        hi = max(p[f] for p in points)
+        if hi > lo:
+            split = rnd.uniform(lo, hi)
+            left = [p for p in points if p[f] < split]
+            right = [p for p in points if p[f] >= split]
+            return (f, split, _tree(left, depth + 1, limit, rnd), _tree(right, depth + 1, limit, rnd))
+    return len(points)
+
+
+def _path(x: List[float], node, depth: int = 0) -> float:
+    while isinstance(node, tuple):
+        f, split, left, right = node
+        node = left if x[f] < split else right
+        depth += 1
+    return depth + _c(node)
+
+
+def build_forest(points: List[List[float]], seed: int = 0) -> Optional[dict]:
+    if len(points) < IF_MIN_POINTS:
+        return None
+    rnd = random.Random(seed)
+    psi = min(IF_SAMPLE, len(points))
+    limit = math.ceil(math.log2(psi))
+    trees = [_tree(rnd.sample(points, psi), 0, limit, rnd) for _ in range(IF_TREES)]
+    return {"trees": trees, "c": _c(psi)}
+
+
+def forest_score(model: dict, x: List[float]) -> float:
+    mean = sum(_path(x, t) for t in model["trees"]) / len(model["trees"])
+    return 2.0 ** (-mean / model["c"]) if model["c"] else 0.5
+
+
+def _host_forest(db, hk: str, keys: List[str], now: datetime, budget: list) -> Optional[dict]:
+    """The host's forest over its series `keys` (sorted), built from its last IF_DAYS of readings turned into deviations by each series'
+    own profile; rebuilt every PROFILE_TTL_SEC, at most IF_BUILD_PER_CYCLE hosts per cycle."""
+    cached = _forests.get(hk)
+    if cached and cached[1] is not None and cached[1]["keys"] == keys and (now.timestamp() - cached[0] < PROFILE_TTL_SEC or budget[0] <= 0):
+        return cached[1]
+    if budget[0] <= 0:
+        return cached[1] if cached and cached[1] and cached[1]["keys"] == keys else None
+    budget[0] -= 1
+    profiles = {k: (_profiles.get(k) or (0, None))[1] for k in keys}
+    if any(p is None for p in profiles.values()):
+        _forests[hk] = (now.timestamp(), None)
+        return None
+    rows = db.execute(select(MetricSample.key, MetricSample.at, MetricSample.value).where(
+        MetricSample.key.in_(keys), MetricSample.at >= now - timedelta(days=IF_DAYS), MetricSample.at < now - timedelta(minutes=RECENT_MIN))).all()
+    buckets: Dict[datetime, Dict[str, float]] = {}
+    for k, at, v in rows:
+        b = at.replace(minute=at.minute - at.minute % 10, second=0, microsecond=0)
+        med, sd = expected(profiles[k], at)
+        buckets.setdefault(b, {})[k] = (v - med) / sd if sd else 0.0
+    points = [[vals[k] for k in keys] for vals in buckets.values() if len(vals) == len(keys)]
+    model = build_forest(points, seed=sum(map(ord, hk)))
+    if model:
+        model["keys"] = keys
+    _forests[hk] = (now.timestamp(), model)
+    return model
+
+
 def judge(now: Optional[datetime] = None) -> Dict[str, List[dict]]:
     """Scores the current value of every series: {host key: [one dict per series that is out of range]}, plus the counters in _last."""
     now = now or _now()
     out: Dict[str, List[dict]] = {}
     learning = judged = 0
+    budget = [REBUILD_PER_CYCLE]
+    raw: Dict[str, Dict[str, tuple]] = {}                           # host -> {series key: (signed deviation now, name)} for the forest
     with SessionLocal() as db:
         series = [s for s in db.execute(select(MetricSeries)).scalars().all() if s.kind not in SKIP_KINDS]
+        recent_by_key: Dict[str, List[float]] = {}                  # one query for the last readings of every series, not one per series
+        for k, v in db.execute(select(MetricSample.key, MetricSample.value).where(MetricSample.at >= now - timedelta(minutes=RECENT_MIN))).all():
+            recent_by_key.setdefault(k, []).append(v)
         for s in series:
             if not s.last_at or now - s.last_at > timedelta(minutes=RECENT_MIN):
                 _hot.pop(s.key, None)
                 continue
-            p = _profile(db, s, now)
+            p = _profile(db, s, now, budget)
             if p is None:
                 learning += 1
                 continue
-            recent = [v for (v,) in db.execute(select(MetricSample.value).where(
-                MetricSample.key == s.key, MetricSample.at >= now - timedelta(minutes=RECENT_MIN))).all()]
+            recent = recent_by_key.get(s.key)
             if not recent:
                 continue
             judged += 1
@@ -177,6 +280,17 @@ def judge(now: Optional[datetime] = None) -> Dict[str, List[dict]]:
                 out.setdefault(hk, []).append(item)
             else:
                 out.setdefault(hk, [])
+            raw.setdefault(hk, {})[s.key] = ((cur - med) / sd if sd else 0.0, s.name)
+        # the multivariate score of every host with at least two judged series
+        if_budget = [IF_BUILD_PER_CYCLE]
+        for hk, zs in raw.items():
+            if len(zs) < 2:
+                continue
+            keys = sorted(zs)
+            model = _host_forest(db, hk, keys, now, if_budget)
+            if model:
+                _multi[hk] = {"score": round(forest_score(model, [zs[k][0] for k in keys]), 3), "at": _iso(now),
+                              "name": zs[keys[0]][1].split(" · ")[0], "n": len(keys)}
     _last.update(at=_iso(now), series=len(series), learning=learning, judged=judged)
     return out
 
@@ -212,14 +326,17 @@ def run_cycle(now: Optional[datetime] = None) -> dict:
                 peak = max(i["score"] for i in items)
                 cat = ("hardware" if hk.startswith(("bmc:", "ups:")) else "network" if hk.startswith("net:")
                        else "security" if hk.startswith("wz:") else "resource")
+                multi = (_multi.get(hk) or {}).get("score")
                 if ev is None:
                     ev = AnomalyEvent(host_key=hk, host_name=name, category=cat, severity=_severity(items), started_at=now, last_seen=now,
-                                      peak_score=peak, series=json.dumps(items))
+                                      peak_score=peak, series=json.dumps(items), if_score=multi)
                     db.add(ev)
                     open_events[hk] = ev
                     opened += 1
                 else:
                     ev.last_seen = now
+                    if multi is not None and multi > (ev.if_score or 0):
+                        ev.if_score = multi
                     if peak > (ev.peak_score or 0):
                         ev.peak_score, ev.series, ev.severity = peak, json.dumps(items), _severity(items)
                 soc.raise_alert(rule=RULE, device=name, title="Unusual behaviour (anomaly)", severity=ev.severity, category="detection" if cat == "security" else cat, fp_detail=hk,
@@ -265,7 +382,7 @@ def _event_row(db, ev: AnomalyEvent) -> dict:
     return {"id": ev.id, "host_key": ev.host_key, "host": ev.host_name, "category": ev.category, "severity": ev.severity,
             "started_at": _iso(ev.started_at), "last_seen": _iso(ev.last_seen), "ended_at": _iso(ev.ended_at),
             "minutes": round(((ev.ended_at or ev.last_seen) - ev.started_at).total_seconds() / 60),
-            "peak_score": round(ev.peak_score or 0, 2), "series": json.loads(ev.series or "[]"),
+            "peak_score": round(ev.peak_score or 0, 2), "if_score": ev.if_score, "series": json.loads(ev.series or "[]"),
             "verdict": effective_verdict(db, ev), "verdict_set": ev.verdict, "verdict_by": ev.verdict_by, "verdict_at": _iso(ev.verdict_at)}
 
 
@@ -341,7 +458,7 @@ def public_summary() -> dict:
     return {
         "series": st["series"], "learning": st["learning"], "events_30d": st["events"], "labelled": st["labelled"], "true": st["true"], "false": st["false"],
         "precision": st["precision"], "at": st["at"],
-        "open": [{"h": e["host"], "c": e["category"], "sev": e["severity"], "since": e["started_at"], "z": e["peak_score"],
+        "open": [{"h": e["host"], "c": e["category"], "sev": e["severity"], "since": e["started_at"], "z": e["peak_score"], "if": e["if_score"],
                   "items": [{k: i[k] for k in ("label", "unit", "value", "expected", "low", "high", "score")} for i in sorted(e["series"], key=lambda x: -x["score"])[:4]]}
                  for e in open_][:30],
     }

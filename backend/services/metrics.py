@@ -300,6 +300,19 @@ def check_rules(now: Optional[datetime] = None) -> List[str]:
     return alerting
 
 
+def _detect(now: datetime) -> None:
+    try:
+        from services import anomaly
+        anomaly.run_cycle(now)                  # each series against its own learned range (services/anomaly.py)
+    except Exception as e:
+        print(f"[metrics] anomaly detection error: {e}")
+    try:
+        from services import correlate
+        correlate.run(now)                      # signals from several sources about one machine
+    except Exception as e:
+        print(f"[metrics] correlation error: {e}")
+
+
 # ── The loop ─────────────────────────────────────────────────────────────────
 
 async def run_cycle(now: Optional[datetime] = None) -> dict:
@@ -312,16 +325,8 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
         await wazuh_features.sample(now)        # Wazuh event counts per agent as series, when Wazuh is configured
     except Exception as e:
         print(f"[metrics] wazuh features error: {e}")
-    try:
-        from services import anomaly
-        anomaly.run_cycle(now)                  # each series against its own learned range (services/anomaly.py)
-    except Exception as e:
-        print(f"[metrics] anomaly detection error: {e}")
-    try:
-        from services import correlate
-        correlate.run(now)                      # signals from several sources about one machine
-    except Exception as e:
-        print(f"[metrics] correlation error: {e}")
+    # in a worker thread: on a busy agent this is seconds of database work, which on the event loop froze every page meanwhile
+    await asyncio.get_event_loop().run_in_executor(None, _detect, now)
     if time.time() - _last_rollup[0] > 86400:
         _last_rollup[0] = time.time()
         rollup(now)

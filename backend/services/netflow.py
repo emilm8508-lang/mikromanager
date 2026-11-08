@@ -40,7 +40,11 @@ DEFAULTS = {
     "enabled": False, "port": 2055, "accept_unknown": False,
     "local_nets": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"],
     "scan_ports": 100, "scan_hosts": 50, "lateral_hosts": 15, "beacon": True, "external_scans": False, "max_hosts": 300,
+    # mail (SMTP, POP3, IMAP and their TLS ports) and push / messaging keep-alives (XMPP, Apple, Google): periodic by design - seen
+    # live: a mail client polling POP3S every 60 s and a phone's push channel every 211 s were 172 "beaconing" alerts a day
+    "beacon_ignore_ports": [25, 110, 143, 465, 587, 993, 995, 5222, 5223, 5228],
 }
+REPEAT_SEC = {"net.beacon": 86400}  # the same detection (rule, host, target) is reported again only after this; others after an hour
 WINDOW_SEC = 600
 SET_CAP = 2000                   # distinct peers / ports kept per host per window (counted beyond that, not stored)
 MAX_PAIRS = 20000
@@ -68,6 +72,9 @@ _detections: deque = deque(maxlen=300)        # what the detectors raised, newes
 _pairs: Dict[tuple, deque] = {}               # (src, dst, dport) -> first-seen times of its connections (beaconing)
 _pair_seen: Dict[tuple, float] = {}           # (src, sport, dst, dport) -> when that connection was first seen
 _tracked: Dict[str, float] = {}               # internal ip -> last time it had traffic
+_beacon_ignore: set = set()                   # destination ports the beacon detector leaves out (settings)
+_last_raised: Dict[tuple, float] = {}         # (rule, ip, detail) -> when it was last reported
+_fp_cache: Dict[str, tuple] = {}              # SOC fingerprint -> (checked at, is a false positive)
 
 
 # ── Settings ────────────────────────────────────────────────────────────────
@@ -82,6 +89,8 @@ def load_settings() -> dict:
     _settings.clear()
     _settings.update(s)
     _set_nets(s["local_nets"])
+    _beacon_ignore.clear()
+    _beacon_ignore.update(int(p) for p in s.get("beacon_ignore_ports") or [])
     _loaded[0] = True
     try:
         with open(_STATE_PATH, encoding="utf-8") as f:
@@ -143,9 +152,16 @@ async def update_settings(body: dict) -> dict:
             except ValueError:
                 raise ValueError(f"not a network: {n}")
         new["local_nets"] = nets
+    if body.get("beacon_ignore_ports") is not None:
+        ports = sorted({_int(p, 1, 65535, "port") for p in body["beacon_ignore_ports"]})
+        if len(ports) > 100:
+            raise ValueError("at most 100 ports")
+        new["beacon_ignore_ports"] = ports
     _settings.clear()
     _settings.update(new)
     _set_nets(new["local_nets"])
+    _beacon_ignore.clear()
+    _beacon_ignore.update(new.get("beacon_ignore_ports") or [])
     _save()
     await restart()
     return settings()
@@ -326,7 +342,7 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
                     h["syn_dsts"].add(dst)
             if dst_l and dport in ADMIN_PORTS and len(h["admin_dsts"]) < SET_CAP:
                 h["admin_dsts"].add(dst)
-            if not dst_l and _settings.get("beacon", True) and dport not in QUIET_PORTS and f["bytes"] <= BEACON_BYTES:
+            if not dst_l and _settings.get("beacon", True) and dport not in QUIET_PORTS and dport not in _beacon_ignore and f["bytes"] <= BEACON_BYTES:
                 _beacon_seen(src, sport, dst, dport, now)
         elif not src_l and dst_l and syn_only and ports and initiator:
             s = w["scan_in"].setdefault(src, set())
@@ -370,9 +386,35 @@ def _label(ip: str, names: Dict[str, dict]) -> str:
     return f"{n} ({ip})" if n and n != ip else ip
 
 
+def _false_positive(fp: str, now: float) -> bool:
+    """Whether the SOC alert with this fingerprint was marked a false positive (checked at most every 10 minutes per fingerprint)."""
+    hit = _fp_cache.get(fp)
+    if hit and now - hit[0] < 600:
+        return hit[1]
+    try:
+        from models.database import SessionLocal, SocAlert
+        from sqlalchemy import select
+        with SessionLocal() as db:
+            row = db.execute(select(SocAlert.status).where(SocAlert.fingerprint == fp).order_by(SocAlert.id.desc()).limit(1)).first()
+        val = bool(row and row[0] == "false_positive")
+    except Exception:
+        val = False
+    _fp_cache[fp] = (now, val)
+    return val
+
+
 def _raise(rule: str, ip: str, title: str, severity: str, mitre: str, message: str, detail: str, names: Dict[str, dict], now: float) -> None:
     from services import soc
     name = (names.get(ip) or {}).get("name") or ip
+    key = (rule, ip, detail)
+    if now - _last_raised.get(key, 0) < REPEAT_SEC.get(rule, 3600):
+        return                                                      # reported already: once a day for a beacon, once an hour otherwise
+    if _false_positive(f"{rule}|{name.strip().lower()}|{detail}"[:240], now):
+        return                                                      # someone marked this one a false positive in the SOC: never again
+    _last_raised[key] = now
+    if len(_last_raised) > 20000:
+        for k in [k for k, t in _last_raised.items() if now - t > 86400]:
+            del _last_raised[k]
     try:
         soc.raise_alert(rule=rule, device=name, ip=ip, title=title, severity=severity, category="network", fp_detail=detail, mitre=mitre,
                         detail={"message": message, "description": title}, source="rules", now=datetime.utcfromtimestamp(now))

@@ -41,11 +41,12 @@ const PROTO: Record<number, string> = { 1: 'ICMP', 6: 'TCP', 17: 'UDP', 47: 'GRE
 function Settings({ s }: { s: NetflowSettings }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [f, setF] = useState({ ...s, nets: s.local_nets.join('\n') })
-  useEffect(() => setF({ ...s, nets: s.local_nets.join('\n') }), [s])
+  const [f, setF] = useState({ ...s, nets: s.local_nets.join('\n'), ignore: (s.beacon_ignore_ports ?? []).join(', ') })
+  useEffect(() => setF({ ...s, nets: s.local_nets.join('\n'), ignore: (s.beacon_ignore_ports ?? []).join(', ') }), [s])
   const save = useMutation({
     mutationFn: () => netflowApi.save({ port: f.port, accept_unknown: f.accept_unknown, local_nets: f.nets.split(/[\s,]+/).filter(Boolean), scan_ports: f.scan_ports,
-      scan_hosts: f.scan_hosts, lateral_hosts: f.lateral_hosts, beacon: f.beacon, external_scans: f.external_scans, max_hosts: f.max_hosts }),
+      scan_hosts: f.scan_hosts, lateral_hosts: f.lateral_hosts, beacon: f.beacon, external_scans: f.external_scans, max_hosts: f.max_hosts,
+      beacon_ignore_ports: f.ignore.split(/[\s,;]+/).filter(Boolean).map(Number).filter(n => Number.isInteger(n)) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['netflow'] }),
   })
   const num = (k: 'port' | 'scan_ports' | 'scan_hosts' | 'lateral_hosts' | 'max_hosts') => (
@@ -64,7 +65,11 @@ function Settings({ s }: { s: NetflowSettings }) {
         <label className="text-xs text-slate-600 space-y-1 block">{t('netflow.set.local_nets')}
           <textarea rows={4} value={f.nets} onChange={e => setF(x => ({ ...x, nets: e.target.value }))} className="w-full border border-slate-300 rounded px-2 py-1 font-mono bg-white" />
         </label>
-        <div className="space-y-2 pt-5">{chk('beacon')}{chk('external_scans')}{chk('accept_unknown')}</div>
+        <div className="space-y-2 pt-5">{chk('beacon')}{chk('external_scans')}{chk('accept_unknown')}
+          <label className="text-xs text-slate-600 space-y-1 block">{t('netflow.set.beacon_ignore_ports')}
+            <input value={f.ignore} onChange={e => setF(x => ({ ...x, ignore: e.target.value }))} className="w-full border border-slate-300 rounded px-2 py-1 font-mono bg-white" />
+          </label>
+        </div>
       </div>
       {save.isError && <p className="text-xs text-red-600 mt-2">{String((save.error as any)?.response?.data?.detail ?? save.error)}</p>}
       <button onClick={() => save.mutate()} disabled={save.isPending} className="mt-3 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">{t('common.save')}</button>

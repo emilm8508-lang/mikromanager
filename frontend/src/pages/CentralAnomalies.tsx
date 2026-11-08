@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BrainCircuit } from 'lucide-react'
+import { BrainCircuit, ClipboardCopy } from 'lucide-react'
 import { centralApi, centralConfig, CentralSoc } from '../lib/api'
 import { AnomalyItems, scoreTone } from '../components/AnomalyParts'
 import { cn } from '../lib/utils'
@@ -12,7 +12,9 @@ import { cn } from '../lib/utils'
 export function CentralAnomalies() {
   const { t } = useTranslation()
   const cfg = centralConfig.load()
-  const [rows, setRows] = useState<Array<{ tenant: string; a: NonNullable<CentralSoc['anomalies']> | null; nf: NonNullable<CentralSoc['netflow']> | null }>>([])
+  const [rows, setRows] = useState<Array<{ tenant: string; a: NonNullable<CentralSoc['anomalies']> | null; nf: NonNullable<CentralSoc['netflow']> | null; ind: NonNullable<CentralSoc['indicators']> | null }>>([])
+  const [allIps, setAllIps] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -21,7 +23,7 @@ export function CentralAnomalies() {
     const load = async () => {
       try {
         const r = await centralApi.socStatusAll()
-        setRows(r.tenants.map(x => ({ tenant: x.tenant, a: x.soc?.anomalies ?? null, nf: x.soc?.netflow ?? null })))
+        setRows(r.tenants.map(x => ({ tenant: x.tenant, a: x.soc?.anomalies ?? null, nf: x.soc?.netflow ?? null, ind: x.soc?.indicators ?? null })))
         setErr(null)
       } catch (e) { setErr((e as Error).message) } finally { setLoading(false) }
     }
@@ -36,6 +38,18 @@ export function CentralAnomalies() {
   const openAll = withData.flatMap(r => r.a!.open.map(o => ({ tenant: r.tenant, o }))).sort((x, y) => y.o.z - x.o.z)
   const sum = (f: (a: NonNullable<CentralSoc['anomalies']>) => number) => withData.reduce((s, r) => s + f(r.a!), 0)
   const tt = sum(a => a.true), ff = sum(a => a.false)
+  // outside addresses across clients: one that probes several clients is a campaign (services/indicators.py on each agent)
+  const merged: Record<string, { tenants: Set<string>; kinds: Set<string>; n: number; last: string | null }> = {}
+  for (const r of rows) for (const x of r.ind?.ips ?? []) {
+    const m = (merged[x.ip] ??= { tenants: new Set(), kinds: new Set(), n: 0, last: null })
+    m.tenants.add(r.tenant); x.k.forEach(k => m.kinds.add(k)); m.n += x.n
+    if (x.last && (!m.last || x.last > m.last)) m.last = x.last
+  }
+  const shared = Object.entries(merged).filter(([, m]) => allIps || m.tenants.size >= 2)
+    .sort((a, b) => b[1].tenants.size - a[1].tenants.size || b[1].n - a[1].n).slice(0, 200)
+  const multiTenant = Object.values(merged).filter(m => m.tenants.size >= 2).length
+  const ros = shared.map(([ip, m]) => `/ip firewall address-list add list=mm-shared-attackers address=${ip} timeout=7d comment="${[...m.tenants].length} clients: ${[...m.kinds].join(',')}"`).join('\n')
+  const copyRos = async () => { try { await navigator.clipboard.writeText(ros); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* selectable */ } }
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
@@ -64,12 +78,45 @@ export function CentralAnomalies() {
                     <span className="font-semibold text-slate-900">{o.h || '—'}</span>
                     <span className="text-xs text-slate-500">{t(`anomaly.cat.${o.c}`)}</span>
                     <span className={cn('text-[11px] rounded px-1.5 py-0.5 font-semibold', scoreTone(o.z))}>{t('anomaly.peak')} {o.z.toFixed(1)}</span>
+                    {o.if != null && <span className="text-[11px] rounded px-1.5 py-0.5 font-mono bg-slate-100 text-slate-600" title={t('anomaly.multiHelp') as string}>IF {o.if.toFixed(2)}</span>}
                     <span className="text-xs text-slate-500 ml-auto">{t('anomaly.sinceShort', { at: new Date(o.since).toLocaleString() })}</span>
                   </div>
                   <AnomalyItems items={o.items} />
                 </div>
               ))}
             <p className="text-[11px] text-slate-400">{t('anomaly.centralLabelHint')}</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm font-semibold text-slate-700">{t('anomaly.sharedTitle')}</h2>
+              <span className="text-xs text-slate-500">{t('anomaly.sharedCount', { n: multiTenant, total: Object.keys(merged).length })}</span>
+              <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={allIps} onChange={e => setAllIps(e.target.checked)} /> {t('anomaly.sharedAll')}</label>
+              {shared.length > 0 && <button onClick={copyRos} className="flex items-center gap-1 text-xs border border-slate-300 rounded-md px-2 py-1 hover:bg-slate-50"><ClipboardCopy size={12} /> {copied ? t('netflow.copied') : t('anomaly.sharedCopy')}</button>}
+            </div>
+            <p className="text-xs text-slate-500">{t('anomaly.sharedIntro')}</p>
+            {shared.length === 0 ? <p className="text-xs text-slate-400">{t('anomaly.sharedNone')}</p> : (
+              <div className="overflow-x-auto max-h-96">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-left text-slate-400 border-b border-slate-200">
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.address')}</th><th className="font-medium px-2 py-1.5">{t('anomaly.col.clients')}</th>
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.kinds')}</th><th className="font-medium px-2 py-1.5 text-right">{t('anomaly.col.count')}</th>
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.last')}</th>
+                  </tr></thead>
+                  <tbody>
+                    {shared.map(([ip, m]) => (
+                      <tr key={ip} className="border-t border-slate-100">
+                        <td className="px-2 py-1.5 font-mono text-slate-800">{ip}</td>
+                        <td className="px-2 py-1.5"><span className={cn('rounded px-1.5 py-0.5 font-semibold mr-1', m.tenants.size >= 2 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{m.tenants.size}</span>{[...m.tenants].join(', ')}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{[...m.kinds].map(k => t(`anomaly.kind.${k}`, { defaultValue: k })).join(', ')}</td>
+                        <td className="px-2 py-1.5 text-right font-mono">{m.n}</td>
+                        <td className="px-2 py-1.5 text-slate-500">{m.last ? new Date(m.last).toLocaleString() : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">

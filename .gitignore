@@ -56,3 +56,8 @@ secrets*.txt
 # under a hardened systemd user without /tmp)
 .tmp/
 .cache/
+
+# Build state and editor lock files
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
+~$*

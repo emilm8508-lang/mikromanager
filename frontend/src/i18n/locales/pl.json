@@ -4356,6 +4356,17 @@
         "nothing": "Nic nie pasuje do wyszukiwania."
     },
     "anomaly": {
+        "multiTitle": "Ocena wielowymiarowa (Isolation Forest)",
+        "multiIntro": "Wszystkie serie hosta razem: las izolacyjny uczy się z ostatnich 14 dni, jakie połączenia odchyleń są u niego zwykłe. Wynik 0–1: ok. 0,5 i mniej to normalnie, blisko 1 to układ, którego host jeszcze nie miał (np. kilka serii lekko podwyższonych naraz, choć żadna nie przekracza progu). Na razie nie alarmuje — jest zapisywany przy zdarzeniach i w CSV, żeby na ocenionych zdarzeniach sprawdzić, czy poprawia trafność.",
+        "multiNone": "Brak ocen — potrzeba co najmniej dwóch ocenianych serii hosta i 200 wspólnych odczytów.",
+        "multiHelp": "Ocena wielowymiarowa (Isolation Forest) 0–1: blisko 1 = nietypowe połączenie serii hosta",
+        "sharedTitle": "Wspólne źródła ataków u kilku klientów",
+        "sharedCount": "{{n}} adresów u co najmniej dwóch klientów (z {{total}})",
+        "sharedAll": "pokaż też adresy u jednego klienta",
+        "sharedCopy": "Kopiuj jako listę adresów RouterOS",
+        "sharedIntro": "Publiczne adresy z ostatnich 24 h u każdego klienta (nieudane negocjacje IPsec, odrzucone Winbox, nieudane logowania, wykrycia NetFlow, Wazuh). Adres, który sonduje kilku klientów, to kampania, nie przypadek. Lista do skopiowania dodaje je na routerze do mm-shared-attackers na 7 dni — zablokuj ją regułą w łańcuchu input.",
+        "sharedNone": "Brak adresów widzianych u więcej niż jednego klienta.",
+        "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "logowania", "scan": "skan", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "inne"},
         "title": "Anomalie (ML)",
         "subtitle": "Hosty, które zachowują się inaczej niż zwykle — każda seria metryk porównana z własnym, wyuczonym zakresem dla tej samej godziny tygodnia.",
         "runNow": "Sprawdź teraz",
@@ -4388,7 +4399,7 @@
         "historyIntro": "Oceń każde zdarzenie: „trafny” — był realny problem, „fałszywy” — nic się nie działo. Oznaczenie alertu SOC jako fałszywego alarmu (także z centrali) liczy się tak samo. Eksport CSV zawiera wszystkie zdarzenia z ocenami.",
         "noHistory": "Jeszcze nie było zamkniętych zdarzeń.",
         "col": {
-            "host": "Host",
+            "address": "Adres", "clients": "Klienci", "kinds": "Rodzaje", "count": "Zdarzeń", "last": "Ostatnio", "host": "Host",
             "start": "Początek",
             "minutes": "Min",
             "peak": "Wynik",
@@ -4449,7 +4460,7 @@
         "flowsN": "{{n}} przepływów",
         "unknown": "Odrzucone od nieznanych nadawców",
         "set": {
-            "title": "Ustawienia i progi",
+            "beacon_ignore_ports": "Beaconing: pomijane porty docelowe (poczta, powiadomienia push)", "title": "Ustawienia i progi",
             "port": "Port UDP",
             "scan_ports": "Skan: porty na jednym celu",
             "scan_hosts": "Skan: liczba celów",

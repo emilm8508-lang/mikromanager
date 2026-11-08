@@ -3939,6 +3939,17 @@
         "nothing": "Nada coincide con la búsqueda."
     },
     "anomaly": {
+        "multiTitle": "Puntuación multivariante (Isolation Forest)",
+        "multiIntro": "Todas las series de un host juntas: un isolation forest aprende de los últimos 14 días qué combinaciones de desviaciones son habituales. Puntuación 0–1: alrededor de 0,5 o menos es normal, cerca de 1 una combinación que el host no ha tenido (varias series algo altas a la vez sin que ninguna supere el umbral). Aún no alerta — se guarda con los eventos y en el CSV para comprobar con eventos valorados si mejora la precisión.",
+        "multiNone": "Aún sin puntuaciones — un host necesita al menos dos series evaluadas y 200 lecturas comunes.",
+        "multiHelp": "Puntuación multivariante (Isolation Forest) 0–1: cerca de 1 = combinación inusual de las series del host",
+        "sharedTitle": "Orígenes de ataque compartidos por varios clientes",
+        "sharedCount": "{{n}} direcciones en dos o más clientes (de {{total}})",
+        "sharedAll": "mostrar también direcciones de un solo cliente",
+        "sharedCopy": "Copiar como lista de direcciones RouterOS",
+        "sharedIntro": "Direcciones públicas de las últimas 24 h en cada cliente (negociaciones IPsec fallidas, Winbox rechazado, inicios de sesión fallidos, detecciones NetFlow, Wazuh). Una dirección que sondea a varios clientes es una campaña, no casualidad. La lista las añade en un router a mm-shared-attackers durante 7 días — bloquéala con una regla en la cadena input.",
+        "sharedNone": "Ninguna dirección vista en más de un cliente.",
+        "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "inicios de sesión", "scan": "escaneo", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "otros"},
         "title": "Anomalías (ML)",
         "subtitle": "Hosts que se comportan distinto de lo habitual — cada serie de métricas frente a su propio rango aprendido para la misma hora de la semana.",
         "runNow": "Comprobar ahora",
@@ -3971,7 +3982,7 @@
         "historyIntro": "Valora cada evento: «real» — hubo un problema, «falso» — no pasaba nada. Marcar la alerta SOC como falso positivo (también desde la central) cuenta igual. La exportación CSV incluye todos los eventos con su valoración.",
         "noHistory": "Aún no hay eventos cerrados.",
         "col": {
-            "host": "Host",
+            "address": "Dirección", "clients": "Clientes", "kinds": "Tipos", "count": "Eventos", "last": "Último", "host": "Host",
             "start": "Inicio",
             "minutes": "Min",
             "peak": "Puntuación",
@@ -4032,7 +4043,7 @@
         "flowsN": "{{n}} flujos",
         "unknown": "Rechazados de remitentes desconocidos",
         "set": {
-            "title": "Ajustes y umbrales",
+            "beacon_ignore_ports": "Beaconing: puertos de destino ignorados (correo, notificaciones push)", "title": "Ajustes y umbrales",
             "port": "Puerto UDP",
             "scan_ports": "Escaneo: puertos en un objetivo",
             "scan_hosts": "Escaneo: número de objetivos",

@@ -3939,6 +3939,17 @@
         "nothing": "Nothing matches the search."
     },
     "anomaly": {
+        "multiTitle": "Multivariate score (Isolation Forest)",
+        "multiIntro": "All of a host's series together: an isolation forest learns from the last 14 days which combinations of deviations are usual for it. Score 0–1: about 0.5 and below is ordinary, near 1 a combination the host has not had (several series slightly up at once while none crosses the threshold). It does not alert yet — it is kept with the events and in the CSV, to check on the labelled events whether it improves the precision.",
+        "multiNone": "No scores yet — a host needs at least two judged series and 200 common readings.",
+        "multiHelp": "Multivariate score (Isolation Forest) 0–1: near 1 = an unusual combination of the host's series",
+        "sharedTitle": "Attack sources shared by several clients",
+        "sharedCount": "{{n}} addresses at two or more clients (of {{total}})",
+        "sharedAll": "show addresses of one client too",
+        "sharedCopy": "Copy as a RouterOS address list",
+        "sharedIntro": "Public addresses of the last 24 h at every client (failed IPsec negotiations, refused Winbox, failed logins, NetFlow detections, Wazuh). An address that probes several clients is a campaign, not chance. The list to copy adds them on a router to mm-shared-attackers for 7 days — block it with a rule in the input chain.",
+        "sharedNone": "No address seen at more than one client.",
+        "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "logins", "scan": "scan", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "other"},
         "title": "Anomalies (ML)",
         "subtitle": "Hosts behaving unlike themselves — every metric series compared with its own learned range for the same hour of the week.",
         "runNow": "Check now",
@@ -3971,7 +3982,7 @@
         "historyIntro": "Label every event: \"real\" — there was a real problem, \"false\" — nothing was wrong. Marking the SOC alert a false positive (also from Central) counts the same. The CSV export has every event with its label.",
         "noHistory": "No closed events yet.",
         "col": {
-            "host": "Host",
+            "address": "Address", "clients": "Clients", "kinds": "Kinds", "count": "Events", "last": "Last", "host": "Host",
             "start": "Start",
             "minutes": "Min",
             "peak": "Score",
@@ -4032,7 +4043,7 @@
         "flowsN": "{{n}} flows",
         "unknown": "Turned away from unknown senders",
         "set": {
-            "title": "Settings and thresholds",
+            "beacon_ignore_ports": "Beaconing: destination ports left out (mail, push notifications)", "title": "Settings and thresholds",
             "port": "UDP port",
             "scan_ports": "Scan: ports on one target",
             "scan_hosts": "Scan: number of targets",

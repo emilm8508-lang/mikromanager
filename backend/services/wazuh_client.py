@@ -30,6 +30,7 @@ nothing like Wazuh's log-based/FIM detection.
 """
 import json
 import os
+import re
 from typing import Optional
 
 import aiohttp
@@ -128,14 +129,39 @@ async def test_connection() -> dict:
     try:
         async with aiohttp.ClientSession(connector=connector, auth=_auth()) as session:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                body = await resp.text()
+                ctype = resp.headers.get("Content-Type", "")
                 if resp.status == 200:
-                    data = await resp.json(content_type=None)
-                    return {"ok": True, "cluster_name": data.get("cluster_name"),
-                             "version": (data.get("version") or {}).get("number")}
-                text = (await resp.text())[:300]
-                return {"ok": False, "error": f"HTTP {resp.status}: {text}"}
+                    try:
+                        data = json.loads(body)
+                    except ValueError:
+                        data = None
+                    if isinstance(data, dict) and data.get("cluster_name"):
+                        return {"ok": True, "cluster_name": data.get("cluster_name"),
+                                "version": (data.get("version") or {}).get("number")}
+                    # seen live: the URL without a port reached the Wazuh Dashboard (its login page) on 443, and
+                    # the old message was a bare "Expecting value: line 1 column 1 (char 0)"
+                    if "html" in ctype.lower() or body.lstrip().startswith("<"):
+                        return {"ok": False, "error": _hint("a web page (most likely the Wazuh Dashboard), not the Wazuh Indexer")}
+                    return {"ok": False, "error": _hint("an answer that is not the Wazuh Indexer's")}
+                if resp.status == 401:
+                    return {"ok": False, "error": "HTTP 401: the indexer refused the user name or password (it is the indexer's account, "
+                                                  "usually admin - not the Wazuh API user wazuh / wazuh-wui)"}
+                return {"ok": False, "error": f"HTTP {resp.status}: {body[:300]}"}
+    except aiohttp.ClientConnectorCertificateError as e:
+        return {"ok": False, "error": f"TLS certificate not trusted ({e}). The indexer uses a self-signed certificate by default: "
+                                      "turn the certificate check off, or install Wazuh's CA on this computer"}
+    except aiohttp.ClientConnectorError as e:
+        return {"ok": False, "error": f"{e}. The indexer listens on port 9200 (https://<address>:9200); by default only on 127.0.0.1 - "
+                                      "set network.host in /etc/wazuh-indexer/opensearch.yml to its LAN address too and open 9200 to this computer"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+def _hint(what: str) -> str:
+    url = _config["indexer_url"]
+    port_hint = "" if re.search(r":\d+(/|$)", url.split("//", 1)[-1]) else " The URL has no port, so 443 (https) or 80 (http) was used."
+    return f"{url} answered with {what}. The Wazuh Indexer is https://<address>:9200.{port_hint}"
 
 
 def _d(x) -> dict:

@@ -3939,6 +3939,17 @@
         "nothing": "Nichts passt zur Suche."
     },
     "anomaly": {
+        "multiTitle": "Mehrdimensionale Bewertung (Isolation Forest)",
+        "multiIntro": "Alle Reihen eines Hosts zusammen: ein Isolation Forest lernt aus den letzten 14 Tagen, welche Kombinationen von Abweichungen bei ihm üblich sind. Wert 0–1: etwa 0,5 und darunter ist normal, nahe 1 eine Kombination, die der Host noch nicht hatte (mehrere Reihen gleichzeitig leicht erhöht, ohne dass eine die Schwelle überschreitet). Noch kein Alarm — der Wert wird bei den Ereignissen und im CSV gespeichert, um an bewerteten Ereignissen zu prüfen, ob er die Präzision verbessert.",
+        "multiNone": "Noch keine Werte — ein Host braucht mindestens zwei bewertete Reihen und 200 gemeinsame Messwerte.",
+        "multiHelp": "Mehrdimensionale Bewertung (Isolation Forest) 0–1: nahe 1 = ungewöhnliche Kombination der Reihen des Hosts",
+        "sharedTitle": "Gemeinsame Angriffsquellen mehrerer Kunden",
+        "sharedCount": "{{n}} Adressen bei zwei oder mehr Kunden (von {{total}})",
+        "sharedAll": "auch Adressen eines Kunden zeigen",
+        "sharedCopy": "Als RouterOS-Adressliste kopieren",
+        "sharedIntro": "Öffentliche Adressen der letzten 24 h bei jedem Kunden (fehlgeschlagene IPsec-Verhandlungen, abgewiesenes Winbox, fehlgeschlagene Anmeldungen, NetFlow-Erkennungen, Wazuh). Eine Adresse, die mehrere Kunden abtastet, ist eine Kampagne, kein Zufall. Die Liste fügt sie auf einem Router für 7 Tage zu mm-shared-attackers hinzu — mit einer Regel in der input-Kette sperren.",
+        "sharedNone": "Keine Adresse bei mehr als einem Kunden.",
+        "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "Anmeldungen", "scan": "Scan", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "andere"},
         "title": "Anomalien (ML)",
         "subtitle": "Hosts, die sich anders als sonst verhalten — jede Metrikreihe gegen ihren eigenen gelernten Bereich für dieselbe Wochenstunde.",
         "runNow": "Jetzt prüfen",
@@ -3971,7 +3982,7 @@
         "historyIntro": "Bewerten Sie jedes Ereignis: „echt“ — es gab ein Problem, „falsch“ — nichts war los. Einen SOC-Alarm als Fehlalarm zu markieren (auch aus der Zentrale) zählt genauso. Der CSV-Export enthält alle Ereignisse mit Bewertung.",
         "noHistory": "Noch keine abgeschlossenen Ereignisse.",
         "col": {
-            "host": "Host",
+            "address": "Adresse", "clients": "Kunden", "kinds": "Arten", "count": "Ereignisse", "last": "Zuletzt", "host": "Host",
             "start": "Beginn",
             "minutes": "Min",
             "peak": "Score",
@@ -4032,7 +4043,7 @@
         "flowsN": "{{n}} Flows",
         "unknown": "Von unbekannten Absendern abgewiesen",
         "set": {
-            "title": "Einstellungen und Schwellen",
+            "beacon_ignore_ports": "Beaconing: ausgelassene Zielports (Mail, Push-Benachrichtigungen)", "title": "Einstellungen und Schwellen",
             "port": "UDP-Port",
             "scan_ports": "Scan: Ports auf einem Ziel",
             "scan_hosts": "Scan: Anzahl Ziele",

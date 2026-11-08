@@ -20,6 +20,7 @@ class SettingsBody(BaseModel):
     beacon: Optional[bool] = None
     external_scans: Optional[bool] = None
     max_hosts: Optional[int] = None
+    beacon_ignore_ports: Optional[List[int]] = None
 
 
 @router.get("/status")

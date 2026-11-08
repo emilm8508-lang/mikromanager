@@ -1553,7 +1553,7 @@ export interface MetricRule { id?: string; name: string; kind: string; op: strin
 export interface AnomalyItem { key?: string; name?: string; label: string; unit: string; kind?: string; value: number; expected: number; low: number; high: number; score: number }
 export interface AnomalyEvent {
   id: number; host_key: string; host: string | null; category: 'resource' | 'hardware' | 'network' | 'security'; severity: string
-  started_at: string; last_seen: string; ended_at: string | null; minutes: number; peak_score: number; series: AnomalyItem[]
+  started_at: string; last_seen: string; ended_at: string | null; minutes: number; peak_score: number; if_score: number | null; series: AnomalyItem[]
   verdict: 'true' | 'false' | null; verdict_set: 'true' | 'false' | null; verdict_by: string | null; verdict_at: string | null
 }
 export interface AnomalyStats {
@@ -1564,8 +1564,10 @@ export interface AnomalyBand {
   key: string; name: string; unit: string; kind: string; direction: 'up' | 'down' | 'both'; learning: boolean; span_days: number | null
   points: Array<{ t: string; v: number; m?: number; lo?: number | null; hi?: number | null; z?: number }>
 }
+// The multivariate (Isolation Forest) score of a host's series together, 0..1: about 0.5 and below ordinary, near 1 a combination not seen.
+export interface AnomalyMulti { host_key: string; name: string; score: number; at: string; n: number }
 export const anomaliesApi = {
-  overview: (days = 90) => api.get<{ events: AnomalyEvent[]; stats: AnomalyStats }>('/anomalies', { params: { days } }).then(r => r.data),
+  overview: (days = 90) => api.get<{ events: AnomalyEvent[]; stats: AnomalyStats; multivariate: AnomalyMulti[] }>('/anomalies', { params: { days } }).then(r => r.data),
   band: (key: string, days = 3) => api.get<AnomalyBand>('/anomalies/band', { params: { key, days } }).then(r => r.data),
   verdict: (id: number, verdict: 'true' | 'false' | null) => api.put<AnomalyEvent>(`/anomalies/events/${id}/verdict`, { verdict }).then(r => r.data),
   run: () => api.post('/anomalies/run').then(r => r.data),
@@ -1574,7 +1576,7 @@ export const anomaliesApi = {
 // NetFlow / IPFIX collector and network detections (services/netflow.py), and the Wazuh series (services/wazuh_features.py).
 export interface NetflowSettings {
   enabled: boolean; port: number; accept_unknown: boolean; local_nets: string[]; scan_ports: number; scan_hosts: number; lateral_hosts: number
-  beacon: boolean; external_scans: boolean; max_hosts: number
+  beacon: boolean; external_scans: boolean; max_hosts: number; beacon_ignore_ports: number[]
 }
 export interface NetflowTop { ip: string; name: string | null; out: number; in: number; peers: number; ports: number; unanswered: number }
 export interface NetflowDetection { at: string; rule: string; ip: string; name: string; severity: string; mitre: string; message: string }
@@ -1729,7 +1731,8 @@ export interface CentralSoc {
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null
-                open: Array<{ h: string | null; c: 'resource' | 'hardware' | 'network' | 'security'; sev: string; since: string; z: number; items: AnomalyItem[] }> }
+                open: Array<{ h: string | null; c: 'resource' | 'hardware' | 'network' | 'security'; sev: string; since: string; z: number; if?: number | null; items: AnomalyItem[] }> }
+  indicators?: { at: string; total: number; ips: Array<{ ip: string; k: string[]; n: number; last: string | null }> }
   netflow?: { on: boolean; listening: boolean; error: string | null; exporters: number; unknown: number; hosts: number; window_bytes: number | null; window_at: string | null
               top: Array<{ n: string; out: number; in: number; peers: number }>; detections_24h: Record<string, number>
               recent: Array<{ at: string; rule: string; n: string; sev: string; msg: string }> }
