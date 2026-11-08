@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog de los dispositivos al agente",
-            "step1": "Activa el receptor syslog del agente (el botón de abajo, si muestra «desactivado»).", "step2": "En el equipo del agente permite UDP {{port}} en el cortafuegos de Windows: pestaña «Cortafuegos de Windows» abajo, pégalo en PowerShell como administrador (cambia <ADRESY-URZADZEN> por las direcciones de los routers).", "step3": "En el router abre un Terminal (Winbox → New Terminal) y pega los comandos de la pestaña RouterOS. Comprueba que la dirección del agente es correcta.", "step4": "Tras un minuto revisa aquí el contador «recibidos en 24 h» y los remitentes. Si el router está entre los remitentes desconocidos, añádelo a Activos o Dispositivos — el agente solo acepta logs de dispositivos que conoce.", "intro": "El propio dispositivo envía su registro al receptor syslog del agente: inicios de sesión fallidos, cambios de configuración, reinicios, cambios de enlace. Funciona también donde el agente no puede consultar el dispositivo (un cortafuegos, otro segmento) y no necesita cuenta.",
+            "step1": "Activa el receptor syslog del agente (el botón de abajo, si muestra «desactivado»).", "step2": "En el equipo del agente permite UDP {{port}} en el cortafuegos de Windows: pestaña «Cortafuegos de Windows» abajo, pégalo en PowerShell como administrador (cambia <ADRESY-URZADZEN> por las direcciones de los routers).", "step3": "En el router abre un Terminal (Winbox → New Terminal) y pega los comandos de la pestaña RouterOS. Comprueba que la dirección del agente es correcta.", "step4": "Tras un minuto revisa aquí el contador «recibidos en 24 h» y los remitentes. Si el router está entre los remitentes desconocidos, añádelo a Activos o Dispositivos — el agente solo acepta logs de dispositivos que conoce.", "routerIp": "Dirección LAN del router (otra sede):", "noteSrc": "Un router de otra sede (tras un túnel) suele enviar desde la dirección del túnel, que el agente no conoce — escribe su dirección LAN para que la acción lleve src-address, y deja pasar también su red en el cortafuegos de Windows (p. ej. 192.168.0.0/16).", "intro": "El propio dispositivo envía su registro al receptor syslog del agente: inicios de sesión fallidos, cambios de configuración, reinicios, cambios de enlace. Funciona también donde el agente no puede consultar el dispositivo (un cortafuegos, otro segmento) y no necesita cuenta.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
@@ -4025,6 +4025,9 @@
         },
         "copy": "Copiar",
         "copied": "Copiado",
+        "routerIp": "Dirección LAN de este router (para un router de otra sede):",
+        "srcNote": "Un router de otra sede (conectado por túnel: EoIP, IPsec, WireGuard) elige él mismo la dirección de origen — a menudo la del túnel, que el agente no conoce y que su cortafuegos no deja pasar. Escribe entonces su dirección LAN, p. ej. 192.168.2.1: el comando lleva src-address. No hace falta para un router en la red del agente. Comprobación en el router: /tool sniffer quick port=2055 duration=10.",
+        "fwNote": "El cortafuegos de Windows del agente debe dejar pasar UDP de las direcciones de todos los routers, también de otras sedes — p. ej. -RemoteAddress 192.168.0.0/16 en lugar de la dirección de un router.",
         "setupNote": "Plantillas — compruébalas en tu versión de RouterOS. Solo se aceptan flujos de dispositivos que el agente conoce (inventario, dispositivos gestionados).",
         "flowsN": "{{n}} flujos",
         "unknown": "Rechazados de remitentes desconocidos",

@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog from the devices to the agent",
-            "step1": "Turn the agent's syslog receiver on (the button below, when it shows \"off\").", "step2": "On the agent's computer let UDP {{port}} in through the Windows firewall: the \"Windows firewall\" tab below, paste it into PowerShell run as administrator (replace <ADRESY-URZADZEN> with the routers' addresses).", "step3": "On the router open a Terminal (Winbox → New Terminal) and paste the commands of the RouterOS tab. Check that the agent's address is right.", "step4": "After a minute check the \"received in 24 h\" counter and the senders here. If the router is among the unknown senders, add it to Assets or Devices — the agent takes logs only from devices it knows.", "intro": "The device itself sends its log to the agent's syslog receiver: failed logins, configuration changes, restarts, link changes. It also works where the agent cannot query the device (a firewall, another segment) and needs no account.",
+            "step1": "Turn the agent's syslog receiver on (the button below, when it shows \"off\").", "step2": "On the agent's computer let UDP {{port}} in through the Windows firewall: the \"Windows firewall\" tab below, paste it into PowerShell run as administrator (replace <ADRESY-URZADZEN> with the routers' addresses).", "step3": "On the router open a Terminal (Winbox → New Terminal) and paste the commands of the RouterOS tab. Check that the agent's address is right.", "step4": "After a minute check the \"received in 24 h\" counter and the senders here. If the router is among the unknown senders, add it to Assets or Devices — the agent takes logs only from devices it knows.", "routerIp": "Router's LAN address (another site):", "noteSrc": "A router of another site (behind a tunnel) often sends from the tunnel's address, which the agent does not know — fill in its LAN address so the action gets src-address, and let its network through the Windows firewall too (e.g. 192.168.0.0/16).", "intro": "The device itself sends its log to the agent's syslog receiver: failed logins, configuration changes, restarts, link changes. It also works where the agent cannot query the device (a firewall, another segment) and needs no account.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
@@ -4025,6 +4025,9 @@
         },
         "copy": "Copy",
         "copied": "Copied",
+        "routerIp": "This router's LAN address (for a router of another site):",
+        "srcNote": "A router of another site (connected over a tunnel: EoIP, IPsec, WireGuard) picks its source address itself — often the tunnel's, which the agent does not know and its firewall does not let in. Then fill in its LAN address, e.g. 192.168.2.1: the command gets src-address. Not needed for a router in the agent's own network. To check on the router: /tool sniffer quick port=2055 duration=10.",
+        "fwNote": "The agent's Windows firewall must let UDP in from every router's address, those of other sites too — e.g. -RemoteAddress 192.168.0.0/16 instead of one router's address.",
         "setupNote": "Templates — check them on your RouterOS version. Flows are taken only from devices the agent knows (inventory, managed devices).",
         "flowsN": "{{n}} flows",
         "unknown": "Turned away from unknown senders",

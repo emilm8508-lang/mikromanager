@@ -10,11 +10,12 @@ type Target = 'ros' | 'cisco' | 'swos' | 'firewall'
 const TARGETS: Target[] = ['ros', 'cisco', 'swos', 'firewall']
 
 /** What to paste on a device so that it sends its log to the agent's syslog receiver (and, for the agent's own computer, the firewall rule that lets it in). Templates. */
-export function syslogSnippet(target: Target, agentIp: string, port: number): string {
+export function syslogSnippet(target: Target, agentIp: string, port: number, routerIp = ''): string {
   const ip = agentIp || '<ADRES-AGENTA>'
+  const src = routerIp.trim() ? ` src-address=${routerIp.trim()}` : ''      // a router of another site: its LAN address, not the tunnel's
   if (target === 'ros') {
     return [
-      `/system logging action add name=mikromanager target=remote remote=${ip} remote-port=${port}`,
+      `/system logging action add name=mikromanager target=remote remote=${ip} remote-port=${port}${src}`,
       `/system logging add topics=critical action=mikromanager`,
       `/system logging add topics=error action=mikromanager`,
       `/system logging add topics=warning action=mikromanager`,
@@ -45,10 +46,11 @@ export function SyslogSetup({ agentIp }: { agentIp: string | null }) {
   const enable = useMutation({ mutationFn: () => syslogApi.save({ enabled: true }), onSuccess: () => void qc.invalidateQueries({ queryKey: ['syslog-status'] }) })
   const [target, setTarget] = useState<Target>('ros')
   const [ip, setIp] = useState(agentIp ?? '')
+  const [routerIp, setRouterIp] = useState('')
   const [copied, setCopied] = useState(false)
   const d = st.data
   const port = d?.settings.syslog_port ?? 514
-  const text = syslogSnippet(target, ip, port)
+  const text = syslogSnippet(target, ip, port, routerIp)
   const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* selectable anyway */ } }
   const tab = (active: boolean) => cn('px-3 py-1.5 text-xs rounded-md border', active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')
   return (
@@ -73,7 +75,10 @@ export function SyslogSetup({ agentIp }: { agentIp: string | null }) {
       )}
       {d && d.unknown.length > 0 && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">{t('onboarding.syslog.unknown', { ips: d.unknown.slice(0, 6).map(u => u.ip).join(', ') })}</p>}
       <div className="flex flex-wrap gap-1.5">{TARGETS.map(k => <button key={k} className={tab(target === k)} onClick={() => setTarget(k)}>{t(`onboarding.syslog.target.${k}`)}</button>)}</div>
-      <label className="inline-flex items-center gap-1.5 text-xs">{t('onboarding.acc.agentIp')} <input value={ip} onChange={e => setIp(e.target.value)} className="border border-slate-300 rounded px-2 py-1 w-36" /></label>
+      <div className="flex flex-wrap gap-3">
+        <label className="inline-flex items-center gap-1.5 text-xs">{t('onboarding.acc.agentIp')} <input value={ip} onChange={e => setIp(e.target.value)} className="border border-slate-300 rounded px-2 py-1 w-36" /></label>
+        {target === 'ros' && <label className="inline-flex items-center gap-1.5 text-xs">{t('onboarding.syslog.routerIp')} <input value={routerIp} onChange={e => setRouterIp(e.target.value)} placeholder="192.168.2.1" className="border border-slate-300 rounded px-2 py-1 w-36" /></label>}
+      </div>
       <div className="relative">
         <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-3 overflow-x-auto whitespace-pre">{text}</pre>
         <button onClick={() => void copy()} className="absolute top-2 right-2 inline-flex items-center gap-1 text-[11px] bg-slate-700 text-slate-100 rounded px-2 py-1 hover:bg-slate-600"><ClipboardCopy size={12} /> {copied ? t('onboarding.acc.copied') : t('onboarding.acc.copy')}</button>
@@ -81,6 +86,7 @@ export function SyslogSetup({ agentIp }: { agentIp: string | null }) {
       <ul className="text-xs text-slate-500 space-y-1 list-disc pl-4">
         <li>{t('onboarding.syslog.noteKnown')}</li>
         {target === 'ros' && <li>{t('onboarding.syslog.noteRos')}</li>}
+        {target === 'ros' && <li>{t('onboarding.syslog.noteSrc')}</li>}
         {target === 'cisco' && <li>{t('onboarding.syslog.noteCisco')}</li>}
         <li>{t('onboarding.syslog.noteCheck')}</li>
       </ul>

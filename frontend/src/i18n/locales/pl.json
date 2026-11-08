@@ -2549,7 +2549,7 @@
         },
         "syslog": {
             "title": "Syslog z urządzeń do agenta",
-            "step1": "Włącz odbiornik syslog na agencie (przycisk poniżej, jeśli pokazuje „wyłączony”).", "step2": "Na komputerze agenta wpuść UDP {{port}} w zaporze Windows: zakładka „Zapora Windows” poniżej, wklej w PowerShellu uruchomionym jako administrator (w miejsce <ADRESY-URZADZEN> wpisz adresy routerów).", "step3": "Na routerze otwórz Terminal (Winbox → New Terminal) i wklej komendy z zakładki RouterOS. Sprawdź, czy adres agenta jest właściwy.", "step4": "Po minucie sprawdź tutaj licznik „odebrane w ciągu 24 h” i listę nadawców. Jeśli router jest wśród nieznanych nadawców, dodaj go do Zasobów albo Urządzeń — agent przyjmuje logi tylko od urządzeń, które zna.", "intro": "Urządzenie samo wysyła swój dziennik do odbiornika syslog agenta: nieudane logowania, zmiany konfiguracji, restarty, zmiany łączy. Działa także tam, gdzie agent nie może odpytywać urządzenia (zapora, inny segment) i nie wymaga żadnego konta.",
+            "step1": "Włącz odbiornik syslog na agencie (przycisk poniżej, jeśli pokazuje „wyłączony”).", "step2": "Na komputerze agenta wpuść UDP {{port}} w zaporze Windows: zakładka „Zapora Windows” poniżej, wklej w PowerShellu uruchomionym jako administrator (w miejsce <ADRESY-URZADZEN> wpisz adresy routerów).", "step3": "Na routerze otwórz Terminal (Winbox → New Terminal) i wklej komendy z zakładki RouterOS. Sprawdź, czy adres agenta jest właściwy.", "step4": "Po minucie sprawdź tutaj licznik „odebrane w ciągu 24 h” i listę nadawców. Jeśli router jest wśród nieznanych nadawców, dodaj go do Zasobów albo Urządzeń — agent przyjmuje logi tylko od urządzeń, które zna.", "routerIp": "Adres LAN routera (inna lokalizacja):", "noteSrc": "Router w innej lokalizacji (za tunelem) wysyła często z adresu tunelu, którego agent nie zna — wpisz wtedy jego adres LAN, żeby akcja dostała src-address, a w zaporze Windows wpuść też jego sieć (np. 192.168.0.0/16).", "intro": "Urządzenie samo wysyła swój dziennik do odbiornika syslog agenta: nieudane logowania, zmiany konfiguracji, restarty, zmiany łączy. Działa także tam, gdzie agent nie może odpytywać urządzenia (zapora, inny segment) i nie wymaga żadnego konta.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
@@ -4442,6 +4442,9 @@
         },
         "copy": "Kopiuj",
         "copied": "Skopiowano",
+        "routerIp": "Adres LAN tego routera (dla routera w innej lokalizacji):",
+        "srcNote": "Router w innej lokalizacji (połączony tunelem: EoIP, IPsec, WireGuard) sam wybiera adres nadawcy — często adres tunelu, którego agent nie zna i którego nie wpuszcza zapora. Wpisz wtedy jego adres LAN, np. 192.168.2.1: komenda dostanie src-address. Dla routera w tej samej sieci co agent nie jest to potrzebne. Sprawdzenie na routerze: /tool sniffer quick port=2055 duration=10.",
+        "fwNote": "Zapora Windows agenta musi wpuszczać UDP z adresów wszystkich routerów, także z innych lokalizacji — np. -RemoteAddress 192.168.0.0/16 zamiast adresu jednego routera.",
         "setupNote": "Szablony — sprawdź na swojej wersji RouterOS. Przepływy przyjmowane są tylko od urządzeń znanych agentowi (inwentarz, zarządzane urządzenia).",
         "flowsN": "{{n}} przepływów",
         "unknown": "Odrzucone od nieznanych nadawców",

@@ -12,18 +12,21 @@ import { cn } from '../lib/utils'
 
 type Target = 'ros7' | 'ros6' | 'firewall'
 
-export function netflowSnippet(target: Target, agentIp: string, port: number): string {
+export function netflowSnippet(target: Target, agentIp: string, port: number, routerIp = ''): string {
   const ip = agentIp || '<ADRES-AGENTA>'
+  // a router of another site (reached through a tunnel) picks the tunnel's address as the source unless told otherwise - seen live:
+  // R2 sent from 2.2.2.2, which neither the agent's firewall rule nor its list of known devices had
+  const src = routerIp.trim() ? ` src-address=${routerIp.trim()}` : ''
   if (target === 'ros7') {
     return [
       `/ip traffic-flow set enabled=yes interfaces=all active-flow-timeout=1m inactive-flow-timeout=15s`,
-      `/ip traffic-flow target add dst-address=${ip} port=${port} version=ipfix`,
+      `/ip traffic-flow target add dst-address=${ip} port=${port} version=ipfix${src}`,
     ].join('\n')
   }
   if (target === 'ros6') {
     return [
       `/ip traffic-flow set enabled=yes interfaces=all active-flow-timeout=1m inactive-flow-timeout=15s`,
-      `/ip traffic-flow target add address=${ip}:${port} version=9`,
+      `/ip traffic-flow target add address=${ip}:${port} version=9${src}`,
     ].join('\n')
   }
   return [
@@ -75,11 +78,12 @@ export function NetFlow() {
   const q = useQuery({ queryKey: ['netflow'], queryFn: netflowApi.status, refetchInterval: 20_000 })
   const enable = useMutation({ mutationFn: (on: boolean) => netflowApi.save({ enabled: on }), onSuccess: () => qc.invalidateQueries({ queryKey: ['netflow'] }) })
   const [target, setTarget] = useState<Target>('ros7')
+  const [routerIp, setRouterIp] = useState('')
   const [picked, setPicked] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const d = q.data
   if (!d) return <div className="p-6 text-sm text-slate-500">{t('common.loading')}</div>
-  const text = netflowSnippet(target, d.agent_ip ?? '', d.settings.port)
+  const text = netflowSnippet(target, d.agent_ip ?? '', d.settings.port, routerIp)
   const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* selectable anyway */ } }
   const w = d.window
 
@@ -116,8 +120,17 @@ export function NetFlow() {
           ))}
           <button onClick={copy} className="ml-auto flex items-center gap-1 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 hover:bg-slate-50"><ClipboardCopy size={12} /> {copied ? t('netflow.copied') : t('netflow.copy')}</button>
         </div>
+        {target !== 'firewall' && (
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">{t('netflow.routerIp')}
+            <input value={routerIp} onChange={e => setRouterIp(e.target.value)} placeholder="192.168.2.1" className="border border-slate-300 rounded px-2 py-1 w-36 font-mono bg-white" />
+          </label>
+        )}
         <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-3 overflow-x-auto whitespace-pre">{text}</pre>
-        <p className="text-[11px] text-slate-400">{t('netflow.setupNote')}</p>
+        <ul className="text-[11px] text-slate-500 space-y-0.5 list-disc pl-4">
+          <li>{t('netflow.srcNote')}</li>
+          <li>{t('netflow.fwNote')}</li>
+          <li>{t('netflow.setupNote')}</li>
+        </ul>
         {(d.exporters.length > 0 || d.unknown.length > 0) && (
           <div className="text-xs space-y-1">
             {d.exporters.map(e => <div key={e.ip} className="text-slate-600"><span className="font-medium text-slate-800">{e.name}</span> <span className="font-mono">{e.ip}</span> · {e.version === 10 ? 'IPFIX' : `NetFlow v${e.version}`} · {t('netflow.flowsN', { n: e.flows.toLocaleString() })}{e.last ? ` · ${new Date(e.last).toLocaleTimeString()}` : ''}</div>)}

@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog des équipements vers l'agent",
-            "step1": "Activez le récepteur syslog de l'agent (le bouton ci-dessous, s'il indique « désactivé »).", "step2": "Sur l'ordinateur de l'agent, autorisez UDP {{port}} dans le pare-feu Windows : onglet « Pare-feu Windows » ci-dessous, à coller dans PowerShell lancé en administrateur (remplacez <ADRESY-URZADZEN> par les adresses des routeurs).", "step3": "Sur le routeur, ouvrez un Terminal (Winbox → New Terminal) et collez les commandes de l'onglet RouterOS. Vérifiez que l'adresse de l'agent est la bonne.", "step4": "Après une minute, vérifiez ici le compteur « reçus en 24 h » et les expéditeurs. Si le routeur figure parmi les expéditeurs inconnus, ajoutez-le aux Actifs ou aux Équipements — l'agent n'accepte que les logs des équipements qu'il connaît.", "intro": "L'équipement envoie lui-même son journal au récepteur syslog de l'agent : connexions échouées, changements de configuration, redémarrages, changements de liaison. Cela marche aussi là où l'agent ne peut pas interroger l'équipement (pare-feu, autre segment) et ne demande aucun compte.",
+            "step1": "Activez le récepteur syslog de l'agent (le bouton ci-dessous, s'il indique « désactivé »).", "step2": "Sur l'ordinateur de l'agent, autorisez UDP {{port}} dans le pare-feu Windows : onglet « Pare-feu Windows » ci-dessous, à coller dans PowerShell lancé en administrateur (remplacez <ADRESY-URZADZEN> par les adresses des routeurs).", "step3": "Sur le routeur, ouvrez un Terminal (Winbox → New Terminal) et collez les commandes de l'onglet RouterOS. Vérifiez que l'adresse de l'agent est la bonne.", "step4": "Après une minute, vérifiez ici le compteur « reçus en 24 h » et les expéditeurs. Si le routeur figure parmi les expéditeurs inconnus, ajoutez-le aux Actifs ou aux Équipements — l'agent n'accepte que les logs des équipements qu'il connaît.", "routerIp": "Adresse LAN du routeur (autre site) :", "noteSrc": "Un routeur d'un autre site (derrière un tunnel) envoie souvent depuis l'adresse du tunnel, que l'agent ne connaît pas — saisissez son adresse LAN pour que l'action reçoive src-address, et laissez aussi passer son réseau dans le pare-feu Windows (p. ex. 192.168.0.0/16).", "intro": "L'équipement envoie lui-même son journal au récepteur syslog de l'agent : connexions échouées, changements de configuration, redémarrages, changements de liaison. Cela marche aussi là où l'agent ne peut pas interroger l'équipement (pare-feu, autre segment) et ne demande aucun compte.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
@@ -4025,6 +4025,9 @@
         },
         "copy": "Copier",
         "copied": "Copié",
+        "routerIp": "Adresse LAN de ce routeur (pour un routeur d'un autre site) :",
+        "srcNote": "Un routeur d'un autre site (relié par un tunnel : EoIP, IPsec, WireGuard) choisit lui-même son adresse source — souvent celle du tunnel, que l'agent ne connaît pas et que son pare-feu ne laisse pas passer. Saisissez alors son adresse LAN, p. ex. 192.168.2.1 : la commande reçoit src-address. Inutile pour un routeur du réseau de l'agent. Vérification sur le routeur : /tool sniffer quick port=2055 duration=10.",
+        "fwNote": "Le pare-feu Windows de l'agent doit laisser passer l'UDP des adresses de tous les routeurs, y compris des autres sites — p. ex. -RemoteAddress 192.168.0.0/16 au lieu de l'adresse d'un seul routeur.",
         "setupNote": "Modèles — à vérifier sur votre version de RouterOS. Les flux ne sont acceptés que des équipements connus de l'agent (inventaire, équipements gérés).",
         "flowsN": "{{n}} flux",
         "unknown": "Refusés d'expéditeurs inconnus",

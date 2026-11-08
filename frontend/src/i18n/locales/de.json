@@ -2385,7 +2385,7 @@
         },
         "syslog": {
             "title": "Syslog von den Geräten zum Agenten",
-            "step1": "Den Syslog-Empfänger des Agenten einschalten (Schaltfläche unten, wenn „aus“ angezeigt wird).", "step2": "Auf dem Rechner des Agenten UDP {{port}} in der Windows-Firewall freigeben: Reiter „Windows-Firewall“ unten, in PowerShell als Administrator einfügen (<ADRESY-URZADZEN> durch die Adressen der Router ersetzen).", "step3": "Auf dem Router ein Terminal öffnen (Winbox → New Terminal) und die Befehle des RouterOS-Reiters einfügen. Prüfen, ob die Adresse des Agenten stimmt.", "step4": "Nach einer Minute hier den Zähler „empfangen in 24 h“ und die Absender prüfen. Steht der Router unter den unbekannten Absendern, ihn unter Assets oder Geräte hinzufügen — der Agent nimmt nur Logs von bekannten Geräten an.", "intro": "Das Gerät sendet sein Protokoll selbst an den Syslog-Empfänger des Agenten: fehlgeschlagene Anmeldungen, Konfigurationsänderungen, Neustarts, Link-Wechsel. Es funktioniert auch dort, wo der Agent das Gerät nicht abfragen kann (Firewall, anderes Segment), und braucht kein Konto.",
+            "step1": "Den Syslog-Empfänger des Agenten einschalten (Schaltfläche unten, wenn „aus“ angezeigt wird).", "step2": "Auf dem Rechner des Agenten UDP {{port}} in der Windows-Firewall freigeben: Reiter „Windows-Firewall“ unten, in PowerShell als Administrator einfügen (<ADRESY-URZADZEN> durch die Adressen der Router ersetzen).", "step3": "Auf dem Router ein Terminal öffnen (Winbox → New Terminal) und die Befehle des RouterOS-Reiters einfügen. Prüfen, ob die Adresse des Agenten stimmt.", "step4": "Nach einer Minute hier den Zähler „empfangen in 24 h“ und die Absender prüfen. Steht der Router unter den unbekannten Absendern, ihn unter Assets oder Geräte hinzufügen — der Agent nimmt nur Logs von bekannten Geräten an.", "routerIp": "LAN-Adresse des Routers (anderer Standort):", "noteSrc": "Ein Router an einem anderen Standort (hinter einem Tunnel) sendet oft von der Tunneladresse, die der Agent nicht kennt — seine LAN-Adresse eintragen, damit die Aktion src-address erhält, und sein Netz auch in der Windows-Firewall zulassen (z. B. 192.168.0.0/16).", "intro": "Das Gerät sendet sein Protokoll selbst an den Syslog-Empfänger des Agenten: fehlgeschlagene Anmeldungen, Konfigurationsänderungen, Neustarts, Link-Wechsel. Es funktioniert auch dort, wo der Agent das Gerät nicht abfragen kann (Firewall, anderes Segment), und braucht kein Konto.",
             "target": {
                 "ros": "RouterOS",
                 "cisco": "Cisco SB",
@@ -4025,6 +4025,9 @@
         },
         "copy": "Kopieren",
         "copied": "Kopiert",
+        "routerIp": "LAN-Adresse dieses Routers (für einen Router an einem anderen Standort):",
+        "srcNote": "Ein Router an einem anderen Standort (über einen Tunnel verbunden: EoIP, IPsec, WireGuard) wählt seine Absenderadresse selbst — oft die des Tunnels, die der Agent nicht kennt und die seine Firewall nicht durchlässt. Dann seine LAN-Adresse eintragen, z. B. 192.168.2.1: der Befehl erhält src-address. Für einen Router im Netz des Agenten nicht nötig. Prüfen auf dem Router: /tool sniffer quick port=2055 duration=10.",
+        "fwNote": "Die Windows-Firewall des Agenten muss UDP von den Adressen aller Router durchlassen, auch anderer Standorte — z. B. -RemoteAddress 192.168.0.0/16 statt der Adresse eines Routers.",
         "setupNote": "Vorlagen — auf Ihrer RouterOS-Version prüfen. Flows werden nur von Geräten angenommen, die der Agent kennt (Inventar, verwaltete Geräte).",
         "flowsN": "{{n}} Flows",
         "unknown": "Von unbekannten Absendern abgewiesen",
