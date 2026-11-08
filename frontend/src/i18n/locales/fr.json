@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "Le service accepte un protocole TLS obsolète",
             "config_changed": "Configuration du routeur modifiée",
             "syslog": {
-                "auth_failure": "Échecs de connexion répétés",
+                "ipsec_probe": "Tentatives de négociation IPsec depuis l'extérieur", "auth_failure": "Échecs de connexion répétés",
                 "config_change": "Configuration de l'appareil modifiée",
                 "restart": "Appareil redémarré",
                 "critical": "Message critique",
@@ -1927,7 +1927,7 @@
             "devices": "Appareils"
         },
         "rule": {
-            "auth_failure": {
+            "ipsec_probe": {"name": "Tentatives de négociation IPsec depuis l'extérieur", "desc": "Dix négociations IKE de phase 1 échouées sur un équipement en une heure (RouterOS « phase1 negotiation failed ») : quelqu'un sonde son VPN."}, "auth_failure": {
                 "name": "Échecs de connexion répétés (syslog)",
                 "desc": "Cinq échecs de connexion du même appareil en cinq minutes."
             },

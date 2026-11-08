@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "Service accepts an outdated TLS protocol",
             "config_changed": "Router configuration changed",
             "syslog": {
-                "auth_failure": "Repeated failed logins",
+                "ipsec_probe": "IPsec negotiation attempts from outside", "auth_failure": "Repeated failed logins",
                 "config_change": "Device configuration changed",
                 "restart": "Device restarted",
                 "critical": "Critical message",
@@ -1927,7 +1927,7 @@
             "devices": "Devices"
         },
         "rule": {
-            "auth_failure": {
+            "ipsec_probe": {"name": "IPsec negotiation attempts from outside", "desc": "Ten failed IKE phase 1 negotiations on one device within an hour (RouterOS \"phase1 negotiation failed\"): someone is probing its VPN."}, "auth_failure": {
                 "name": "Repeated failed logins (syslog)",
                 "desc": "Five failed logins from the same device within five minutes."
             },

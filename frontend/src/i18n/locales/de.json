@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "Dienst akzeptiert ein veraltetes TLS-Protokoll",
             "config_changed": "Router-Konfiguration geändert",
             "syslog": {
-                "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
+                "ipsec_probe": "IPsec-Verhandlungsversuche von außen", "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
                 "config_change": "Gerätekonfiguration geändert",
                 "restart": "Gerät neu gestartet",
                 "critical": "Kritische Meldung",
@@ -1927,7 +1927,7 @@
             "devices": "Geräte"
         },
         "rule": {
-            "auth_failure": {
+            "ipsec_probe": {"name": "IPsec-Verhandlungsversuche von außen", "desc": "Zehn fehlgeschlagene IKE-Phase-1-Verhandlungen auf einem Gerät innerhalb einer Stunde (RouterOS „phase1 negotiation failed“): jemand tastet sein VPN ab."}, "auth_failure": {
                 "name": "Wiederholte fehlgeschlagene Anmeldungen (Syslog)",
                 "desc": "Fünf fehlgeschlagene Anmeldungen desselben Geräts innerhalb von fünf Minuten."
             },

@@ -345,6 +345,12 @@ BUILTIN = [
      r"(\b(added|changed|removed|enabled|disabled|moved) by \S+|%SYS-5-CONFIG_I|configuration (changed|saved)|config(uration)? (changed|saved) by)", "low", "system", None, 1, 60, "syslog"),
     ("restart", "Device restarted", "A restart or a shutdown reported by the device itself.",
      r"(system (is )?(rebooting|restarting|shutting down)|reload requested|restarted|cold start|%SYS-5-RESTART)", "low", "system", None, 1, 60, "syslog"),
+    # Seen live on RouterOS: internet hosts starting IKE phase 1 against the router's public addresses and leaving it to time out
+    # ("respond new phase 1 ..." then "phase1 negotiation failed due to time up ..."), all day - scanners looking for VPN endpoints.
+    # One such line is noise; ten in an hour is a router that answers IKE to the internet. The "failed" line is ipsec,error, so it
+    # arrives with the logging the syslog setup suggests (topics=error).
+    ("ipsec_probe", "IPsec negotiation attempts from outside", "Ten failed IKE phase 1 negotiations on one device within an hour (RouterOS \"phase1 negotiation failed\"): someone is probing its VPN.",
+     r"(phase ?1 negotiation failed|IKEv?2?.{0,40}negotiation failed)", "low", "network", "T1595", 10, 3600, "syslog"),
 ]
 LINK_DOWN = [re.compile(p, re.I) for p in (r"^(\S+) link down", r"Interface (\S+), changed state to down", r"(\S+): link is down", r"%LINK-\d-UPDOWN: Interface (\S+), changed state to down")]
 LINK_UP = [re.compile(p, re.I) for p in (r"^(\S+) link up", r"Interface (\S+), changed state to up", r"(\S+): link (?:is )?up", r"%LINK-\d-UPDOWN: Interface (\S+), changed state to up")]

@@ -1512,7 +1512,7 @@
             "tls_legacy_protocol": "El servicio acepta un protocolo TLS obsoleto",
             "config_changed": "Configuración del router modificada",
             "syslog": {
-                "auth_failure": "Inicios de sesión fallidos repetidos",
+                "ipsec_probe": "Intentos de negociación IPsec desde fuera", "auth_failure": "Inicios de sesión fallidos repetidos",
                 "config_change": "Configuración del dispositivo modificada",
                 "restart": "Dispositivo reiniciado",
                 "critical": "Mensaje crítico",
@@ -1927,7 +1927,7 @@
             "devices": "Dispositivos"
         },
         "rule": {
-            "auth_failure": {
+            "ipsec_probe": {"name": "Intentos de negociación IPsec desde fuera", "desc": "Diez negociaciones IKE de fase 1 fallidas en un dispositivo en una hora (RouterOS «phase1 negotiation failed»): alguien sondea su VPN."}, "auth_failure": {
                 "name": "Inicios de sesión fallidos repetidos (syslog)",
                 "desc": "Cinco inicios de sesión fallidos del mismo dispositivo en cinco minutos."
             },

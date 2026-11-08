@@ -1676,7 +1676,7 @@
             "tls_legacy_protocol": "Usługa przyjmuje stary protokół TLS",
             "config_changed": "Zmieniono konfigurację routera",
             "syslog": {
-                "auth_failure": "Powtarzające się nieudane logowania",
+                "ipsec_probe": "Próby IPsec z internetu", "auth_failure": "Powtarzające się nieudane logowania",
                 "config_change": "Zmiana konfiguracji urządzenia",
                 "restart": "Restart urządzenia",
                 "critical": "Komunikat krytyczny",
@@ -2091,7 +2091,7 @@
             "devices": "Urządzeń"
         },
         "rule": {
-            "auth_failure": {
+            "ipsec_probe": {"name": "Próby IPsec z internetu", "desc": "Dziesięć nieudanych negocjacji IKE (faza 1) na jednym urządzeniu w ciągu godziny (RouterOS „phase1 negotiation failed”): ktoś sonduje jego VPN."}, "auth_failure": {
                 "name": "Powtarzające się nieudane logowania (syslog)",
                 "desc": "Pięć nieudanych logowań z jednego urządzenia w ciągu pięciu minut."
             },
