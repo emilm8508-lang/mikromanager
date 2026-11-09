@@ -40,11 +40,11 @@ _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "ai_ass
 MODELS = {"claude-opus-5-5": True, "claude-sonnet-5-5": True, "claude-haiku-5-5": False}      # model -> has the server-side fallback
 EFFORTS = ("low", "medium", "high")
 SCOPES = ("alerts", "assets", "vulnerabilities", "availability", "configs", "syslog")
-# The provider: Claude (Anthropic) or ChatGPT (OpenAI, Chat Completions with function calling over plain HTTP - no package needed).
+# The provider: Claude (Anthropic) or ChatGPT (OpenAI, the Responses API with function tools over plain HTTP - no package needed).
 # The OpenAI model is free text (OpenAI renames and adds models often); the list is only a suggestion, as of OpenAI's changelog of 2026-08.
 PROVIDERS = ("anthropic", "openai")
 OPENAI_MODELS = ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5")
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_URL = "https://api.openai.com/v1/responses"
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
 DEFAULTS = {"enabled": False, "api_key": "", "model": "claude-opus-5-5", "effort": "medium", "scopes": {s: False for s in SCOPES}, "consent_at": None, "consent_by": None,
             "provider": "anthropic", "openai_key": "", "openai_model": OPENAI_MODELS[0],
@@ -467,14 +467,16 @@ async def _turn_anthropic(msgs: List[Any], start_len: int, system: str, tools: L
     return "I could not finish within the allowed number of steps. Ask a narrower question."
 
 
-# What "reasoning_effort" a model takes together with function tools on Chat Completions, learned per model on the first refusal:
-# the setting itself, else "none", else nothing. Seen live: gpt-5.6-sol refuses function tools with reasoning_effort unless it is
-# "none" ("Function tools with reasoning_effort are not supported ... set reasoning_effort to 'none'"), and leaving it out does not help.
-_openai_effort_by_model: Dict[str, Optional[str]] = {}
+# ChatGPT goes through the Responses API (/v1/responses): it is the one that takes function tools together with the model's reasoning
+# (Chat Completions refused "reasoning_effort" with tools for gpt-5.6-sol unless it was "none" - seen live). store=false: OpenAI keeps
+# nothing; the conversation is replayed from this agent each time, with every output item in its order - the reasoning items carry
+# their encrypted content, which is how the model's reasoning continues across the tool rounds. The effort setting goes as
+# reasoning.effort; a model that refuses it (or the value) is asked again without it, remembered per model.
+_openai_effort_by_model: Dict[str, bool] = {}       # model -> whether it takes "reasoning"
 
 
 async def _openai_post(body: dict) -> dict:
-    """One Chat Completions request (tests replace this). Raises RuntimeError with a reason the user can act on."""
+    """One Responses API request (tests replace this). Raises RuntimeError with a reason the user can act on."""
     import aiohttp
     headers = {"Authorization": f"Bearer {_settings['openai_key']}", "Content-Type": "application/json"}
     try:
@@ -492,7 +494,7 @@ async def _openai_post(body: dict) -> dict:
         detail = (json.loads(text).get("error") or {}).get("message") or text
     except ValueError:
         detail = text
-    if status == 400 and "reasoning_effort" in detail:
+    if status == 400 and "reasoning" in str(detail).lower():
         raise _EffortUnsupported(detail)
     if status == 401:
         raise RuntimeError("the API key was refused by OpenAI")
@@ -509,58 +511,62 @@ class _EffortUnsupported(Exception):
     pass
 
 
+def _openai_text(output: List[dict]) -> tuple:
+    """(answer text, refusal text) of the message items of a response."""
+    text, refusal = [], []
+    for item in output:
+        if item.get("type") != "message":
+            continue
+        for part in item.get("content") or []:
+            if part.get("type") == "output_text":
+                text.append(part.get("text") or "")
+            elif part.get("type") == "refusal":
+                refusal.append(part.get("refusal") or "")
+    return "".join(text).strip(), " ".join(refusal).strip()
+
+
 async def _turn_openai(msgs: List[Any], start_len: int, system: str, tools: List[dict], run, used: List[dict], usage: dict) -> str:
-    fn_tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]}} for t in tools]
+    fn_tools = [{"type": "function", "name": t["name"], "description": t["description"], "parameters": t["input_schema"]} for t in tools]
+    model = _settings["openai_model"]
     for _ in range(MAX_STEPS):
-        model = _settings["openai_model"]
-        body = {"model": model, "messages": [{"role": "system", "content": system}] + msgs, "tools": fn_tools, "max_completion_tokens": MAX_TOKENS}
-        if model in _openai_effort_by_model:
-            known = _openai_effort_by_model[model]
-            tries = [known if known in ("none", None) else _settings["effort"]]    # a model that takes the setting gets the current one
-        else:
-            tries = [_settings["effort"], "none", None]
-        data = None
-        for i, effort in enumerate(tries):
-            if effort is None:
-                body.pop("reasoning_effort", None)
-            else:
-                body["reasoning_effort"] = effort
-            try:
-                data = await _openai_post(body)
-                _openai_effort_by_model[model] = effort      # what worked is used from now on for this model
-                break
-            except _EffortUnsupported as e:
-                if i == len(tries) - 1:
-                    _openai_effort_by_model.pop(model, None)
-                    raise RuntimeError(f"OpenAI refused the request with this model and tools: {str(e)[:200]}")
+        body = {"model": model, "instructions": system, "input": msgs, "tools": fn_tools, "store": False,
+                "include": ["reasoning.encrypted_content"], "max_output_tokens": MAX_TOKENS}
+        if _openai_effort_by_model.get(model, True):
+            body["reasoning"] = {"effort": _settings["effort"]}
+        try:
+            data = await _openai_post(body)
+            if "reasoning" in body:
+                _openai_effort_by_model[model] = True
+        except _EffortUnsupported:
+            if "reasoning" not in body:
+                raise RuntimeError("OpenAI refused the request with this model - check the model name in the settings")
+            _openai_effort_by_model[model] = False           # a model without (this) reasoning effort: remembered, asked again without it
+            body.pop("reasoning", None)
+            data = await _openai_post(body)
         u = data.get("usage") or {}
-        usage["in"] += int(u.get("prompt_tokens") or 0)
-        usage["out"] += int(u.get("completion_tokens") or 0)
-        choice = (data.get("choices") or [{}])[0]
-        msg = choice.get("message") or {}
-        if msg.get("refusal"):
+        usage["in"] += int(u.get("input_tokens") or 0)
+        usage["out"] += int(u.get("output_tokens") or 0)
+        output = [o for o in (data.get("output") or []) if isinstance(o, dict)]
+        answer, refusal = _openai_text(output)
+        if refusal and not answer:
             del msgs[start_len:]
-            return f"The model declined this question ({msg['refusal'][:200]}). Try to ask it differently."
-        calls = msg.get("tool_calls") or []
-        kept = {"role": "assistant", "content": msg.get("content")}
-        if calls:
-            kept["tool_calls"] = calls
-        msgs.append(kept)
+            return f"The model declined this question ({refusal[:200]}). Try to ask it differently."
+        msgs.extend(output)                                   # every item in its order, the reasoning ones included
+        calls = [o for o in output if o.get("type") == "function_call"]
         if calls:
             parsed = []
             for c in calls:
                 try:
-                    args = json.loads((c.get("function") or {}).get("arguments") or "{}")
+                    args = json.loads(c.get("arguments") or "{}")
                 except ValueError:
                     args = {}
-                parsed.append((c, (c.get("function") or {}).get("name") or "", args))
+                parsed.append((c, c.get("name") or "", args))
             results = await asyncio.gather(*[run(name, args) for _, name, args in parsed])
             for (c, name, args), r in zip(parsed, results):
                 used.append({"name": name, "input": clean(args)})
-                msgs.append({"role": "tool", "tool_call_id": c.get("id"), "content": r})
+                msgs.append({"type": "function_call_output", "call_id": c.get("call_id"), "output": r})
             continue
-        answer = (msg.get("content") or "").strip()
-        if choice.get("finish_reason") == "length":
+        if data.get("status") == "incomplete":
             answer += "\n\n[The answer was cut: ask for less at a time.]"
         return answer
     return "I could not finish within the allowed number of steps. Ask a narrower question."
@@ -584,7 +590,11 @@ async def chat(session_id: Optional[str], message: str, username: str = "?", mod
         session_id = secrets.token_hex(8)                # the message formats of the providers differ: a switch starts a new conversation
         sess = _sessions[session_id] = {"messages": [], "at": time.time(), "provider": provider, "mode": mode}
     sid = session_id
-    if len(sess["messages"]) >= MAX_MESSAGES:
+    if provider == "openai":                             # its items include the reasoning and tool ones: counted by questions (each ~2 messages)
+        length = 2 * sum(1 for m in sess["messages"] if m.get("role") == "user")
+    else:
+        length = len(sess["messages"])
+    if length >= MAX_MESSAGES:
         raise ValueError("this conversation is too long - start a new one")
     sess["at"] = time.time()
     scopes = dict(_settings["scopes"])
