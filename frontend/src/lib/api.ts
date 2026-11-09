@@ -1626,7 +1626,8 @@ export const maintApi = {
 export type AiScope = 'alerts' | 'assets' | 'vulnerabilities' | 'availability' | 'configs' | 'syslog'
 export interface AiStatus {
   settings: { enabled: boolean; has_key: boolean; model: string; effort: string; scopes: Record<AiScope, boolean>; consent_at: string | null; consent_by: string | null; daily_limit: number
-              models: string[]; efforts: string[]; ready: boolean; not_ready: string | null }
+              models: string[]; efforts: string[]; ready: boolean; not_ready: string | null
+              provider: 'anthropic' | 'openai'; providers: string[]; has_openai_key: boolean; openai_model: string; openai_models: string[] }
   queries: Array<{ at: string; user: string; question: string; tools: string[]; in: number; out: number; model: string; error: string | null }>
   today: number; tokens_30d: { in: number; out: number }
 }
@@ -1636,6 +1637,13 @@ export const aiApi = {
   chat: (message: string, session_id: string | null) =>
     api.post<{ session_id: string; answer: string; tools: Array<{ name: string; input: unknown }>; usage: { in: number; out: number }; model: string }>('/assistant/chat', { message, session_id }, { timeout: 240000 }).then(r => r.data),
   endSession: (id: string) => api.delete(`/assistant/session/${id}`).then(r => r.data),
+  // a question about every client: this agent reads Central with the person's own Central session (services/ai_central.py)
+  centralChat: async (message: string, session_id: string | null) => {
+    const cfg = centralConfig.load()
+    if (!cfg) throw new Error('Central not configured')
+    return api.post<{ session_id: string; answer: string; tools: Array<{ name: string; input: unknown }>; usage: { in: number; out: number }; model: string }>(
+      '/assistant/central-chat', { message, session_id, upstream: cfg.apiUrl }, { timeout: 240000, headers: await centralAuthHeaders(cfg) }).then(r => r.data)
+  },
 }
 // configuration history of the MikroTik devices (services/config_history.py)
 export interface CfgItem {
@@ -1731,7 +1739,8 @@ export interface CentralSoc {
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null
-                open: Array<{ h: string | null; c: 'resource' | 'hardware' | 'network' | 'security'; sev: string; since: string; z: number; if?: number | null; items: AnomalyItem[] }> }
+                open: Array<{ h: string | null; c: 'resource' | 'hardware' | 'network' | 'security'; sev: string; since: string; z: number; if?: number | null; items: AnomalyItem[] }>
+                events?: Array<{ id: number; h: string | null; c: string; sev: string; since: string; end: string | null; min: number; z: number; if: number | null; v: 'true' | 'false' | null; vsoc: boolean; top: string[] }> }
   indicators?: { at: string; total: number; ips: Array<{ ip: string; k: string[]; n: number; last: string | null }> }
   netflow?: { on: boolean; listening: boolean; error: string | null; exporters: number; unknown: number; hosts: number; window_bytes: number | null; window_at: string | null
               top: Array<{ n: string; out: number; in: number; peers: number }>; detections_24h: Record<string, number>
@@ -2847,6 +2856,18 @@ export const centralConfig = {
   },
 }
 
+// The Central credentials the browser holds (a per-user session, else the legacy shared password with its TOTP), as headers.
+async function centralAuthHeaders(cfg: CentralConfig): Promise<Record<string, string>> {
+  const session = centralSession.load()
+  if (session) return { Authorization: `Bearer ${session.token}` }
+  if (cfg.password) {
+    const h: Record<string, string> = { Authorization: `Bearer ${cfg.password}` }
+    if (cfg.totpSecret) h['X-Totp'] = await totpCode(cfg.totpSecret)
+    return h
+  }
+  return {}
+}
+
 async function centralRequest<T>(
   action: string,
   params: Record<string, string> = {},
@@ -3261,6 +3282,8 @@ export const centralApi = {
     ),
   requestSoarDecision: (tenant: string, actionId: number, decision: 'approve' | 'reject') =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_soar_decision', { tenant, action_id: String(actionId), decision }),
+  requestAnomalyVerdict: (tenant: string, eventId: number, verdict: 'true' | 'false' | 'clear') =>
+    centralRequest<{ ok: boolean; queued_at: string }>('request_anomaly_verdict', { tenant, event_id: String(eventId), verdict }),
   requestSocUpdate: (tenant: string, alertId: number, status: string) =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_soc_update', { tenant, alert_id: String(alertId), status }),
   requestDeviceReboot: (tenant: string, deviceId: number, reason: string) =>

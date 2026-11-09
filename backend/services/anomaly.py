@@ -455,10 +455,16 @@ def public_summary() -> dict:
     st = stats(30)
     with SessionLocal() as db:
         open_ = [_event_row(db, e) for e in db.execute(select(AnomalyEvent).where(AnomalyEvent.ended_at.is_(None))).scalars().all()]
+        # the events of the last 30 days with their labels, so they can be labelled from Central too (command "anomaly_verdict")
+        recent = [_event_row(db, e) for e in db.execute(select(AnomalyEvent).where(AnomalyEvent.started_at >= _now() - timedelta(days=30))
+                                                         .order_by(AnomalyEvent.started_at.desc()).limit(60)).scalars().all()]
     return {
         "series": st["series"], "learning": st["learning"], "events_30d": st["events"], "labelled": st["labelled"], "true": st["true"], "false": st["false"],
         "precision": st["precision"], "at": st["at"],
         "open": [{"h": e["host"], "c": e["category"], "sev": e["severity"], "since": e["started_at"], "z": e["peak_score"], "if": e["if_score"],
                   "items": [{k: i[k] for k in ("label", "unit", "value", "expected", "low", "high", "score")} for i in sorted(e["series"], key=lambda x: -x["score"])[:4]]}
                  for e in open_][:30],
+        "events": [{"id": e["id"], "h": e["host"], "c": e["category"], "sev": e["severity"], "since": e["started_at"], "end": e["ended_at"], "min": e["minutes"],
+                    "z": e["peak_score"], "if": e["if_score"], "v": e["verdict"], "vsoc": bool(e["verdict"] and not e["verdict_set"]),
+                    "top": [f"{i['label']} {i['value']:g}{i['unit']} (~{i['expected']:g})" for i in sorted(e["series"], key=lambda x: -x["score"])[:2]]} for e in recent],
     }

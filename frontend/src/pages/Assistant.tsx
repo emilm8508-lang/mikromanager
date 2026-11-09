@@ -19,6 +19,8 @@ function SettingsPanel({ open, setOpen }: { open: boolean; setOpen: (v: boolean)
   const s = st.data?.settings
   const [key, setKey] = useState('')
   const [model, setModel] = useState('claude-opus-5-5')
+  const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic')
+  const [openaiModel, setOpenaiModel] = useState('')
   const [effort, setEffort] = useState('medium')
   const [scopes, setScopes] = useState<Record<string, boolean>>({})
   const [limit, setLimit] = useState(100)
@@ -26,10 +28,10 @@ function SettingsPanel({ open, setOpen }: { open: boolean; setOpen: (v: boolean)
   const [enabled, setEnabled] = useState(false)
   const [dirty, setDirty] = useState(false)
   useEffect(() => {
-    if (s && !dirty) { setModel(s.model); setEffort(s.effort); setScopes(s.scopes); setLimit(s.daily_limit); setConsent(!!s.consent_at); setEnabled(s.enabled) }
+    if (s && !dirty) { setModel(s.model); setEffort(s.effort); setScopes(s.scopes); setLimit(s.daily_limit); setConsent(!!s.consent_at); setEnabled(s.enabled); setProvider(s.provider ?? 'anthropic'); setOpenaiModel(s.openai_model ?? '') }
   }, [s, dirty])
   const save = useMutation({
-    mutationFn: (extra: { api_key?: string }) => aiApi.save({ model, effort, scopes, daily_limit: limit, consent, enabled, ...extra }),
+    mutationFn: (extra: { api_key?: string; openai_key?: string }) => aiApi.save({ model, effort, scopes, daily_limit: limit, consent, enabled, provider, ...(openaiModel.trim() ? { openai_model: openaiModel.trim() } : {}), ...extra }),
     onSuccess: () => { setKey(''); setDirty(false); void qc.invalidateQueries({ queryKey: ['ai-status'] }) },
   })
   const mark = <T,>(f: (v: T) => void) => (v: T) => { f(v); setDirty(true) }
@@ -48,7 +50,16 @@ function SettingsPanel({ open, setOpen }: { open: boolean; setOpen: (v: boolean)
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1">
             <div className="font-medium">{t('ai.privacy.title')}</div>
             <p>{t('ai.privacy.body')}</p>
+            <p>{t('ai.privacy.provider', { provider: t(`ai.providers.${provider}`) })}</p>
+            <p>{t('ai.privacy.central')}</p>
           </div>
+          <div className="flex gap-1.5 flex-wrap items-center text-xs">
+            <span className="text-slate-500">{t('ai.settings.provider')}</span>
+            {(['anthropic', 'openai'] as const).map(p => (
+              <button key={p} onClick={() => mark(setProvider)(p)} className={cn('px-3 py-1 rounded-md border', provider === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')}>{t(`ai.providers.${p}`)}</button>
+            ))}
+          </div>
+          {provider === 'anthropic' ? (
           <div className="flex gap-2 flex-wrap items-center">
             <input type="password" autoComplete="off" value={key} onChange={e => mark(setKey)(e.target.value)} placeholder={(s.has_key ? t('ai.settings.keySet') : t('ai.settings.keyPlaceholder')) as string}
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-80 font-mono" />
@@ -56,11 +67,27 @@ function SettingsPanel({ open, setOpen }: { open: boolean; setOpen: (v: boolean)
             {s.has_key && <button disabled={save.isPending} onClick={() => { if (confirm(t('ai.settings.removeKeyConfirm') as string)) save.mutate({ api_key: '' }) }} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">{t('ai.settings.removeKey')}</button>}
             <span className="text-[11px] text-slate-400">{t('ai.settings.keyNote')}</span>
           </div>
+          ) : (
+          <div className="flex gap-2 flex-wrap items-center">
+            <input type="password" autoComplete="off" value={key} onChange={e => mark(setKey)(e.target.value)} placeholder={(s.has_openai_key ? t('ai.settings.keySet') : t('ai.settings.openaiKeyPlaceholder')) as string}
+              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-80 font-mono" />
+            <button disabled={!key.trim() || save.isPending} onClick={() => save.mutate({ openai_key: key.trim() })} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">{t('ai.settings.saveKey')}</button>
+            {s.has_openai_key && <button disabled={save.isPending} onClick={() => { if (confirm(t('ai.settings.removeKeyConfirm') as string)) save.mutate({ openai_key: '' }) }} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">{t('ai.settings.removeKey')}</button>}
+            <span className="text-[11px] text-slate-400">{t('ai.settings.keyNote')}</span>
+          </div>
+          )}
           <div className="flex gap-4 flex-wrap">
+            {provider === 'anthropic' ? (
             <label className="text-xs text-slate-500">{t('ai.settings.model')}
               <select value={model} onChange={e => mark(setModel)(e.target.value)} className="block mt-0.5 border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white text-slate-900">
                 {s.models.map(m => <option key={m} value={m}>{t(`ai.models.${m}`, { defaultValue: m })}</option>)}
               </select></label>
+            ) : (
+            <label className="text-xs text-slate-500">{t('ai.settings.model')}
+              <input list="openai-models" value={openaiModel} onChange={e => mark(setOpenaiModel)(e.target.value)} className="block mt-0.5 border border-slate-300 rounded-lg px-2 py-1 text-sm w-52 font-mono text-slate-900" />
+              <datalist id="openai-models">{(s.openai_models ?? []).map(m => <option key={m} value={m} />)}</datalist>
+              <span className="block text-[10px] text-slate-400 mt-0.5">{t('ai.settings.openaiModelNote')}</span></label>
+            )}
             <label className="text-xs text-slate-500">{t('ai.settings.effort')}
               <select value={effort} onChange={e => mark(setEffort)(e.target.value)} className="block mt-0.5 border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white text-slate-900">
                 {s.efforts.map(m => <option key={m} value={m}>{t(`ai.efforts.${m}`)}</option>)}
@@ -125,8 +152,10 @@ function History() {
   )
 }
 
-// Questions about the network in plain words, answered by Claude from the agent's own data through read-only tools (see services/ai_assistant.py).
-export function Assistant() {
+// Questions about the network in plain words, answered by Claude or ChatGPT from the agent's own data through read-only tools (see services/ai_assistant.py).
+// mode "central": the same, over every client's data in Central (services/ai_central.py), read with the person's own Central session.
+export function Assistant({ mode = 'agent' }: { mode?: 'agent' | 'central' }) {
+  const central = mode === 'central'
   const { t } = useTranslation()
   const qc = useQueryClient()
   const st = useQuery({ queryKey: ['ai-status'], queryFn: aiApi.status })
@@ -139,19 +168,19 @@ export function Assistant() {
   useEffect(() => { if (st.data && !ready) setSettingsOpen(true) }, [st.data, ready])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
   const ask = useMutation({
-    mutationFn: (q: string) => aiApi.chat(q, sid),
+    mutationFn: (q: string) => central ? aiApi.centralChat(q, sid) : aiApi.chat(q, sid),
     onSuccess: r => { setSid(r.session_id); setMsgs(m => [...m, { role: 'assistant', text: r.answer, tools: r.tools, usage: r.usage }]); void qc.invalidateQueries({ queryKey: ['ai-status'] }) },
     onError: e => setMsgs(m => [...m, { role: 'error', text: errText(e) }]),
   })
   const send = (q: string) => { const v = q.trim(); if (!v || ask.isPending) return; setMsgs(m => [...m, { role: 'user', text: v }]); setText(''); ask.mutate(v) }
   const reset = () => { if (sid) void aiApi.endSession(sid); setSid(null); setMsgs([]) }
-  const suggestions = ['whatsWrong', 'riskiest', 'eol', 'changes', 'services']
+  const suggestions = central ? ['cWorst', 'cPatch', 'cShared', 'cDown', 'cEol'] : ['whatsWrong', 'riskiest', 'eol', 'changes', 'services']
   return (
     <div className="p-6 space-y-4 max-w-[1000px]">
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Sparkles size={20} className="text-indigo-600" /> {t('ai.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('ai.subtitle')}</p>
+          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Sparkles size={20} className="text-indigo-600" /> {central ? t('ai.centralTitle') : t('ai.title')}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{central ? t('ai.centralSubtitle') : t('ai.subtitle')}</p>
         </div>
         {msgs.length > 0 && <button onClick={reset} className="flex items-center gap-1.5 text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white hover:bg-slate-50"><RotateCcw size={14} /> {t('ai.newChat')}</button>}
       </div>

@@ -15,6 +15,19 @@ export function CentralAnomalies() {
   const [rows, setRows] = useState<Array<{ tenant: string; a: NonNullable<CentralSoc['anomalies']> | null; nf: NonNullable<CentralSoc['netflow']> | null; ind: NonNullable<CentralSoc['indicators']> | null }>>([])
   const [allIps, setAllIps] = useState(false)
   const [copied, setCopied] = useState(false)
+  // labels set here, shown until the agent's next report carries them (the command reaches the agent within ~2 minutes)
+  const [queued, setQueued] = useState<Record<string, 'true' | 'false' | null>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  const [err2, setErr2] = useState<string | null>(null)
+  const setVerdict = async (tenant: string, id: number, verdict: 'true' | 'false' | 'clear') => {
+    const key = `${tenant}:${id}`
+    setBusy(key)
+    try {
+      await centralApi.requestAnomalyVerdict(tenant, id, verdict)
+      setQueued(q => ({ ...q, [key]: verdict === 'clear' ? null : verdict }))
+      setErr2(null)
+    } catch (e) { setErr2((e as Error).message) } finally { setBusy(null) }
+  }
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -85,6 +98,49 @@ export function CentralAnomalies() {
                 </div>
               ))}
             <p className="text-[11px] text-slate-400">{t('anomaly.centralLabelHint')}</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+            <h2 className="text-sm font-semibold text-slate-700">{t('anomaly.centralEventsTitle')}</h2>
+            <p className="text-xs text-slate-500">{t('anomaly.centralEventsIntro')}</p>
+            {rows.every(r => !(r.a?.events?.length)) ? <p className="text-xs text-slate-400">{t('anomaly.noHistory')}</p> : (
+              <div className="overflow-x-auto max-h-[28rem]">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-left text-slate-400 border-b border-slate-200">
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.tenant')}</th><th className="font-medium px-2 py-1.5">{t('anomaly.col.host')}</th>
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.start')}</th><th className="font-medium px-2 py-1.5 text-right">{t('anomaly.col.peak')}</th>
+                    <th className="font-medium px-2 py-1.5 text-right">IF</th><th className="font-medium px-2 py-1.5">{t('anomaly.col.what')}</th>
+                    <th className="font-medium px-2 py-1.5">{t('anomaly.col.verdict')}</th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.flatMap(r => (r.a?.events ?? []).map(e => ({ tenant: r.tenant, e }))).sort((x, y) => y.e.since.localeCompare(x.e.since)).map(({ tenant, e }) => {
+                      const key = `${tenant}:${e.id}`
+                      const v = key in queued ? queued[key] : e.v
+                      const btn = (val: 'true' | 'false', label: string, on: string) => (
+                        <button disabled={busy === key} onClick={() => setVerdict(tenant, e.id, v === val ? 'clear' : val)}
+                          className={cn('rounded border px-1.5 py-0.5 text-[11px]', v === val ? on : 'border-slate-300 text-slate-500 hover:bg-slate-50')}>{label}</button>
+                      )
+                      return (
+                        <tr key={key} className="border-t border-slate-100">
+                          <td className="px-2 py-1.5 text-slate-600">{tenant}</td>
+                          <td className="px-2 py-1.5 font-medium text-slate-800">{e.h || '—'}{!e.end && <span className="ml-1 text-[10px] text-red-600">●</span>}</td>
+                          <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{new Date(e.since).toLocaleString()} · {e.min} min</td>
+                          <td className="px-2 py-1.5 text-right"><span className={cn('rounded px-1.5 py-0.5 font-mono', scoreTone(e.z))}>{e.z.toFixed(1)}</span></td>
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-500">{e.if != null ? e.if.toFixed(2) : '—'}</td>
+                          <td className="px-2 py-1.5 text-slate-600">{e.top.join(' · ')}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">
+                            <span className="inline-flex gap-1">{btn('true', t('anomaly.verdict.true'), 'bg-green-100 border-green-300 text-green-800')}{btn('false', t('anomaly.verdict.false'), 'bg-slate-200 border-slate-300 text-slate-700')}</span>
+                            {key in queued && <span className="ml-1 text-[10px] text-amber-700">{t('anomaly.queued')}</span>}
+                            {!(key in queued) && e.vsoc && <span className="ml-1 text-[10px] text-slate-400" title={t('anomaly.verdict.fromSoc') as string}>SOC</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {err2 && <p className="text-xs text-red-600">{err2}</p>}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">

@@ -80,6 +80,8 @@ function canonical_commands(array $commands): string {
             $parts[] = 'soar_decision:' . (int)($c['action_id'] ?? 0) . ':' . (!empty($c['approve']) ? 'approve' : 'reject');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'soc_update') {
             $parts[] = 'soc_update:' . (int)($c['alert_id'] ?? 0) . ':' . ($c['status'] ?? '');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'anomaly_verdict') {
+            $parts[] = 'anomaly_verdict:' . (int)($c['event_id'] ?? 0) . ':' . ($c['verdict'] ?? '');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'rack_op') {
             // the operation is an opaque JSON string; its SHA-256 is what is signed (see _canonical_commands in uplink.py)
             $parts[] = 'rack_op:' . hash('sha256', (string)($c['op'] ?? ''));
@@ -625,6 +627,18 @@ try {
             try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "soc_update_delivered", ?, ?)')
                     ->execute([$tenant_header, "Zmiana statusu alertu SOC ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['alert_id'=>(int)$m[1],'status'=>$m[2],'delivered_at'=>date('c')])]);
+            } catch (Throwable $e) {}
+        }
+    }
+
+    foreach (glob($state_dir . "/anomaly_verdict_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^anomaly_verdict_' . preg_quote($safe, '/') . '_(\d+)_(true|false|clear)$/', $base, $m)) {
+            $commands[] = ['type' => 'anomaly_verdict', 'event_id' => (int)$m[1], 'verdict' => $m[2]];
+            @unlink($f);
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "anomaly_verdict_delivered", ?, ?)')
+                    ->execute([$tenant_header, "Ocena anomalii ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['event_id'=>(int)$m[1],'verdict'=>$m[2],'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
         }
     }

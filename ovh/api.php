@@ -1401,6 +1401,27 @@ try {
             echo json_encode(['ok' => true, 'tenant' => $tenant, 'alert_id' => $alert_id, 'status' => $status, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
             break;
 
+        case 'request_anomaly_verdict':
+            // The label of an anomaly event set in Central: true (a real problem), false (a false alarm) or clear. The agent keeps the label
+            // (services/anomaly.py) and "false" also marks its open SOC alert a false positive.
+            $tenant = $_GET['tenant'] ?? '';
+            $event_id = (int)($_GET['event_id'] ?? 0);
+            $verdict = $_GET['verdict'] ?? '';
+            if ($tenant === '' || $event_id <= 0 || !in_array($verdict, ['true', 'false', 'clear'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant, event_id and verdict (true|false|clear) required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            foreach (glob($state_dir . "/anomaly_verdict_{$safe}_{$event_id}_*.pending") as $old) { @unlink($old); }      // the last click wins
+            file_put_contents($state_dir . "/anomaly_verdict_{$safe}_{$event_id}_{$verdict}.pending", (string)($identity['username'] ?? ''));
+            echo json_encode(['ok' => true, 'tenant' => $tenant, 'event_id' => $event_id, 'verdict' => $verdict, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
+            break;
+
         case 'pending_linux_restarts':
             require_global($identity);
             $state_dir = $config['state_dir'] ?? __DIR__ . '/state';

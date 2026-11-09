@@ -905,6 +905,8 @@ def _canonical_commands(commands: list) -> str:
             parts.append(f"soar_decision:{int(c.get('action_id') or 0)}:{'approve' if c.get('approve') else 'reject'}")
         elif isinstance(c, dict) and c.get("type") == "soc_update":
             parts.append(f"soc_update:{int(c.get('alert_id') or 0)}:{c.get('status') or ''}")
+        elif isinstance(c, dict) and c.get("type") == "anomaly_verdict":
+            parts.append(f"anomaly_verdict:{int(c.get('event_id') or 0)}:{c.get('verdict') or ''}")
         elif isinstance(c, dict) and c.get("type") == "rack_op":
             # the operation travels as an opaque JSON string; its SHA-256 is what is signed
             parts.append("rack_op:" + hashlib.sha256(str(c.get("op") or "").encode("utf-8")).hexdigest())
@@ -1242,6 +1244,17 @@ async def _handle_commands(commands: list) -> None:
                     print(f"[uplink] received SOC_UPDATE alert {alert_id} -> {status} ({n} changed)")
                 except (PermissionError, ValueError) as e:
                     print(f"[uplink] soc_update rejected: {e}")
+            elif cmd_type == "anomaly_verdict":
+                from services import anomaly as _anomaly
+                try:
+                    event_id = int(cmd.get("event_id") or 0)
+                    verdict = str(cmd.get("verdict") or "")
+                    if not event_id or verdict not in ("true", "false", "clear"):
+                        raise ValueError("event_id and a verdict required")
+                    _anomaly.set_verdict(event_id, None if verdict == "clear" else verdict, "Centrala")
+                    print(f"[uplink] received ANOMALY_VERDICT event {event_id} -> {verdict}")
+                except (KeyError, ValueError) as e:
+                    print(f"[uplink] anomaly_verdict rejected: {e}")
             elif cmd_type == "rack_op":
                 from services import racks as racks_svc
                 try:

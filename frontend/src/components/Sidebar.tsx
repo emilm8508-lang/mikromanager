@@ -327,6 +327,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
     item('/central/security', t('nav.securitySummary') as string, PieChart),
     item('/central/soc', t('nav.soc') as string, Siren),
     item('/central/anomalies', t('nav.anomalies') as string, BrainCircuit),
+    item('/central/assistant', t('nav.ai') as string, Sparkles),
     { key: 'c-systems', label: t('nav.groupSystems') as string, icon: Server, items: [
       item('/central/fleet', t('fleetCentral.navLabel') as string, Router),
       item('/central/hosts', t('centralHosts.navLabel') as string, TerminalSquare),

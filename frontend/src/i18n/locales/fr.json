@@ -1740,8 +1740,11 @@
         }
     },
     "ai": {
+        "centralTitle": "Assistant IA — tous les clients",
+        "centralSubtitle": "Des questions sur les réseaux de tous les clients visibles dans la centrale : alertes, risque, anomalies, sources d'attaque communes, disponibilité, inventaire et vulnérabilités (avec ce qu'il faut corriger d'abord). Les outils lisent seulement les données de la centrale avec votre session.",
+        "providers": {"anthropic": "Claude (Anthropic)", "openai": "ChatGPT (OpenAI)"},
         "title": "Assistant IA",
-        "subtitle": "Des questions sur le réseau en mots simples : Claude accède aux données de cet agent (alertes, risque, inventaire, vulnérabilités, disponibilité, configurations, syslog) par des outils en lecture seule et répond à partir d'elles.",
+        "subtitle": "Des questions sur le réseau en mots simples : le modèle d'IA choisi (Claude ou ChatGPT) lit les données de cet agent (alertes, risque, inventaire, vulnérabilités, disponibilité, configurations, syslog) avec des outils en lecture seule et répond à partir d'elles.",
         "ready": "Prêt",
         "notReady": {
             "off": "Désactivé",
@@ -1753,12 +1756,12 @@
         "thinking": "L'assistant consulte les données…",
         "placeholder": "Posez une question, p. ex. quels serveurs sortent du support ? (Entrée envoie, Maj+Entrée nouvelle ligne)",
         "privacy": {
-            "title": "Ce qui quitte l'organisation",
-            "body": "La question et les données que l'assistant lit avec ses outils (noms d'appareils, adresses IP, textes d'alertes, versions logicielles, lignes syslog) sont envoyées à l'API Claude d'Anthropic. Les mots de passe, secrets, clés, communautés SNMP, adresses MAC, numéros de série et notes ne sont pas envoyés ; les textes sont tronqués. L'assistant ne modifie rien. Chaque question est enregistrée (qui, quand, quels outils, combien de jetons)."
+            "provider": "Fournisseur : {{provider}}. La clé API est celle de l'organisation, conservée chiffrée sur cet agent.", "central": "Dans la centrale, l'assistant lit les données de tous les clients que vous pouvez voir — avec votre session de la centrale, via cet agent.", "title": "Ce qui quitte l'organisation",
+            "body": "La question et les données que l'assistant lit avec ses outils (noms d'équipements, adresses IP, textes d'alertes, versions de logiciels, lignes syslog) sont envoyées au fournisseur d'IA choisi. Aucun mot de passe, secret, clé, communauté SNMP, adresse MAC, numéro de série ni note n'est envoyé ; les textes sont coupés. L'assistant ne modifie rien. Chaque question est enregistrée (qui, quand, quels outils, combien de jetons)."
         },
         "settings": {
             "title": "Réglages de l'assistant",
-            "keySet": "clé enregistrée (saisissez-en une nouvelle pour la remplacer)",
+            "provider": "Fournisseur", "openaiKeyPlaceholder": "Clé API OpenAI (sk-...)", "openaiModelNote": "un nom de modèle de votre compte OpenAI ; la liste n'est qu'une suggestion", "keySet": "clé enregistrée (saisissez-en une nouvelle pour la remplacer)",
             "keyPlaceholder": "Clé API Anthropic (sk-ant-…)",
             "saveKey": "Enregistrer la clé",
             "removeKey": "Supprimer la clé",
@@ -1768,7 +1771,7 @@
             "effort": "Minutie",
             "dailyLimit": "Questions par jour",
             "scopes": "Ce que l'assistant peut lire",
-            "consent": "Je comprends que les données choisies sur ce réseau seront envoyées à l'API Claude (Anthropic) et je confirme que l'organisation y consent.",
+            "consent": "Je comprends que les données choisies sur le réseau (de cet agent et, dans la centrale, des clients que je peux voir) seront envoyées à l'API du fournisseur d'IA choisi (Anthropic ou OpenAI), et je confirme que l'organisation y consent.",
             "enabled": "Activer l'assistant",
             "save": "Enregistrer les réglages"
         },
@@ -1809,14 +1812,14 @@
             }
         },
         "suggest": {
-            "whatsWrong": "Qu'est-ce qui ne va pas dans le réseau en ce moment ?",
+            "cWorst": "Quel client a les problèmes les plus graves maintenant, et pourquoi ?", "cPatch": "Quelles vulnérabilités des clients corriger d'abord, et comment ?", "cShared": "Les mêmes adresses attaquent-elles plusieurs clients ?", "cDown": "Qu'est-ce qui est hors service chez les clients ?", "cEol": "Quels équipements des clients ne sont plus supportés ?", "whatsWrong": "Qu'est-ce qui ne va pas dans le réseau en ce moment ?",
             "riskiest": "Quels appareils sont les plus à risque et pourquoi ?",
             "eol": "Quels ordinateurs et serveurs sont hors support du constructeur ?",
             "changes": "Qu'est-ce qui a changé récemment dans les configurations des routeurs ?",
             "services": "Comment vont les services métier et qu'est-ce qui est injoignable ?"
         },
         "tool": {
-            "list_alerts": "alertes",
+            "clients_overview": "vue des clients", "client_alerts": "alertes", "client_risk": "risque", "client_anomalies": "anomalies", "client_availability": "disponibilité", "client_vulnerabilities": "vulnérabilités", "client_assets": "inventaire", "list_alerts": "alertes",
             "risk_ranking": "classement de risque",
             "search_assets": "inventaire",
             "asset_detail": "détail de l'appareil",
@@ -3950,6 +3953,9 @@
         "sharedIntro": "Adresses publiques des dernières 24 h chez chaque client (négociations IPsec échouées, Winbox refusé, connexions échouées, détections NetFlow, Wazuh). Une adresse qui sonde plusieurs clients est une campagne, pas un hasard. La liste les ajoute sur un routeur à mm-shared-attackers pour 7 jours — bloquez-la par une règle dans la chaîne input.",
         "sharedNone": "Aucune adresse vue chez plus d'un client.",
         "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "connexions", "scan": "scan", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "autres"},
+        "centralEventsTitle": "Événements et verdicts (tous les clients, 30 jours)",
+        "centralEventsIntro": "Évaluez un événement ici : « Réel » — il y avait un problème, « Faux » — rien d'anormal. Le verdict atteint l'agent du client en 2 minutes environ (agents à partir de 3.51) et compte dans la précision.",
+        "queued": "envoyé",
         "title": "Anomalies (ML)",
         "subtitle": "Les hôtes qui se comportent autrement que d'habitude — chaque série de métriques comparée à sa propre plage apprise pour la même heure de la semaine.",
         "runNow": "Vérifier maintenant",
@@ -4012,7 +4018,7 @@
         "learningSeries": "série encore en apprentissage",
         "centralTitle": "Anomalies (ML) — tous les clients",
         "centralIntro": "La détection tourne sur chaque agent, sur l'historique de ses propres hôtes ; on voit ici les résultats de tous les clients côte à côte.",
-        "centralLabelHint": "Marquez une fausse alerte dans le SOC (statut « faux positif ») ou sur l'agent — elle compte alors dans la précision.",
+        "centralLabelHint": "Évaluez un événement dans le tableau ci-dessous ou marquez son alerte comme faux positif dans le SOC — l'évaluation atteint l'agent en 2 minutes environ et compte dans la précision.",
         "perTenant": "Par client",
         "noAgentData": "l'agent n'envoie pas encore de données d'anomalies (antérieur à 3.43)"
     },

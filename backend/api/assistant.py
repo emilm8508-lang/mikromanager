@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from api.auth import require_login
@@ -22,6 +22,15 @@ class SettingsBody(BaseModel):
     scopes: Optional[Dict[str, bool]] = None
     daily_limit: Optional[int] = None
     consent: Optional[bool] = None
+    provider: Optional[str] = None           # anthropic | openai
+    openai_key: Optional[str] = None         # "" removes it; never returned
+    openai_model: Optional[str] = None
+
+
+class CentralChatBody(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    upstream: str                            # the Central API URL the browser uses (must be the pinned Central host)
 
 
 @router.get("/status")
@@ -42,6 +51,19 @@ def settings(body: SettingsBody, user: dict = Depends(require_login)):
 async def chat(body: ChatBody, user: dict = Depends(require_login)):
     try:
         return await ai_assistant.chat(body.session_id, body.message, str(user.get("username") or "?"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/central-chat")
+async def central_chat(body: CentralChatBody, request: Request, user: dict = Depends(require_login)):
+    """A question about every client, answered from Central's data read with the person's own Central session (the Authorization /
+    X-Totp headers the browser sends to Central anyway) - so it sees exactly what that person may see in Central."""
+    ctx = {"upstream": body.upstream, "authorization": request.headers.get("authorization", ""), "totp": request.headers.get("x-totp")}
+    try:
+        return await ai_assistant.chat(body.session_id, body.message, str(user.get("username") or "?"), mode="central", ctx=ctx)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except RuntimeError as e:

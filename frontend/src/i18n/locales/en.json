@@ -1740,8 +1740,11 @@
         }
     },
     "ai": {
+        "centralTitle": "AI assistant — all clients",
+        "centralSubtitle": "Questions about the networks of every client you may see in Central: alerts, risk, anomalies, shared attack sources, availability, inventory and vulnerabilities (with what to patch first). The tools only read Central's data with your session.",
+        "providers": {"anthropic": "Claude (Anthropic)", "openai": "ChatGPT (OpenAI)"},
         "title": "AI assistant",
-        "subtitle": "Questions about the network in plain words: Claude reaches into this agent's data (alerts, risk, inventory, vulnerabilities, availability, configurations, syslog) through read-only tools and answers from it.",
+        "subtitle": "Questions about the network in plain words: the chosen AI model (Claude or ChatGPT) reads this agent's data (alerts, risk, inventory, vulnerabilities, availability, configurations, syslog) through read-only tools and answers from it.",
         "ready": "Ready",
         "notReady": {
             "off": "Off",
@@ -1753,12 +1756,12 @@
         "thinking": "The assistant is checking the data…",
         "placeholder": "Ask a question, e.g. which servers are going out of support? (Enter sends, Shift+Enter a new line)",
         "privacy": {
-            "title": "What leaves the organisation",
-            "body": "The question and the data the assistant reads with its tools (device names, IP addresses, alert texts, software versions, syslog lines) are sent to the Claude API of Anthropic. Passwords, secrets, keys, SNMP communities, MAC addresses, serial numbers and notes are not sent; texts are cut. The assistant changes nothing. Every question is recorded (who, when, which tools, how many tokens)."
+            "provider": "Provider: {{provider}}. The API key is the organisation's own, kept encrypted on this agent.", "central": "In Central the assistant reads the data of every client you may see — with your Central session, through this agent.", "title": "What leaves the organisation",
+            "body": "The question and the data the assistant reads with its tools (device names, IP addresses, alert texts, software versions, syslog lines) are sent to the chosen AI provider. No passwords, secrets, keys, SNMP communities, MAC addresses, serial numbers or notes are sent; texts are cut. The assistant changes nothing. Every question is recorded (who, when, which tools, how many tokens)."
         },
         "settings": {
             "title": "Assistant settings",
-            "keySet": "key saved (enter a new one to replace it)",
+            "provider": "Provider", "openaiKeyPlaceholder": "OpenAI API key (sk-...)", "openaiModelNote": "a model name of your OpenAI account; the list is only a suggestion", "keySet": "key saved (enter a new one to replace it)",
             "keyPlaceholder": "Anthropic API key (sk-ant-…)",
             "saveKey": "Save key",
             "removeKey": "Remove key",
@@ -1768,7 +1771,7 @@
             "effort": "Thoroughness",
             "dailyLimit": "Questions per day",
             "scopes": "What the assistant may read",
-            "consent": "I understand that the chosen data about this network will be sent to the Claude API (Anthropic), and I confirm that the organisation agrees to it.",
+            "consent": "I understand that the chosen data about the network (of this agent, and in Central of the clients I may see) will be sent to the API of the chosen AI provider (Anthropic or OpenAI), and I confirm that the organisation agrees to it.",
             "enabled": "Enable the assistant",
             "save": "Save settings"
         },
@@ -1809,14 +1812,14 @@
             }
         },
         "suggest": {
-            "whatsWrong": "What is wrong in the network right now?",
+            "cWorst": "Which client has the most serious problems now, and why?", "cPatch": "Which of the clients' vulnerabilities should be patched first, and how?", "cShared": "Do the same addresses attack several clients?", "cDown": "What is down at the clients?", "cEol": "Which of the clients' devices are out of vendor support?", "whatsWrong": "What is wrong in the network right now?",
             "riskiest": "Which devices are most at risk and why?",
             "eol": "Which computers and servers are out of vendor support?",
             "changes": "What changed lately in the router configurations?",
             "services": "How are the business services doing and what is unreachable?"
         },
         "tool": {
-            "list_alerts": "alerts",
+            "clients_overview": "clients overview", "client_alerts": "clients' alerts", "client_risk": "risk", "client_anomalies": "anomalies", "client_availability": "availability", "client_vulnerabilities": "vulnerabilities", "client_assets": "inventory", "list_alerts": "alerts",
             "risk_ranking": "risk ranking",
             "search_assets": "inventory",
             "asset_detail": "device details",
@@ -3950,6 +3953,9 @@
         "sharedIntro": "Public addresses of the last 24 h at every client (failed IPsec negotiations, refused Winbox, failed logins, NetFlow detections, Wazuh). An address that probes several clients is a campaign, not chance. The list to copy adds them on a router to mm-shared-attackers for 7 days — block it with a rule in the input chain.",
         "sharedNone": "No address seen at more than one client.",
         "kind": {"ipsec": "IPsec", "winbox": "Winbox", "login": "logins", "scan": "scan", "netflow": "NetFlow", "wazuh": "Wazuh", "other": "other"},
+        "centralEventsTitle": "Events and labels (all clients, 30 days)",
+        "centralEventsIntro": "Label an event here: \"Real\" — there was a real problem, \"False\" — nothing was wrong. The label reaches the client's agent within about 2 minutes (agents from 3.51) and counts towards the precision.",
+        "queued": "sent",
         "title": "Anomalies (ML)",
         "subtitle": "Hosts behaving unlike themselves — every metric series compared with its own learned range for the same hour of the week.",
         "runNow": "Check now",
@@ -4012,7 +4018,7 @@
         "learningSeries": "series still learning",
         "centralTitle": "Anomalies (ML) — all clients",
         "centralIntro": "Detection runs on every agent, on the history of its own hosts; here are the results of every client side by side.",
-        "centralLabelHint": "Label a false alarm in the SOC (status \"false positive\") or on the agent — it then counts towards the precision.",
+        "centralLabelHint": "Label an event in the table below or mark its alert a false positive in the SOC — the label reaches the agent within about 2 minutes and counts towards the precision.",
         "perTenant": "By client",
         "noAgentData": "the agent does not send anomaly data yet (older than 3.43)"
     },

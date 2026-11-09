@@ -132,6 +132,7 @@ export default function App() {
             <Route path="/central/syslog" element={<CentralSyslogPage />} />
             <Route path="/central/soc" element={<CentralSoc />} />
             <Route path="/central/anomalies" element={<CentralAnomalies />} />
+            <Route path="/central/assistant" element={<Assistant mode="central" />} />
             <Route path="/software" element={<Software />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/anydesk" element={<AnydeskSessions />} />

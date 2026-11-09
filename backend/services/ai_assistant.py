@@ -40,7 +40,14 @@ _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "ai_ass
 MODELS = {"claude-opus-5-5": True, "claude-sonnet-5-5": True, "claude-haiku-5-5": False}      # model -> has the server-side fallback
 EFFORTS = ("low", "medium", "high")
 SCOPES = ("alerts", "assets", "vulnerabilities", "availability", "configs", "syslog")
+# The provider: Claude (Anthropic) or ChatGPT (OpenAI, Chat Completions with function calling over plain HTTP - no package needed).
+# The OpenAI model is free text (OpenAI renames and adds models often); the list is only a suggestion, as of OpenAI's changelog of 2026-08.
+PROVIDERS = ("anthropic", "openai")
+OPENAI_MODELS = ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5")
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$")
 DEFAULTS = {"enabled": False, "api_key": "", "model": "claude-opus-5-5", "effort": "medium", "scopes": {s: False for s in SCOPES}, "consent_at": None, "consent_by": None,
+            "provider": "anthropic", "openai_key": "", "openai_model": OPENAI_MODELS[0],
             "daily_limit": 100}
 MAX_STEPS = 8                       # tool rounds per question
 MAX_TOOL_CHARS = 14000              # what one tool result may weigh
@@ -68,6 +75,8 @@ def load_settings() -> dict:
                 s[k] = saved[k]
         if saved.get("api_key"):
             s["api_key"] = decrypt(saved["api_key"])
+        if saved.get("openai_key"):
+            s["openai_key"] = decrypt(saved["openai_key"])
         s["scopes"] = {sc: bool((saved.get("scopes") or {}).get(sc)) for sc in SCOPES}
     except FileNotFoundError:
         pass
@@ -82,6 +91,7 @@ def _persist() -> None:
     os.makedirs(os.path.dirname(_PATH), exist_ok=True)
     data = dict(_settings)
     data["api_key"] = encrypt(_settings["api_key"]) if _settings["api_key"] else ""
+    data["openai_key"] = encrypt(_settings["openai_key"]) if _settings.get("openai_key") else ""
     tmp = _PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f)
@@ -91,7 +101,9 @@ def _persist() -> None:
 def public_settings() -> dict:
     s = _settings
     return {"enabled": s["enabled"], "has_key": bool(s["api_key"]), "model": s["model"], "effort": s["effort"], "scopes": dict(s["scopes"]), "consent_at": s["consent_at"],
-            "consent_by": s["consent_by"], "daily_limit": s["daily_limit"], "models": list(MODELS), "efforts": list(EFFORTS), "ready": ready()[0], "not_ready": ready()[1]}
+            "consent_by": s["consent_by"], "daily_limit": s["daily_limit"], "models": list(MODELS), "efforts": list(EFFORTS), "ready": ready()[0], "not_ready": ready()[1],
+            "provider": s.get("provider", "anthropic"), "providers": list(PROVIDERS), "has_openai_key": bool(s.get("openai_key")),
+            "openai_model": s.get("openai_model") or OPENAI_MODELS[0], "openai_models": list(OPENAI_MODELS)}
 
 
 def update_settings(body: dict, user: str) -> dict:
@@ -101,6 +113,20 @@ def update_settings(body: dict, user: str) -> dict:
         if key and (len(key) < 20 or any(c.isspace() for c in key)):
             raise ValueError("that does not look like an API key")
         new["api_key"] = key
+    if body.get("openai_key") is not None:
+        key = str(body["openai_key"]).strip()
+        if key and (len(key) < 20 or any(c.isspace() for c in key)):
+            raise ValueError("that does not look like an API key")
+        new["openai_key"] = key
+    if body.get("provider") is not None:
+        if body["provider"] not in PROVIDERS:
+            raise ValueError("unknown provider")
+        new["provider"] = body["provider"]
+    if body.get("openai_model") is not None:
+        m = str(body["openai_model"]).strip()
+        if not _MODEL_RE.match(m):
+            raise ValueError("that does not look like a model name")
+        new["openai_model"] = m
     if body.get("model") is not None:
         if body["model"] not in MODELS:
             raise ValueError("unknown model")
@@ -133,7 +159,7 @@ def ready() -> tuple:
     s = _settings
     if not s["enabled"]:
         return False, "off"
-    if not s["api_key"]:
+    if not (s.get("openai_key") if s.get("provider") == "openai" else s["api_key"]):
         return False, "no_key"
     if not s["consent_at"]:
         return False, "no_consent"
@@ -329,16 +355,24 @@ Rules:
 - Be concise and concrete: lead with the answer, then the evidence, then what to do first. Use short lists, no filler. Reply in the language of the user's message."""
 
 
-def _tools_for(scopes: dict) -> List[dict]:
-    return [{"name": n, "description": t["description"], "input_schema": t["input_schema"]} for n, t in TOOLS.items() if scopes.get(t["scope"])]
+def _toolset(mode: str) -> Dict[str, dict]:
+    if mode == "central":
+        from services import ai_central
+        return ai_central.TOOLS
+    return TOOLS
 
 
-async def _run_tool(name: str, args: dict, scopes: dict) -> str:
-    t = TOOLS.get(name)
+def _tools_for(scopes: dict, mode: str = "agent") -> List[dict]:
+    return [{"name": n, "description": t["description"], "input_schema": t["input_schema"]} for n, t in _toolset(mode).items() if scopes.get(t["scope"])]
+
+
+async def _run_tool(name: str, args: dict, scopes: dict, mode: str = "agent", ctx: Optional[dict] = None) -> str:
+    t = _toolset(mode).get(name)
     if t is None or not scopes.get(t["scope"]):
         return json.dumps({"error": "tool not available"})
     try:
-        res = clean(await t["fn"](args if isinstance(args, dict) else {}))
+        a = args if isinstance(args, dict) else {}
+        res = clean(await (t["fn"](ctx or {}, a) if mode == "central" else t["fn"](a)))
         text = json.dumps(res, ensure_ascii=False, default=str)
         if len(text) > MAX_TOOL_CHARS:
             text = text[:MAX_TOOL_CHARS] + ' ... [cut: ask for fewer items or add a filter]'
@@ -404,8 +438,122 @@ async def _create(client, params: dict):
     return await client.beta.messages.create(**params)
 
 
-async def chat(session_id: Optional[str], message: str, username: str = "?") -> dict:
-    """One question. Returns {session_id, answer, tools: [{name, input}], usage, model}; raises ValueError (a reason the user can act on) or RuntimeError."""
+async def _turn_anthropic(msgs: List[Any], start_len: int, system: str, tools: List[dict], run, used: List[dict], usage: dict) -> str:
+    client = _make_client()
+    for _ in range(MAX_STEPS):
+        params = {"model": _settings["model"], "max_tokens": MAX_TOKENS, "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                  "tools": tools, "messages": msgs, "output_config": {"effort": _settings["effort"]}}
+        resp = await _create(client, params)
+        u = getattr(resp, "usage", None)
+        if u is not None:
+            usage["in"] += int(getattr(u, "input_tokens", 0) or 0) + int(getattr(u, "cache_read_input_tokens", 0) or 0)
+            usage["out"] += int(getattr(u, "output_tokens", 0) or 0)
+        if getattr(resp, "stop_reason", None) == "refusal":
+            cat = getattr(getattr(resp, "stop_details", None), "category", None)
+            del msgs[start_len:]                     # a declined turn is not kept in the conversation
+            return f"The model declined this question{f' ({cat})' if cat else ''}. Try to ask it differently."
+        msgs.append({"role": "assistant", "content": resp.content})
+        calls = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
+        if getattr(resp, "stop_reason", None) == "tool_use" and calls:
+            results = await asyncio.gather(*[run(c.name, c.input) for c in calls])
+            for c in calls:
+                used.append({"name": c.name, "input": clean(c.input)})
+            msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": c.id, "content": r} for c, r in zip(calls, results)]})
+            continue
+        answer = _text_of(resp.content)
+        if getattr(resp, "stop_reason", None) == "max_tokens":
+            answer += "\n\n[The answer was cut: ask for less at a time.]"
+        return answer
+    return "I could not finish within the allowed number of steps. Ask a narrower question."
+
+
+_openai_effort_ok = [True]
+
+
+async def _openai_post(body: dict) -> dict:
+    """One Chat Completions request (tests replace this). Raises RuntimeError with a reason the user can act on."""
+    import aiohttp
+    headers = {"Authorization": f"Bearer {_settings['openai_key']}", "Content-Type": "application/json"}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=180)) as session:
+            async with session.post(OPENAI_URL, json=body, headers=headers) as resp:
+                text = await resp.text()
+                if resp.status == 200:
+                    return json.loads(text)
+                status = resp.status
+    except aiohttp.ClientError as e:
+        raise RuntimeError(f"cannot reach the OpenAI API from this agent ({type(e).__name__})")
+    except asyncio.TimeoutError:
+        raise RuntimeError("the OpenAI API did not answer in time")
+    try:
+        detail = (json.loads(text).get("error") or {}).get("message") or text
+    except ValueError:
+        detail = text
+    if status == 400 and "reasoning_effort" in detail:
+        raise _EffortUnsupported(detail)
+    if status == 401:
+        raise RuntimeError("the API key was refused by OpenAI")
+    if status == 403:
+        raise RuntimeError("the OpenAI key has no permission for this model")
+    if status == 404:
+        raise RuntimeError(f"OpenAI does not know the model '{body.get('model')}' - check its name in the settings")
+    if status == 429:
+        raise RuntimeError("rate limit or quota of the OpenAI API reached - try again later or check the billing")
+    raise RuntimeError(f"OpenAI answered HTTP {status}: {str(detail)[:200]}")
+
+
+class _EffortUnsupported(Exception):
+    pass
+
+
+async def _turn_openai(msgs: List[Any], start_len: int, system: str, tools: List[dict], run, used: List[dict], usage: dict) -> str:
+    fn_tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]}} for t in tools]
+    for _ in range(MAX_STEPS):
+        body = {"model": _settings["openai_model"], "messages": [{"role": "system", "content": system}] + msgs, "tools": fn_tools, "max_completion_tokens": MAX_TOKENS}
+        if _openai_effort_ok[0]:
+            body["reasoning_effort"] = _settings["effort"]
+        try:
+            data = await _openai_post(body)
+        except _EffortUnsupported:
+            _openai_effort_ok[0] = False             # a model without reasoning: remembered, asked again without it
+            body.pop("reasoning_effort", None)
+            data = await _openai_post(body)
+        u = data.get("usage") or {}
+        usage["in"] += int(u.get("prompt_tokens") or 0)
+        usage["out"] += int(u.get("completion_tokens") or 0)
+        choice = (data.get("choices") or [{}])[0]
+        msg = choice.get("message") or {}
+        if msg.get("refusal"):
+            del msgs[start_len:]
+            return f"The model declined this question ({msg['refusal'][:200]}). Try to ask it differently."
+        calls = msg.get("tool_calls") or []
+        kept = {"role": "assistant", "content": msg.get("content")}
+        if calls:
+            kept["tool_calls"] = calls
+        msgs.append(kept)
+        if calls:
+            parsed = []
+            for c in calls:
+                try:
+                    args = json.loads((c.get("function") or {}).get("arguments") or "{}")
+                except ValueError:
+                    args = {}
+                parsed.append((c, (c.get("function") or {}).get("name") or "", args))
+            results = await asyncio.gather(*[run(name, args) for _, name, args in parsed])
+            for (c, name, args), r in zip(parsed, results):
+                used.append({"name": name, "input": clean(args)})
+                msgs.append({"role": "tool", "tool_call_id": c.get("id"), "content": r})
+            continue
+        answer = (msg.get("content") or "").strip()
+        if choice.get("finish_reason") == "length":
+            answer += "\n\n[The answer was cut: ask for less at a time.]"
+        return answer
+    return "I could not finish within the allowed number of steps. Ask a narrower question."
+
+
+async def chat(session_id: Optional[str], message: str, username: str = "?", mode: str = "agent", ctx: Optional[dict] = None) -> dict:
+    """One question. Returns {session_id, answer, tools: [{name, input}], usage, model}; raises ValueError (a reason the user can act on) or RuntimeError.
+    mode "central": the tools read Central (services/ai_central.py) with the person's own Central session in `ctx`."""
     ok, why = ready()
     if not ok:
         raise ValueError(f"assistant not ready: {why}")
@@ -415,55 +563,43 @@ async def chat(session_id: Optional[str], message: str, username: str = "?") -> 
     if _today_count() >= _settings["daily_limit"]:
         raise ValueError("daily limit of questions reached")
     _drop_old_sessions()
-    sid = session_id if session_id in _sessions else secrets.token_hex(8)
-    sess = _sessions.setdefault(sid, {"messages": [], "at": time.time()})
+    provider = _settings.get("provider", "anthropic")
+    sess = _sessions.get(session_id) if session_id else None
+    if sess is None or sess.get("provider") != provider or sess.get("mode") != mode:
+        session_id = secrets.token_hex(8)                # the message formats of the providers differ: a switch starts a new conversation
+        sess = _sessions[session_id] = {"messages": [], "at": time.time(), "provider": provider, "mode": mode}
+    sid = session_id
     if len(sess["messages"]) >= MAX_MESSAGES:
         raise ValueError("this conversation is too long - start a new one")
     sess["at"] = time.time()
     scopes = dict(_settings["scopes"])
-    tools = _tools_for(scopes)
-    model = _settings["model"]
+    tools = _tools_for(scopes, mode)
+    if not tools:
+        raise ValueError("none of the data groups this view can read is allowed in the settings")
+    model = _settings["openai_model"] if provider == "openai" else _settings["model"]
+    system = SYSTEM
+    if mode == "central":
+        from services import ai_central
+        system = ai_central.SYSTEM
     msgs: List[Any] = sess["messages"]
     start_len = len(msgs)
     msgs.append({"role": "user", "content": message})
     used: List[dict] = []
     usage = {"in": 0, "out": 0}
-    answer = ""
-    err: Optional[str] = None
+
+    async def run(name, args):
+        return await _run_tool(name, args, scopes, mode, ctx)
+
     try:
-        client = _make_client()
-        for _ in range(MAX_STEPS):
-            params = {"model": model, "max_tokens": MAX_TOKENS, "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
-                      "tools": tools, "messages": msgs, "output_config": {"effort": _settings["effort"]}}
-            resp = await _create(client, params)
-            u = getattr(resp, "usage", None)
-            if u is not None:
-                usage["in"] += int(getattr(u, "input_tokens", 0) or 0) + int(getattr(u, "cache_read_input_tokens", 0) or 0)
-                usage["out"] += int(getattr(u, "output_tokens", 0) or 0)
-            if getattr(resp, "stop_reason", None) == "refusal":
-                cat = getattr(getattr(resp, "stop_details", None), "category", None)
-                answer = f"The model declined this question{f' ({cat})' if cat else ''}. Try to ask it differently."
-                del msgs[start_len:]                 # a declined turn is not kept in the conversation
-                break
-            msgs.append({"role": "assistant", "content": resp.content})
-            calls = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
-            if getattr(resp, "stop_reason", None) == "tool_use" and calls:
-                results = await asyncio.gather(*[_run_tool(c.name, c.input, scopes) for c in calls])
-                for c in calls:
-                    used.append({"name": c.name, "input": clean(c.input)})
-                msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": c.id, "content": r} for c, r in zip(calls, results)]})
-                continue
-            answer = _text_of(resp.content)
-            if getattr(resp, "stop_reason", None) == "max_tokens":
-                answer += "\n\n[The answer was cut: ask for less at a time.]"
-            break
-        else:
-            answer = "I could not finish within the allowed number of steps. Ask a narrower question."
+        turn = _turn_openai if provider == "openai" else _turn_anthropic
+        answer = await turn(msgs, start_len, system, tools, run, used, usage)
     except Exception as e:
         del msgs[start_len:]
         err = f"{type(e).__name__}: {e}"
         name = type(e).__name__
         _record(username, message, [u["name"] for u in used], usage, model, err)
+        if isinstance(e, RuntimeError):
+            raise
         if name == "AuthenticationError":
             raise RuntimeError("the API key was refused by Anthropic")
         if name == "PermissionDeniedError":
