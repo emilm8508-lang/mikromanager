@@ -508,23 +508,110 @@ def _persist_check_result(host_id: int, ok: bool, count: Optional[int] = None,
 # this indirection exists (double-hop). {job_id} is substituted per run so
 # concurrent jobs on the same host (shouldn't normally happen, but the
 # semaphore caps at 2 across ALL hosts, not per host) never collide.
+# It reports what happened, not only the final code: seen live, "install ResultCode=None / 4 / 5" with nothing more said which update
+# failed or why. Stage = where it stopped (reboot_pending, busy, search, nothing, download_failed, install, done); for every update that
+# did not download or install its KB, title and HRESULT; an exception's message and HRESULT. Before installing it checks whether the host
+# is waiting for a restart (the usual cause of 4 / 5) and whether Windows is installing something itself right now.
 _INSTALL_TASK_SCRIPT = r"""
-$session = New-Object -ComObject Microsoft.Update.Session
-$searcher = $session.CreateUpdateSearcher()
-$result = $searcher.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
-$toDownload = New-Object -ComObject Microsoft.Update.UpdateColl
-foreach ($u in $result.Updates) {{ if (!$u.EulaAccepted) {{ $u.AcceptEula() }}; $toDownload.Add($u) | Out-Null }}
-$downloader = $session.CreateUpdateDownloader()
-$downloader.Updates = $toDownload
-$downloader.Download() | Out-Null
-$toInstall = New-Object -ComObject Microsoft.Update.UpdateColl
-foreach ($u in $result.Updates) {{ if ($u.IsDownloaded) {{ $toInstall.Add($u) | Out-Null }} }}
-$installer = $session.CreateUpdateInstaller()
-$installer.Updates = $toInstall
-$installResult = $installer.Install()
-[PSCustomObject]@{{ ResultCode = $installResult.ResultCode; RebootRequired = $installResult.RebootRequired; Count = $toInstall.Count }} |
-    ConvertTo-Json -Compress | Set-Content -Path "C:\Windows\Temp\mm_winupdate_{job_id}_result.json"
+$out = [ordered]@{{ Stage = "start"; Failures = @() }}
+function Kb($u) {{ ($u.KBArticleIDs | ForEach-Object {{ "KB$_" }}) -join "," }}
+function Hex($n) {{ '0x{{0:X8}}' -f $n }}
+try {{
+    $pending = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
+               (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
+    try {{ $pending = $pending -or (New-Object -ComObject Microsoft.Update.SystemInfo).RebootRequired }} catch {{ }}
+    if ($pending) {{ $out.Stage = "reboot_pending"; return }}
+    $session = New-Object -ComObject Microsoft.Update.Session
+    $installer = $session.CreateUpdateInstaller()
+    if ($installer.IsBusy) {{ $out.Stage = "busy"; return }}
+    $out.Stage = "search"
+    $result = $session.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
+    $out.Found = $result.Updates.Count
+    if ($result.Updates.Count -eq 0) {{ $out.Stage = "nothing"; return }}
+    $toDownload = New-Object -ComObject Microsoft.Update.UpdateColl
+    foreach ($u in $result.Updates) {{ if (!$u.EulaAccepted) {{ $u.AcceptEula() }}; $toDownload.Add($u) | Out-Null }}
+    $out.Stage = "download"
+    $downloader = $session.CreateUpdateDownloader()
+    $downloader.Updates = $toDownload
+    $dl = $downloader.Download()
+    $out.DownloadCode = $dl.ResultCode
+    for ($i = 0; $i -lt $toDownload.Count; $i++) {{
+        $r = $dl.GetUpdateResult($i)
+        if ($r.ResultCode -ne 2 -and $r.ResultCode -ne 3) {{ $out.Failures += [ordered]@{{ Step = "download"; Kb = (Kb $toDownload.Item($i)); Title = $toDownload.Item($i).Title; Code = $r.ResultCode; HResult = (Hex $r.HResult) }} }}
+    }}
+    $toInstall = New-Object -ComObject Microsoft.Update.UpdateColl
+    foreach ($u in $result.Updates) {{ if ($u.IsDownloaded) {{ $toInstall.Add($u) | Out-Null }} }}
+    $out.Count = $toInstall.Count
+    if ($toInstall.Count -eq 0) {{ $out.Stage = "download_failed"; return }}
+    if ($installer.IsBusy) {{ $out.Stage = "busy"; return }}
+    $out.Stage = "install"
+    $installer.Updates = $toInstall
+    $ir = $installer.Install()
+    $out.ResultCode = $ir.ResultCode
+    $out.RebootRequired = $ir.RebootRequired
+    for ($i = 0; $i -lt $toInstall.Count; $i++) {{
+        $r = $ir.GetUpdateResult($i)
+        if ($r.ResultCode -ne 2 -and $r.ResultCode -ne 3) {{ $out.Failures += [ordered]@{{ Step = "install"; Kb = (Kb $toInstall.Item($i)); Title = $toInstall.Item($i).Title; Code = $r.ResultCode; HResult = (Hex $r.HResult) }} }}
+    }}
+    $out.Stage = "done"
+}} catch {{
+    $out.Error = $_.Exception.Message
+    $out.HResult = Hex $_.Exception.HResult
+}} finally {{
+    [PSCustomObject]$out | ConvertTo-Json -Compress -Depth 4 | Set-Content -Path "C:\Windows\Temp\mm_winupdate_{job_id}_result.json"
+}}
 """
+
+# The Windows Update error codes seen most, in words (the rest are shown as the hex code).
+WU_ERRORS = {
+    "0x80070070": "not enough disk space", "0x80240024": "no updates to install", "0x80240016": "another installation is in progress",
+    "0x8024001E": "the Windows Update service is shutting down (restart in progress)", "0x80240022": "every update in the batch failed",
+    "0x8024402C": "cannot reach the update server (proxy / name resolution)", "0x80072EE2": "the update server did not answer in time",
+    "0x80072EFD": "cannot connect to the update server", "0x80072F8F": "TLS / clock problem talking to the update server",
+    "0x8024401C": "the WSUS server did not answer in time", "0x80244019": "the update was not found on the server (WSUS)",
+    "0x800F0922": "a servicing / boot partition problem (often too little space on the system reserved partition)",
+    "0x800F081F": "the component store is damaged (DISM /Online /Cleanup-Image /RestoreHealth)", "0x80073712": "the component store is damaged (DISM /RestoreHealth)",
+    "0x8024200B": "the update handler failed (often a pending restart)", "0x80070005": "access denied", "0x8007000D": "the update file is damaged (clear SoftwareDistribution)",
+    "0x80246007": "the update was not downloaded", "0x80240017": "the update is not applicable to this system",
+}
+_CODE_WORDS = {2: "succeeded", 3: "succeeded with errors", 4: "failed", 5: "aborted"}
+
+
+def describe_install_result(parsed: dict) -> dict:
+    """The JSON the install task wrote -> {"ok", "result_code", "reboot_required", "count", "error"} with an error a person can act on."""
+    stage = parsed.get("Stage")
+    code = parsed.get("ResultCode")
+    fails = parsed.get("Failures") or []
+    if isinstance(fails, dict):                                     # ConvertTo-Json writes a one-item array as the object itself
+        fails = [fails]
+
+    def explain(f: dict) -> str:
+        hx = str(f.get("HResult") or "")
+        words = WU_ERRORS.get(hx.upper().replace("0X", "0x"))
+        return f"{f.get('Kb') or (f.get('Title') or '?')[:60]}: {hx}" + (f" ({words})" if words else "")
+
+    base = {"result_code": code, "reboot_required": bool(parsed.get("RebootRequired")), "count": parsed.get("Count")}
+    if parsed.get("Error"):
+        hx = str(parsed.get("HResult") or "")
+        words = WU_ERRORS.get(hx.upper().replace("0X", "0x"))
+        return {**base, "ok": False, "error": f"Windows Update error {hx}{f' ({words})' if words else ''} at the {stage or '?'} step: {str(parsed['Error'])[:200]}"}
+    if stage == "reboot_pending":
+        return {**base, "ok": False, "reboot_required": True, "error": "the host is waiting for a restart after earlier updates - restart it, then install again"}
+    if stage == "busy":
+        return {**base, "ok": False, "error": "Windows is installing updates itself right now (automatic updates or another tool) - try again later"}
+    if stage == "nothing":
+        return {**base, "ok": True, "count": 0, "error": None}
+    if stage == "download_failed":
+        detail = "; ".join(explain(f) for f in fails[:5]) or f"download result code {parsed.get('DownloadCode')}"
+        return {**base, "ok": False, "error": f"none of the {parsed.get('Found')} updates could be downloaded: {detail}"}
+    if stage is None and "ResultCode" in parsed:                    # a result file of an agent before this change
+        ok = code in (2, 3)
+        return {**base, "ok": ok, "error": None if ok else f"install ResultCode={code}"}
+    if code in (2, 3):
+        return {**base, "ok": True, "error": None}
+    detail = "; ".join(explain(f) for f in fails[:5])
+    what = _CODE_WORDS.get(code, str(code))
+    return {**base, "ok": False, "error": f"install {what} (ResultCode={code})" + (f": {detail}" if detail else f" at the {stage or '?'} step")}
 
 
 def _install_updates_sync(ip: str, port: int, username: str, password: str, domain: Optional[str],
@@ -627,11 +714,8 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
             parsed = json.loads(raw)
         except Exception as e:
             return {"ok": False, "error": f"couldn't parse install result: {e}"}
-        # ResultCode: 2 = succeeded, 3 = succeeded with errors, 4 = failed, 5 = cancelled
-        code = parsed.get("ResultCode")
-        ok = code in (2, 3)
-        return {"ok": ok, "result_code": code, "reboot_required": bool(parsed.get("RebootRequired")),
-                "count": parsed.get("Count"), "error": None if ok else f"install ResultCode={code}"}
+        # ResultCode: 2 = succeeded, 3 = succeeded with errors, 4 = failed, 5 = aborted; the stage and the failing updates say why
+        return describe_install_result(parsed)
     finally:
         try:
             session.run_cmd("schtasks", ["/Delete", "/TN", task_name, "/F"])
@@ -774,6 +858,12 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
             return _fail_job(host_id, ip, f"install failed: {e}")
 
         if not result["ok"]:
+            if result.get("reboot_required"):                    # it stopped because a restart is pending: show it on the host
+                with SessionLocal() as db:
+                    host = db.get(WindowsHost, host_id)
+                    if host:
+                        host.reboot_required = True
+                        db.commit()
             return _fail_job(host_id, ip, result["error"])
 
         now = datetime.utcnow()
