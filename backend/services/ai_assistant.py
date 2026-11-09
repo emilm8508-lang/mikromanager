@@ -467,7 +467,10 @@ async def _turn_anthropic(msgs: List[Any], start_len: int, system: str, tools: L
     return "I could not finish within the allowed number of steps. Ask a narrower question."
 
 
-_openai_effort_ok = [True]
+# What "reasoning_effort" a model takes together with function tools on Chat Completions, learned per model on the first refusal:
+# the setting itself, else "none", else nothing. Seen live: gpt-5.6-sol refuses function tools with reasoning_effort unless it is
+# "none" ("Function tools with reasoning_effort are not supported ... set reasoning_effort to 'none'"), and leaving it out does not help.
+_openai_effort_by_model: Dict[str, Optional[str]] = {}
 
 
 async def _openai_post(body: dict) -> dict:
@@ -509,15 +512,27 @@ class _EffortUnsupported(Exception):
 async def _turn_openai(msgs: List[Any], start_len: int, system: str, tools: List[dict], run, used: List[dict], usage: dict) -> str:
     fn_tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]}} for t in tools]
     for _ in range(MAX_STEPS):
-        body = {"model": _settings["openai_model"], "messages": [{"role": "system", "content": system}] + msgs, "tools": fn_tools, "max_completion_tokens": MAX_TOKENS}
-        if _openai_effort_ok[0]:
-            body["reasoning_effort"] = _settings["effort"]
-        try:
-            data = await _openai_post(body)
-        except _EffortUnsupported:
-            _openai_effort_ok[0] = False             # a model without reasoning: remembered, asked again without it
-            body.pop("reasoning_effort", None)
-            data = await _openai_post(body)
+        model = _settings["openai_model"]
+        body = {"model": model, "messages": [{"role": "system", "content": system}] + msgs, "tools": fn_tools, "max_completion_tokens": MAX_TOKENS}
+        if model in _openai_effort_by_model:
+            known = _openai_effort_by_model[model]
+            tries = [known if known in ("none", None) else _settings["effort"]]    # a model that takes the setting gets the current one
+        else:
+            tries = [_settings["effort"], "none", None]
+        data = None
+        for i, effort in enumerate(tries):
+            if effort is None:
+                body.pop("reasoning_effort", None)
+            else:
+                body["reasoning_effort"] = effort
+            try:
+                data = await _openai_post(body)
+                _openai_effort_by_model[model] = effort      # what worked is used from now on for this model
+                break
+            except _EffortUnsupported as e:
+                if i == len(tries) - 1:
+                    _openai_effort_by_model.pop(model, None)
+                    raise RuntimeError(f"OpenAI refused the request with this model and tools: {str(e)[:200]}")
         u = data.get("usage") or {}
         usage["in"] += int(u.get("prompt_tokens") or 0)
         usage["out"] += int(u.get("completion_tokens") or 0)
