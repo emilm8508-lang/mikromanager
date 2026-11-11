@@ -3766,7 +3766,8 @@
             "redfish": "Redfish (red)",
             "local_ism": "local (iDRAC Service Module)",
             "local_racadm": "local (RACADM)",
-            "local_omsa": "local (OMSA)"
+            "local_omsa": "local (OMSA)",
+            "local_redfish": "local (Redfish vía host)"
         },
         "component": {
             "system": "General (sistema)",

@@ -64,6 +64,26 @@ def _save_state(state: dict) -> None:
         print(f"[dell_monitor] state persist error: {e}")
 
 
+def _relay_target(idrac_ip: Optional[str], idrac_port: Optional[int], credential_id: Optional[int],
+                  host_header: Optional[str]) -> dict:
+    """Where and as whom the companion Windows host queries Redfish for dell_local's last method:
+    the iDRAC address on its internal USB link (the entered one when it is a 169.254.x.x address,
+    else Dell's fixed 169.254.1.1) with the server's iDRAC credential, Dell's default without one."""
+    username, password = "root", "calvin"
+    if credential_id:
+        with SessionLocal() as db:
+            cred = db.get(Credential, credential_id)
+            if cred:
+                try:
+                    username, password = cred.username, decrypt(cred.password_enc)
+                except Exception:
+                    pass
+    link_local = bool(idrac_ip and idrac_ip.startswith("169.254."))
+    return {"address": idrac_ip if link_local else dell_local.RELAY_DEFAULT_ADDRESS,
+            "port": (idrac_port or 443) if link_local else 443,
+            "username": username, "password": password, "host_header": host_header}
+
+
 async def check_server(server_id: int) -> dict:
     """Runs one server's health check via whichever method(s) apply, and
     persists the result. Prefers the network Redfish path when idrac_ip is
@@ -134,7 +154,8 @@ async def check_server(server_id: int) -> dict:
     # HP/Fujitsu/Lenovo isn't built yet — network Redfish only, for now).
     if (not result or not result.get("ok")) and windows_host_id and vendor == "dell":
         try:
-            local_health = await dell_local.collect_local_health(windows_host_id)
+            local_health = await dell_local.collect_local_health(
+                windows_host_id, _relay_target(idrac_ip, idrac_port, credential_id, host_header))
         except Exception as e:
             local_health = {"ok": False, "error": f"{type(e).__name__}: {e}"}
         if local_health.get("ok"):

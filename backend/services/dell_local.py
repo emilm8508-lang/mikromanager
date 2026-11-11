@@ -553,9 +553,150 @@ def _parse_omsa(chassis: str, summary: str) -> dict:
     }
 
 
+# ── Method 4: Redfish relayed through the host ──────────────────────────────
+
+# Seen live: an R-series server whose iDRAC has no address in the network (0.0.0.0, no active NIC)
+# and no iSM WMI namespace ("Invalid namespace"), no racadm and no omreport on the host - yet its web
+# UI opens on that host at https://idrac.local, i.e. over the "OS to iDRAC Pass-through" USB NIC
+# (iDRAC 169.254.1.1, the host 169.254.1.2). The agent cannot reach that address, but the host can:
+# this runs the GETs there (PowerShell over WinRM) and hands the answers to idrac_client, so the
+# result is the same as Redfish over the network (health, components, event log, details).
+# idrac_client asks for one path at a time and each answer decides the next paths, so the paths are
+# fetched in rounds: run collect_health against what is known, collect the paths it missed, fetch
+# those in one WinRM call, again - about one round per level of the Redfish tree.
+# The iDRAC credential travels inside the script (base64, over the WinRM session); a host with
+# PowerShell script block logging on would log it - same as racadm with -u/-p would.
+RELAY_DEFAULT_ADDRESS = "169.254.1.1"
+_RELAY_MAX_ROUNDS = 10
+_RELAY_MAX_PATHS = 80
+
+_RELAY_SCRIPT = r"""
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls
+[Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+$cfg = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('@@CFG@@')) | ConvertFrom-Json
+$auth = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($cfg.u + ':' + $cfg.p))
+$i = 0
+foreach ($p in @($cfg.paths)) {
+    $code = 0; $body = ''
+    try {
+        $req = [Net.HttpWebRequest]::Create($cfg.base + $p)
+        $req.Method = 'GET'; $req.Accept = 'application/json'
+        $req.Timeout = 15000; $req.ReadWriteTimeout = 20000
+        $req.Headers.Add('Authorization', $auth)
+        if ($cfg.hh) { $req.Host = $cfg.hh }
+        $resp = $req.GetResponse()
+        $code = [int]$resp.StatusCode
+        $sr = New-Object IO.StreamReader($resp.GetResponseStream(), [Text.Encoding]::UTF8)
+        $body = $sr.ReadToEnd(); $resp.Close()
+    } catch {
+        $ex = $_.Exception
+        while ($ex.InnerException -and -not ($ex -is [Net.WebException])) { $ex = $ex.InnerException }
+        if (($ex -is [Net.WebException]) -and $ex.Response) { $code = [int]$ex.Response.StatusCode; $ex.Response.Close() }
+        else { $code = -1; $body = $ex.Message }
+    }
+    '@@R@@' + $i + '@@' + $code + '@@' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$body))
+    $i++
+}
+"""
+
+
+def _relay_get_sync(ip: str, port: int, username: str, password: str, domain: Optional[str],
+                    base: str, r_user: str, r_pass: str, host_header: Optional[str], paths: list) -> dict:
+    """Blocking. GET every path on the host -> {"ok": True, "results": {path: (code, text)}};
+    code -1 = no HTTP answer (text = the reason)."""
+    import base64
+    import winrm
+    cfg = base64.b64encode(json.dumps({"base": base, "u": r_user, "p": r_pass, "hh": host_header or "",
+                                       "paths": list(paths)}).encode()).decode()
+    user = vs._ntlm_user(username, domain)
+    scheme = "https" if port == 5986 else "http"
+    session = winrm.Session(
+        f"{scheme}://{ip}:{port}/wsman", auth=(user, password), transport="ntlm",
+        server_cert_validation="ignore", read_timeout_sec=170, operation_timeout_sec=160,
+    )
+    try:
+        result = vs._run_ps_safe(session, _RELAY_SCRIPT.replace("@@CFG@@", cfg))
+        out = result.std_out.decode("utf-8", errors="ignore")
+        results = {}
+        for line in out.splitlines():
+            if not line.startswith("@@R@@"):
+                continue
+            _, idx, code, b64 = _split_relay(line)
+            try:
+                results[paths[int(idx)]] = (int(code), base64.b64decode(b64).decode("utf-8", errors="ignore"))
+            except (ValueError, IndexError):
+                continue
+        if not results:
+            err = result.std_err.decode("utf-8", errors="ignore").strip()
+            return {"ok": False, "error": (err[-300:] or "no answer from the script on the host")}
+        return {"ok": True, "results": results}
+    finally:
+        vs._close_winrm(session)
+
+
+def _split_relay(line: str) -> tuple:
+    """"@@R@@<i>@@<code>@@<base64>" -> (_, i, code, base64)."""
+    rest = line.strip()[len("@@R@@"):]
+    idx, code, b64 = (rest.split("@@", 2) + ["", ""])[:3]
+    return None, idx, code, b64
+
+
+async def _collect_via_host_redfish(ip: str, port: int, username: str, password: str, domain: Optional[str],
+                                    address: str, idrac_port: int, r_user: str, r_pass: str,
+                                    host_header: Optional[str]) -> dict:
+    from services import idrac_client
+    base = f"https://{address}:{idrac_port}" if idrac_port and idrac_port != 443 else f"https://{address}"
+    cache: dict = {}
+    codes: dict = {}
+    loop = asyncio.get_event_loop()
+    health: dict = {"ok": False, "error": "no answer"}
+    for _ in range(_RELAY_MAX_ROUNDS):
+        misses: list = []
+
+        async def fetch(path: str):
+            if path in cache:
+                return cache[path]
+            if path not in misses:
+                misses.append(path)
+            return None
+
+        token = idrac_client._fetcher.set(fetch)
+        try:
+            health = await idrac_client.collect_health(base, r_user, r_pass, host_header)
+        finally:
+            idrac_client._fetcher.reset(token)
+        if not misses:
+            break
+        got = await asyncio.wait_for(loop.run_in_executor(
+            vs._EXECUTOR, _relay_get_sync, ip, port, username, password, domain,
+            base, r_user, r_pass, host_header, misses[:_RELAY_MAX_PATHS]), timeout=180)
+        if not got.get("ok"):
+            return {"ok": False, "error": got.get("error")}
+        for path, (code, text) in got["results"].items():
+            codes[path] = (code, text)
+            data = None
+            if code == 200:
+                try:
+                    data = json.loads(text)
+                except ValueError:
+                    data = None
+            cache[path] = data if isinstance(data, dict) else None
+        first = codes.get("/redfish/v1/Systems")
+        if first and first[0] != 200:                    # nothing else will work: say why
+            code, text = first
+            if code == 401:
+                return {"ok": False, "error": f"iDRAC at {address} (reached from the host) refused the credential - "
+                                               f"assign the right iDRAC account to this server"}
+            if code == -1:
+                return {"ok": False, "error": f"the host cannot reach iDRAC at {address}: {text[:200]} - "
+                                               f"is 'OS to iDRAC Pass-through' (USB NIC) on?"}
+            return {"ok": False, "error": f"iDRAC at {address} (reached from the host) answered HTTP {code}"}
+    return health
+
+
 # ── Orchestration ────────────────────────────────────────────────────────
 
-async def collect_local_health(host_id: int) -> dict:
+async def collect_local_health(host_id: int, redfish: Optional[dict] = None) -> dict:
     """Tries iSM, then RACADM, then OMSA (omreport) — in that order,
     against the WindowsHost identified by host_id — using that SPECIFIC
     host's own resolved credential (its own per-host override if one is
@@ -667,8 +808,25 @@ async def collect_local_health(host_id: int) -> dict:
     # class name (or racadm.exe's/omreport.exe's path), not absence of
     # the tool. Without the actual per-method error there was no way to
     # tell those apart.
+    # Method 4: Redfish through the host (see _collect_via_host_redfish) - last, so the servers already
+    # read by iSM / RACADM / OMSA keep their path.
+    relay_error = "no iDRAC credential"
+    if redfish:
+        try:
+            relay = await asyncio.wait_for(_collect_via_host_redfish(
+                ip, port, username, password, domain, redfish["address"], redfish.get("port") or 443,
+                redfish["username"], redfish["password"], redfish.get("host_header")), timeout=600)
+        except asyncio.TimeoutError:
+            relay = {"ok": False, "error": "no answer in time"}
+        except Exception as e:
+            relay = {"ok": False, "error": f"{type(e).__name__}: {e}"[:300]}
+        if relay.get("ok"):
+            return {**relay, "access_method": "local_redfish"}
+        relay_error = relay.get("error") or "unknown error"
+
     return {"ok": False, "error": (
         f"iSM: {ism.get('error', 'unknown error')} | "
         f"RACADM: {racadm.get('error', 'unknown error')} | "
-        f"OMSA: {omsa.get('error', 'unknown error')}"
+        f"OMSA: {omsa.get('error', 'unknown error')} | "
+        f"Redfish via host: {relay_error}"
     )}

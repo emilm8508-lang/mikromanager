@@ -3766,7 +3766,8 @@
             "redfish": "Redfish (мережа)",
             "local_ism": "локально (iDRAC Service Module)",
             "local_racadm": "локально (RACADM)",
-            "local_omsa": "локально (OMSA)"
+            "local_omsa": "локально (OMSA)",
+            "local_redfish": "локально (Redfish через хост)"
         },
         "component": {
             "system": "Загальний (система)",

@@ -2549,7 +2549,7 @@ export interface DellServerOut {
   redfish_host_header: string | null
   windows_host_id: number | null
   credential_id: number | null
-  access_method: 'redfish' | 'local_ism' | 'local_racadm' | 'local_omsa' | null
+  access_method: 'redfish' | 'local_ism' | 'local_racadm' | 'local_omsa' | 'local_redfish' | null
   last_check_at: string | null
   last_status: 'ok' | 'error' | null
   last_error: string | null

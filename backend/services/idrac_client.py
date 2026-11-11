@@ -40,6 +40,10 @@ REQUEST_TIMEOUT_SEC = 10
 # there, read in _get(), so the per-component helpers keep their
 # signatures. See DellServer.redfish_host_header for why it exists.
 _host_header: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("_host_header", default=None)
+# Another way to GET a path (async path -> dict or None) for one collect_health() run - set by
+# dell_local for Redfish relayed through the server's own Windows host, when iDRAC has no address
+# in the network and answers only on its internal USB link (169.254.1.1) to that host.
+_fetcher: contextvars.ContextVar = contextvars.ContextVar("_fetcher", default=None)
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -55,6 +59,9 @@ async def _get(base_url: str, path: str, username: str, password: str) -> Option
     expected outcome here, not an error worth surfacing per-call —
     collect_health() below reports the overall failure if EVERYTHING
     fails)."""
+    fetcher = _fetcher.get()
+    if fetcher is not None:
+        return await fetcher(path)
     url = f"{base_url.rstrip('/')}{path}"
     headers = {"Accept": "application/json"}
     if _host_header.get():
