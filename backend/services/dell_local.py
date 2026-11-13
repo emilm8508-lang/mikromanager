@@ -569,6 +569,7 @@ def _parse_omsa(chassis: str, summary: str) -> dict:
 RELAY_DEFAULT_ADDRESS = "169.254.1.1"
 _RELAY_MAX_ROUNDS = 10
 _RELAY_MAX_PATHS = 80
+_RELAY_MAX_CMD = 8000                    # cmd.exe's limit is 8191 characters
 
 _RELAY_SCRIPT = r"""
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls
@@ -606,8 +607,7 @@ def _relay_get_sync(ip: str, port: int, username: str, password: str, domain: Op
     code -1 = no HTTP answer (text = the reason)."""
     import base64
     import winrm
-    cfg = base64.b64encode(json.dumps({"base": base, "u": r_user, "p": r_pass, "hh": host_header or "",
-                                       "paths": list(paths)}).encode()).decode()
+    cfg = _relay_cfg(base, r_user, r_pass, host_header, paths)
     user = vs._ntlm_user(username, domain)
     scheme = "https" if port == 5986 else "http"
     session = winrm.Session(
@@ -632,6 +632,30 @@ def _relay_get_sync(ip: str, port: int, username: str, password: str, domain: Op
         return {"ok": True, "results": results}
     finally:
         vs._close_winrm(session)
+
+
+def _relay_cfg(base: str, r_user: str, r_pass: str, host_header: Optional[str], paths: list) -> str:
+    import base64
+    return base64.b64encode(json.dumps({"base": base, "u": r_user, "p": r_pass, "hh": host_header or "",
+                                        "paths": list(paths)}).encode()).decode()
+
+
+def _relay_batches(base: str, r_user: str, r_pass: str, host_header: Optional[str], paths: list) -> list:
+    """The paths split so that each call fits Windows' command line: pywinrm sends the script as
+    "powershell -encodedcommand <base64 of UTF-16>", and cmd.exe refuses more than 8191 characters
+    ("The command line is too long." - seen live on a real iDRAC's deeper rounds)."""
+    def size(batch):
+        script = vs._SUPPRESS_PROGRESS + _RELAY_SCRIPT.replace("@@CFG@@", _relay_cfg(base, r_user, r_pass, host_header, batch))
+        return 30 + (len(script.encode("utf-16-le")) + 2) // 3 * 4
+    batches, cur = [], []
+    for path in paths:
+        if cur and size(cur + [path]) > _RELAY_MAX_CMD:
+            batches.append(cur)
+            cur = []
+        cur.append(path)
+    if cur:
+        batches.append(cur)
+    return [b for b in batches if size(b) <= _RELAY_MAX_CMD]   # a single path longer than the limit is skipped
 
 
 def _split_relay(line: str) -> tuple:
@@ -667,12 +691,19 @@ async def _collect_via_host_redfish(ip: str, port: int, username: str, password:
             idrac_client._fetcher.reset(token)
         if not misses:
             break
-        got = await asyncio.wait_for(loop.run_in_executor(
-            vs._EXECUTOR, _relay_get_sync, ip, port, username, password, domain,
-            base, r_user, r_pass, host_header, misses[:_RELAY_MAX_PATHS]), timeout=180)
-        if not got.get("ok"):
-            return {"ok": False, "error": got.get("error")}
-        for path, (code, text) in got["results"].items():
+        results: dict = {}
+        batches = _relay_batches(base, r_user, r_pass, host_header, misses[:_RELAY_MAX_PATHS])
+        for path in misses[:_RELAY_MAX_PATHS]:
+            if not any(path in b for b in batches):
+                results[path] = (414, "")                # too long to send at all: treated as absent
+        for batch in batches:
+            got = await asyncio.wait_for(loop.run_in_executor(
+                vs._EXECUTOR, _relay_get_sync, ip, port, username, password, domain,
+                base, r_user, r_pass, host_header, batch), timeout=180)
+            if not got.get("ok"):
+                return {"ok": False, "error": got.get("error")}
+            results.update(got["results"])
+        for path, (code, text) in results.items():
             codes[path] = (code, text)
             data = None
             if code == 200:
