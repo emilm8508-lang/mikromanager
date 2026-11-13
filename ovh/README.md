@@ -83,3 +83,19 @@ Na laptopie w MikroManager → **Centralny** → **Konfiguracja viewer**:
 ## Logi i debug
 
 W `ingest.php` możesz odkomentować `error_log()` żeby zobaczyć ruch w logach OVH.
+
+## Konektor AI (MCP) — Centrala w Twoim Claude / ChatGPT
+
+Pliki: `mcp.php` (narzędzia, tylko odczyt), `oauth.php` (logowanie i tokeny), `mcp_lib.php` (wspólny kod; zablokowany w `.htaccess`).
+Wgraj je obok `api.php` razem z nowym `.htaccess`. Tabele `mcp_*` tworzą się same przy pierwszym użyciu.
+
+- Adres konektora: `https://twojadomena.pl/<katalog>/mcp.php` — pokazuje go też Centrala: Asystent AI → Konektor (MCP).
+- Logowanie: konto użytkownika Centrali (hasło + 2FA, jeśli włączone); konektor widzi tylko klientów tego konta. Wspólne hasło podglądu nie działa.
+- Sprawdzenie po wgraniu (powinien wrócić JSON z `"issuer"`):
+  `curl https://twojadomena.pl/<katalog>/oauth.php/.well-known/openid-configuration`
+  Jeśli wraca 404, hosting nie przekazuje ścieżki po nazwie pliku (PATH_INFO) — dopisz `AcceptPathInfo On` do `.htaccess` (jeśli hosting pozwala) albo zgłoś to.
+- Opcje w `config.php` (wszystkie opcjonalne):
+  - `'mcp_enabled' => false` — wyłącza konektor;
+  - `'mcp_redirect_hosts' => ['claude.ai', 'claude.com', 'chatgpt.com', 'chat.openai.com']` — dokąd aplikacja może wrócić po zgodzie (localhost jest zawsze dozwolony, z ostrzeżeniem na stronie zgody);
+  - `'public_base_url' => 'https://twojadomena.pl/<katalog>'` — gdy adres liczony z żądania jest zły (np. za proxy).
+- Dostęp odbiera się w Centrali (lista połączonych aplikacji) — tokeny są unieważniane od razu.

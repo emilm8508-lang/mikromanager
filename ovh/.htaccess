@@ -31,6 +31,17 @@
     </IfModule>
 </FilesMatch>
 
+# Shared code of the MCP connector - only included by mcp.php / oauth.php / api.php, never opened directly.
+<Files "mcp_lib.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</Files>
+
 <Files "config.php">
     <IfModule mod_authz_core.c>
         Require all denied

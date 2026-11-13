@@ -3085,6 +3085,45 @@ try {
             echo json_encode(['ok' => true, 'acked' => $done]);
             break;
 
+        case 'mcp_connections':
+        case 'mcp_revoke':
+            // The AI connector (mcp.php / oauth.php): the apps connected to Central with a person's account, and taking that back.
+            // Everyone sees and revokes their own; a global admin (or the shared viewer password) everyone's.
+            require_once __DIR__ . '/mcp_lib.php';
+            mcp_schema($pdo, $config);
+            $all = $identity['allowed_tenants'] === null && $identity['role'] === 'admin';
+            if ($action === 'mcp_revoke') {
+                $family = (string)($_GET['id'] ?? '');
+                $st = $pdo->prepare('SELECT user_id FROM mcp_tokens WHERE family = ? LIMIT 1');
+                $st->execute([$family]);
+                $owner = $st->fetchColumn();
+                if ($owner === false || (!$all && (int)$owner !== (int)($identity['id'] ?? -1))) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'not found']);
+                    break;
+                }
+                $pdo->prepare('UPDATE mcp_tokens SET revoked = 1 WHERE family = ?')->execute([$family]);
+                echo json_encode(['ok' => true]);
+                break;
+            }
+            $sql = "SELECT t.family, t.client_id, MIN(t.created) AS since, MAX(t.last_used) AS last_used, MAX(t.exp) AS until_ts,
+                           c.name AS client_name, c.redirect_uris, u.username
+                    FROM mcp_tokens t LEFT JOIN mcp_clients c ON c.client_id = t.client_id LEFT JOIN users u ON u.id = t.user_id
+                    WHERE t.revoked = 0 AND t.exp > ?" . ($all ? '' : ' AND t.user_id = ?') . "
+                    GROUP BY t.family, t.client_id, c.name, c.redirect_uris, u.username ORDER BY last_used DESC";
+            $st = $pdo->prepare($sql);
+            $st->execute($all ? [time()] : [time(), (int)($identity['id'] ?? -1)]);
+            $rows = [];
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $uris = json_decode((string)($r['redirect_uris'] ?? '[]'), true) ?: [];
+                $rows[] = ['id' => $r['family'], 'client' => $r['client_name'] ?: null, 'host' => $uris ? parse_url((string)$uris[0], PHP_URL_HOST) : null,
+                           'user' => $r['username'], 'since' => date('c', (int)$r['since']),
+                           'last_used' => (int)$r['last_used'] ? date('c', (int)$r['last_used']) : null, 'until' => date('c', (int)$r['until_ts'])];
+            }
+            echo json_encode(['connections' => $rows, 'url' => mcp_resource_url($config), 'enabled' => ($config['mcp_enabled'] ?? true) !== false,
+                              'per_user_account' => isset($identity['id']) && $identity['id'] !== null]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'unknown action']);

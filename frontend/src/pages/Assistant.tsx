@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles, Send, Settings2, RotateCcw, Wrench } from 'lucide-react'
 import { aiApi, AiScope } from '../lib/api'
 import { cn } from '../lib/utils'
+import { McpConnector } from '../components/McpConnector'
 
 function errText(e: unknown): string {
   const x = e as { response?: { data?: { detail?: string } }; message?: string }
@@ -185,6 +186,7 @@ export function Assistant({ mode = 'agent' }: { mode?: 'agent' | 'central' }) {
         {msgs.length > 0 && <button onClick={reset} className="flex items-center gap-1.5 text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white hover:bg-slate-50"><RotateCcw size={14} /> {t('ai.newChat')}</button>}
       </div>
       <SettingsPanel open={settingsOpen} setOpen={setSettingsOpen} />
+      {central && <McpConnector />}
       {ready && (
         <div className="space-y-3">
           {msgs.length === 0 && (

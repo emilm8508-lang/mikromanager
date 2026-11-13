@@ -3227,6 +3227,13 @@ export interface CentralUsage {
   per_tenant: CentralUsageTenant[]
 }
 
+export interface McpConnections {
+  connections: Array<{ id: string; client: string | null; host: string | null; user: string | null; since: string; last_used: string | null; until: string }>
+  url: string
+  enabled: boolean
+  per_user_account: boolean
+}
+
 export const centralApi = {
   tenants: () => centralRequest<CentralTenantList>('tenants'),
   history: (tenant: string) =>
@@ -3284,6 +3291,9 @@ export const centralApi = {
     centralRequest<{ ok: boolean; queued_at: string }>('request_soar_decision', { tenant, action_id: String(actionId), decision }),
   requestAnomalyVerdict: (tenant: string, eventId: number, verdict: 'true' | 'false' | 'clear') =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_anomaly_verdict', { tenant, event_id: String(eventId), verdict }),
+  // The AI connector (ovh/mcp.php): apps connected with a Central account, and revoking one
+  mcpConnections: () => centralRequest<McpConnections>('mcp_connections'),
+  mcpRevoke: (id: string) => centralRequest<{ ok: boolean }>('mcp_revoke', { id }),
   requestSocUpdate: (tenant: string, alertId: number, status: string) =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_soc_update', { tenant, alert_id: String(alertId), status }),
   requestDeviceReboot: (tenant: string, deviceId: number, reason: string) =>

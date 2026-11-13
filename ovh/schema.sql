@@ -341,3 +341,21 @@ CREATE TABLE IF NOT EXISTS nvd_usage (
     usage_day DATE NOT NULL, tenant VARCHAR(64) NOT NULL, requests INT NOT NULL DEFAULT 0, upstream INT NOT NULL DEFAULT 0,
     PRIMARY KEY (usage_day, tenant)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AI connector (mcp.php / oauth.php, 3.57). Created automatically on first use by mcp_lib.php; listed here for reference.
+CREATE TABLE IF NOT EXISTS mcp_clients (
+    client_id VARCHAR(191) NOT NULL PRIMARY KEY,   -- mmc_... (registered) or the https URL of a client metadata document
+    secret_hash CHAR(64) NULL, name VARCHAR(200) NULL, redirect_uris TEXT NOT NULL, kind VARCHAR(8) NOT NULL,
+    created INT NOT NULL, fetched INT NOT NULL DEFAULT 0, last_used INT NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS mcp_codes (
+    code_hash CHAR(64) NOT NULL PRIMARY KEY, client_id VARCHAR(191) NOT NULL, user_id INT NOT NULL, redirect_uri TEXT NOT NULL,
+    challenge VARCHAR(128) NOT NULL, resource VARCHAR(255) NOT NULL, scope VARCHAR(64) NOT NULL, exp INT NOT NULL,
+    used INT NOT NULL DEFAULT 0, family CHAR(32) NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mcp_tokens (
+    token_hash CHAR(64) NOT NULL PRIMARY KEY,      -- sha256 of the token; the token itself is never stored
+    kind VARCHAR(8) NOT NULL, client_id VARCHAR(191) NOT NULL, user_id INT NOT NULL, resource VARCHAR(255) NOT NULL,
+    scope VARCHAR(64) NOT NULL, family CHAR(32) NOT NULL, exp INT NOT NULL, revoked INT NOT NULL DEFAULT 0,
+    created INT NOT NULL, last_used INT NOT NULL DEFAULT 0
+);
