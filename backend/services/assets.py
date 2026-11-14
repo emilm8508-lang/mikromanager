@@ -651,6 +651,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
         "location": a.location_override or locate(a.ip), "place": a.place, "attach": _attach(a.id), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [], "via": _jload(a.details, {}).get("_via"), "hops": _jload(a.details, {}).get("_hops"),
         "lifecycle": lc["status"], "lifecycle_product": lc["product"], "eol": lc["eol"],
+        "lifecycle_source": lc.get("source"), "esu_until": lc.get("esu_until"), "lifecycle_note": lc.get("note"),
         "vulns": _vuln_counts(fnd), "risk": round(_risk(fnd), 1),
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),
         "active": bool(last and now - last < timedelta(days=STALE_DAYS)),

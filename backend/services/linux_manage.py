@@ -1219,6 +1219,15 @@ def set_managed(host_id: int, managed: bool) -> dict:
         return _host_to_dict(host)
 
 
+def _days_to_full(key: str):
+    """The disk's forecast (services/metrics.py) - days until full, None when it is not filling."""
+    try:
+        from services import metrics
+        return metrics.trend(metrics.points(key, days=7), 100.0).get("days_to_limit")
+    except Exception:
+        return None
+
+
 def public_summary() -> list:
     """Redacted summary for the snapshot's plaintext envelope — ONLY
     managed=True hosts (an auto-discovered-but-not-opted-in host's
@@ -1245,7 +1254,8 @@ def public_summary() -> list:
                 "last_status": h.last_status,
                 "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
                 "cpu_used_pct": h.cpu_used_pct,
-                "disks": [{"mount_point": d.mount_point, "pct": d.pct, "total_bytes": d.total_bytes,
+                "reboot_required_since": h.reboot_required_since.isoformat() if getattr(h, "reboot_required_since", None) else None,
+                "disks": [{"mount_point": d.mount_point, "pct": d.pct, "days_to_full": _days_to_full(f"lin:{h.id}:disk:{d.mount_point}"), "total_bytes": d.total_bytes,
                            "used_bytes": d.used_bytes} for d in disks],
             })
         return result

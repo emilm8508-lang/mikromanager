@@ -103,13 +103,19 @@ def _parse_ism(raw: dict) -> dict:
     property — property NAME not confirmed live, so this checks a few
     plausible candidates defensively rather than assuming one specific
     key exists."""
-    health = None
-    for key in ("HealthState", "Status", "OperationalStatus", "PrimaryStatus"):
-        if raw.get(key):
-            health = str(raw[key])
+    # normalised with the scale of the field it came from - seen: psb's HYPER-V showing "5", CIM HealthState 5 = OK
+    from services import server_health
+    health = parse_error = None
+    for key in ("HealthState", "PrimaryStatus", "OperationalStatus", "Status"):
+        v = raw.get(key)
+        if isinstance(v, list):
+            v = v[0] if v else None
+        if v not in (None, ""):
+            health, parse_error = server_health.normalize_health(v, key)
             break
     return {
         "health_rollup": health,
+        "parse_error": parse_error,
         "model": raw.get("Model"),
         "service_tag": raw.get("IdentifyingNumber") or raw.get("SerialNumber"),
     }

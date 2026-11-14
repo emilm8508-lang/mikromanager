@@ -955,6 +955,7 @@ class LinuxHost(Base):
     last_check_at = Column(DateTime, nullable=True)
     last_upgrade_at = Column(DateTime, nullable=True)
     upgradable_count = Column(Integer, nullable=True)
+    reboot_required_since = Column(DateTime, nullable=True)   # when a pending restart was first seen (services/server_health.py)
     upgradable_packages = Column(Text, nullable=True)   # JSON list, capped
     reboot_required = Column(Boolean, nullable=False, default=False)
     last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
@@ -1038,6 +1039,12 @@ class WindowsHost(Base):
     mem_total_bytes = Column(Integer, nullable=True)
     cpu_used_pct = Column(Float, nullable=True)  # Win32_Processor LoadPercentage average
     last_resources_check_at = Column(DateTime, nullable=True)
+    # the Windows licence (SoftwareLicensingProduct, services/server_health.py): an evaluation ends, then the server shuts down every hour
+    license_name = Column(String, nullable=True)
+    license_status = Column(String, nullable=True)            # licensed | oob_grace | notification | ...
+    license_eval = Column(Boolean, nullable=True)
+    license_expires_at = Column(DateTime, nullable=True)
+    reboot_required_since = Column(DateTime, nullable=True)   # when a pending restart was first seen
     # "System Model:" from systeminfo — e.g. "Virtual Machine" for a
     # Hyper-V guest, "PowerEdge R640" for real Dell hardware. Lets
     # services/dell_monitor.py's discover_local_servers() skip VMs
@@ -1529,6 +1536,7 @@ class DellServer(Base):
     last_status = Column(String, nullable=True)          # "ok" | "error"
     last_error = Column(Text, nullable=True)
     health_rollup = Column(String, nullable=True)          # "OK" | "Warning" | "Critical"
+    parse_error = Column(String, nullable=True)            # a health value no table maps (services/server_health.normalize_health) - never shown raw
     service_tag = Column(String, nullable=True)
     model = Column(String, nullable=True)
     bios_version = Column(String, nullable=True)
@@ -1647,6 +1655,17 @@ def _migrate_add_columns():
             if name not in as_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+
+    for table, cols in (("windows_hosts", (("license_name", "VARCHAR"), ("license_status", "VARCHAR"), ("license_eval", "BOOLEAN"),
+                                            ("license_expires_at", "DATETIME"), ("reboot_required_since", "DATETIME"))),
+                        ("linux_hosts", (("reboot_required_since", "DATETIME"),)),
+                        ("dell_servers", (("parse_error", "VARCHAR"),))):
+        if table in inspector.get_table_names():
+            have = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl in cols:
+                if name not in have:
+                    with engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
     if "syslog_events" in inspector.get_table_names():
         se_cols = {c["name"] for c in inspector.get_columns("syslog_events")}

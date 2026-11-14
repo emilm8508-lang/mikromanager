@@ -36,6 +36,17 @@ _DEBIAN = {"8": date(2018, 6, 17), "9": date(2022, 6, 30), "10": date(2024, 6, 3
 _RHEL = {"6": date(2020, 11, 30), "7": date(2024, 6, 30), "8": date(2029, 5, 31), "9": date(2032, 5, 31), "10": date(2035, 5, 31)}
 _CENTOS8 = date(2021, 12, 31)
 
+# Where each date comes from (the vendor's own lifecycle page), returned with every answer so a report can cite it.
+SOURCES = {
+    "windows": "Microsoft Lifecycle Policy - learn.microsoft.com/lifecycle/products (end of extended support)",
+    "ubuntu": "Canonical - ubuntu.com/about/release-cycle (end of standard support)",
+    "debian": "Debian - wiki.debian.org/LTS (end of LTS)",
+    "rhel": "Red Hat - access.redhat.com/support/policy/updates/errata (end of maintenance support)",
+    "centos": "CentOS Project - centos.org (end of life)",
+}
+# Extended Security Updates a customer can still buy after the end of support (Standard / Datacenter only; never Foundation / Essentials)
+_ESU = {"2012 r2": date(2026, 10, 13), "2012": date(2026, 10, 13), "2008 r2": date(2023, 1, 10), "2008": date(2023, 1, 10)}
+
 
 def _status(eol: Optional[date], today: date) -> dict:
     if eol is None:
@@ -55,15 +66,27 @@ def lifecycle(os_name: Optional[str], os_version: Optional[str] = None, today: O
         return out
 
     if "windows" in low:
+        src = {"source": SOURCES["windows"]}
         if "server" in low:
             for tag, eol in _WIN_SERVER:
                 if re.search(rf"\b{re.escape(tag)}\b", low):
-                    return {"product": f"Windows Server {tag.upper()}", **_status(eol, today)}
-            return {"product": "Windows Server", **_status(None, today)}
+                    out = {"product": f"Windows Server {tag.upper()}", **_status(eol, today), **src}
+                    # ESU after the end of support: only for Standard / Datacenter (seen: 2be3's SERWER2B, 2012 R2 Foundation - none)
+                    if tag in _ESU:
+                        small = re.search(r"foundation|essentials|web|storage", low)
+                        out["esu_until"] = None if small else _ESU[tag].isoformat()
+                        esu = _ESU[tag]
+                        out["note"] = ("no Extended Security Updates for this edition" if small
+                                       else f"Extended Security Updates ended {esu.isoformat()}" if esu < today
+                                       else f"Extended Security Updates available until {esu.isoformat()} (paid, via Azure Arc)")
+                    if re.search(r"evaluation", low):
+                        out["note"] = ((out.get("note") + "; ") if out.get("note") else "") + "an evaluation edition - it expires (see the licence)"
+                    return out
+            return {"product": "Windows Server", **_status(None, today), **src}
         m = re.search(r"build\s*(\d{4,5})", ver, re.I) or re.search(r"\b10\.0\.(\d{4,5})", ver) or re.search(r"\b(\d{5})\b", ver)
         if m and int(m.group(1)) in _WIN_BUILDS:
             product, eol = _WIN_BUILDS[int(m.group(1))]
-            return {"product": product, **_status(eol, today)}
+            return {"product": product, **_status(eol, today), **src}
         if re.search(r"windows\s*7\b", low):
             return {"product": "Windows 7", **_status(date(2020, 1, 14), today)}
         if re.search(r"windows\s*8", low):
@@ -76,21 +99,22 @@ def lifecycle(os_name: Optional[str], os_version: Optional[str] = None, today: O
     if "ubuntu" in low:
         m = re.search(r"(\d{2}\.\d{2})", text)
         if m and m.group(1) in _UBUNTU:
-            return {"product": f"Ubuntu {m.group(1)}", **_status(_UBUNTU[m.group(1)], today)}
+            return {"product": f"Ubuntu {m.group(1)}", **_status(_UBUNTU[m.group(1)], today), "source": SOURCES["ubuntu"]}
         return {"product": "Ubuntu", **_status(None, today)}
     if "debian" in low:
         m = re.search(r"(?:gnu/linux|debian)\s*(\d{1,2})\b", low) or re.search(r"^\s*(\d{1,2})\b", ver)
         if m and m.group(1) in _DEBIAN:
-            return {"product": f"Debian {m.group(1)}", **_status(_DEBIAN[m.group(1)], today)}
+            return {"product": f"Debian {m.group(1)}", **_status(_DEBIAN[m.group(1)], today), "source": SOURCES["debian"]}
         return {"product": "Debian", **_status(None, today)}
-    if re.search(r"centos|red hat|rhel|rocky|alma", low):
+    if re.search(r"centos|red hat|rhel|rocky|alma|oracle linux", low):
         m = re.search(r"\b(\d{1,2})(?:\.\d+)*\b", ver) or re.search(r"\b(\d{1,2})(?:\.\d+)+\b", low)
-        label = "CentOS" if "centos" in low else "Rocky Linux" if "rocky" in low else "AlmaLinux" if "alma" in low else "RHEL"
+        label = "CentOS" if "centos" in low else "Rocky Linux" if "rocky" in low else "AlmaLinux" if "alma" in low else "Oracle Linux" if "oracle" in low else "RHEL"
         if m:
             major = m.group(1)
             if "centos" in low and "stream" not in low and major == "8":
-                return {"product": "CentOS 8", **_status(_CENTOS8, today)}
+                return {"product": "CentOS 8", **_status(_CENTOS8, today), "source": SOURCES["centos"]}
             if major in _RHEL:
-                return {"product": f"{label} {major}", **_status(_RHEL[major], today)}
+                # Rocky / Alma / Oracle Linux follow RHEL's dates for the same major version
+                return {"product": f"{label} {major}", **_status(_RHEL[major], today), "source": SOURCES["rhel"]}
         return {"product": label, **_status(None, today)}
     return {"product": name, **_status(None, today)}

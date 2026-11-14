@@ -176,7 +176,21 @@ async def check_server(server_id: int) -> dict:
             server.last_status = "ok"
             server.last_error = None
             server.access_method = result.get("access_method")
-            server.health_rollup = result.get("health_rollup")
+            # every health value normalised (OK / Warning / Critical); a value no table knows is a parser error, never shown raw
+            from services import server_health
+            errs = [result.get("parse_error")] if result.get("parse_error") else []
+            rollup, e = server_health.normalize_health(result.get("health_rollup"))
+            if e:
+                errs.append(f"rollup: {e}")
+            comps = {}
+            for k, v in (result.get("components") or {}).items():
+                n, e = server_health.normalize_health(v)
+                comps[k] = n
+                if e:
+                    errs.append(f"{k}: {e}")
+            result["components"] = comps
+            server.health_rollup = rollup
+            server.parse_error = "; ".join(errs)[:300] or None
             server.service_tag = result.get("service_tag") or server.service_tag
             server.model = result.get("model") or server.model
             server.bios_version = result.get("bios_version") or server.bios_version
@@ -536,9 +550,11 @@ def public_summary() -> list:
         servers = db.execute(select(DellServer)).scalars().all()
         return [{
             "id": s.id, "name": s.name or s.service_tag or s.idrac_ip, "vendor": s.vendor,
-            "model": s.model, "health_rollup": s.health_rollup,
+            "model": s.model, "health_rollup": _norm(s.health_rollup),
+            # stage 6: which power supply / fan / sensor / disk is behind a component's state, and a value no table could read
+            "component_detail": _detail(s.details_json), "parse_error": getattr(s, "parse_error", None),
             "power_state": s.power_state,
-            "components": json.loads(s.components_json) if s.components_json else {},
+            "components": {k: _norm(v) for k, v in (json.loads(s.components_json) if s.components_json else {}).items()},
             "last_check_at": s.last_check_at.isoformat() if s.last_check_at else None,
             "last_status": s.last_status,
             # The detail view in Central: readings without MAC addresses, and
@@ -546,6 +562,20 @@ def public_summary() -> list:
             "details": bmc_details.public(json.loads(s.details_json)) if s.details_json else None,
             "history": _safe_history(s.id),
         } for s in servers]
+
+
+def _norm(v):
+    """Rows stored before 3.63 may still hold a raw value ("5"): shown as None rather than as a number nobody can read."""
+    from services import server_health
+    return server_health.normalize_health(v)[0]
+
+
+def _detail(details_json):
+    from services import server_health
+    try:
+        return server_health.component_detail(json.loads(details_json)) if details_json else {}
+    except Exception:
+        return {}
 
 
 def _safe_history(server_id: int) -> dict:

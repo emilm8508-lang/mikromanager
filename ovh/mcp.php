@@ -266,12 +266,14 @@ function t_overview(McpContext $c, array $a): array {
                 if (!empty($f['kev']) || !empty($f['in_kev'])) $vul['exploited']++;
             }
         }
-        $srv = ['updates_pending_hosts' => 0, 'restart_needed' => 0, 'disk_over_90' => 0, 'check_failed' => 0, 'hardware_not_ok' => 0];
+        $srv = ['updates_pending_hosts' => 0, 'restart_needed' => 0, 'disk_over_90' => 0, 'disk_full_within_14d' => 0, 'evaluation_licence' => 0, 'check_failed' => 0, 'hardware_not_ok' => 0];
         foreach (array_merge((array)($m['windows_hosts_status'] ?? []), (array)($m['linux_hosts_status'] ?? [])) as $h) {
             if ((int)($h['upgradable_count'] ?? 0) > 0) $srv['updates_pending_hosts']++;
             if (!empty($h['reboot_required'])) $srv['restart_needed']++;
             if (($h['last_status'] ?? 'ok') !== 'ok') $srv['check_failed']++;
             foreach ((array)($h['disks'] ?? []) as $d) { if ((float)($d['pct'] ?? 0) >= 90) { $srv['disk_over_90']++; break; } }
+            foreach ((array)($h['disks'] ?? []) as $d) { if (isset($d['days_to_full']) && $d['days_to_full'] !== null && (float)$d['days_to_full'] <= 14) { $srv['disk_full_within_14d']++; break; } }
+            if (!empty($h['license']['evaluation'])) $srv['evaluation_licence']++;
         }
         foreach ((array)($m['dell_servers_status'] ?? []) as $d) {
             if (($d['health_rollup'] ?? 'OK') !== 'OK' || ($d['last_status'] ?? 'ok') !== 'ok') $srv['hardware_not_ok']++;
@@ -411,16 +413,17 @@ function t_servers(McpContext $c, array $a): array {
                 foreach ((array)($h['disks'] ?? []) as $d) {
                     if (!is_array($d)) continue;
                     $disks[] = ['disk' => $d['drive_letter'] ?? ($d['mount_point'] ?? null), 'used_pct' => $d['pct'] ?? null,
-                                'free_gb' => isset($d['total_bytes'], $d['used_bytes']) ? round(((float)$d['total_bytes'] - (float)$d['used_bytes']) / 1e9, 1) : null];
+                                'free_gb' => isset($d['total_bytes'], $d['used_bytes']) ? round(((float)$d['total_bytes'] - (float)$d['used_bytes']) / 1e9, 1) : null,
+                                'days_to_full' => $d['days_to_full'] ?? null];
                 }
                 $hosts[] = ['kind' => $kind] + mcp_pick($h, ['hostname', 'ip', 'os_name', 'distro_pretty', 'host_type', 'group', 'last_status', 'last_check_at',
-                    'upgradable_count', 'reboot_required', 'last_upgrade_at', 'cpu_used_pct', 'mem_used_pct']) + ['disks' => $disks];
+                    'upgradable_count', 'reboot_required', 'reboot_required_since', 'license', 'last_upgrade_at', 'cpu_used_pct', 'mem_used_pct']) + ['disks' => $disks];
             }
         }
         $bmc = [];
         foreach ((array)($m['dell_servers_status'] ?? []) as $d) {
             if (!is_array($d) || !mcp_match($d, $q)) continue;
-            $bmc[] = mcp_pick($d, ['name', 'vendor', 'model', 'health_rollup', 'components', 'power_state', 'last_status', 'last_check_at', 'error']);
+            $bmc[] = mcp_pick($d, ['name', 'vendor', 'model', 'health_rollup', 'components', 'component_detail', 'parse_error', 'power_state', 'last_status', 'last_check_at', 'error']);
         }
         $out[] = ['tenant' => $r['tenant'], 'hosts' => $hosts, 'hardware' => $bmc];
     }

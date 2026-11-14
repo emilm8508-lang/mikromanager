@@ -1189,7 +1189,12 @@ _RESOURCES_SCRIPT = r"""
 $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,Size,FreeSpace
 $os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
 $cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
-[PSCustomObject]@{ Disks = $disks; Mem = $os; Cpu = $cpu } | ConvertTo-Json -Compress -Depth 4
+$lic = $null
+try {
+    $lic = Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
+        Select-Object Name,Description,LicenseStatus,GracePeriodRemaining
+} catch { }
+[PSCustomObject]@{ Disks = $disks; Mem = $os; Cpu = $cpu; Lic = $lic } | ConvertTo-Json -Compress -Depth 4
 """
 
 
@@ -1266,8 +1271,10 @@ def _parse_resources(parsed: dict) -> dict:
     except (TypeError, ValueError):
         pass
 
+    from services import server_health
+    lic = server_health.license(parsed.get("Lic"), datetime.utcnow())       # the edition, evaluation or not, when it ends
     return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
-            "cpu_used_pct": cpu_used_pct}
+            "cpu_used_pct": cpu_used_pct, "license": lic}
 
 
 async def check_host_resources(host_id: int) -> dict:
@@ -1307,6 +1314,10 @@ async def check_host_resources(host_id: int) -> dict:
             host.mem_total_bytes = parsed["mem_total_bytes"]
         if parsed["cpu_used_pct"] is not None:
             host.cpu_used_pct = parsed["cpu_used_pct"]
+        lic = parsed.get("license")
+        if lic:
+            host.license_name, host.license_status = lic["name"], lic["status"]
+            host.license_eval, host.license_expires_at = lic["evaluation"], lic["expires_at"]
         host.last_resources_check_at = now
 
         for d in parsed["disks"]:
@@ -1434,6 +1445,16 @@ def set_credential(host_id: int, credential_id: Optional[int]) -> dict:
         return _host_to_dict(host)
 
 
+def _days_to_full(key: str):
+    """The disk's forecast (services/metrics.py: a line through the last week) - days until full, None when it is not filling."""
+    try:
+        from services import metrics
+        t = metrics.trend(metrics.points(key, days=7), 100.0)
+        return t.get("days_to_limit")
+    except Exception:
+        return None
+
+
 def public_summary() -> list:
     """Redacted summary for the snapshot's plaintext envelope — ONLY
     managed=True hosts, never raw log/reason from past actions beyond the
@@ -1455,6 +1476,10 @@ def public_summary() -> list:
                 "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
                 "cpu_used_pct": h.cpu_used_pct,
                 "disks": [{"drive_letter": d.drive_letter, "pct": d.pct, "total_bytes": d.total_bytes,
-                           "used_bytes": d.used_bytes} for d in disks],
+                           "used_bytes": d.used_bytes, "days_to_full": _days_to_full(f"win:{h.id}:disk:{d.drive_letter}")} for d in disks],
+                # stage 6: the licence (an evaluation and when it ends) and since when a restart is pending
+                "license": {"name": h.license_name, "status": h.license_status, "evaluation": h.license_eval,
+                            "expires_at": h.license_expires_at.isoformat() if h.license_expires_at else None} if h.license_name else None,
+                "reboot_required_since": h.reboot_required_since.isoformat() if h.reboot_required_since else None,
             })
         return result
