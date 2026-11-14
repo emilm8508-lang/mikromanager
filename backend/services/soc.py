@@ -504,7 +504,12 @@ def public_summary() -> dict:
             r = _row(a, full=False)
             d = {k: v for k, v in r["detail"].items() if k in ("sources", "users", "rule_description", "rule_level", "service", "plugin_output", "message",
                                                                  "tunnel_name", "iface", "sensor_name", "description", "state_name", "groups", "mitre",
-                                                                 "cve", "package", "vuln_severity", "src_ip", "user", "tactics", "exploited", "epss")}
+                                                                 "cve", "package", "vuln_severity", "src_ip", "user", "tactics", "exploited", "epss",
+                                                                 # stages 1-7: how sure a vulnerability is, who caused a log line, what is missing,
+                                                                 # the ports of a TLS finding, the verdict of a power / temperature finding ...
+                                                                 "confidence", "match_source", "fixed_version", "caused_by", "from_outside", "scanner",
+                                                                 "in_10_min", "in_hour", "services", "by", "from", "state", "criticality", "missing",
+                                                                 "grouped", "ports", "verdict", "advice", "local_address", "ip")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
                            "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d, "root": a.root_name})

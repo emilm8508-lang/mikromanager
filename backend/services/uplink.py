@@ -681,7 +681,18 @@ async def _build_snapshot() -> dict:
         "inventory_summary": inventory_summary,
         "comm_status": _comm_status(),
         "soc_quality": _soc_quality(),
+        "device_logs": _device_logs(),
     }
+
+
+def _device_logs() -> list:
+    """The recent device log lines with their fields (services/syslog_receiver.public_logs) - for the MCP client_device_logs."""
+    try:
+        from services import syslog_receiver
+        return syslog_receiver.public_logs()
+    except Exception as e:
+        print(f"[uplink] device logs error: {type(e).__name__}: {e}")
+        return []
 
 
 def _soc_quality() -> dict:
@@ -718,7 +729,7 @@ def _vuln_reeval_status() -> dict:
 _META_ONLY = ("racks_status", "assets_status", "topology_status", "soc_status")
 MAX_BODY_BYTES = int(os.environ.get("MIKROTIK_UPLINK_MAX_BYTES", str(1_900_000)))      # the relay refuses more than 2 MB
 # What may be cut down, in this order (least important first), when a report is still too big: the lists inside are halved, then dropped.
-_TRIM_ORDER = ("topology_status", "racks_status", "assets_status", "soc_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
+_TRIM_ORDER = ("device_logs", "topology_status", "racks_status", "assets_status", "soc_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
 
 
 def _halve(v):
@@ -818,6 +829,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             "vuln_reeval": snapshot.get("vuln_reeval"),
             "comm_status": snapshot.get("comm_status"),
             "soc_quality": snapshot.get("soc_quality"),
+            "device_logs": snapshot.get("device_logs"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

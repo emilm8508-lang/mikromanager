@@ -207,6 +207,17 @@ function mcp_clean($v, int $depth = 0) {
     return $v;
 }
 
+/** One page of a list: ['items', 'total', 'cut', 'offset', 'next_offset'] - next_offset is what to pass as "offset" for the rest (null at the end). */
+function mcp_page(array $rows, array $a, int $default, int $hi): array {
+    $n = mcp_limit($a, $default, $hi);
+    $off = max(0, (int)($a['offset'] ?? 0));
+    $items = array_slice($rows, $off, $n);
+    $next = $off + count($items) < count($rows) ? $off + count($items) : null;
+    return ['items' => $items, 'total' => count($rows), 'cut' => $next !== null, 'offset' => $off, 'next_offset' => $next,
+            'how_to_get_more' => $next !== null ? "call again with offset={$next}" : null];
+}
+
+
 function mcp_limit(array $a, int $default, int $hi): int {
     $n = (int)($a['limit'] ?? $default);
     return max(1, min($n ?: $default, $hi));
@@ -227,7 +238,8 @@ function mcp_pick(array $d, array $keys): array {
 
 function mcp_tools(): array {
     $tenant = ['tenant' => ['type' => 'string', 'description' => 'a client (tenant) name or part of it; leave out for every client']];
-    $limit = ['limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 150]];
+    $limit = ['limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 150],
+              'offset' => ['type' => 'integer', 'minimum' => 0, 'description' => 'skip this many (a cut answer gives next_offset)']];
     $s = function (array $props): array { return ['type' => 'object', 'properties' => (object)$props, 'additionalProperties' => false]; };
     return [
         'clients_overview' => ['title' => 'Clients overview', 'fn' => 't_overview', 'schema' => $s($tenant),
@@ -246,6 +258,16 @@ function mcp_tools(): array {
             'description' => 'The clients\' inventories: devices with type, maker / model, OS, support status (lifecycle), vulnerability counts, place; and a summary per client.'],
         'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
             'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
+        'client_device_logs' => ['title' => 'Device logs', 'fn' => 't_device_logs', 'schema' => $s($tenant + [
+                'device' => ['type' => 'string', 'description' => 'part of a device name or address'],
+                'hours' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 48, 'description' => 'how far back (the agent sends the last 48 h)'],
+                'topic' => ['type' => 'string', 'description' => 'a RouterOS topic: system, account, ipsec, interface, critical, error ...'],
+                'kind' => ['type' => 'string', 'description' => 'login_failed, login_ok, config_change, reboot, power_fail, link_down, ipsec_fail, ssl_no_cipher ...'],
+                'max_severity' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 7, 'description' => 'syslog severity: 0 emergency .. 3 error .. 4 warning'],
+                'q' => ['type' => 'string', 'description' => 'text to find']] + $limit),
+            'description' => 'The recent log lines of the clients\' routers and devices (warnings and worse, and every RouterOS line the router rules recognised), newest first, read into fields: kind, topics, source address, user, service, interface. Filter by device, time, topic, kind, severity.'],
+        'client_data_quality' => ['title' => 'Data quality', 'fn' => 't_data_quality', 'schema' => $s($tenant),
+            'description' => 'What the data of each client is missing or doubts: network devices without a version, devices wrongly taken for MikroTik, MACs behind a router, lease names on other devices, unknown types, one name on several devices, suspected (unconfirmed) vulnerabilities, hardware values no table could read, alert rules nobody attends to and their precision, routers not sending their log, assets whose data stopped.'],
         'client_servers' => ['title' => 'Servers and hosts', 'fn' => 't_servers', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of a host name, IP or OS']]),
             'description' => 'Windows and Linux hosts (pending updates, restart needed, full disks, CPU / memory, last check result) and Dell / BMC servers (hardware health per component, power, errors) of each client.'],
     ];
@@ -308,8 +330,8 @@ function t_alerts(McpContext $c, array $a): array {
     usort($rows, function ($x, $y) use ($rank) {
         return [$rank[$x['severity'] ?? ''] ?? 5, (string)($y['last'] ?? '')] <=> [$rank[$y['severity'] ?? ''] ?? 5, (string)($x['last'] ?? '')];
     });
-    $n = mcp_limit($a, 40, 150);
-    return ['alerts' => array_slice($rows, 0, $n), 'total' => count($rows), 'cut' => count($rows) > $n];
+    $pg = mcp_page($rows, $a, 40, 150);
+    return ['alerts' => $pg['items']] + $pg;
 }
 
 function t_risk(McpContext $c, array $a): array {
@@ -317,7 +339,19 @@ function t_risk(McpContext $c, array $a): array {
     $out = [];
     foreach ($c->tenants($a['tenant'] ?? null) as $r) {
         $risk = $r['meta']['soc_status']['risk'] ?? [];
-        $out[] = ['tenant' => $r['tenant'], 'levels' => $risk['levels'] ?? null, 'top' => array_slice((array)($risk['top'] ?? []), 0, $n)];
+        $top = [];
+        foreach (array_slice((array)($risk['top'] ?? []), 0, $n) as $d) {
+            if (!is_array($d)) continue;
+            $f = [];
+            foreach ((array)($d['factors'] ?? []) as $x) {
+                if (!is_array($x)) continue;
+                // [factor, points, count, items]: alerts are {id, s, r, t}, vulnerabilities "CVE · severity · CVSS"
+                $f[] = ['factor' => $x[0] ?? null, 'points' => $x[1] ?? null, 'count' => $x[2] ?? null, 'items' => $x[3] ?? []];
+            }
+            $top[] = ['name' => $d['name'] ?? null, 'ip' => $d['ip'] ?? null, 'type' => $d['type'] ?? null, 'score' => $d['score'] ?? null,
+                      'level' => $d['level'] ?? null, 'location' => $d['loc'] ?? null, 'factors' => $f, 'services' => $d['services'] ?? []];
+        }
+        $out[] = ['tenant' => $r['tenant'], 'levels' => $risk['levels'] ?? null, 'top' => $top];
     }
     return ['clients' => $out];
 }
@@ -374,8 +408,8 @@ function t_vulnerabilities(McpContext $c, array $a): array {
         $kx = (!empty($x['kev']) || !empty($x['in_kev'])) ? 0 : 1; $ky = (!empty($y['kev']) || !empty($y['in_kev'])) ? 0 : 1;
         return [$kx, -(float)($x['cvss'] ?? $x['score'] ?? 0)] <=> [$ky, -(float)($y['cvss'] ?? $y['score'] ?? 0)];
     });
-    $n = mcp_limit($a, 40, 150);
-    return ['findings' => array_slice($rows, 0, $n), 'total' => count($rows), 'cut' => count($rows) > $n];
+    $pg = mcp_page($rows, $a, 40, 150);
+    return ['findings' => $pg['items']] + $pg;
 }
 
 function t_assets(McpContext $c, array $a): array {
@@ -393,11 +427,12 @@ function t_assets(McpContext $c, array $a): array {
                        // interface role (wan / uplink / access), the other addresses of the same device
                        'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']), 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
-                       'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv'])];
+                       'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']),
+                       'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null];
         }
     }
-    $n = mcp_limit($a, 40, 150);
-    return ['summaries' => ($q === null || $q === '') ? $sums : null, 'assets' => array_slice($rows, 0, $n), 'total' => count($rows), 'cut' => count($rows) > $n];
+    $pg = mcp_page($rows, $a, 40, 150);
+    return ['summaries' => ($q === null || $q === '') ? $sums : null, 'assets' => $pg['items']] + $pg;
 }
 
 function t_servers(McpContext $c, array $a): array {
@@ -449,6 +484,75 @@ function t_coverage(McpContext $c, array $a): array {
                   // whether the routers send their log to the agent (read over their API): which do not, which could not be read
                   'router_logging' => $lg ? ['checked_at' => $lg['at'] ?? null, 'routers' => $lg['routers'] ?? null, 'sending_to_agent' => $lg['to_agent'] ?? null,
                                              'not_sending' => $lg['not_sending'] ?? [], 'not_read' => $lg['unknown'] ?? []] : null];
+    }
+    return ['clients' => $out];
+}
+
+function t_device_logs(McpContext $c, array $a): array {
+    $rows = [];
+    $dev = trim((string)($a['device'] ?? ''));
+    $topic = strtolower(trim((string)($a['topic'] ?? '')));
+    $kind = trim((string)($a['kind'] ?? ''));
+    $maxsev = isset($a['max_severity']) ? (int)$a['max_severity'] : null;
+    $since = time() - 3600 * max(1, min(48, (int)($a['hours'] ?? 48)));
+    $sent = [];
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $logs = $r['meta']['device_logs'] ?? null;
+        $sent[$r['tenant']] = is_array($logs);
+        foreach ((array)$logs as $l) {
+            if (!is_array($l)) continue;
+            $t = strtotime((string)($l['at'] ?? '')) ?: 0;
+            if ($t < $since) continue;
+            if ($dev !== '' && mb_stripos(($l['dev'] ?? '') . ' ' . ($l['ip'] ?? ''), $dev) === false) continue;
+            if ($topic !== '' && strpos(strtolower((string)($l['topics'] ?? '')), $topic) === false) continue;
+            if ($kind !== '' && ($l['kind'] ?? '') !== $kind) continue;
+            if ($maxsev !== null && (int)($l['sev'] ?? 7) > $maxsev) continue;
+            if (!mcp_match($l, $a['q'] ?? null)) continue;
+            $rows[] = ['tenant' => $r['tenant'], 'at' => $l['at'] ?? null, 'device' => $l['dev'] ?? null, 'via' => $l['via'] ?? null,
+                       'topics' => $l['topics'] ?? null, 'severity' => $l['sev'] ?? null, 'kind' => $l['kind'] ?? null, 'src_ip' => $l['src'] ?? null,
+                       'user' => $l['user'] ?? null, 'service' => $l['svc'] ?? null, 'interface' => $l['if'] ?? null, 'message' => $l['msg'] ?? null];
+        }
+    }
+    usort($rows, function ($x, $y) { return strcmp((string)$y['at'], (string)$x['at']); });
+    $pg = mcp_page($rows, $a, 50, 150);
+    $missing = array_keys(array_filter($sent, function ($v) { return !$v; }));
+    return ['lines' => $pg['items']] + $pg + ['note' => $missing ? 'no log lines from these clients\' agents yet (needs 3.65): ' . implode(', ', $missing) : null];
+}
+
+
+function t_data_quality(McpContext $c, array $a): array {
+    $out = [];
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $m = $r['meta'];
+        $sum = $m['assets_status']['summary'] ?? [];
+        $flagged = [];
+        foreach ((array)($m['assets_status']['rows'] ?? []) as $x) {
+            if (is_array($x) && !empty($x['dq'])) $flagged[] = ['asset' => $x['n'] ?? null, 'ip' => $x['ip'] ?? null, 'flags' => $x['dq']];
+        }
+        $vul = ['findings' => 0, 'confirmed' => 0, 'likely' => 0, 'suspected' => 0, 'unknown' => 0];
+        foreach ((array)($m['vuln_findings_status'] ?? []) as $h) {
+            foreach ((array)($h['findings'] ?? []) as $f) {
+                $vul['findings']++;
+                $k = $f['confidence'] ?? 'unknown';
+                $vul[isset($vul[$k]) ? $k : 'unknown']++;
+            }
+        }
+        $parse = [];
+        foreach ((array)($m['dell_servers_status'] ?? []) as $d) {
+            if (is_array($d) && !empty($d['parse_error'])) $parse[] = ['server' => $d['name'] ?? null, 'error' => $d['parse_error']];
+        }
+        $cs = is_array($m['comm_status'] ?? null) ? $m['comm_status'] : [];
+        $q = is_array($m['soc_quality'] ?? null) ? $m['soc_quality'] : null;
+        $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'],
+                  'inventory' => $sum['data_quality'] ?? null, 'personal_devices' => $sum['personal'] ?? null,
+                  'assets_flagged' => array_slice($flagged, 0, 60), 'assets_flagged_total' => count($flagged),
+                  'vulnerability_confidence' => $vul, 'vulnerability_recheck' => $m['vuln_reeval'] ?? null,
+                  'hardware_parse_errors' => $parse,
+                  'communication' => ['states' => $cs['states'] ?? null, 'routers_not_sending_logs' => $cs['router_logging']['not_sending'] ?? null,
+                                      'routers_logging_unread' => $cs['router_logging']['unknown'] ?? null],
+                  'alert_quality' => $q ? ['open' => $q['open'] ?? null, 'unattended' => $q['unattended'] ?? null, 'rules' => $q['rules'] ?? [],
+                                           'categories' => $q['categories'] ?? [], 'critical' => $q['critical'] ?? []] : null,
+                  'note' => isset($m['comm_status']) ? null : 'this agent does not report the newer quality data yet (3.58-3.65)'];
     }
     return ['clients' => $out];
 }

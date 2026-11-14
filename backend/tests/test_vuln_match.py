@@ -262,6 +262,59 @@ class Reevaluation(unittest.TestCase):
             self.assertEqual(notes, ["[auto_closed: product_not_confirmed]", "[auto_closed: version_not_affected]"])
         self.assertEqual(asyncio.run(vuln_reeval.run())["finished_at"], r["finished_at"], "runs once")
 
+    def test_pairs_nvd_did_not_answer_are_retried(self):
+        """3.65: sanmed R1-S3 (7.24.4) kept the old RouterOS CVEs as "suspected": the one lookup found NVD unavailable, nothing asked again."""
+        import json
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import models.database as mdb
+        from services import vuln_scan as vs, vuln_reeval, exploit_intel
+        tmp = tempfile.mkdtemp()
+        engine = create_engine(f"sqlite:///{os.path.join(tmp, 'r.db')}", connect_args={"check_same_thread": False})
+        mdb.Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine, expire_on_commit=False)
+        vs.SessionLocal = vuln_reeval.SessionLocal = Session
+        vuln_reeval._PATH = os.path.join(tmp, "reeval.json")
+        vuln_reeval.PAUSE_SEC = 0
+        exploit_intel.info = lambda cve: {"kev": cve.startswith("CVE-2018"), "epss": None}
+        state = {"up": False}
+
+        class FakeNvd:
+            def searchCPE(self, **kw):
+                return []
+
+            def searchCVE(self, virtualMatchString=None, **kw):
+                if not state["up"]:
+                    raise ConnectionError("nvd down")
+                return [EndToEnd._cve(EndToEnd, "CVE-2018-7445", CVE_2018_7445)]
+
+        vs.vuln_settings.nvd_backend = lambda: FakeNvd()
+        vs.vuln_settings.nvd_key = lambda: None
+        with Session() as db:
+            db.add(mdb.VulnFinding(product="MikroTik RouterOS", version="7.24.4", cve_id="CVE-2018-7445", severity="CRITICAL", cvss_score=9.8,
+                                   queried_at=datetime.utcnow()))
+            db.add(mdb.VulnRemediation(product="MikroTik RouterOS", version="7.24.4", cve_id="CVE-2018-7445", severity="CRITICAL", status="open"))
+            db.add(mdb.Device(ip="10.0.0.3", identity="R1-S3", vendor="mikrotik", ros_version="7.24.4", has_api=True))
+            db.commit()
+        # a finished pass of 3.58-3.64 (no "retry"): the row no 3.58 lookup wrote is noted for the retry
+        with open(vuln_reeval._PATH, "w") as f:
+            json.dump({"version": vuln_reeval.VERSION, "finished_at": "2026-11-01T00:00:00Z", "pairs": 1, "pairs_failed": 0,
+                       "closed_version_not_affected": 0}, f)
+        prev = vuln_reeval._note_old_rows(vuln_reeval._load())
+        self.assertEqual((prev["retry"], vuln_reeval._retry_due(prev)), ([["MikroTik RouterOS", "7.24.4"]], True))
+        r = asyncio.run(vuln_reeval.run(retry=True))                    # NVD still down: old row kept, listed again
+        self.assertEqual((r["pairs_failed"], r["retry"], r["retry_attempts"]), (1, [["MikroTik RouterOS", "7.24.4"]], 1))
+        with Session() as db:
+            self.assertEqual(db.query(mdb.VulnFinding).count(), 1)
+        state["up"] = True
+        r = asyncio.run(vuln_reeval.run(retry=True))                    # NVD answers: 7.24.4 is outside the range, the row is closed
+        self.assertIsNone(r.get("error"), r)
+        self.assertEqual((r["pairs_failed"], r["retry"], r["retry_attempts"], r["closed_version_not_affected"]), (0, [], 2, 1))
+        self.assertFalse(vuln_reeval._retry_due(r))
+        with Session() as db:
+            self.assertEqual(db.query(mdb.VulnFinding).count(), 0)
+            self.assertEqual(db.query(mdb.VulnRemediation).one().note, "[auto_closed: version_not_affected]")
+
 
 class RiskScoring(unittest.TestCase):
     def test_suspected_kev_does_not_count(self):

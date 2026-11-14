@@ -2,6 +2,33 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.65 — 2026-11-14
+- MCP connector in Central: every tool still reads only, and its answers are backward-compatible. What changed:
+  - Paging: the alert, vulnerability, asset and device-log lists take "offset". A cut answer now says how many items there are in all, gives next_offset, and tells how to ask for the rest (how_to_get_more).
+  - client_risk: each factor is an object (factor, points, count, items). An alert behind a score carries its id, so the risk can be traced to the alert.
+  - client_assets: adds the OS version and, for a router, its RouterOS update channel.
+- Two new MCP tools, 11 in all:
+  - client_device_logs: the routers' and devices' recent log lines, newest first, read into fields (kind, topics, source address, user, service, interface). It can filter by device, hours, topic, kind, severity and text.
+  - client_data_quality: per client, what the data is missing or doubts:
+    - inventory flags, personal devices and flagged assets;
+    - vulnerability findings by confidence, and the counts of the vulnerability re-check;
+    - hardware values no table could read;
+    - communication states, and routers not sending their log;
+    - alert quality: unattended alerts and precision per rule.
+- The agent sends Central the last 300 log lines of the last 48 hours: warnings and worse, and every RouterOS line the router rules recognised. Each line is cut to 300 characters, with password, secret, key, token and community values masked. Lines read over the RouterOS API are now stored with the syslog lines, so they appear in this view too.
+- SOC alerts sent to Central keep the evidence fields added in 3.58-3.64. Before, they were dropped from the alert detail; now they reach Central:
+  - confidence, match_source and fixed_version;
+  - caused_by, from_outside and scanner;
+  - missing and criticality;
+  - ports, verdict and advice.
+- Vulnerability re-check: a pair that NVD did not answer for is now looked up again. Before, the one lookup of 3.58 found NVD unavailable for such a pair, kept its old rows, and never asked again. Seen in Central: sanmed's R1-S3 (RouterOS 7.24.4) still listed CVE-2018-14847, CVE-2018-7445 and about 20 old CVEs as "suspected". Such pairs are now listed in "retry" and asked again an hour apart, up to 5 times, counted across restarts.
+
+  On an agent that already ran the 3.58 pass, the pairs with rows no 3.58 lookup wrote (no match_source) are noted for the retry at the next start.
+- Tested:
+  - 5 new regression tests, 100 in all: the alert evidence reaching Central with an unknown field dropped; device logs with a password masked and plain info lines and lines over 48 hours old left out; a line read over the API kept for the log view; the alert id in a risk item; and the retry, where NVD down keeps the row and lists the pair again, and NVD answering closes it as version_not_affected.
+  - MCP connector checks on a local Central: 53 pass (11 tools, risk factors with the alert id, device logs by kind, paging forward to the end, data quality, the vulnerability page).
+  - Not yet run on the clients' agents.
+
 ## 3.64 — 2026-11-14
 - TLS certificates: one alert per device and kind of finding, listing its ports, raised once and only refreshed afterwards - no longer one alert per port with a count growing at every scan (seen: 87 repeats). A device's factory default certificate - dated before 2000 or valid for more than 50 years (seen: Hikvision cameras whose certificate "expired" 17121 and 19676 days ago) - is one low finding, "Factory default TLS certificate", nothing else. An expired or expiring certificate is high only where people connect - a server's user-facing port (RDP, HTTPS, mail, LDAPS ...: sanmed's RDP / RDP1 IIS, aluplasti's SERWER-PAM); on a device's management page it is low. Alerts of the old per-port form are closed as "auto: regrouped per device".
 - The anomaly detector learns from its labels (services/anomaly_tuning.py). Seen: precision 0.07 at sanmed, 0.20 at mcprojekt, 0.26 at psb, the same spikes labelled false again and again (CPU on glpi2, DC1). Per series, from the last 90 days of labels: two or more false events and no true one raise its threshold above the highest score they reached (+10 %, at most 12); a true event caps it at 90 % of its peak, so a real problem stays detectable; false events that repeat at the same hour of the day make that hour need twice the threshold (a scheduled job stops alarming, the rest of the day does not). Rebuilt hourly; GET /api/anomalies/tuning shows what was tuned and the precision per host and per series, DELETE forgets it.

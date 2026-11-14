@@ -774,7 +774,9 @@ async def public_summary() -> dict:
     with SessionLocal() as db:
         lin = {h.id: h for h in db.execute(select(LinuxHost)).scalars().all()}
         win = {h.id: h for h in db.execute(select(WindowsHost)).scalars().all()}
-        mik = {d.id for d in db.execute(select(Device)).scalars().all() if (d.vendor or "mikrotik").lower() == "mikrotik"}
+        devs = db.execute(select(Device)).scalars().all()
+        mik = {d.id for d in devs if (d.vendor or "mikrotik").lower() == "mikrotik"}
+        channel = {d.id: d.ros_channel for d in devs if getattr(d, "ros_channel", None)}
         vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
     for r in shown:
@@ -785,6 +787,10 @@ async def public_summary() -> dict:
                "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None}
         if r.get("place"):
             row["pl"] = r["place"]
+        if r.get("os_version"):
+            row["ov"] = r["os_version"]
+        if channel.get(r["refs"].get("device_id")):
+            row["ch"] = channel[r["refs"]["device_id"]]                 # RouterOS update channel (stable / long-term ...)
         row["cr"] = r["criticality"] or r["criticality_suggested"]
         if not r["criticality"]:
             row["crs"] = 1                                   # suggested, not set by the operator

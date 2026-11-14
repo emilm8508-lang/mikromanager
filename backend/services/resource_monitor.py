@@ -400,6 +400,14 @@ def _check_device_log_events(log_state: dict, device_id: int, device_name: str, 
                 from services import router_logs
                 res = router_logs.handle(device=device_name, device_ip=device_ip, message=str(entry.get("message") or ""),
                                          app=entry.get("topics"), via="api")
+                if not res["duplicate"]:
+                    try:                                              # kept with the syslog lines: Central's device log view sees it too
+                        from services import syslog_receiver
+                        syslog_receiver._store([{"kind": "api", "ip": device_ip, "asset_id": None, "host": device_name, "app": entry.get("topics"),
+                                                 "facility": None, "severity": 2 if "critical" in topics else 3, "message": str(entry.get("message") or "")[:1000],
+                                                 "raised": res["raised"], "parsed": res["parsed"], "at": datetime.utcnow()}])
+                    except Exception as e:
+                        print(f"[resource_monitor] log store error: {type(e).__name__}: {e}")
                 if res["duplicate"] or res["parsed"]["kind"] != "other":
                     continue
                 signature = res["parsed"]["signature"]

@@ -693,3 +693,21 @@ def public_summary() -> dict:
     s = status()
     return {"on": bool(s["settings"]["enabled"]), "listening": s["listening"], "stored_24h": s["stored_24h"], "sources": len(s["top_sources"]),
             "unknown": len(s["unknown"]), "errors": [v for v in s["errors"].values() if v]}
+
+
+PUBLIC_LOG_LINES = 300
+PUBLIC_LOG_HOURS = 48
+
+
+def public_logs() -> List[dict]:
+    """For Central (MCP client_device_logs): the last PUBLIC_LOG_LINES stored lines of the last 48 h - warnings and worse, and every RouterOS
+    line the router rules recognised - with their fields; the text cut to 300 characters, passwords / keys in it masked."""
+    names = known_sources()
+    since = datetime.utcnow() - timedelta(hours=PUBLIC_LOG_HOURS)
+    with SessionLocal() as db:
+        rows = db.execute(select(SyslogEvent).where(SyslogEvent.at >= since, (SyslogEvent.severity <= 4) | (SyslogEvent.log_kind.is_not(None)))
+                          .order_by(SyslogEvent.id.desc()).limit(PUBLIC_LOG_LINES)).scalars().all()
+    mask = re.compile(r"((?:password|passwd|secret|key|token|community)\s*[=:]\s*)\S+", re.I)
+    return [{"at": r.at.isoformat() + "Z", "dev": (names.get(r.source_ip) or {}).get("name") or r.source_ip, "ip": r.source_ip, "via": r.kind,
+             "topics": r.app, "sev": r.severity, "kind": r.log_kind, "src": r.src_ip, "user": r.user_name, "svc": r.service, "if": r.iface,
+             "msg": mask.sub(lambda m: m.group(1) + "***", r.message or "")[:300]} for r in rows]
