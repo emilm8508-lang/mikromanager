@@ -99,7 +99,9 @@ async def lifespan(app: FastAPI):
     from services import router_logs
     router_logs.start()
     from services import server_health
-    server_health.start()                # licences, /boot, pending restarts, power / temperature against the load (services/server_health.py)                  # whether the routers send their log here, owners of the addresses in their lines (services/router_logs.py)
+    server_health.start()
+    from services import soc_quality
+    soc_quality.start()                  # alerts whose condition is gone closed with the reason; the quality report (services/soc_quality.py)                # licences, /boot, pending restarts, power / temperature against the load (services/server_health.py)                  # whether the routers send their log here, owners of the addresses in their lines (services/router_logs.py)
     tls_scan.start()
     asset_scan_svc.start()
     lan_sweep_svc.start()

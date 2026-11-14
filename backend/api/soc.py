@@ -83,3 +83,11 @@ async def rule_run(rule_id: str):
     if rule_id not in {r["id"] for r in soc_rules.list_rules()}:
         raise HTTPException(404, "unknown rule")
     return await soc_rules.run_due(only=rule_id, force=True)
+
+
+@router.get("/quality")
+def quality(days: int = 90):
+    """Per rule: total, open, unattended, closed by a person, false positives, closed automatically by reason, precision; per category
+    the open and unattended alerts; the critical alerts and what they rest on (services/soc_quality.py)."""
+    from services import soc_quality
+    return soc_quality.report(days=max(1, min(int(days), 400)))

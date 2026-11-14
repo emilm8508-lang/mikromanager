@@ -59,3 +59,18 @@ def events_csv(days: int = 365):
 @router.post("/run")
 def run_now(user: dict = Depends(require_login)):
     return anomaly.run_cycle()
+
+
+@router.get("/tuning")
+def tuning():
+    """What the labels tuned: per series the raised threshold and the quiet hours, and the precision per host and per series."""
+    from services import anomaly_tuning
+    anomaly_tuning.refresh()
+    return anomaly_tuning.status()
+
+
+@router.delete("/tuning")
+def tuning_clear():
+    """Forget the tuning: from now on only new labels count."""
+    from services import anomaly_tuning
+    return anomaly_tuning.clear()

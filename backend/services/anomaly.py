@@ -32,6 +32,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy import select
 
 from models.database import SessionLocal, AnomalyEvent, MetricSample, MetricSeries, SocAlert
+from services import anomaly_tuning
 
 HISTORY_DAYS = 28
 MIN_SPAN_DAYS = 3
@@ -268,10 +269,14 @@ def judge(now: Optional[datetime] = None) -> Dict[str, List[dict]]:
             med, sd = expected(p, now)
             z = score(cur, med, sd, direction(s.kind, s.unit or ""))
             hk = host_key(s.key)
+            # the series' own threshold, tuned from the operator's labels (services/anomaly_tuning.py): higher where false alarms repeat
+            zo = anomaly_tuning.threshold(s.key, now.hour, Z_OPEN)
             item = {"key": s.key, "name": s.name, "label": s.name.split(" · ", 1)[-1], "unit": s.unit or "", "kind": s.kind,
-                    "value": round(cur, 2), "expected": round(med, 2), "low": round(med - Z_OPEN * sd, 2), "high": round(med + Z_OPEN * sd, 2),
+                    "value": round(cur, 2), "expected": round(med, 2), "low": round(med - zo * sd, 2), "high": round(med + zo * sd, 2),
                     "score": round(z, 2)}
-            if z >= Z_OPEN:
+            if zo != Z_OPEN:
+                item["tuned_z"] = zo
+            if z >= zo:
                 _hot[s.key] = _hot.get(s.key, 0) + 1
             else:
                 _hot.pop(s.key, None)
@@ -313,6 +318,7 @@ def run_cycle(now: Optional[datetime] = None) -> dict:
     """One detection pass (called by metrics.run_cycle every 10 minutes): opens, updates and closes the events and their SOC alerts."""
     from services import soc
     now = now or _now()
+    anomaly_tuning.refresh()
     scored = judge(now)
     opened = closed = 0
     with SessionLocal() as db:

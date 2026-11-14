@@ -680,7 +680,17 @@ async def _build_snapshot() -> dict:
         "wazuh_status": wazuh_status,
         "inventory_summary": inventory_summary,
         "comm_status": _comm_status(),
+        "soc_quality": _soc_quality(),
     }
+
+
+def _soc_quality() -> dict:
+    """Which alert rules are right, which nobody looks at (services/soc_quality.py) - plaintext, for Central and the MCP data quality."""
+    try:
+        from services import soc_quality
+        return soc_quality.public_summary()
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"[:200]}
 
 
 def _comm_status() -> dict:
@@ -807,6 +817,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             "vuln_findings_status": snapshot.get("vuln_findings_status", []),
             "vuln_reeval": snapshot.get("vuln_reeval"),
             "comm_status": snapshot.get("comm_status"),
+            "soc_quality": snapshot.get("soc_quality"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import select
 
-from models.database import SessionLocal, TlsCheck, VulnHost, VulnService, Asset, Device
+from models.database import SessionLocal, TlsCheck, VulnHost, VulnService, Asset, Device, SocAlert
 
 _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "tls.json")
 DEFAULTS = {"enabled": True, "warn_days": 30, "crit_days": 7}
@@ -32,7 +32,11 @@ INTERVAL_SEC = 6 * 3600
 TIMEOUT = 6.0
 CONCURRENCY = 6
 LEGACY = ("TLSv1", "TLSv1.1")
-CODES = ("expired", "expiring", "self_signed", "weak_key", "weak_signature", "legacy_protocol")
+CODES = ("expired", "expiring", "self_signed", "self_signed_default", "weak_key", "weak_signature", "legacy_protocol")
+# the ports people use (remote desktop, web applications, mail, directory): an expired certificate there is high; on a device's own
+# management page (a camera, a printer, a switch) it is not - seen: 87 repeats per port of Hikvision cameras' factory certificates
+USER_PORTS = {443, 465, 587, 636, 993, 995, 3389, 4443, 5986, 8443, 10443}
+DEFAULT_CERT_YEARS = 50
 # Antivirus / proxies that re-sign TLS on the machine the agent runs on: the certificate read is then THEIRS, not the server's, and says nothing about the server.
 INTERCEPTORS = ("web/mail shield", "kaspersky", "eset ssl filter", "avast", "avg ", "bitdefender", "zscaler", "sophos", "fortinet", "untrusted root", "mitmproxy", "fiddler", "charles proxy")
 _settings: Dict = dict(DEFAULTS)
@@ -184,7 +188,14 @@ def findings(r: dict, now: Optional[datetime] = None, warn_days: int = 30, crit_
     out: List[dict] = []
     if r.get("intercepted"):
         return [{"code": "intercepted", "severity": "info", "message": "the certificate is re-signed on the agent's computer (antivirus / proxy), so it is not the server's"}]
-    na = r.get("not_after")
+    na, nb = r.get("not_after"), r.get("not_before")
+    # A factory default certificate of an embedded device: dated before 2000 or valid for more than 50 years (seen: cameras whose
+    # certificate "expired" 17121 and 19676 days ago). Not a lapse anyone can renew on a schedule - one low finding, nothing else.
+    if (na and na.year < 2000) or (nb and nb.year < 2000) or (na and nb and (na - nb).days > DEFAULT_CERT_YEARS * 365):
+        out.append({"code": "self_signed_default", "severity": "low",
+                    "message": "a device's factory default certificate (dated before 2000 or valid for over 50 years)"})
+        na = None
+        r = dict(r, self_signed=False)
     if na:
         days = (na - now).total_seconds() / 86400
         if days < 0:
@@ -286,18 +297,70 @@ def _store(check_id: int, r: dict, now: datetime) -> None:
         row.findings = json.dumps(fs)
         ip, port, name = row.ip, row.port, _device_name(db, row.ip)
         db.commit()
-    present = {f["code"]: f for f in fs if f["code"] in CODES}
-    for code in CODES:
-        rule = f"tls_{code}"
-        if code in present:
-            f = present[code]
-            soc.raise_alert(rule=rule, device=name, title=_TITLES[code], severity=f["severity"], category="vulnerability" if code != "expired" and code != "expiring" else "system",
-                            fp_detail=f"{ip}:{port}", ip=ip, detail={"message": f"{ip}:{port} - {f['message']}", "description": f"{ip}:{port}"}, source="rules", now=now)
-        else:
-            soc.resolve(rule=rule, device=name, fp_detail=f"{ip}:{port}")
+    # the alerts are raised per device after the whole run (alerts()): one per device and kind of finding, with its ports
 
 
-_TITLES = {"expired": "TLS certificate expired", "expiring": "TLS certificate about to expire", "self_signed": "Self-signed TLS certificate", "weak_key": "Weak key in a TLS certificate",
+def _is_server(db, ip: str) -> bool:
+    a = db.execute(select(Asset).where(Asset.ip == ip).limit(1)).scalars().first()
+    return bool(a and (a.role == "server" or a.asset_type in ("server", "virtual") or "server" in (a.os_name or "").lower()))
+
+
+def severity_for(code: str, severity: str, port: int, server: bool) -> str:
+    """The finding's severity for alerting: an expired / expiring certificate is high only where people connect (a server's user-facing
+    port); on a device's management page it is low."""
+    if code in ("expired", "expiring") and not (server and port in USER_PORTS):
+        return "low"
+    return severity
+
+
+def alerts(now: Optional[datetime] = None) -> dict:
+    """One SOC alert per device and kind of finding, listing its ports - raised once and refreshed afterwards (no count growing with every
+    scan), closed when no port of the device has it any more. Alerts of the old per-port form are closed as regrouped."""
+    from services import soc
+    now = now or datetime.utcnow()
+    with SessionLocal() as db:
+        rows = db.execute(select(TlsCheck)).scalars().all()
+        groups: Dict[tuple, dict] = {}
+        names: Dict[str, str] = {}
+        for row in rows:
+            if row.error:
+                continue
+            server = _is_server(db, row.ip)
+            names.setdefault(row.ip, _device_name(db, row.ip))
+            for f in json.loads(row.findings or "[]"):
+                if f.get("code") not in CODES:
+                    continue
+                g = groups.setdefault((row.ip, f["code"]), {"ports": [], "sev": "info", "messages": []})
+                sev = severity_for(f["code"], f["severity"], row.port, server)
+                g["ports"].append(row.port)
+                g["messages"].append(f"{row.port}: {f['message']}")
+                if soc.RANK.get(sev, 0) > soc.RANK.get(g["sev"], 0):
+                    g["sev"] = sev
+        open_tls = db.execute(select(SocAlert).where(SocAlert.rule.like("tls_%"), SocAlert.status.in_(soc.OPEN))).scalars().all()
+        stale = [(a.rule, a.device_name, a.fingerprint) for a in open_tls]
+    active = set()
+    for (ip, code), g in groups.items():
+        name = names.get(ip, ip)
+        fp = f"tls_{code}|{name.strip().lower()}|{ip}"[:240]
+        active.add(fp)
+        soc.raise_alert(rule=f"tls_{code}", device=name, title=_TITLES[code], severity=g["sev"],
+                        category="vulnerability" if code not in ("expired", "expiring") else "system", fp_detail=ip, ip=ip,
+                        detail={"message": f"{ip} - " + "; ".join(sorted(set(g["messages"])))[:400], "ports": sorted(set(g["ports"]))},
+                        source="rules", now=now, count=0)
+    closed = 0
+    with SessionLocal() as db:
+        for rule, device, fp in stale:
+            if fp in active:
+                continue
+            for a in db.execute(select(SocAlert).where(SocAlert.fingerprint == fp, SocAlert.status.in_(soc.OPEN))).scalars().all():
+                regrouped = fp.rsplit("|", 1)[-1].count(":") == 1          # the per-port form "ip:port" of before 3.64
+                a.status, a.closed_at, a.closed_by = "closed", now, ("auto: regrouped per device" if regrouped else "auto: recovered")
+                closed += 1
+        db.commit()
+    return {"alerts": len(active), "closed": closed}
+
+
+_TITLES = {"self_signed_default": "Factory default TLS certificate", "expired": "TLS certificate expired", "expiring": "TLS certificate about to expire", "self_signed": "Self-signed TLS certificate", "weak_key": "Weak key in a TLS certificate",
            "weak_signature": "Weak signature of a TLS certificate", "legacy_protocol": "Outdated TLS protocol accepted"}
 
 
@@ -321,6 +384,7 @@ async def run_all(ids: Optional[List[int]] = None) -> dict:
                 r = await probe(ip, port)
             _store(cid, r, datetime.utcnow())
         await asyncio.gather(*(one(*r) for r in rows))
+        alerts()
         _last.update(at=datetime.utcnow().isoformat() + "Z", error=None)
         return {"ok": True, "checked": len(rows)}
     except Exception as e:
