@@ -87,7 +87,7 @@ CATALOG: Dict[str, tuple] = {
 
 # fields that tell two things of one family apart (a tunnel of a router, a service of a host, a sensor, an interface ...)
 _DETAIL_KEYS = ("tunnel_type", "tunnel_name", "iface", "interface", "service_name", "sensor_name", "description", "rule_description", "rule_id",
-                "mount", "vm_name", "kind")
+                "mount", "vm_name", "kind", "signature")
 # what of an event is kept as the alert's evidence
 _EVIDENCE_KEYS = ("sources", "users", "count", "window_sec", "threshold", "log_message", "log_time", "rule_level", "rule_id", "rule_description",
                   "agent_name", "plugin_output", "state_name", "status_name", "message", "sensor_name", "service", "tunnel_type", "tunnel_name",

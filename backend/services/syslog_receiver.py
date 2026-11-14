@@ -424,7 +424,15 @@ def evaluate(ev: dict, now: Optional[float] = None) -> List[str]:
     if "link" not in off:
         if iface is not None and down is not None:
             if down:
-                _raise("link_down", f"Link down: {iface}" if iface else "Link down", ev, "medium", "network", detail_key=iface)
+                # the interface's role (services/iface_roles.py): a WAN or a switch's uplink going down cuts a site or a device off
+                role = None
+                try:
+                    from services import iface_roles
+                    role = iface_roles.role_for(ev["ip"], iface)
+                except Exception:
+                    pass
+                title = {"wan": f"WAN link down: {iface}", "uplink": f"Uplink down: {iface}"}.get(role, f"Link down: {iface}" if iface else "Link down")
+                _raise("link_down", title, ev, "high" if role in ("wan", "uplink") else "medium", "network", detail_key=iface)
                 raised.append("link")
             else:
                 soc.resolve(rule="syslog.link_down", device=ev.get("name") or ev["ip"], fp_detail=iface)
@@ -446,8 +454,20 @@ def evaluate(ev: dict, now: Optional[float] = None) -> List[str]:
                     raised.append("flap")
                 else:
                     soc.resolve(rule="syslog.link_slow", device=ev.get("name") or ev["ip"], fp_detail=iface)
+    # RouterOS lines the router rules understand (services/router_logs.py): source, user, service, owner of the address, aggregated
+    skip = set()
+    if ev["kind"] == "syslog":
+        try:
+            from services import router_logs
+            res = router_logs.handle(device=ev.get("name") or ev["ip"], device_ip=ev["ip"], message=text, app=ev.get("app"), asset_id=ev.get("asset_id"),
+                                     via="syslog", at=ev.get("at"), now=now)
+            ev["parsed"] = res["parsed"]
+            skip = res["skip_builtin"]
+            raised.extend(res["raised"])
+        except Exception as e:
+            print(f"[syslog] router rules error: {type(e).__name__}: {e}")
     for r in BUILTIN:
-        if r[0] in off or (r[9] != "any" and r[9] != ev["kind"]) or not re.search(r[3], text, re.I):
+        if r[0] in off or r[0] in skip or (r[9] != "any" and r[9] != ev["kind"]) or not re.search(r[3], text, re.I):
             continue
         n = _hit(r[0], ev["ip"], r[7], r[8], now)
         if n:
@@ -524,8 +544,11 @@ def _store(batch: List[dict]) -> int:
         return 0
     with SessionLocal() as db:
         for e in keep:
+            p = e.get("parsed") or {}
             db.add(SyslogEvent(at=e["at"], source_ip=e["ip"], asset_id=e.get("asset_id"), host=e.get("host"), app=(e.get("app") or "")[:80] or None,
-                               facility=e.get("facility"), severity=e["severity"], kind=e["kind"], message=e["message"][:1000], raised=",".join(e.get("raised") or []) or None))
+                               facility=e.get("facility"), severity=e["severity"], kind=e["kind"], message=e["message"][:1000], raised=",".join(e.get("raised") or []) or None,
+                               log_kind=p.get("kind") if p.get("kind") not in (None, "other") else None, src_ip=p.get("src_ip"), user_name=p.get("user"),
+                               service=p.get("service"), iface=p.get("interface")))
         db.commit()
     _stats["stored"] += len(keep)
     return len(keep)
@@ -659,7 +682,9 @@ def events(*, limit: int = 200, offset: int = 0, kind: Optional[str] = None, sou
         rows = db.execute(stmt.order_by(SyslogEvent.id.desc()).limit(max(1, min(limit, 1000))).offset(max(0, offset))).scalars().all()
         names = known_sources()
         items = [{"id": r.id, "at": r.at.isoformat() + "Z", "ip": r.source_ip, "name": (names.get(r.source_ip) or {}).get("name"), "asset_id": r.asset_id, "host": r.host,
-                  "app": r.app, "severity": r.severity, "kind": r.kind, "message": r.message, "raised": r.raised.split(",") if r.raised else []} for r in rows]
+                  "app": r.app, "severity": r.severity, "kind": r.kind, "message": r.message, "raised": r.raised.split(",") if r.raised else [],
+                  # the line read into fields (services/routeros_log.py) - absent for lines stored before 3.61
+                  "log_kind": r.log_kind, "src_ip": r.src_ip, "user": r.user_name, "service": r.service, "interface": r.iface} for r in rows]
     return {"total": total, "items": items}
 
 

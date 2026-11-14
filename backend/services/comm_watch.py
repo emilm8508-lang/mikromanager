@@ -392,6 +392,11 @@ def coverage(levels: Tuple[str, ...] = ("critical", "important")) -> List[dict]:
         for r in db.execute(select(AssetSource)).scalars().all():
             srcs.setdefault(r.asset_id, []).append(r)
         comm = {r.asset_id: r for r in db.execute(select(AssetComm)).scalars().all()}
+        try:
+            from services import router_logs
+            logging_by_device = {r.get("device_id"): r for r in router_logs.logging_status().get("routers") or []}
+        except Exception:
+            logging_by_device = {}
         for a in db.execute(select(Asset)).scalars().all():
             level = _level(a)
             if level not in levels:
@@ -405,10 +410,13 @@ def coverage(levels: Tuple[str, ...] = ("critical", "important")) -> List[dict]:
                              "state": "late" if (exp and late) else "error" if s.error else "ok" if not late else "quiet", "error": s.error})
             kind = _kind(a)
             missing = [x for x in RECOMMENDED.get(kind or "", ()) if x not in have]
+            lg = logging_by_device.get(json.loads(a.refs or "{}").get("device_id"))
             c = comm.get(a.id)
             out.append({"id": a.id, "name": a.name or a.ip, "ip": a.ip, "criticality": level, "kind": kind, "state": c.state if c else None,
                         "since": c.since.isoformat() + "Z" if c and c.since else None, "cause": c.cause if c else None, "sources": rows,
-                        "never_seen": missing})
+                        "never_seen": missing,
+                        # the router's own logging setup read over its API: sends to a remote syslog? to this agent?
+                        "syslog_config": {"to_agent": lg.get("to_agent"), "remote": lg.get("remote"), "error": lg.get("error")} if lg else None})
     order = {"down": 0, "silent": 1, "degraded": 2, "stale": 3, "ok": 4, None: 5}
     out.sort(key=lambda r: (order.get(r["state"], 5), -RANK.get(r["criticality"], 0), (r["name"] or "").lower()))
     return out
@@ -422,6 +430,7 @@ def public_summary() -> dict:
                        "late": [x["source"] for x in r["sources"] if x["state"] == "late"],
                        "err": [x["source"] for x in r["sources"] if x["state"] == "error"],
                        "never": r["never_seen"],
+                       "lg": (r["syslog_config"] or {}).get("to_agent"),
                        "seen": {x["source"]: x["last_seen"] for x in r["sources"]}} for r in cov
                       if r["state"] not in ("ok", None) or r["never_seen"]][:80]}
 

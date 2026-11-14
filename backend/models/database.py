@@ -791,6 +791,12 @@ class SyslogEvent(Base):
     kind = Column(String, nullable=False, default="syslog")   # syslog | trap
     message = Column(Text, nullable=False)
     raised = Column(String, nullable=True)               # the detections it raised an alert for, comma-separated
+    # the RouterOS line read into fields (services/routeros_log.py): login_failed, config_change, ipsec_fail ...; from where, who, how, which port
+    log_kind = Column(String, nullable=True)
+    src_ip = Column(String, nullable=True)
+    user_name = Column(String, nullable=True)
+    service = Column(String, nullable=True)
+    iface = Column(String, nullable=True)
 
 
 class BizService(Base):
@@ -1641,6 +1647,13 @@ def _migrate_add_columns():
             if name not in as_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+
+    if "syslog_events" in inspector.get_table_names():
+        se_cols = {c["name"] for c in inspector.get_columns("syslog_events")}
+        for name in ("log_kind", "src_ip", "user_name", "service", "iface"):
+            if name not in se_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE syslog_events ADD COLUMN {name} VARCHAR"))
 
     if "vuln_findings" in inspector.get_table_names():
         vf_cols = {c["name"] for c in inspector.get_columns("vuln_findings")}

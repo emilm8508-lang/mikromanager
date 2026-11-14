@@ -166,20 +166,31 @@ def _mark_rest_ok(key: tuple) -> None:
 # time (confirmed on a real device). Keyed by IP only — the failure is
 # connection-level, before any command is even sent.
 _api_ssl_broken: dict = {}
+_api_ssl_failures: dict = {}
 _API_SSL_BROKEN_TTL = 3600
+_API_SSL_MAX_TTL = 24 * 3600
+
+
+def _api_ssl_ttl(ip: str) -> int:
+    """1 h after the first failure, doubling with each further one, at most a day: every failed try is a "ssl: no common ciphers" line in
+    the router's log - seen in production as ~500 lines per device in three weeks from the hourly retry."""
+    n = max(1, _api_ssl_failures.get(ip, 1))
+    return min(_API_SSL_MAX_TTL, _API_SSL_BROKEN_TTL * 2 ** (n - 1))
 
 
 def _api_ssl_is_broken(ip: str) -> bool:
     ts = _api_ssl_broken.get(ip)
-    return ts is not None and (time.time() - ts) < _API_SSL_BROKEN_TTL
+    return ts is not None and (time.time() - ts) < _api_ssl_ttl(ip)
 
 
 def _mark_api_ssl_broken(ip: str) -> None:
     _api_ssl_broken[ip] = time.time()
+    _api_ssl_failures[ip] = _api_ssl_failures.get(ip, 0) + 1
 
 
 def _mark_api_ssl_ok(ip: str) -> None:
     _api_ssl_broken.pop(ip, None)
+    _api_ssl_failures.pop(ip, None)
 
 
 def _connect_and_login(host: str, username: str, password: str, *, port: int,
@@ -291,7 +302,7 @@ class MikrotikClient:
         circuit-breaker below stops retrying the same doomed handshake on
         every poll cycle."""
         loop = asyncio.get_event_loop()
-        _note_access("api", self.ip, command)
+        _note_access("api-ssl" if self.api_port == 8729 else "api", self.ip, command)
 
         def _run():
             ssl_wrapper = None
@@ -302,10 +313,15 @@ class MikrotikClient:
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 ctx.minimum_version = ssl.TLSVersion.TLSv1
-                try:
-                    ctx.set_ciphers("DEFAULT@SECLEVEL=1")
-                except ssl.SSLError:
-                    pass
+                # RouterOS api-ssl WITHOUT a certificate offers only anonymous Diffie-Hellman (ADH) ciphers - the cause of its log line
+                # "ssl: no common ciphers" at every try (seen: mcprojekt's APs and switches). The usual ciphers first, then ADH; never
+                # null encryption. The certificate is not verified anyway (CERT_NONE above), so ADH adds no new exposure.
+                for spec in ("ALL:!eNULL:@SECLEVEL=0", "DEFAULT@SECLEVEL=1"):
+                    try:
+                        ctx.set_ciphers(spec)
+                        break
+                    except ssl.SSLError:
+                        continue
                 ssl_wrapper = ctx.wrap_socket
             try:
                 api = _connect_and_login(

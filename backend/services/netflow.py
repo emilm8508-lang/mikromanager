@@ -308,6 +308,21 @@ def _add(s: set, v, h: dict, counter: str) -> None:
     h[counter] += 1
 
 
+MGMT_PORTS = {21, 22, 23, 80, 443, 993, 995, 8080, 8291, 8443, 8728, 8729}
+_mgmt: deque = deque(maxlen=20000)                 # (time, src, dst, dport) of the flows to management ports, newest last
+
+
+def mgmt_sources(dst_ips: List[str], at: float, window_sec: float, ports: Tuple[int, ...]) -> List[str]:
+    """The addresses that opened a connection to one of these addresses on one of these ports within window_sec of `at`, most frequent first."""
+    dsts, cnt = set(dst_ips), defaultdict(int)
+    for t, src, dst, dport in reversed(_mgmt):
+        if t < at - window_sec:
+            break
+        if t <= at + window_sec and dst in dsts and dport in ports and src not in dsts:
+            cnt[src] += 1
+    return sorted(cnt, key=lambda k: -cnt[k])[:10]
+
+
 def ingest(flows: List[dict], now: Optional[float] = None) -> None:
     """Adds flows to the current window (closing it first when its 10 minutes are over)."""
     now = now or time.time()
@@ -318,6 +333,8 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
     w = _win
     for f in flows:
         src, dst, sport, dport, proto = f["src"], f["dst"], f["sport"], f["dport"], f["proto"]
+        if dport in MGMT_PORTS:
+            _mgmt.append((now, src, dst, dport))           # who connects to management ports (services/router_logs.py: a log line without its source)
         src_l, dst_l = is_local(src), is_local(dst)
         if src_l:
             h = _host(w, src)

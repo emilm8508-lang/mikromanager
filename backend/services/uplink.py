@@ -684,10 +684,11 @@ async def _build_snapshot() -> dict:
 
 
 def _comm_status() -> dict:
-    """The communication state of the important / critical assets (services/comm_watch.py) - plaintext, for Central and the MCP coverage."""
+    """The communication state of the important / critical assets (services/comm_watch.py) - plaintext, for Central and the MCP coverage -
+    with whether the routers send their log to this agent (services/router_logs.py)."""
     try:
-        from services import comm_watch
-        return comm_watch.public_summary()
+        from services import comm_watch, router_logs
+        return {**comm_watch.public_summary(), "router_logging": router_logs.public_summary()}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"[:200]}
 

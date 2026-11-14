@@ -100,6 +100,11 @@ def _context(version: Optional[ssl.TLSVersion] = None) -> ssl.SSLContext:
 
 
 async def _handshake(ip: str, port: int, ctx: ssl.SSLContext):
+    try:
+        from services import mikrotik_client
+        mikrotik_client._note_access("tls-scan", ip, f"port {port}")      # a router logs a failed handshake: services/router_logs.py finds it was us
+    except Exception:
+        pass
     reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, port, ssl=ctx, server_hostname=None), timeout=TIMEOUT)
     try:
         obj = writer.get_extra_info("ssl_object")

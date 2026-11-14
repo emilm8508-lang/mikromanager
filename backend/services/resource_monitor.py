@@ -362,7 +362,7 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
     }
 
 
-def _check_device_log_events(log_state: dict, device_id: int, device_name: str, logs: list) -> List[dict]:
+def _check_device_log_events(log_state: dict, device_id: int, device_name: str, logs: list, device_ip: Optional[str] = None) -> List[dict]:
     """Filters raw log entries (from MikrotikClient.get_logs()) down to
     CRITICAL/error severity, and dedups against what was already reported
     last poll — RouterOS's own log buffer is a ring buffer that keeps old
@@ -392,10 +392,25 @@ def _check_device_log_events(log_state: dict, device_id: int, device_name: str, 
         current_seen.add(sig)
         if sig in prev_seen:
             continue
+        # the router rules first (services/router_logs.py): a line they understand (failed logins, IPsec from outside, a failed TLS
+        # handshake, a restart ...) becomes their alert with the source, the user and the owner of the address, not a generic one
+        signature = None
+        if device_ip:
+            try:
+                from services import router_logs
+                res = router_logs.handle(device=device_name, device_ip=device_ip, message=str(entry.get("message") or ""),
+                                         app=entry.get("topics"), via="api")
+                if res["duplicate"] or res["parsed"]["kind"] != "other":
+                    continue
+                signature = res["parsed"]["signature"]
+            except Exception as e:
+                print(f"[resource_monitor] router rules error: {type(e).__name__}: {e}")
         events.append({
             "type": "device_log_critical", "device_id": device_id, "device_name": device_name,
             "severity": "critical" if "critical" in topics else "error",
             "topics": entry.get("topics"), "message": entry.get("message"),
+            # one alert per kind of line (not one per device for everything): addresses and numbers taken out of the text
+            "signature": signature,
             "log_time": entry.get("time"), "count": 1, "detected_at": now_iso,
         })
         try:
@@ -437,7 +452,7 @@ async def _poll_device_logs(device_id: int, log_state: dict) -> List[dict]:
         return []
 
     device_name = device.identity or device.name or device.ip
-    return _check_device_log_events(log_state, device_id, device_name, logs)
+    return _check_device_log_events(log_state, device_id, device_name, logs, device.ip)
 
 
 async def _poll_mikrotik_devices() -> None:

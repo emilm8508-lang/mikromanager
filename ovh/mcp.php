@@ -435,9 +435,13 @@ function t_coverage(McpContext $c, array $a): array {
             if ($want === 'gaps' ? empty($x['never']) : ($want && ($x['s'] ?? null) !== $want)) continue;
             $items[] = ['asset' => $x['n'] ?? null, 'criticality' => $x['c'] ?? null, 'state' => $x['s'] ?? null, 'since' => $x['since'] ?? null,
                         'grouped_under' => $x['cause'] ?? null, 'late_sources' => $x['late'] ?? [], 'failing_sources' => $x['err'] ?? [],
-                        'never_seen_sources' => $x['never'] ?? [], 'last_seen' => $x['seen'] ?? null];
+                        'never_seen_sources' => $x['never'] ?? [], 'last_seen' => $x['seen'] ?? null, 'sends_log_to_agent' => $x['lg'] ?? null];
         }
-        $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'], 'states' => $cs['states'] ?? null, 'checked_at' => $cs['at'] ?? null, 'assets' => $items];
+        $lg = is_array($cs['router_logging'] ?? null) ? $cs['router_logging'] : null;
+        $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'], 'states' => $cs['states'] ?? null, 'checked_at' => $cs['at'] ?? null, 'assets' => $items,
+                  // whether the routers send their log to the agent (read over their API): which do not, which could not be read
+                  'router_logging' => $lg ? ['checked_at' => $lg['at'] ?? null, 'routers' => $lg['routers'] ?? null, 'sending_to_agent' => $lg['to_agent'] ?? null,
+                                             'not_sending' => $lg['not_sending'] ?? [], 'not_read' => $lg['unknown'] ?? []] : null];
     }
     return ['clients' => $out];
 }

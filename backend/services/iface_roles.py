@@ -88,3 +88,10 @@ def iface_role(device_id: int, iface: str, rows: Optional[List[dict]] = None) ->
         if r.get("device_id") == device_id and (r.get("iface") or "").lower() == (iface or "").lower():
             return r.get("role")
     return None
+
+
+def role_for(ip: str, iface: str, rows: Optional[List[dict]] = None) -> Optional[str]:
+    """The role of an interface of the device that has this address (any of its addresses)."""
+    rows = router_addresses() if rows is None else rows
+    did = next((r.get("device_id") for r in rows if r.get("ip") == ip or r.get("device_ip") == ip), None)
+    return iface_role(did, iface, rows) if did is not None else None

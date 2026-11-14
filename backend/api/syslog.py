@@ -49,3 +49,32 @@ async def settings(body: SettingsBody, user: dict = Depends(require_login)):
 @router.get("/events")
 def events(limit: int = 200, offset: int = 0, kind: Optional[str] = None, ip: Optional[str] = None, max_severity: Optional[int] = None, q: Optional[str] = None):
     return syslog_receiver.events(limit=limit, offset=offset, kind=kind, source_ip=ip, max_severity=max_severity, q=q)
+
+
+# ── router logs (services/router_logs.py): do the routers send their log here, and the rules' settings ──
+
+@router.get("/router-logging")
+def router_logging():
+    """Per MikroTik: its remote logging actions, whether one points at this agent, with which topics (read over its API, every 6 h)."""
+    from services import router_logs
+    return {**router_logs.logging_status(), "summary": router_logs.public_summary(), "settings": router_logs.settings()}
+
+
+@router.post("/router-logging/check")
+async def router_logging_check(user: dict = Depends(require_login)):
+    from services import router_logs
+    return {"routers": await router_logs.check_logging()}
+
+
+class RouterRulesBody(BaseModel):
+    mgmt_nets: Optional[List[str]] = None       # the management networks: a login from outside them is an alert
+    rdap: Optional[bool] = None                 # look up the owners of public addresses in RDAP
+
+
+@router.put("/router-rules/settings")
+def router_rules_settings(body: RouterRulesBody, user: dict = Depends(require_login)):
+    from services import router_logs
+    try:
+        return router_logs.update_settings(body.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
