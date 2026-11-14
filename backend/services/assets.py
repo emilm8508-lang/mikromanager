@@ -641,7 +641,10 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
     from services import asset_type as atype
     sug, sug_why = atype.suggest(asset_type=a.asset_type, dclass=det.get("_class"), name=a.name, role=a.role, ports=(ctx.get("ports") or {}).get(a.ip or "", ()),
                                  hyperv_host=refs.get("windows_host_id") in (ctx.get("hyperv_hosts") or set()), os_name=a.os_name)
+    from services import oui
+    managed = any(refs.get(k) for k in ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id", "dell_server_id"))
     extra = {"criticality": atype.normalize_level(a.criticality), "criticality_suggested": sug, "criticality_reason": sug_why,
+             "personal": atype.personal(asset_type=a.asset_type, name=a.name, random_mac=oui.is_private(a.mac), managed=managed),
              "type_src": det.get("_type_src") or [], "dq": det.get("_dq") or [], "addrs": det.get("_addrs") or [], "alias_of": det.get("_alias_of")}
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
@@ -723,10 +726,21 @@ async def summary() -> dict:
         "vulnerable": vuln,
         # data quality (stage 2 of docs/plan-jakosc-danych.md): what the inventory knows to be missing or doubtful
         "data_quality": _dq_counts(rows),
+        "personal": _personal_counts(rows),
         "by_criticality": {k: sum(1 for r in rows if (r["criticality"] or r["criticality_suggested"]) == k) for k in ("critical", "important", "normal", "ignore")},
         "top_risk": [r for r in rows if r["risk"] > 0][:8],
         "last_refresh": _iso(_state["last_refresh"]),
     }
+
+
+def _personal_counts(rows: List[dict]) -> dict:
+    """Phones, tablets, watches, TVs in the LAN (stage 5): how many, and how many share a /24 with a server (the segmentation question)."""
+    def net(ip):
+        return ".".join((ip or "").split(".")[:3]) if ip and ip.count(".") == 3 else None
+    servers = {net(r["ip"]) for r in rows if r["active"] and (r["role"] == "server" or r["type"] in ("server", "virtual"))} - {None}
+    pv = [r for r in rows if r["active"] and r.get("personal")]
+    near = [r for r in pv if net(r["ip"]) in servers]
+    return {"total": len(pv), "in_server_lan": len(near), "examples": [r["name"] for r in near[:10]]}
 
 
 def _dq_counts(rows: List[dict]) -> dict:
@@ -775,6 +789,8 @@ async def public_summary() -> dict:
             row["crs"] = 1                                   # suggested, not set by the operator
         if r["dq"]:
             row["dq"] = r["dq"]
+        if r.get("personal"):
+            row["pv"] = 1
         if r["addrs"]:
             row["if"] = [[x["ip"], x.get("iface"), x.get("role")] for x in r["addrs"]][:12]
         if r.get("interfaces"):
@@ -797,7 +813,7 @@ async def public_summary() -> dict:
         out.append(row)
     return {
         "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable",
-                                      "data_quality", "by_criticality")},
+                                      "data_quality", "by_criticality", "personal")},
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 

@@ -21,6 +21,8 @@ class SettingsBody(BaseModel):
     external_scans: Optional[bool] = None
     max_hosts: Optional[int] = None
     beacon_ignore_ports: Optional[List[int]] = None
+    # this client's authorised scanners: [{source, ports "22,80,8000-8100", hours "01:00-05:00", max_hosts, rules, note}] (services/flow_rules.py)
+    scanner_exceptions: Optional[List[dict]] = None
 
 
 @router.get("/status")

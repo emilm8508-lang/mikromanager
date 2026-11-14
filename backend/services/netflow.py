@@ -43,6 +43,9 @@ DEFAULTS = {
     # mail (SMTP, POP3, IMAP and their TLS ports) and push / messaging keep-alives (XMPP, Apple, Google): periodic by design - seen
     # live: a mail client polling POP3S every 60 s and a phone's push channel every 211 s were 172 "beaconing" alerts a day
     "beacon_ignore_ports": [25, 110, 143, 465, 587, 993, 995, 5222, 5223, 5228],
+    # this client's authorised scanners (services/flow_rules.py): [{source, ports, hours, max_hosts, rules, note}] - inside their scope a
+    # scan is not alerted, beyond it it is
+    "scanner_exceptions": [],
 }
 REPEAT_SEC = {"net.beacon": 86400}  # the same detection (rule, host, target) is reported again only after this; others after an hour
 WINDOW_SEC = 600
@@ -75,6 +78,10 @@ _tracked: Dict[str, float] = {}               # internal ip -> last time it had 
 _beacon_ignore: set = set()                   # destination ports the beacon detector leaves out (settings)
 _last_raised: Dict[tuple, float] = {}         # (rule, ip, detail) -> when it was last reported
 _fp_cache: Dict[str, tuple] = {}              # SOC fingerprint -> (checked at, is a false positive)
+_wan = {"ips": set(), "at": 0.0}              # the routers' WAN addresses (services/iface_roles.py), refreshed every 5 minutes
+_scan_times: Dict[str, List[float]] = {}      # internal source -> the windows its scans were seen in (14 days): regular ones are offered as exceptions
+_recent_by_src: Dict[str, Dict[str, float]] = {}   # internal source -> {behaviour: last seen} (24 h): beacon + scan together is worse
+_excepted: deque = deque(maxlen=200)          # scans an exception covered, for the page
 
 
 # ── Settings ────────────────────────────────────────────────────────────────
@@ -94,7 +101,9 @@ def load_settings() -> dict:
     _loaded[0] = True
     try:
         with open(_STATE_PATH, encoding="utf-8") as f:
-            _tracked.update({k: float(v) for k, v in (json.load(f).get("tracked") or {}).items()})
+            st = json.load(f)
+            _tracked.update({k: float(v) for k, v in (st.get("tracked") or {}).items()})
+            _scan_times.update({k: [float(x) for x in v][-60:] for k, v in (st.get("scan_times") or {}).items() if isinstance(v, list)})
     except Exception:
         pass
     return _settings
@@ -152,6 +161,9 @@ async def update_settings(body: dict) -> dict:
             except ValueError:
                 raise ValueError(f"not a network: {n}")
         new["local_nets"] = nets
+    if body.get("scanner_exceptions") is not None:
+        from services import flow_rules
+        new["scanner_exceptions"] = flow_rules.clean_exceptions(body["scanner_exceptions"])
     if body.get("beacon_ignore_ports") is not None:
         ports = sorted({_int(p, 1, 65535, "port") for p in body["beacon_ignore_ports"]})
         if len(ports) > 100:
@@ -165,6 +177,19 @@ async def update_settings(body: dict) -> dict:
     _save()
     await restart()
     return settings()
+
+
+def wan_ips(now: Optional[float] = None) -> set:
+    """The routers' WAN addresses: the traffic of such an address is the router's (its answers to an inbound scan above all), not a host's."""
+    now = now or time.time()
+    if now - _wan["at"] > 300:
+        try:
+            from services import iface_roles
+            _wan["ips"] = iface_roles.wan_ips()
+        except Exception:
+            pass
+        _wan["at"] = now
+    return _wan["ips"]
 
 
 def is_local(ip: str) -> bool:
@@ -331,6 +356,8 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
     if now - _win["start"] >= WINDOW_SEC:
         close_window(now)
     w = _win
+    from services import flow_rules
+    wans = wan_ips(now)
     for f in flows:
         src, dst, sport, dport, proto = f["src"], f["dst"], f["sport"], f["dport"], f["proto"]
         if dport in MGMT_PORTS:
@@ -344,8 +371,12 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
             _host(w, dst)["in"] += f["bytes"]
         w["conv"][(src, dst, dport if dport else 0, proto)] += f["bytes"]
         ports = proto in (6, 17) and sport and dport
-        initiator = (not ports) or sport >= dport                   # the side with the higher port opened the connection
+        # which side opened it: the TCP flags first (a SYN alone opened it, a refusal never did), the ports when the flags do not say
+        init = flow_rules.initiator(proto, f.get("flags") or 0, sport, dport)
+        initiator = True if init is None else init
         syn_only = proto == 6 and f["flags"] & 0x02 and not f["flags"] & 0x10
+        if src in wans and not syn_only:
+            continue                                                 # a router's WAN answering (an inbound scan's RSTs): the router, not a scan by it
         if src_l and initiator and ports:
             h = w["hosts"][src]
             _add(h["peers"], dst, h, "peers_n")
@@ -359,7 +390,8 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
                     h["syn_dsts"].add(dst)
             if dst_l and dport in ADMIN_PORTS and len(h["admin_dsts"]) < SET_CAP:
                 h["admin_dsts"].add(dst)
-            if not dst_l and _settings.get("beacon", True) and dport not in QUIET_PORTS and dport not in _beacon_ignore and f["bytes"] <= BEACON_BYTES:
+            if (not dst_l and _settings.get("beacon", True) and dport not in QUIET_PORTS and dport not in _beacon_ignore and f["bytes"] <= BEACON_BYTES
+                    and not flow_rules.not_beacon_target(dst, dport)):
                 _beacon_seen(src, sport, dst, dport, now)
         elif not src_l and dst_l and syn_only and ports and initiator:
             s = w["scan_in"].setdefault(src, set())
@@ -446,16 +478,26 @@ def detect(w: dict, now: float) -> List[dict]:
     before = len(_detections)
     sp, sh, lh = int(_settings.get("scan_ports", 100)), int(_settings.get("scan_hosts", 50)), int(_settings.get("lateral_hosts", 15))
     for ip, h in w["hosts"].items():
+        if ip in wan_ips(now):
+            continue                                                 # a router's WAN address: its traffic is the router's
         wide = max(((d, len(p)) for d, p in h["per_dst_ports"].items()), key=lambda x: x[1], default=(None, 0))
         if wide[1] >= sp:
+            if _scan_allowed("net.portscan", ip, h["per_dst_ports"][wide[0]], 1, now, names):
+                continue
             _raise("net.portscan", ip, "Port scan from an internal host", "high", "T1046",
-                   f"{_label(ip, names)} tried {wide[1]} ports on {_label(wide[0], names)} in 10 minutes", f"ports|{wide[0]}", names, now)
+                   f"{_label(ip, names)} tried {wide[1]} ports on {_label(wide[0], names)} in 10 minutes" + _beyond_text(ip), f"ports|{wide[0]}", names, now)
         elif len(h["syn_dsts"]) >= sh and h["attempts"] and h["unanswered"] / h["attempts"] >= 0.5:
+            if _scan_allowed("net.portscan", ip, h["ports"], len(h["syn_dsts"]), now, names):
+                continue
             _raise("net.portscan", ip, "Network sweep from an internal host", "high", "T1046",
-                   f"{_label(ip, names)} tried {len(h['syn_dsts'])} hosts, {h['unanswered']} of {h['attempts']} attempts unanswered, in 10 minutes", "sweep", names, now)
+                   f"{_label(ip, names)} tried {len(h['syn_dsts'])} hosts, {h['unanswered']} of {h['attempts']} attempts unanswered, in 10 minutes" + _beyond_text(ip),
+                   "sweep", names, now)
         if len(h["admin_dsts"]) >= lh:
+            if _scan_allowed("net.lateral", ip, h["ports"] & ADMIN_PORTS, len(h["admin_dsts"]), now, names):
+                continue
             _raise("net.lateral", ip, "Possible lateral movement", "high", "T1021",
-                   f"{_label(ip, names)} opened admin ports (SMB / RDP / SSH / WinRM) on {len(h['admin_dsts'])} internal hosts in 10 minutes", "admin", names, now)
+                   f"{_label(ip, names)} opened admin ports (SMB / RDP / SSH / WinRM) on {len(h['admin_dsts'])} internal hosts in 10 minutes" + _beyond_text(ip),
+                   "admin", names, now)
     if _settings.get("external_scans"):
         for src, targets in w["scan_in"].items():
             if len(targets) >= sp:
@@ -464,6 +506,62 @@ def detect(w: dict, now: float) -> List[dict]:
     if _settings.get("beacon", True):
         _detect_beacons(names, now)
     return list(_detections)[before:]
+
+
+_beyond: Dict[str, str] = {}
+
+
+def _beyond_text(ip: str) -> str:
+    b = _beyond.pop(ip, None)
+    return f" - beyond its scanner exception: {b}" if b else ""
+
+
+def _scan_allowed(rule: str, ip: str, ports, hosts: int, now: float, names: Dict[str, dict]) -> bool:
+    """A scan seen: noted for the regularity check and the source's behaviours; True when this client's exception covers it whole."""
+    from services import flow_rules
+    t = _scan_times.setdefault(ip, [])
+    if not t or now - t[-1] > WINDOW_SEC * 1.5:
+        t.append(now)
+    del t[:-60]
+    _recent_by_src.setdefault(ip, {})["scan" if rule == "net.portscan" else "lateral"] = now
+    exc, beyond = flow_rules.check_exception(_settings.get("scanner_exceptions") or [], rule, ip, ports, hosts, datetime.fromtimestamp(now))
+    if exc and not beyond:
+        _excepted.append({"at": datetime.utcfromtimestamp(now).isoformat() + "Z", "rule": rule, "ip": ip, "name": (names.get(ip) or {}).get("name"),
+                          "exception": exc["source"], "hosts": hosts, "ports": len(set(ports))})
+        return True
+    if exc:
+        _beyond[ip] = "; ".join(beyond)
+    _combined(ip, now, names)
+    return False
+
+
+def suggested_exceptions(now: Optional[float] = None) -> List[dict]:
+    """Sources whose scans come at a steady rhythm (a scheduled scanner - an inventory or monitoring tool), not covered by an exception
+    yet: offered on the page, never added by themselves."""
+    from services import flow_rules
+    now = now or time.time()
+    names = _names()
+    out = []
+    for ip, ts in _scan_times.items():
+        ts[:] = [t for t in ts if now - t < 14 * 86400]
+        r = flow_rules.regular(ts)
+        if not r:
+            continue
+        if flow_rules.check_exception(_settings.get("scanner_exceptions") or [], "net.portscan", ip, [], 0, datetime.fromtimestamp(now))[0]:
+            continue
+        out.append({"source": ip, "name": (names.get(ip) or {}).get("name"), **r})
+    return sorted(out, key=lambda x: -x["count"])
+
+
+def _combined(ip: str, now: float, names: Dict[str, dict]) -> None:
+    """A host that beacons AND scans / moves laterally within a day: one high alert saying so (each alone may be harmless; together they
+    are the shape of a compromised host - seen: psb's DESKTOP-RAMQ0TF, a beacon, a network sweep and a port scan of the router)."""
+    seen = {k: t for k, t in (_recent_by_src.get(ip) or {}).items() if now - t < 86400}
+    _recent_by_src[ip] = seen
+    if "beacon" in seen and ({"scan", "lateral"} & set(seen)):
+        what = ", ".join(sorted({"beacon": "beaconing", "scan": "scanning", "lateral": "admin ports on many hosts"}[k] for k in seen))
+        _raise("net.combined", ip, "Beaconing together with scanning", "high", "T1071",
+               f"{_label(ip, names)} within 24 h: {what}", "combined", names, now)
 
 
 def _detect_beacons(names: Dict[str, dict], now: float) -> None:
@@ -488,9 +586,24 @@ def _detect_beacons(names: Dict[str, dict], now: float) -> None:
             continue
         cv = statistics.pstdev(gaps) / mean if mean else 1.0
         if cv < BEACON_CV:
-            _raise("net.beacon", src, "Regular connections to an outside address (beaconing)", "medium", "T1071",
-                   f"{_label(src, names)} opened {len(q)} new connections to {dst}:{dport}, every {mean:.0f} s (spread {cv * 100:.0f} %), in the last two hours",
-                   f"{dst}:{dport}", names, now)
+            # who is at the other end (RDAP, services/router_logs.py): a big cloud / CDN is the usual update / telemetry call - low, unless
+            # the same host also scans (then the combined alert is high)
+            from services import flow_rules
+            owner = None
+            try:
+                from services import router_logs
+                o = router_logs.owner(dst)
+                owner = (o or {}).get("owner")
+            except Exception:
+                pass
+            big = flow_rules.cloud(owner)
+            _recent_by_src.setdefault(src, {})["beacon"] = now
+            scans = {"scan", "lateral"} & {k for k, t in (_recent_by_src.get(src) or {}).items() if now - t < 86400}
+            sev = "low" if big and not scans else "medium"
+            _raise("net.beacon", src, "Regular connections to an outside address (beaconing)", sev, "T1071",
+                   f"{_label(src, names)} opened {len(q)} new connections to {dst}:{dport}" + (f" ({owner})" if owner else "") +
+                   f", every {mean:.0f} s (spread {cv * 100:.0f} %), in the last two hours", f"{dst}:{dport}", names, now)
+            _combined(src, now, names)
             q.clear()                                               # one alert per run of beats; it re-raises if they go on
 
 
@@ -555,7 +668,7 @@ def _save_state() -> None:
         os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
         tmp = _STATE_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"tracked": _tracked}, f)
+            json.dump({"tracked": _tracked, "scan_times": _scan_times}, f)
         os.replace(tmp, _STATE_PATH)
     except Exception as e:
         print(f"[netflow] state save error: {e}")
@@ -648,6 +761,7 @@ def status() -> dict:
         "unknown": sorted(({"ip": k, "n": v} for k, v in _unknown.items()), key=lambda x: -x["n"])[:15],
         "tracked": len(_tracked), "window": last, "windows": list(_history),
         "detections": list(reversed(_detections))[:100], "detections_24h": len(recent),
+        "excepted": list(reversed(_excepted))[:50], "suggested_exceptions": suggested_exceptions(), "wan_ips": sorted(wan_ips()),
     }
 
 
@@ -665,4 +779,7 @@ def public_summary() -> dict:
         "top": [{"n": t["name"] or t["ip"], "out": t["out"], "in": t["in"], "peers": t["peers"]} for t in (w.get("top") or [])[:5]],
         "detections_24h": dict(by_rule),
         "recent": [{"at": d["at"], "rule": d["rule"], "n": d["name"], "sev": d["severity"], "msg": d["message"]} for d in st["detections"][:10]],
+        "exceptions": len(st["settings"].get("scanner_exceptions") or []), "excepted_24h": sum(1 for x in st["excepted"]
+                                                                                              if datetime.fromisoformat(x["at"].rstrip("Z")).timestamp() >= time.time() - 86400),
+        "suggested_exceptions": [{"n": x["name"] or x["source"], "every_h": x["every_h"]} for x in st["suggested_exceptions"][:10]],
     }

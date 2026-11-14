@@ -121,3 +121,19 @@ def suggest(*, asset_type: Optional[str], dclass: Optional[str], name: Optional[
     if server and (ports & _DB_PORTS or _SQL_NAME.search(n)):
         return "important", "database server"
     return "normal", None
+
+
+# ── personal devices (stage 5): phones, tablets, watches, TVs and consoles in the company LAN ──
+
+_PERSONAL_NAME = re.compile(r"iphone|ipad|galaxy|redmi|xiaomi|poco|huawei|honor|oppo|vivo|realme|oneplus|pixel|motorola|moto[- ]|nokia|"
+                            r"\bsm-[a-z]\d|android|watch|tablet|kindle|playstation|xbox|nintendo|chromecast|fire[- ]?tv|smart[- ]?tv|roku", re.I)
+
+
+def personal(*, asset_type: Optional[str], name: Optional[str], random_mac: bool = False, managed: bool = False) -> bool:
+    """A device of a person rather than of the company - for the segmentation policy (a guest / BYOD network, not the servers' LAN).
+    A managed host (WinRM / SSH / the router) never is; a phone-like name or type is; a random (private) MAC alone is not enough."""
+    if managed:
+        return False
+    if asset_type == "mobile":
+        return True
+    return bool(name and _PERSONAL_NAME.search(name)) and asset_type in (None, "other", "mobile", "windows", "linux")

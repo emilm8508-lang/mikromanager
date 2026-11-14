@@ -281,7 +281,11 @@ function t_overview(McpContext $c, array $a): array {
             'alerts' => mcp_pick($st, ['open', 'new', 'critical', 'high', 'by_severity']),
             'risk_levels' => $soc['risk']['levels'] ?? null, 'down' => $av['down'] ?? null, 'unreachable' => $av['unreachable'] ?? null,
             'anomalies' => $an ? ['open' => count((array)($an['open'] ?? [])), 'events_30d' => $an['events_30d'] ?? null, 'precision' => $an['precision'] ?? null] : null,
-            'netflow' => $nf ? ['on' => $nf['on'] ?? null, 'detections_24h' => $nf['detections_24h'] ?? null] : null,
+            'netflow' => $nf ? ['on' => $nf['on'] ?? null, 'detections_24h' => $nf['detections_24h'] ?? null,
+                                // stage 5: scans an authorised-scanner exception covered, and steady scanners offered as exceptions (never added by themselves)
+                                'scanner_exceptions' => $nf['exceptions'] ?? null, 'excepted_24h' => $nf['excepted_24h'] ?? null,
+                                'suggested_exceptions' => $nf['suggested_exceptions'] ?? null] : null,
+            'personal_devices' => $m['assets_status']['summary']['personal'] ?? null,
             'outside_addresses_24h' => $soc['indicators']['total'] ?? null,
             'vulnerabilities' => $vul + ['recheck' => $m['vuln_reeval'] ?? null], 'servers' => $srv,
         ];
@@ -387,7 +391,7 @@ function t_assets(McpContext $c, array $a): array {
                        // interface role (wan / uplink / access), the other addresses of the same device
                        'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']), 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
-                       'other_addresses' => $x['al'] ?? null];
+                       'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv'])];
         }
     }
     $n = mcp_limit($a, 40, 150);
