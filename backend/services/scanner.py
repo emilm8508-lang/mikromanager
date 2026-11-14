@@ -459,8 +459,14 @@ async def enrich_device(ip: str, username: str, password: str,
         # call already made, just reading two more fields from it.
         info["current_firmware"] = rb.get("current-firmware", "")
         info["upgrade_firmware"] = rb.get("upgrade-firmware", "")
+        if rb.get("serial-number"):
+            info["serial"] = rb["serial-number"]
+        if rb:
+            info["os_source"] = "routeros_api"     # /system/routerboard answers over REST / API only: the version is RouterOS's own
     except Exception:
         pass
+    if info.get("ros_version") and "os_source" not in info:
+        info["os_source"] = "snmp"
     try:
         pkg = await client.get_package_update_status()
         if pkg:

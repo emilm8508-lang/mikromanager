@@ -380,7 +380,12 @@ function t_assets(McpContext $c, array $a): array {
             if (!is_array($x) || !mcp_match($x, $q)) continue;
             $rows[] = ['tenant' => $r['tenant'], 'name' => $x['n'] ?? null, 'ip' => $x['ip'] ?? null, 'type' => $x['t'] ?? null, 'role' => $x['r'] ?? null,
                        'maker' => $x['mf'] ?? null, 'model' => $x['md'] ?? null, 'os' => $x['os'] ?? null, 'lifecycle' => $x['lc'] ?? null,
-                       'vulnerabilities_crit_high_med_low' => $x['v'] ?? null, 'place' => $x['loc'] ?? ($x['pl'] ?? null)];
+                       'vulnerabilities_crit_high_med_low' => $x['v'] ?? null, 'place' => $x['loc'] ?? ($x['pl'] ?? null),
+                       // stage 2: criticality (set by the operator, or "suggested"), data-quality flags, a router's own addresses with the
+                       // interface role (wan / uplink / access), the other addresses of the same device
+                       'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']), 'data_quality' => $x['dq'] ?? null,
+                       'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
+                       'other_addresses' => $x['al'] ?? null];
         }
     }
     $n = mcp_limit($a, 40, 150);

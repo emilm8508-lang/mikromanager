@@ -30,7 +30,10 @@ SCAN_TTL_SEC = int(os.environ.get("MIKROMANAGER_EDGE_SCAN_TTL", "3600"))
 # for its WAN-facing interface's running-state, regardless of whether that
 # interface's own address is public or private (see _find_wan_iface below)
 # — used only by collect_wan_link_events()/get_wan_link_status().
-_scan_cache = {"data": [], "wan_iface_data": [], "ts": 0.0}
+_scan_cache = {"data": [], "wan_iface_data": [], "addresses": [], "ts": 0.0}
+# Every address of every scanned router with its interface and the interface's role, kept on disk so the inventory and NetFlow know them
+# between scans and after a restart (services/iface_roles.py reads it).
+_ADDR_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "router_addresses.json")
 
 
 import re
@@ -206,7 +209,29 @@ async def _scan_device(device_id: int) -> dict:
             "running": running,
         })
 
-    return {"public_ips": public_ips, "wan_ifaces": wan_ifaces}
+    # Every address of the device with its interface's role (services/iface_roles.py): "wan" - in the WAN interface list or a public
+    # address; "uplink" - the interface its default route leaves through on a device without a WAN list (a switch's / AP's way to the
+    # router - not a WAN: seen as ether1 on CRS switches); "access" - the rest.
+    default_iface = None
+    if not wan_iface_names:
+        try:
+            routes = await asyncio.wait_for(client.get_routes(), timeout=8)
+            from services import iface_roles
+            default_iface = iface_roles.default_route_iface(routes or [])
+        except Exception as e:
+            print(f"[edge_discovery] {device.ip}: get_routes failed: {type(e).__name__}: {e}")
+    from services import iface_roles
+    addresses = []
+    for a in addrs or []:
+        ip = _strip_prefix(str(a.get("address") or ""))
+        iface = str(a.get("interface") or a.get("actual-interface") or "")
+        if not ip or ip.startswith("127.") or str(a.get("disabled", "false")).lower() in ("true", "yes"):
+            continue
+        addresses.append({"device_id": device.id, "device_name": device_name, "device_ip": device.ip, "ip": ip, "iface": iface,
+                          "network": str(a.get("network") or ""), "prefix": str(a.get("address") or ""),
+                          "role": iface_roles.role_of(iface, ip, wan_iface_names, default_iface)})
+
+    return {"public_ips": public_ips, "wan_ifaces": wan_ifaces, "addresses": addresses}
 
 
 async def _run_full_scan() -> None:
@@ -243,12 +268,24 @@ async def _run_full_scan() -> None:
     results = await asyncio.gather(*[_bounded(i) for i in ids])
     public_flat = []
     wan_iface_flat = []
+    addresses = []
     for r in results:
         public_flat.extend(r.get("public_ips") or [])
         wan_iface_flat.extend(r.get("wan_ifaces") or [])
+        addresses.extend(r.get("addresses") or [])
     _scan_cache["data"] = public_flat
     _scan_cache["wan_iface_data"] = wan_iface_flat
+    _scan_cache["addresses"] = addresses
     _scan_cache["ts"] = time.time()
+    if addresses:
+        try:
+            os.makedirs(os.path.dirname(_ADDR_PATH), exist_ok=True)
+            tmp = _ADDR_PATH + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"at": datetime.utcnow().isoformat() + "Z", "addresses": addresses}, f)
+            os.replace(tmp, _ADDR_PATH)
+        except OSError as e:
+            print(f"[edge_discovery] router addresses not saved: {e}")
 
 
 async def collect_public_ips() -> List[dict]:

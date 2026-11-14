@@ -113,6 +113,8 @@ class Device(Base):
     # Fleet inventory (services/fleet.py) — the per-device facts a MikroTik
     # fleet-management view lists. Refreshed hourly, never wiped on a failed read.
     architecture = Column(String, nullable=True)        # /system/resource architecture-name (arm, mipsbe, ...)
+    serial = Column(String, nullable=True)              # /system/routerboard serial-number (the device's identity across address changes)
+    os_source = Column(String, nullable=True)           # where ros_version came from: routeros_api (REST / API answered) | snmp
     ros_channel = Column(String, nullable=True)         # /system/package/update channel (stable, long-term, ...)
     uptime_sec = Column(Integer, nullable=True)
     packages_json = Column(Text, nullable=True)         # JSON [{"name","version","disabled"}]
@@ -1586,7 +1588,7 @@ def _migrate_add_columns():
                 conn.execute(text("ALTER TABLE devices ADD COLUMN is_router_override BOOLEAN"))
             if "drp_exclude" not in dev_cols:
                 conn.execute(text("ALTER TABLE devices ADD COLUMN drp_exclude BOOLEAN DEFAULT 0"))
-            for name, ddl in (("architecture", "VARCHAR"), ("ros_channel", "VARCHAR"), ("uptime_sec", "INTEGER"),
+            for name, ddl in (("serial", "VARCHAR"), ("os_source", "VARCHAR"), ("architecture", "VARCHAR"), ("ros_channel", "VARCHAR"), ("uptime_sec", "INTEGER"),
                               ("packages_json", "TEXT"), ("wifi_json", "TEXT"), ("fleet_checked_at", "DATETIME")):
                 if name not in dev_cols:
                     conn.execute(text(f"ALTER TABLE devices ADD COLUMN {name} {ddl}"))

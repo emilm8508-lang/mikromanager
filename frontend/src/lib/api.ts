@@ -1109,6 +1109,15 @@ export interface AssetRow {
   ip: string | null
   mac: string | null
   type: AssetType
+  // stage 2 (docs/plan-jakosc-danych.md): business criticality (set, or the suggestion), why the type, data-quality flags,
+  // a router's own addresses with the interface role, the other addresses of the same device
+  criticality?: string | null      // critical | important | normal | ignore (older low / medium / high are read as normal / normal / important)
+  criticality_suggested?: 'critical' | 'important' | 'normal' | 'ignore'
+  criticality_reason?: string | null
+  type_src?: string[]
+  dq?: string[]
+  addrs?: Array<{ ip: string; iface: string | null; role: 'wan' | 'uplink' | 'access' | null }>
+  interfaces?: Array<{ ip: string | null; mac: string | null }>
   role: 'server' | 'workstation' | null
   dclass?: string | null            // gateway / router / switch / ap / apple / raspberry / vm
   hints?: string[]                  // embedded device kinds often left on a factory password (ilo, printer, camera ...)

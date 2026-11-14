@@ -634,21 +634,20 @@ def _update_directory(datas: List[dict]) -> None:
             by_mac[e["mac"]] = e
         return e
 
-    for d in datas:
-        dn = d["dev"]["name"]
-        for l in d["leases"]:
-            e = _get(_lease_ip(l), _lease_mac(l))
-            e["name"] = e["name"] or l.get("host-name") or None
-            e["comment"] = e["comment"] or l.get("comment") or None
-            e["sources"].add("dhcp")
-            e["devices"].add(dn)
-        for a in d["arp"]:
-            mac = normalize_mac(a.get("mac-address"))
-            if not mac:
-                continue
-            e = _get(a.get("address"), mac)
-            e["sources"].add("arp")
-            e["devices"].add(dn)
+    # The routers' leases and ARP decided per address first (services/directory_merge.py): one router's proxy-ARP MAC no longer folds
+    # another site's addresses into one entry, and a stale lease no longer names the device that has its address now.
+    from services import directory_merge
+    for x in directory_merge.build(datas):
+        e = {"name": x["name"], "ip": x["ip"], "mac": normalize_mac(x["mac"]) if x["mac"] else None, "sources": set(x["sources"]),
+             "devices": set(x["devices"]), "comment": x["comment"]}
+        if x.get("shared_mac"):
+            e["shared_mac"] = x["shared_mac"]
+        if x.get("notes"):
+            e["notes"] = x["notes"]
+        entries.append(e)
+        by_ip[e["ip"]] = e
+        if e["mac"]:
+            by_mac.setdefault(e["mac"], e)
 
     with SessionLocal() as db:
         for dv in db.execute(select(Device)).scalars().all():

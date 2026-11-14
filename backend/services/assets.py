@@ -98,18 +98,6 @@ def _locator(db):
     return locate
 
 
-def _guess_type(ports: set, name: Optional[str]) -> str:
-    if name and _PRINTER_NAME.search(name):
-        return "printer"
-    if ports & _PRINTER_PORTS and not ports & (_WINDOWS_PORTS | {22}):
-        return "printer"                           # 9100 is also node_exporter, 631 CUPS, 515 LPD of a PC: a computer with its own services is not a printer
-    if ports & _WINDOWS_PORTS:
-        return "windows"
-    if 22 in ports:
-        return "linux"
-    return "other"
-
-
 # ── Building the inventory from what the agent already knows ─────────────────
 
 class _Rec(dict):
@@ -165,6 +153,10 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             continue
         r = rec(e["ip"])
         r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"), via=e.get("via"), hops=e.get("hops"))
+        if e.get("shared_mac"):
+            r.setdefault("dq", []).append("mac_behind_router")         # only a router's proxy MAC known for it (services/directory_merge.py)
+        if any("another device" in n for n in e.get("notes") or []):
+            r.setdefault("dq", []).append("lease_name_conflict")
     ports_by_ip: Dict[str, set] = {}
     text_by_ip: Dict[str, str] = {}
     stale_scan = now - timedelta(days=VULN_HOST_MAX_AGE_DAYS)
@@ -176,31 +168,40 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         text_by_ip[h.ip] = text_by_host.get(h.id, "")
         r = rec(h.ip)
         r.put(refs={"vuln_host_id": h.id}, seen=h.last_scan_at, scan_level="credentialed" if h.credential_id else "passive")
-    for ip, ports in ports_by_ip.items():
-        r = recs[f"ip:{ip}"]
-        r.put(asset_type=_guess_type(ports, r.get("name")))
     sweep_ports = {e["ip"]: set(e.get("ports") or []) for e in directory if e.get("ip") and "sweep" in (e.get("sources") or [])}
     hints = {e["ip"]: e.get("hint") for e in directory if e.get("ip") and e.get("hint")}
+    from services import oui, asset_type as atype, device_class
     for r in recs.values():
         ip = r.get("ip")
         allp = (ports_by_ip.get(ip) or set()) | sweep_ports.get(ip, set())
-        if not r.get("asset_type") or (r["asset_type"] == "other" and allp):
-            kind = _guess_type(allp, r.get("name"))
-            r["asset_type"] = "windows" if kind == "other" and hints.get(ip) == "windows" else "printer" if kind == "other" and hints.get(ip) == "printer" else kind
-        if r["asset_type"] == "windows" and not r.get("role"):
-            r["role"] = "workstation"                    # a Windows host nobody classified: most are workstations; the operator can change it
-        # What the network card and the host name give away, for the devices nothing else could classify
-        from services import oui
         c = oui.classify(r.get("mac"), r.get("name"))
         if c["vendor"]:
             r["oui_vendor"] = c["vendor"]
-        if r["asset_type"] == "other" and c["type"] in ("printer", "camera", "mobile", "network", "virtual"):
-            r["asset_type"] = c["type"]
+        try:
+            ttl_hint = device_class.ttl_os_hint(int(r["ttl"])) if r.get("ttl") else None
+        except (TypeError, ValueError):
+            ttl_hint = None
+        # the heaviest type over every signal, with the signals that made it (a strong source below - a managed host, the router itself -
+        # still overrides it)
+        kind, why = atype.decide(ports=allp, banners=text_by_ip.get(ip, ""), name=r.get("name"), oui_type=c["type"], oui_vendor=c["vendor"],
+                                 ttl_hint=ttl_hint, sweep_hint=hints.get(ip), mobile_name=oui.type_from_name(r.get("name")) == "mobile")
+        r["asset_type"], r["type_src"] = kind, why
+        if kind == "windows" and not r.get("role"):
+            r["role"] = "workstation"                    # a Windows host nobody classified: most are workstations; the operator can change it
 
+    from services.vuln_scan import device_product
     for d in devices:
         r = rec(d.ip)
         vendor = (d.vendor or "").lower()
         ports = ports_by_ip.get(d.ip, set())
+        ident = device_product(d) if vendor == "mikrotik" else None
+        if ident and not ident["product"] and d.ros_version and not any(k in (ident["reason"] or "") for k in ("SwOS", "not a RouterOS")):
+            # marked mikrotik, but the evidence says it is not (a printer's default name, another maker's network card, a Linux kernel
+            # version): the type and the maker come from the other signals, not from the "mikrotik" label
+            r.put(refs={"device_id": d.id}, seen=d.last_seen, name=d.identity or d.name)
+            r.setdefault("dq", []).append(f"not_mikrotik: {ident['reason']}")
+            r.put(asset_type="other")
+            continue
         if vendor == "mikrotik":
             kind, maker = "network", "MikroTik"
         elif vendor.startswith("cisco"):
@@ -210,18 +211,26 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         r.put(True, asset_type=kind, role=None)
         r.put(True, name=d.identity or d.name, model=d.model or d.board_name)
         r.put(manufacturer=maker, mac=_norm_mac(d.mac), refs={"device_id": d.id}, seen=d.last_seen)
-        if d.ros_version and vendor == "mikrotik":
-            r.put(True, os_name="RouterOS", os_version=d.ros_version)
+        r["type_src"] = [f"managed device ({vendor or 'scan'})"]
+        if vendor == "mikrotik":
+            if ident and ident["product"]:
+                r.put(True, os_name=ident["product"].replace("MikroTik ", ""), os_version=d.ros_version)
+                r["os_src"] = ident["source"]
+            else:
+                # a network device without its version: lifecycle and vulnerabilities cannot be judged - a data-quality error, shown
+                r.setdefault("dq", []).append("missing_version" + ("" if d.credential_id else ": no credential"))
+            if getattr(d, "serial", None):
+                r.put(True, serial=d.serial)
         r.put(scan_level="credentialed" if d.credential_id else "snmp" if d.has_snmp else "passive")
 
     for h in linux:
         r = rec(h.ip)
-        r.put(True, asset_type="linux", role="server", name=h.hostname, os_name=h.distro_pretty, os_version=h.distro_version)
+        r.put(True, asset_type="linux", role="server", name=h.hostname, os_name=h.distro_pretty, os_version=h.distro_version, type_src=["managed host (SSH)"])
         r.put(refs={"linux_host_id": h.id}, seen=h.last_seen_at, first=h.first_seen_at, scan_level="credentialed" if h.managed else "passive")
     for h in windows:
         r = rec(h.ip)
         r.put(True, asset_type="windows", role="workstation" if h.host_type == "workstation" else "server", name=h.hostname,
-              os_name=h.os_name, os_version=h.os_version, manufacturer=None)
+              os_name=h.os_name, os_version=h.os_version, manufacturer=None, type_src=["managed host (WinRM)"])
         r.put(refs={"windows_host_id": h.id}, seen=h.last_seen_at, first=h.first_seen_at, scan_level="credentialed" if h.managed else "passive")
         if h.system_model and "virtual" in h.system_model.lower():
             r.put(True, asset_type="virtual")
@@ -246,13 +255,44 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         ip = ips[0] if ips else None
         key = f"ip:{ip}" if ip else (f"vm:{vm.vm_guid}" if vm.vm_guid else f"vm:{hv.id}:{vm.name}")
         r = rec(ip, key)
-        r.put(True, asset_type="virtual", name=vm.name)
+        r.put(True, asset_type="virtual", name=vm.name, type_src=["Hyper-V"])
         r.put(manufacturer="Microsoft Hyper-V", model=f"Generation {vm.generation}" if vm.generation else None,
               refs={"hyperv_vm_id": vm.id}, seen=vm.last_seen_at, first=vm.first_seen_at, scan_level="credentialed")
         r.setdefault("host_name", host.hostname or host.ip)
+    _router_addresses(recs)
     _collect_attached(recs, monitors, host_assets)
     _classify(recs, text_by_ip)
     return recs
+
+
+_MANAGED = ("linux_host_id", "windows_host_id", "hyperv_vm_id", "dell_server_id")
+
+
+def _router_addresses(recs: Dict[str, _Rec]) -> None:
+    """Every address a router has (its WAN, its other LANs) goes onto the router's own record with the interface and its role; an entry the
+    DHCP / ARP tables or a scan made for such an address is dropped. Seen: 192.168.0.2, the WAN address of mcprojekt's MC-R1, listed as a
+    host of its own (and NetFlow reading the scans of it as outgoing - stage 5)."""
+    try:
+        from services import iface_roles
+        rows = iface_roles.router_addresses()
+    except Exception:
+        return
+    if not rows:
+        return
+    key_by_device = {}
+    for k, r in recs.items():
+        did = (r.get("refs") or {}).get("device_id")
+        if isinstance(did, int):
+            key_by_device[did] = k
+    for a in rows:
+        k = key_by_device.get(a.get("device_id"))
+        if not k:
+            continue
+        router = recs[k]
+        router.setdefault("addrs", []).append({"ip": a["ip"], "iface": a.get("iface"), "role": a.get("role")})
+        other = f"ip:{a['ip']}"
+        if other != k and other in recs and not any(x in (recs[other].get("refs") or {}) for x in _MANAGED + ("device_id",)):
+            del recs[other]
 
 
 def _ipv4(x: Optional[str]) -> Optional[str]:
@@ -432,6 +472,11 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                     d["_hints"] = r["hints"]
                 else:
                     d.pop("_hints", None)
+                for src, dst in (("type_src", "_type_src"), ("dq", "_dq"), ("addrs", "_addrs"), ("os_src", "_os_src")):
+                    if r.get(src):
+                        d[dst] = sorted(set(r[src])) if src == "dq" else r[src]
+                    else:
+                        d.pop(dst, None)
                 a.details = json.dumps(d)
             level = r.get("scan_level", "passive")
             if _SCAN_RANK[level] > _SCAN_RANK.get(a.scan_level or "passive", 0) or not a.last_scan_at:
@@ -586,10 +631,18 @@ def _attach(asset_id: int) -> Optional[dict]:
         return None
 
 
-def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
+def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Optional[dict] = None) -> dict:
     fnd = vulns.get(a.ip or "", [])
     lc = asset_lifecycle.lifecycle(a.os_name, a.os_version)
     last = a.last_seen_at
+    det = _jload(a.details, {})
+    refs = _jload(a.refs, {})
+    ctx = ctx or {}
+    from services import asset_type as atype
+    sug, sug_why = atype.suggest(asset_type=a.asset_type, dclass=det.get("_class"), name=a.name, role=a.role, ports=(ctx.get("ports") or {}).get(a.ip or "", ()),
+                                 hyperv_host=refs.get("windows_host_id") in (ctx.get("hyperv_hosts") or set()), os_name=a.os_name)
+    extra = {"criticality": atype.normalize_level(a.criticality), "criticality_suggested": sug, "criticality_reason": sug_why,
+             "type_src": det.get("_type_src") or [], "dq": det.get("_dq") or [], "addrs": det.get("_addrs") or [], "alias_of": det.get("_alias_of")}
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
@@ -599,7 +652,23 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime) -> dict:
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),
         "active": bool(last and now - last < timedelta(days=STALE_DAYS)),
         "refs": {k: v for k, v in _jload(a.refs, {}).items() if isinstance(v, int)},       # which managed objects this asset is (host ids, device id, VM id)
+        **extra,
     }
+
+
+def _row_ctx(db) -> dict:
+    """What the rows need beyond the asset: the open ports per address (database servers) and the Windows hosts that are Hyper-V hosts."""
+    hosts = {h.id: h.ip for h in db.execute(select(VulnHost)).scalars().all()}
+    ports: Dict[str, set] = {}
+    for s in db.execute(select(VulnService)).scalars().all():
+        if hosts.get(s.host_id):
+            ports.setdefault(hosts[s.host_id], set()).add(s.port)
+    try:
+        from models.database import HypervHost
+        hv = {h.windows_host_id for h in db.execute(select(HypervHost)).scalars().all() if h.windows_host_id}
+    except Exception:
+        hv = set()
+    return {"ports": ports, "hyperv_hosts": hv}
 
 
 async def list_assets() -> List[dict]:
@@ -612,7 +681,14 @@ async def list_assets() -> List[dict]:
     now = datetime.utcnow()
     with SessionLocal() as db:
         locate = _locator(db)
-        rows = [_row(a, locate, vulns, now) for a in db.execute(select(Asset)).scalars().all()]
+        ctx = _row_ctx(db)
+        rows = [_row(a, locate, vulns, now, ctx) for a in db.execute(select(Asset)).scalars().all()]
+    # another interface of a device already listed (services/asset_merge.py, the same name with neighbouring MACs) is shown on that device
+    by_id = {r["id"]: r for r in rows}
+    for r in rows:
+        if r["alias_of"] in by_id:
+            by_id[r["alias_of"]].setdefault("interfaces", []).append({"ip": r["ip"], "mac": r["mac"]})
+    rows = [r for r in rows if r["alias_of"] not in by_id]
     rows.sort(key=lambda r: (-r["risk"], _ip_sort(r["ip"])))
     return rows
 
@@ -645,9 +721,30 @@ async def summary() -> dict:
         "by_scan_level": {k: sum(1 for r in rows if r["scan_level"] == k) for k in ("credentialed", "snmp", "passive")},
         "inactive": sum(1 for r in rows if not r["active"]),
         "vulnerable": vuln,
+        # data quality (stage 2 of docs/plan-jakosc-danych.md): what the inventory knows to be missing or doubtful
+        "data_quality": _dq_counts(rows),
+        "by_criticality": {k: sum(1 for r in rows if (r["criticality"] or r["criticality_suggested"]) == k) for k in ("critical", "important", "normal", "ignore")},
         "top_risk": [r for r in rows if r["risk"] > 0][:8],
         "last_refresh": _iso(_state["last_refresh"]),
     }
+
+
+def _dq_counts(rows: List[dict]) -> dict:
+    out: Dict[str, int] = {}
+    for r in rows:
+        for f in r["dq"]:
+            k = f.split(":")[0]
+            out[k] = out.get(k, 0) + 1
+    out["unknown_type"] = sum(1 for r in rows if r["active"] and r["type"] == "other")
+    # one (meaningful) name on several active entries with different MACs: not joined by itself (a name is not an identity), shown to check
+    from services.asset_merge import norm_name
+    names: Dict[str, int] = {}
+    for r in rows:
+        n = norm_name(r["name"]) if r["active"] and r["name"] != r["ip"] else None
+        if n:
+            names[n] = names.get(n, 0) + 1
+    out["same_name"] = sum(c for c in names.values() if c > 1)
+    return out
 
 
 MAX_PUBLIC_ROWS = 400
@@ -673,6 +770,15 @@ async def public_summary() -> dict:
                "seen": int((seen - datetime(1970, 1, 1)).total_seconds()) if seen else None}
         if r.get("place"):
             row["pl"] = r["place"]
+        row["cr"] = r["criticality"] or r["criticality_suggested"]
+        if not r["criticality"]:
+            row["crs"] = 1                                   # suggested, not set by the operator
+        if r["dq"]:
+            row["dq"] = r["dq"]
+        if r["addrs"]:
+            row["if"] = [[x["ip"], x.get("iface"), x.get("role")] for x in r["addrs"]][:12]
+        if r.get("interfaces"):
+            row["al"] = [x["ip"] for x in r["interfaces"]][:8]
         at = r.get("attach")
         if at:
             row["at"] = [at["to"], at.get("port"), at.get("vlan"), at.get("shared"), at["kind"]]        # switch, port, VLAN, other MACs on the port, how it is known
@@ -690,7 +796,8 @@ async def public_summary() -> dict:
             row["x"] = {"k": "vm", "id": refs["hyperv_vm_id"], "st": vmstate[refs["hyperv_vm_id"]]}
         out.append(row)
     return {
-        "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable")},
+        "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable",
+                                      "data_quality", "by_criticality")},
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 
@@ -763,7 +870,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
         if not a:
             return None
         locate = _locator(db)
-        row = _row(a, locate, vulns, now)
+        row = _row(a, locate, vulns, now, _row_ctx(db))
         refs = _jload(a.refs, {})
         vh = db.get(VulnHost, refs["vuln_host_id"]) if refs.get("vuln_host_id") else None
         services = []
@@ -840,10 +947,11 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
         if "owner" in fields:
             a.owner = (fields["owner"] or "").strip()[:128] or None
         if "criticality" in fields:
+            from services import asset_type as atype
             v = (fields["criticality"] or "").strip().lower()
-            if v and v not in ("low", "medium", "high", "critical"):
-                raise ValueError("criticality is low, medium, high or critical")
-            a.criticality = v or None
+            if v and not atype.normalize_level(v):
+                raise ValueError("criticality is critical, important, normal or ignore")
+            a.criticality = atype.normalize_level(v) if v else None
         if "asset_type" in fields or "role" in fields:
             d = _jload(a.details, {})
             over = d.get("_over", {})

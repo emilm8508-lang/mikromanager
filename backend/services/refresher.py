@@ -226,6 +226,10 @@ async def _refresh_one(dev_id: int) -> bool:
                     new_fields["ros_version"] = info["ros_version"]
                 if info.get("board_name"):
                     new_fields["board_name"] = info["board_name"]
+                if info.get("serial"):
+                    new_fields["serial"] = info["serial"]
+                if info.get("os_source"):
+                    new_fields["os_source"] = info["os_source"]
                 # These can legitimately be "" (e.g. upgrade_firmware empty
                 # when already current) so persist whenever the key is
                 # present at all, not just when truthy like the fields above.

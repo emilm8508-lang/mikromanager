@@ -2051,7 +2051,7 @@ def device_product(d) -> dict:
     if d.vendor == "mikrotik":
         return vuln_match.routeros_identity(vendor=d.vendor, version=d.ros_version, model=d.model or d.board_name,
                                             name=d.identity or d.name, oui_vendor=oui.vendor(d.mac) if d.mac else None,
-                                            has_api=bool(d.has_api), has_winbox=False)
+                                            has_api=bool(d.has_api) or getattr(d, "os_source", None) == "routeros_api", has_winbox=False)
     return {"product": f"{d.vendor} {d.model or ''}".strip(), "confidence": "likely", "source": "snmp", "reason": None}
 
 

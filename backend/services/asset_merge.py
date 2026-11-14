@@ -10,8 +10,9 @@ a machine that is only known by its name from two sources, or an entry made befo
   * merge()         joins entries into one: the facts one of them lacks are taken over, tags are combined, notes are kept, and everything that points at an entry by its id
                     (alerts, availability history, metrics, syslog, rack items, peripherals, business services, maintenance windows, the monitors and printers that belong
                     to a computer) is pointed at the survivor, so nothing is lost and nothing dangles;
-  * auto_merge()    called by every inventory rebuild: joins the cases that are certain - the same managed object, or the same name where one entry has not been seen for days
-                    and the other is alive and their hardware does not disagree. Two entries that are both alive with the same name are only offered, never joined by themselves.
+  * auto_merge()    called by every inventory rebuild: joins the cases that are certain - the same managed object, the same MAC (one of them silent), the same serial
+                    number. Since 3.59 a name alone is only offered, never joined by itself (names come from DHCP leases and were seen glued to the wrong device);
+  * mark_interfaces() the same name with sibling MACs (a router's / AP's ports, a dual NIC) is one device seen on several addresses: kept, shown on the main entry.
 """
 import json
 import re
@@ -84,6 +85,7 @@ def _groups(db, now: datetime) -> List[dict]:
     by_ref: Dict[tuple, List[Asset]] = {}
     by_mac: Dict[str, List[Asset]] = {}
     by_name: Dict[str, List[Asset]] = {}
+    by_serial: Dict[str, List[Asset]] = {}
     for a in assets:
         if a.key.startswith(("mon:", "prt:")):
             continue                                         # a monitor or printer attached to a computer is a thing of its own
@@ -96,6 +98,9 @@ def _groups(db, now: datetime) -> List[dict]:
         n = norm_name(a.name)
         if n:
             by_name.setdefault(n, []).append(a)
+        sn = (a.serial or "").strip().lower()
+        if len(sn) >= 4 and sn not in ("unknown", "none", "0", "n/a", "default string", "to be filled by o.e.m."):
+            by_serial.setdefault(sn, []).append(a)
     for (k, v), g in by_ref.items():
         if len(g) > 1:
             out.append({"reason": "ref", "ids": [a.id for a in g], "auto": True})
@@ -108,9 +113,12 @@ def _groups(db, now: datetime) -> List[dict]:
         ok = [a for a in g if all(_compatible(a, b) for b in g if b is not a)]
         if len(ok) < 2:
             continue
-        # joined by themselves only when exactly one entry is alive and the others have been silent for days
-        alive = [a for a in ok if _alive(a, now)]
-        out.append({"reason": "name", "ids": [a.id for a in ok], "auto": len(alive) == 1})
+        # A name alone never joins entries by itself (3.59): names come from DHCP leases and were seen glued to the wrong device
+        # (services/directory_merge.py) - "the same PC name" on two addresses is offered, the operator decides.
+        out.append({"reason": "name", "ids": [a.id for a in ok], "auto": False})
+    for sn, g in by_serial.items():
+        if len(g) > 1:
+            out.append({"reason": "serial", "ids": [a.id for a in g], "auto": True})
     return out
 
 
@@ -119,13 +127,17 @@ def _components(groups: List[dict]) -> List[dict]:
     comps: List[dict] = []
     for g in groups:
         hit = [c for c in comps if set(c["ids"]) & set(g["ids"])]
-        merged = {"ids": set(g["ids"]), "reasons": {g["reason"]}, "auto": g["auto"]}
+        merged = {"ids": set(g["ids"]), "reasons": {g["reason"]}, "auto_ids": set(g["ids"]) if g["auto"] else set()}
         for c in hit:
             merged["ids"] |= c["ids"]
             merged["reasons"] |= c["reasons"]
-            merged["auto"] = merged["auto"] and c["auto"]
+            merged["auto_ids"] |= c["auto_ids"]
             comps.remove(c)
         comps.append(merged)
+    # joined by itself when certain groups (managed object, MAC, serial) cover every entry: an offered-only group (the same name) over the
+    # same entries does not hold back a certain join, and does not widen it to entries only the name ties in
+    for c in comps:
+        c["auto"] = c["auto_ids"] == c["ids"] and len(c["ids"]) > 1
     return comps
 
 
@@ -250,6 +262,60 @@ def _merge_one(db, keep: Asset, drop: Asset) -> None:
     db.flush()
 
 
+# ── interfaces of one device ─────────────────────────────────────────────────
+
+SIBLING_MAC_SPAN = 16
+
+
+def sibling_macs(a: Optional[str], b: Optional[str]) -> bool:
+    """Two MACs of one piece of hardware: the same maker prefix and the device part a few numbers apart (a router's / AP's ports, a
+    server's dual NIC). Locally administered (random) MACs never count."""
+    ma, mb = _norm_mac(a), _norm_mac(b)
+    if not ma or not mb or ma == mb or ma[:6] != mb[:6] or int(ma[:2], 16) & 0x02:
+        return False
+    return abs(int(ma[6:], 16) - int(mb[6:], 16)) <= SIBLING_MAC_SPAN
+
+
+def mark_interfaces(db, now: Optional[datetime] = None) -> int:
+    """Entries that are other interfaces of one device - the same (meaningful) name and sibling MACs, e.g. mcprojekt's AP2 on .42 and .237 -
+    are kept (each address stays known) but shown on the main entry: details._alias_of = its id. The main entry is the one a managed object
+    stands behind, else the lowest address. Returns how many entries are marked now."""
+    now = now or datetime.utcnow()
+    assets = [a for a in db.execute(select(Asset)).scalars().all() if not a.key.startswith(("mon:", "prt:", "vm:"))]
+    by_name: Dict[str, List[Asset]] = {}
+    for a in assets:
+        n = norm_name(a.name)
+        if n and _norm_mac(a.mac):
+            by_name.setdefault(n, []).append(a)
+    alias: Dict[int, int] = {}
+    for n, g in by_name.items():
+        if len(g) < 2:
+            continue
+        def rank(a: Asset):
+            refs = _jl(a.refs, {})
+            managed = any(refs.get(k) for k in MANAGED_KEYS)
+            parts = [int(x) for x in (a.ip or "999.999.999.999").split(".") if x.isdigit()] or [999]
+            return (0 if managed else 1, parts)
+        g.sort(key=rank)
+        main = g[0]
+        for other in g[1:]:
+            if sibling_macs(main.mac, other.mac) and (_jl(other.refs, {}).get("device_id") is None or _jl(main.refs, {}).get("device_id") is None):
+                alias[other.id] = main.id
+    marked = 0
+    for a in assets:
+        d = _jl(a.details, {})
+        want = alias.get(a.id)
+        if d.get("_alias_of") != want:
+            if want:
+                d["_alias_of"] = want
+            else:
+                d.pop("_alias_of", None)
+            a.details = json.dumps(d)
+        marked += 1 if want else 0
+    db.commit()
+    return marked
+
+
 def auto_merge(live_keys: Optional[set] = None) -> int:
     """Joins the certain cases (see the module text). Returns how many entries went away. Never raises: a failure only skips this round."""
     try:
@@ -268,6 +334,8 @@ def auto_merge(live_keys: Optional[set] = None) -> int:
                 continue
         if n:
             print(f"[assets] joined {n} duplicate entr{'y' if n == 1 else 'ies'}")
+        with SessionLocal() as db:
+            mark_interfaces(db, now)
         return n
     except Exception as e:
         print(f"[assets] duplicate check skipped: {type(e).__name__}: {e}")

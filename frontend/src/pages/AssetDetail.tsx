@@ -191,9 +191,15 @@ function Overview({ a }: { a: Detail }) {
           </label>
           <label className="block"><span className="text-xs text-slate-500">{t('assets.criticality')}</span>
             <select value={criticality} onChange={e => setCriticality(e.target.value)} className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white">
-              <option value="">—</option>{(['low', 'medium', 'high', 'critical'] as const).map(k => <option key={k} value={k}>{t(`assets.crit.${k}`)}</option>)}
+              <option value="">{t('assets.critAuto', { level: t(`assets.crit.${a.criticality_suggested ?? 'normal'}`) })}</option>
+              {(['critical', 'important', 'normal', 'ignore'] as const).map(k => <option key={k} value={k}>{t(`assets.crit.${k}`)}</option>)}
             </select>
+            {!criticality && a.criticality_reason && <span className="text-[11px] text-slate-400">{t('assets.critWhy', { reason: a.criticality_reason })}</span>}
           </label>
+          {(a.type_src?.length ?? 0) > 0 && <div className="text-[11px] text-slate-500">{t('assets.typeWhy')}: {a.type_src!.join(', ')}</div>}
+          {(a.dq?.length ?? 0) > 0 && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">{t('assets.dqTitle')}: {a.dq!.join('; ')}</div>}
+          {(a.addrs?.length ?? 0) > 0 && <div className="text-[11px] text-slate-500">{t('assets.routerAddrs')}: {a.addrs!.map(x => `${x.ip} (${x.iface ?? '?'}, ${x.role ?? '?'})`).join(', ')}</div>}
+          {(a.interfaces?.length ?? 0) > 0 && <div className="text-[11px] text-slate-500">{t('assets.otherInterfaces')}: {a.interfaces!.map(x => x.ip).filter(Boolean).join(', ')}</div>}
           <label className="block"><span className="text-xs text-slate-500">{t('assets.notes')}</span>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={2000} className="mt-0.5 w-full border border-slate-300 rounded-lg px-3 py-1.5" /></label>
           <Button size="sm" variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}><Save size={12} /> {t('common.save')}</Button>
