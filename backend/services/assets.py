@@ -551,7 +551,8 @@ def _vuln_counts(findings: List[dict]) -> dict:
 
 def _risk(findings: List[dict]) -> float:
     # a CVE that is being exploited in attacks (CISA KEV) counts for more than its CVSS says
-    return sum(_SEV_WEIGHT.get(f.get("severity"), 0.5) + (3.0 if f.get("kev") else 0.0) for f in findings if (f.get("status") or "open") in ("open", "in_progress"))
+    return sum(_SEV_WEIGHT.get(f.get("severity"), 0.5) + (3.0 if f.get("kev") and f.get("confidence") != "suspected" else 0.0)
+               for f in findings if (f.get("status") or "open") in ("open", "in_progress"))
 
 
 # ── Reading ──────────────────────────────────────────────────────────────────

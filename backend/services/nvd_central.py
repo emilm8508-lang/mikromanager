@@ -108,6 +108,8 @@ def cve_object(item: dict) -> SimpleNamespace:
     c = (item or {}).get("cve") or {}
     ns = SimpleNamespace(id=c.get("id"), published=c.get("published"), url=f"https://nvd.nist.gov/vuln/detail/{c.get('id')}",
                          descriptions=[SimpleNamespace(lang=d.get("lang"), value=d.get("value")) for d in c.get("descriptions") or [] if isinstance(d, dict)])
+    # the affected versions (cpeMatch ranges) - services/vuln_match.py compares the device's version with them
+    ns.configurations = c.get("configurations") if isinstance(c.get("configurations"), list) else []
     metrics = c.get("metrics") or {}
     for key, prefix in (("cvssMetricV31", "v31"), ("cvssMetricV30", "v30"), ("cvssMetricV2", "v2")):
         arr = [m for m in metrics.get(key) or [] if isinstance(m, dict) and isinstance(m.get("cvssData"), dict)]
@@ -156,9 +158,11 @@ class Backend:
                          {k: v for k, v in (("keywordSearch", keywordSearch), ("limit", limit)) if v is not None})
 
     def searchCVE(self, cveId: Optional[str] = None, cpeName: Optional[str] = None, keywordSearch: Optional[str] = None, limit: Optional[int] = None,
-                  key: Optional[str] = None, **kw) -> list:
-        return self._run("cves", {"cveId": cveId, "cpeName": cpeName, "keywordSearch": keywordSearch, "resultsPerPage": limit}, _cves, "searchCVE",
-                         {k: v for k, v in (("cveId", cveId), ("cpeName", cpeName), ("keywordSearch", keywordSearch), ("limit", limit)) if v is not None})
+                  key: Optional[str] = None, virtualMatchString: Optional[str] = None, **kw) -> list:
+        return self._run("cves", {"cveId": cveId, "cpeName": cpeName, "virtualMatchString": virtualMatchString, "keywordSearch": keywordSearch,
+                                  "resultsPerPage": limit}, _cves, "searchCVE",
+                         {k: v for k, v in (("cveId", cveId), ("cpeName", cpeName), ("virtualMatchString", virtualMatchString),
+                                            ("keywordSearch", keywordSearch), ("limit", limit)) if v is not None})
 
 
 backend = Backend()

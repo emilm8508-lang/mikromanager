@@ -192,7 +192,7 @@ final class McpContext {
 
 /** What a tool may return: secrets, MAC addresses, serial numbers and notes out; texts and lists cut. */
 function mcp_clean($v, int $depth = 0) {
-    if ($depth > 7) return null;
+    if ($depth > 10) return null;            // client_risk's factor items sit 8 levels deep (were cut to null at 7)
     if (is_array($v)) {
         if (array_is_list_compat($v)) return array_map(function ($x) use ($depth) { return mcp_clean($x, $depth + 1); }, array_slice($v, 0, 150));
         $out = [];
@@ -281,7 +281,7 @@ function t_overview(McpContext $c, array $a): array {
             'anomalies' => $an ? ['open' => count((array)($an['open'] ?? [])), 'events_30d' => $an['events_30d'] ?? null, 'precision' => $an['precision'] ?? null] : null,
             'netflow' => $nf ? ['on' => $nf['on'] ?? null, 'detections_24h' => $nf['detections_24h'] ?? null] : null,
             'outside_addresses_24h' => $soc['indicators']['total'] ?? null,
-            'vulnerabilities' => $vul, 'servers' => $srv,
+            'vulnerabilities' => $vul + ['recheck' => $m['vuln_reeval'] ?? null], 'servers' => $srv,
         ];
     }
     return ['clients' => $out, 'note' => $out ? null : 'no client visible to this account'];

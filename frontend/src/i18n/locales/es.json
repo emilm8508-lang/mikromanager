@@ -1532,6 +1532,7 @@
             "hyperv_replication_problem": "Problema de replicación de una VM",
             "hyperv_host_pressure": "Host Hyper-V bajo carga",
             "vuln_overdue": "Análisis de vulnerabilidades atrasado",
+            "vuln_review_due": "Riesgo aceptado pendiente de revisión",
             "wazuh_alert": "Alerta de Wazuh",
             "prtg_sensor_down": "Sensor PRTG con problema",
             "checkmk_service_problem": "Problema de servicio en Checkmk",

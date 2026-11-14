@@ -345,6 +345,11 @@ class VulnFinding(Base):
     published = Column(String, nullable=True)
     ref_url = Column(String, nullable=True)
     queried_at = Column(DateTime, default=datetime.utcnow)
+    # how the CVE was tied to this version (services/vuln_match.py): "cpe-range" (NVD's affected ranges include it), "package" (the
+    # distribution's advisory for the installed package), "banner" (a keyword search / no ranges to compare with); NULL = from before 3.58
+    match_source = Column(String, nullable=True)
+    evaluation = Column(String, nullable=True)       # affected | unknown (not_affected ones are not stored)
+    fixed_version = Column(String, nullable=True)    # the first version without the flaw, when NVD's range says it
 
     __table_args__ = (UniqueConstraint("product", "version", "cve_id", name="uq_vuln_finding"),)
 
@@ -1599,12 +1604,24 @@ def _migrate_add_columns():
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
 
+    if "vuln_findings" in inspector.get_table_names():
+        vf_cols = {c["name"] for c in inspector.get_columns("vuln_findings")}
+        for name in ("match_source", "evaluation", "fixed_version"):
+            if name not in vf_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE vuln_findings ADD COLUMN {name} VARCHAR"))
+
     if "vuln_remediation" in inspector.get_table_names():
         vr_cols = {c["name"] for c in inspector.get_columns("vuln_remediation")}
         for name, ddl in (("approved_by", "VARCHAR"), ("valid_until", "DATETIME"), ("resolved_at", "DATETIME")):
             if name not in vr_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE vuln_remediation ADD COLUMN {name} {ddl}"))
+        # an accepted risk from before the exceptions had an end date never came up for review again: it gets one (90 days after it
+        # was accepted; already past = it is reopened by the next maintenance - services/vuln_sla.py)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE vuln_remediation SET valid_until = datetime(COALESCE(updated_at, first_seen_at, CURRENT_TIMESTAMP), '+90 days') "
+                              "WHERE status = 'accepted_risk' AND valid_until IS NULL"))
 
     if "soc_alerts" in inspector.get_table_names():
         sa_cols = {c["name"] for c in inspector.get_columns("soc_alerts")}

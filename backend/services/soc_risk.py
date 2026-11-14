@@ -62,9 +62,11 @@ def _factors(row: dict, alerts: List[dict], failed: List[dict], risky: List[int]
 
     alerts = sorted(alerts, key=lambda a: -soc.RANK.get(a["s"], 0))
     add("alerts", sum(ALERT_POINTS.get(a["s"], 0) for a in alerts), len(alerts), alerts)
-    v = row["vulns"]
     cves = sorted(cves, key=lambda c: (_SEV_ORDER.get(c["severity"], 4), -(c.get("cvss_score") or 0)))
-    add("vuln", 8 * v["critical"] + 3 * v["high"], v["critical"] + v["high"],
+    weight = lambda c: 1.0 if c.get("confidence", "likely") != "suspected" else 1 / 3
+    crit = sum(weight(c) for c in cves if c["severity"] == "CRITICAL")
+    high = sum(weight(c) for c in cves if c["severity"] == "HIGH")
+    add("vuln", 8 * crit + 3 * high, len(cves),
         [_cut(f"{c.get('cve_id') or '?'} · {c['severity']}" + (f" · {c['cvss_score']}" if c.get("cvss_score") else "")) for c in cves])
     add("kev", 8 * len(kev or []), len(kev or []), list(kev or []))
     lc = row["lifecycle"]
@@ -121,8 +123,11 @@ async def compute() -> List[dict]:
             + (failed.get(("windows", refs["windows_host_id"]), []) if "windows_host_id" in refs else []) \
             + (failed.get(("mikrotik", refs["device_id"]), []) if "device_id" in refs else [])
         patch = lin.get(refs.get("linux_host_id")) or win.get(refs.get("windows_host_id")) or {}
-        cves = [c for c in vulns_by_ip.get(r["ip"] or "", []) if (c.get("status") or "open") in ("open", "in_progress") and c.get("severity") in ("CRITICAL", "HIGH")]
-        kev = sorted({c["cve_id"] for c in vulns_by_ip.get(r["ip"] or "", []) if (c.get("status") or "open") in ("open", "in_progress") and c.get("kev") and c.get("cve_id")})
+        # a "suspected" match (a banner version on a distribution that backports fixes, no NVD range to compare with) is not counted as
+        # exploited (KEV) and adds at most a third of the points - services/vuln_match.py
+        open_f = [c for c in vulns_by_ip.get(r["ip"] or "", []) if (c.get("status") or "open") in ("open", "in_progress")]
+        cves = [c for c in open_f if c.get("severity") in ("CRITICAL", "HIGH")]
+        kev = sorted({c["cve_id"] for c in open_f if c.get("kev") and c.get("cve_id") and c.get("confidence") != "suspected"})
         factors = _factors(r, alerts, failed_list, risky_by_ip.get(r["ip"] or "", []), patch, cves, kev)
         if not factors:
             continue

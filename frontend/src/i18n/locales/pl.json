@@ -1696,6 +1696,7 @@
             "hyperv_replication_problem": "Problem z replikacją maszyny",
             "hyperv_host_pressure": "Host Hyper-V pod obciążeniem",
             "vuln_overdue": "Skan podatności po terminie",
+            "vuln_review_due": "Zaakceptowane ryzyko do przeglądu",
             "wazuh_alert": "Alert Wazuh",
             "prtg_sensor_down": "Czujnik PRTG w problemie",
             "checkmk_service_problem": "Problem z usługą w Checkmk",

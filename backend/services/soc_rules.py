@@ -130,17 +130,22 @@ async def _rule_new_vuln(ctx: dict) -> List[dict]:
         for f in h["findings"]:
             if (f.get("status") or "open") not in ("open", "in_progress"):
                 continue
-            kev = bool(f.get("kev"))
+            suspected = f.get("confidence") == "suspected"
+            kev = bool(f.get("kev")) and not suspected    # a suspected match (banner only, backported distro) is never "exploited here"
             if f["severity"] not in ("CRITICAL", "HIGH") and not kev:
                 continue                                  # a medium one only when it is being exploited in attacks
             detail = {"ip": h["ip"], "cve": f["cve_id"], "vuln_severity": f["severity"], "cvss": f.get("cvss_score"),
                       "product": f.get("product"), "version": f.get("version"), "description": (f.get("summary") or "")[:240]}
+            detail["confidence"] = f.get("confidence")
+            detail["match_source"] = f.get("match_source")
+            if f.get("fixed_version"):
+                detail["fixed_version"] = f["fixed_version"]
             if kev:
                 detail["exploited"] = "CISA KEV"
             if f.get("epss"):
                 detail["epss"] = f"{round(f['epss'] * 100)}%"
             out.append({"fp": f"{h['ip']}|{f['cve_id']}", "device": h.get("device_name") or h["ip"], "ip": h["ip"],
-                        "severity": "critical" if kev else "high" if f["severity"] == "CRITICAL" else "medium", "detail": detail})
+                        "severity": "low" if suspected else "critical" if kev else "high" if f["severity"] == "CRITICAL" else "medium", "detail": detail})
     return out
 
 

@@ -186,6 +186,22 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                 $msg .= "\n- {$cve} ({$sev}) {$prod} — {$days} dni po terminie";
             }
             return $msg;
+        case 'vuln_review_due':
+            $items = is_array($event['items'] ?? null) ? $event['items'] : [];
+            $msg = "📋 {$prefix}Zaakceptowane ryzyko do przeglądu (KEV, CVSS ≥ 9)
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Pozycji: " . (int)($event['count'] ?? 0);
+            foreach (array_slice($items, 0, 5) as $it) {
+                $cve = $it['cve_id'] ?? '?';
+                $prod = trim(($it['product'] ?? '?') . ' ' . ($it['version'] ?? ''));
+                $days = $it['days_left'];
+                $when = $days === null ? 'bez daty przeglądu' : ($days < 0 ? ('termin minął ' . abs((int)$days) . ' dni temu') : ('za ' . (int)ceil($days) . ' dni'));
+                $msg .= "
+- {$cve} {$prod} — {$when}";
+            }
+            return $msg;
         case 'idrac_health_degraded':
             $server = $event['server_name'] ?? '?';
             $previous = $event['previous'] ?? '?';

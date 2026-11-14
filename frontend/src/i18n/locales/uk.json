@@ -1532,6 +1532,7 @@
             "hyperv_replication_problem": "Проблема реплікації ВМ",
             "hyperv_host_pressure": "Вузол Hyper-V під навантаженням",
             "vuln_overdue": "Сканування вразливостей прострочене",
+            "vuln_review_due": "Прийнятий ризик потребує перегляду",
             "wazuh_alert": "Сповіщення Wazuh",
             "prtg_sensor_down": "Датчик PRTG у збої",
             "checkmk_service_problem": "Проблема служби в Checkmk",

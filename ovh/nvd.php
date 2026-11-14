@@ -148,7 +148,7 @@ function nvd_agent_auth(array $config): array {
 /** What the agent may ask NVD: a fixed list of query parameters of the two search endpoints, nothing else (this script is not an open proxy). */
 function nvd_build_query($kind, $params): array {
     $allowed = [
-        'cves' => ['cveId', 'cpeName', 'keywordSearch', 'resultsPerPage', 'startIndex'],
+        'cves' => ['cveId', 'cpeName', 'virtualMatchString', 'keywordSearch', 'resultsPerPage', 'startIndex'],
         'cpes' => ['keywordSearch', 'resultsPerPage', 'startIndex'],
     ];
     if (!is_string($kind) || !isset($allowed[$kind]) || !is_array($params) || count($params) === 0) nvd_fail(400, 'bad request');
@@ -156,7 +156,7 @@ function nvd_build_query($kind, $params): array {
     foreach ($params as $k => $v) {
         if (!is_string($k) || !in_array($k, $allowed[$kind], true)) nvd_fail(400, 'parameter not allowed');
         if ($k === 'resultsPerPage') {
-            $v = max(1, min(100, (int)$v));
+            $v = max(1, min(500, (int)$v));                  // a product's CVEs at one version (virtualMatchString) can exceed 100
         } elseif ($k === 'startIndex') {
             $v = max(0, min(10000, (int)$v));
         } else {
@@ -165,7 +165,7 @@ function nvd_build_query($kind, $params): array {
                 $v = strtoupper($v);
                 if (!preg_match('/^CVE-\d{4}-\d{4,}$/', $v)) nvd_fail(400, 'bad cveId');
             }
-            if ($k === 'cpeName' && strpos($v, 'cpe:2.3:') !== 0) nvd_fail(400, 'bad cpeName');
+            if (($k === 'cpeName' || $k === 'virtualMatchString') && strpos($v, 'cpe:2.3:') !== 0) nvd_fail(400, 'bad ' . $k);
         }
         $clean[$k] = $v;
     }

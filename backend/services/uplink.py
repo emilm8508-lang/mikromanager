@@ -652,6 +652,7 @@ async def _build_snapshot() -> dict:
         "log_fetch_results": log_fetch_results,
         "vuln_findings_summary": vuln_findings_summary,
         "vuln_findings_status": vuln_findings_status,
+        "vuln_reeval": _vuln_reeval_status(),
         "supply_chain_status": supply_chain_status,
         "linux_hosts_status": linux_hosts_status,
         "windows_hosts_status": windows_hosts_status,
@@ -676,6 +677,15 @@ async def _build_snapshot() -> dict:
         "wazuh_status": wazuh_status,
         "inventory_summary": inventory_summary,
     }
+
+
+def _vuln_reeval_status() -> dict:
+    """The counts of the one-off re-check of the vulnerability findings (services/vuln_reeval.py) - small, plaintext, for Central's report."""
+    try:
+        from services import vuln_reeval
+        return vuln_reeval.status()
+    except Exception:
+        return {}
 
 
 # Sections that Central reads only from the plaintext metadata of the envelope (never from the decrypted snapshot). With end-to-end
@@ -781,6 +791,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             # an explicit user-approved tradeoff to make Central visibility
             # possible without the E2E key. See vuln_scan.public_summary().
             "vuln_findings_status": snapshot.get("vuln_findings_status", []),
+            "vuln_reeval": snapshot.get("vuln_reeval"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:

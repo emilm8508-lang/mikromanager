@@ -65,6 +65,8 @@ async def lifespan(app: FastAPI):
     refresher.start()
     uplink.start()
     vuln_scan.start()
+    from services import vuln_reeval
+    vuln_reeval.start()                  # once after 3.58: the findings looked up again with version ranges (services/vuln_reeval.py)
     agent_backup.start()
     supply_chain.start()
     updater_svc.start_auto_update()

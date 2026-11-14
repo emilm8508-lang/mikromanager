@@ -61,7 +61,7 @@ from sqlalchemy import select, delete
 
 from models.database import (
     SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnPackage,
-    VulnFinding, VulnRemediation,
+    VulnFinding, VulnRemediation, LinuxHost,
 )
 from services.crypto import decrypt
 from services import scanner as scan_svc
@@ -190,7 +190,16 @@ def status() -> dict:
         "scan_day": SCAN_DAY,
         "scan_hour": SCAN_HOUR,
         "next_run_estimated": next_dt.timestamp(),
+        "reevaluation": _reeval_status(),
     }
+
+
+def _reeval_status() -> dict:
+    try:
+        from services import vuln_reeval
+        return vuln_reeval.status()
+    except Exception:
+        return {}
 
 
 # ── Scheduling ────────────────────────────────────────────────────────────
@@ -1213,6 +1222,7 @@ async def _package_audit(ip: str, cred, auth_info: dict, host_id: int,
                     product=pkg_name, version=pkg_version, queried_at=now, cve_id=cve_id,
                     cvss_score=f.get("cvss_score"), severity=f.get("severity"),
                     summary=f.get("summary"), published=f.get("published"), ref_url=f.get("ref_url"),
+                    match_source="package", evaluation="affected",          # the distribution's advisory for the installed version
                 ))
             db.commit()
 
@@ -1303,41 +1313,45 @@ def _nvd_query_live_sync(product: str, version: str) -> list:
             _nvd_error(e)
             return []
 
-    candidates = ask(nvdlib.searchCPE, keywordSearch=f"{product} {version}", limit=20)
-    if not candidates:
-        # The product+version combo can be over-specific for NVD's own CPE
-        # dictionary title text (e.g. a device's tracked product string
-        # like "MikroTik RouterOS" may not appear verbatim in the CPE
-        # title even though the vendor/product itself is well-known there)
-        # — retry with just the product name before giving up on CPE
-        # matching entirely. Version filtering still happens below, so
-        # this only widens the net, never picks a wrong-version CPE.
-        candidates = ask(nvdlib.searchCPE, keywordSearch=product, limit=20)
+    from services import vuln_match
+    clean = vuln_match.clean_version(version)
 
-    cpe_name = None
-    for c in candidates:
-        name = getattr(c, "cpeName", "") or ""
-        if version and version.lower() in name.lower():
-            cpe_name = name
-            break
-    if not cpe_name and candidates:
-        cpe_name = getattr(candidates[0], "cpeName", None)
-
-    cves = []
-    if cpe_name:
-        cves = ask(nvdlib.searchCVE, cpeName=cpe_name, limit=50)
-
-    if not cves:
-        cves = ask(nvdlib.searchCVE, keywordSearch=f"{product} {version}", limit=20)
+    # The product's CPE (vendor:product): known ones directly, else NVD's CPE dictionary by keyword. Seen in production: taking the CVEs of
+    # whichever CPE came first when none carried this version attached RouterOS 6.x CVEs (CVE-2018-14847, -7445) to 7.25.1 - now the CPE
+    # only names the product, and the version is compared with each CVE's ranges.
+    base = vuln_match.PRODUCT_CPE.get(product.strip().lower())
+    if not base:
+        candidates = ask(nvdlib.searchCPE, keywordSearch=f"{product} {version}", limit=20)             or ask(nvdlib.searchCPE, keywordSearch=product, limit=20)
+        names = [getattr(c, "cpeName", "") or "" for c in candidates]
+        pick = next((n for n in names if clean and clean.lower() in n.lower()), None) or next(iter(names), None)
+        parts = vuln_match.cpe_parts(pick) if pick else None
+        if parts:
+            base = f"cpe:2.3:{parts[0]}:{parts[1]}:{parts[2]}"
 
     findings = []
-    for cve in cves:
-        try:
-            f = _cve_to_finding(cve)
-        except Exception:
-            continue
-        if f:
-            findings.append(f)
+    if base and vuln_match.version_key(clean) is not None:
+        # NVD's own range matching (virtualMatchString with the version), then the same check here on the configurations it sent
+        _, vendor, prod = base.split(":")[2:5]
+        for cve in ask(nvdlib.searchCVE, virtualMatchString=f"{base}:{clean}", limit=200):
+            try:
+                f = _cve_to_finding(cve)
+            except Exception:
+                continue
+            if not f:
+                continue
+            evaluation, fixed = vuln_match.evaluate(vuln_match.extract_matches(cve), vendor, prod, clean)
+            f.update(evaluation=evaluation, fixed_version=fixed, match_source="cpe-range" if evaluation == "affected" else "banner")
+            findings.append(f)        # "not_affected" ones go back too: _get_findings_for closes what they had opened
+    else:
+        # no CPE for the product: a keyword search - never more than "suspected"
+        for cve in ask(nvdlib.searchCVE, keywordSearch=f"{product} {version}", limit=20):
+            try:
+                f = _cve_to_finding(cve)
+            except Exception:
+                continue
+            if f:
+                f.update(evaluation="unknown", fixed_version=None, match_source="banner")
+                findings.append(f)
     if errors and not findings:
         raise NvdUnavailable(f"{type(errors[-1]).__name__}: {errors[-1]}"[:300])
     if not errors:
@@ -1517,25 +1531,53 @@ async def _get_findings_for(db, product: str, version: str) -> list:
     # Clear stale rows for this pair, insert fresh ones (even if empty —
     # an empty result is itself worth caching so we don't re-query a clean
     # version every week).
+    before = {cid for (cid,) in db.execute(select(VulnFinding.cve_id).where(
+        VulnFinding.product == product, VulnFinding.version == version)).all()}
     db.execute(delete(VulnFinding).where(
         VulnFinding.product == product, VulnFinding.version == version))
     now = datetime.utcnow()
     rows = []
     seen_cve_ids = set()
+    not_affected = set()
     for f in live:
         if f["cve_id"] in seen_cve_ids:
             continue
         seen_cve_ids.add(f["cve_id"])
+        if f.get("evaluation") == "not_affected":
+            not_affected.add(f["cve_id"])     # NVD's ranges leave this version out: not stored, and a finding it had opened is closed below
+            continue
         row = VulnFinding(
             product=product, version=version, queried_at=now,
             cve_id=f["cve_id"], cvss_score=f["cvss_score"], severity=f["severity"],
             summary=f["summary"], published=f["published"], ref_url=f["ref_url"],
+            match_source=f.get("match_source") or "banner", evaluation=f.get("evaluation") or "unknown",
+            fixed_version=f.get("fixed_version"),
         )
         db.add(row)
         rows.append(row)
         _ensure_remediation_row(db, product, version, f["cve_id"], f["severity"])
+    kept = {r.cve_id for r in rows}
+    gone = before - kept
+    if gone:
+        # NVD's range matching no longer returns them for this version (or returned them as outside the ranges)
+        _auto_close(db, product, version, gone, "version_not_affected")
     db.commit()
     return rows
+
+
+def _auto_close(db, product: str, version: str, cve_ids, reason: str) -> int:
+    """Closes the remediation rows of findings that turned out not to apply, saying why ("[auto_closed: version_not_affected]",
+    "[auto_closed: product_not_confirmed]"). An accepted risk or a status someone set by hand is left alone except open / in progress."""
+    n = 0
+    now = datetime.utcnow()
+    for r in db.execute(select(VulnRemediation).where(VulnRemediation.product == product, VulnRemediation.version == version,
+                                                     VulnRemediation.cve_id.in_(list(cve_ids)))).scalars().all():
+        if r.status not in ("open", "in_progress"):
+            continue
+        r.status, r.resolved_at, r.updated_by, r.updated_at = "resolved", now, "auto", now
+        r.note = ((r.note + " ") if r.note else "") + f"[auto_closed: {reason}]"
+        n += 1
+    return n
 
 
 def _ensure_remediation_row(db, product: str, version: str, cve_id: str, severity: Optional[str]) -> None:
@@ -1635,6 +1677,9 @@ async def collect_overdue_alert_events() -> List[dict]:
             overdue.append((r, due))
 
     events: List[dict] = []
+    review = _review_due(now)
+    if review:
+        events.append(review)
     global _alerted_overdue_fingerprints
     if overdue:
         fingerprints = {(r.product, r.version, r.cve_id) for r, _due in overdue}
@@ -1662,10 +1707,48 @@ async def collect_overdue_alert_events() -> List[dict]:
     return events
 
 
-def _finding_brief(f: VulnFinding, remediation: Optional[VulnRemediation] = None) -> dict:
+REVIEW_AHEAD_DAYS = 7
+_review_alerted: set = set()
+
+
+def _review_due(now: datetime) -> Optional[dict]:
+    """An accepted risk on an exploited (KEV), CVSS >= 9 CVE whose review date is a week away or past: one reminder per such set (a new
+    item, or one whose date passed, fires it again). Seen in production: sanmed R1, RouterOS 7.15.2, CVE-2026-86060 accepted without a date."""
+    from services import exploit_intel
+    global _review_alerted
+    with SessionLocal() as db:
+        rows = db.execute(select(VulnRemediation).where(VulnRemediation.status == "accepted_risk")).scalars().all()
+        cvss = {(f.product, f.version, f.cve_id): f.cvss_score for f in db.execute(select(VulnFinding)).scalars().all()}
+    due = []
+    for r in rows:
+        score = cvss.get((r.product, r.version, r.cve_id))
+        if not (exploit_intel.info(r.cve_id)["kev"] and score is not None and score >= 9):
+            continue
+        if r.valid_until is None or r.valid_until - now <= timedelta(days=REVIEW_AHEAD_DAYS):
+            due.append((r, score))
+    keys = {(r.product, r.version, r.cve_id, (r.valid_until or now) <= now) for r, _ in due}
+    if not due:
+        _review_alerted = set()
+        return None
+    if keys <= _review_alerted:
+        return None
+    _review_alerted = keys
+    return {"type": "vuln_review_due", "count": len(due), "detected_at": now.isoformat(),
+            "items": [{"cve_id": r.cve_id, "product": r.product, "version": r.version, "cvss": s, "kev": True,
+                       "review_by": r.valid_until.isoformat() if r.valid_until else None,
+                       "days_left": round((r.valid_until - now).total_seconds() / 86400, 1) if r.valid_until else None,
+                       "approved_by": r.approved_by, "note": (r.note or "")[:200]} for r, s in due[:10]]}
+
+
+def _finding_brief(f: VulnFinding, remediation: Optional[VulnRemediation] = None, confidence: Optional[str] = None,
+                   product_source: Optional[str] = None) -> dict:
     from services import exploit_intel
     ex = exploit_intel.info(f.cve_id)
     return {"cve_id": f.cve_id, "severity": f.severity, "cvss_score": f.cvss_score,
+            # how sure the match is (services/vuln_match.py): confirmed / likely / suspected - a suspected one is not counted as KEV in the
+            # risk score and raises no critical alert; match_source: cpe-range / package / banner; fixed_version from NVD's range
+            "confidence": confidence or "suspected", "match_source": f.match_source or "banner", "fixed_version": f.fixed_version,
+            "product_source": product_source,
             # actively exploited (CISA KEV) and the probability of it (EPSS) - services/exploit_intel.py
             "kev": ex["kev"], "epss": ex["epss"],
             "summary": f.summary, "ref_url": f.ref_url,
@@ -1707,6 +1790,24 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
         for f in findings:
             findings_by_pv.setdefault((f.product, f.version), []).append(f)
 
+        from services import vuln_match
+        # the distribution behind each host (banners, the Linux host's OS): a banner version there says little, the fixes are backported
+        distro_by_host: dict = {}
+        for s in services:
+            d = vuln_match.distro_from(s.banner_raw, s.version)
+            if d:
+                distro_by_host.setdefault(s.host_id, d)
+        linux_os = {h.ip: (h.distro_pretty or h.distro_id or "") for h in db.execute(select(LinuxHost)).scalars().all()}
+        for hid, h in hosts.items():
+            if hid not in distro_by_host:
+                d = vuln_match.distro_from(linux_os.get(h.ip))
+                if d:
+                    distro_by_host[hid] = d
+
+        def conf(f: VulnFinding, product_confidence: Optional[str], distro: Optional[str] = None) -> str:
+            return vuln_match.finding_confidence(match_source=f.match_source or "banner", evaluation=f.evaluation or "unknown",
+                                                 product_confidence=product_confidence, distro=distro)
+
         by_ip: dict = {}
         for s in services:
             if not (s.product and s.version):
@@ -1718,8 +1819,9 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             if not matches:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
+            distro = distro_by_host.get(s.host_id)
             entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, "likely", distro), "banner") for f in matches)
 
         for p in packages:
             host = hosts.get(p.host_id)
@@ -1730,18 +1832,18 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
             entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), "confirmed", "package") for f in matches)
 
         for d in devices:
-            if not d.ros_version:
-                continue
-            product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
-            matches = findings_by_pv.get((product, d.ros_version))
+            ident = device_product(d)
+            if not ident["product"]:
+                continue                       # not confirmed as the product the CVEs are about (a printer, a SwOS switch read as RouterOS ...)
+            matches = findings_by_pv.get((ident["product"], d.ros_version))
             if not matches:
                 continue
             entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
             entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id))) for f in matches)
+                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, ident["confidence"]), ident["source"]) for f in matches)
 
         # the CVEs of the security updates a Windows host has not installed (services/windows_updates.py)
         from services import windows_updates
@@ -1939,14 +2041,28 @@ async def _probe_host(ip: str, sem: asyncio.Semaphore, base_timeout: float = CON
         return found
 
 
+def device_product(d) -> dict:
+    """What a known device runs, for the CVE lookup: {"product", "confidence", "source", "reason"} - product None when it cannot be
+    confirmed. A device marked mikrotik is RouterOS only when the evidence says so (services/vuln_match.routeros_identity): SwOS switches
+    share MikroTik's SNMP enterprise number, and printers / embedded boxes have been seen with a "RouterOS" version that was theirs."""
+    from services import vuln_match, oui
+    if not d.ros_version:
+        return {"product": None, "confidence": None, "source": None, "reason": "no version"}
+    if d.vendor == "mikrotik":
+        return vuln_match.routeros_identity(vendor=d.vendor, version=d.ros_version, model=d.model or d.board_name,
+                                            name=d.identity or d.name, oui_vendor=oui.vendor(d.mac) if d.mac else None,
+                                            has_api=bool(d.has_api), has_winbox=False)
+    return {"product": f"{d.vendor} {d.model or ''}".strip(), "confidence": "likely", "source": "snmp", "reason": None}
+
+
 def _device_version_pair(d) -> Optional[tuple]:
     """Known Mikrotik/Cisco devices already have an accurate, authenticated
     version (services/refresher.py's daily enrichment) — reuse it directly
-    instead of re-probing."""
-    if not d.ros_version:
+    instead of re-probing. None when the product is not confirmed (device_product)."""
+    ident = device_product(d)
+    if not ident["product"]:
         return None
-    product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
-    return product, d.ros_version
+    return ident["product"], d.ros_version
 
 
 

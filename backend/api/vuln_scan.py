@@ -297,9 +297,9 @@ def _build_findings(db, severity: Optional[str] = None) -> list:
         affected_by_pv.setdefault((p.name, p.version), []).append(
             {"kind": "package", "ip": host.ip, "port": None})
     for d in devices:
-        if not d.ros_version:
+        product = vuln_scan.device_product(d)["product"]        # None: not confirmed as RouterOS (SwOS, a printer ...)
+        if not product:
             continue
-        product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
         affected_by_pv.setdefault((product, d.ros_version), []).append(
             {"kind": "device", "ip": d.ip, "port": None,
              "device_id": d.id, "device_name": d.identity or d.name})

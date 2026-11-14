@@ -1532,6 +1532,7 @@
             "hyperv_replication_problem": "VM-Replikationsproblem",
             "hyperv_host_pressure": "Hyper-V-Host unter Last",
             "vuln_overdue": "Schwachstellenscan überfällig",
+            "vuln_review_due": "Akzeptiertes Risiko zur Überprüfung fällig",
             "wazuh_alert": "Wazuh-Alarm",
             "prtg_sensor_down": "PRTG-Sensor gestört",
             "checkmk_service_problem": "Checkmk-Dienstproblem",

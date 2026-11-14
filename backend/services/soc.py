@@ -75,6 +75,7 @@ CATALOG: Dict[str, tuple] = {
     "hyperv_replication_problem": ("hvrepl", "event", "availability", "medium", None, "VM replication problem"),
     "hyperv_host_pressure":       ("hvpress", "event", "resource", "medium", None, "Hyper-V host under pressure"),
     "vuln_overdue":               ("vulnover", "event", "vulnerability", "medium", None, "Vulnerability scan overdue"),
+    "vuln_review_due":            ("vulnrev", "event", "vulnerability", "high", None, "Accepted risk due for review"),
     "wazuh_alert":                ("wazuh", "event", "detection", "medium", None, "Wazuh alert"),
     "prtg_sensor_down":           ("prtg", "problem", "availability", "medium", None, "PRTG sensor down"),
     "prtg_sensor_up":             ("prtg", "recovery", "availability", "medium", None, "PRTG sensor up"),

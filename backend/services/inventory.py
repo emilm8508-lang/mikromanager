@@ -73,8 +73,9 @@ def build_inventory() -> dict:
                 findings_count_by_ip[host.ip] = findings_count_by_ip.get(host.ip, 0) + 1
     for d in devices:
         if d.ros_version:
-            product = "MikroTik RouterOS" if d.vendor == "mikrotik" else f"{d.vendor} {d.model or ''}".strip()
-            if (product, d.ros_version) in finding_pvs:
+            from services.vuln_scan import device_product
+            product = device_product(d)["product"]
+            if product and (product, d.ros_version) in finding_pvs:
                 findings_count_by_ip[d.ip] = findings_count_by_ip.get(d.ip, 0) + 1
 
     services_by_host: dict = {}
