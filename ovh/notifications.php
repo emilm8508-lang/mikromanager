@@ -186,6 +186,28 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
                 $msg .= "\n- {$cve} ({$sev}) {$prod} — {$days} dni po terminie";
             }
             return $msg;
+        case 'comm_lost':
+            $lv = ['critical' => 'KRYTYCZNY', 'important' => 'ważny', 'normal' => 'zwykły'][$event['criticality'] ?? 'normal'] ?? '';
+            $state = ['silent' => 'nie przysyła danych', 'degraded' => 'część źródeł milczy', 'stale' => 'dane nieaktualne (błąd odczytu)'][$event['state'] ?? ''] ?? ($event['state'] ?? '?');
+            return "📡 {$prefix}Utrata komunikacji z zasobem ({$lv})
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Zasób: " . ($event['device_name'] ?? '?') . "
+"
+                 . "Stan: {$state}
+"
+                 . "Brakujące źródła: " . implode(', ', array_map('strval', (array)($event['missing'] ?? [])));
+        case 'comm_restored':
+            $sec = (int)($event['duration_sec'] ?? 0);
+            $dur = $sec >= 3600 ? (intdiv($sec, 3600) . ' h ' . intdiv($sec % 3600, 60) . ' min') : (intdiv($sec, 60) . ' min');
+            return "✅ {$prefix}Komunikacja przywrócona
+"
+                 . "Tenant: {$tenant}
+"
+                 . "Zasób: " . ($event['device_name'] ?? '?') . "
+"
+                 . "Przerwa trwała: {$dur}";
         case 'vuln_review_due':
             $items = is_array($event['items'] ?? null) ? $event['items'] : [];
             $msg = "📋 {$prefix}Zaakceptowane ryzyko do przeglądu (KEV, CVSS ≥ 9)

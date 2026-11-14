@@ -192,7 +192,7 @@ def check_alerts(now: Optional[datetime] = None) -> List[str]:
             who = ", ".join(it["stale_items"][:5]) if it["stale_items"] else None
             soc.raise_alert(rule=rule, device=it["name"], title="Source silent", severity="medium", category="system", fp_detail="",
                             detail={"message": f"{it['name']}: no reading within {int((it['expected_s'] or 0) * MARGIN / 60)} min" + (f" ({who})" if who else ""),
-                                    "description": it["name"]}, source="rules", now=now)
+                                    "description": it["name"]}, source="rules", now=now, count=0)    # standing: 2be3's was counted 4960 times
             alerting.append(it["id"])
         else:
             soc.resolve(rule=rule, device=it["name"])

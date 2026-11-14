@@ -244,6 +244,8 @@ function mcp_tools(): array {
             'description' => 'Vulnerability findings of the clients\' hosts (product, version, CVE, CVSS, exploited in the wild), exploited and most severe first. Use it to say what to patch first and how.'],
         'client_assets' => ['title' => 'Asset inventory', 'fn' => 't_assets', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of a name, IP, OS, maker or model']] + $limit),
             'description' => 'The clients\' inventories: devices with type, maker / model, OS, support status (lifecycle), vulnerability counts, place; and a summary per client.'],
+        'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
+            'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
         'client_servers' => ['title' => 'Servers and hosts', 'fn' => 't_servers', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of a host name, IP or OS']]),
             'description' => 'Windows and Linux hosts (pending updates, restart needed, full disks, CPU / memory, last check result) and Dell / BMC servers (hardware health per component, power, errors) of each client.'],
     ];
@@ -417,6 +419,25 @@ function t_servers(McpContext $c, array $a): array {
             $bmc[] = mcp_pick($d, ['name', 'vendor', 'model', 'health_rollup', 'components', 'power_state', 'last_status', 'last_check_at', 'error']);
         }
         $out[] = ['tenant' => $r['tenant'], 'hosts' => $hosts, 'hardware' => $bmc];
+    }
+    return ['clients' => $out];
+}
+
+function t_coverage(McpContext $c, array $a): array {
+    $out = [];
+    $want = $a['state'] ?? null;
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $cs = $r['meta']['comm_status'] ?? null;
+        if (!is_array($cs)) { $out[] = ['tenant' => $r['tenant'], 'note' => 'the agent does not report this yet (needs 3.60)']; continue; }
+        $items = [];
+        foreach ((array)($cs['items'] ?? []) as $x) {
+            if (!is_array($x)) continue;
+            if ($want === 'gaps' ? empty($x['never']) : ($want && ($x['s'] ?? null) !== $want)) continue;
+            $items[] = ['asset' => $x['n'] ?? null, 'criticality' => $x['c'] ?? null, 'state' => $x['s'] ?? null, 'since' => $x['since'] ?? null,
+                        'grouped_under' => $x['cause'] ?? null, 'late_sources' => $x['late'] ?? [], 'failing_sources' => $x['err'] ?? [],
+                        'never_seen_sources' => $x['never'] ?? [], 'last_seen' => $x['seen'] ?? null];
+        }
+        $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'], 'states' => $cs['states'] ?? null, 'checked_at' => $cs['at'] ?? null, 'assets' => $items];
     }
     return ['clients' => $out];
 }

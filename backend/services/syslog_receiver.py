@@ -41,6 +41,7 @@ _transports: Dict[str, asyncio.DatagramTransport] = {}
 _queue: Optional[asyncio.Queue] = None
 _tasks: List[asyncio.Task] = []
 _errors: Dict[str, Optional[str]] = {"syslog": None, "trap": None}
+last_by_ip: Dict[str, float] = {}     # sender address -> the last datagram (epoch seconds)
 _stats = {"received": 0, "stored": 0, "unknown": 0, "rate_dropped": 0, "bad": 0, "traps": 0, "v3": 0, "bad_community": 0, "since": None}
 _unknown: Dict[str, int] = defaultdict(int)
 _rate: Dict[str, Deque[float]] = defaultdict(deque)
@@ -478,6 +479,7 @@ def _handle(kind: str, data: bytes, ip: str, now: Optional[float] = None) -> Opt
     now = now or time.time()
     _stats["received"] += 1
     _stats["last_at"] = datetime.utcnow().isoformat()
+    last_by_ip[ip] = now                       # per sender, for services/comm_watch.py (does this router still send its logs?)
     known = known_sources()
     src = known.get(ip)
     if src is None and not _settings.get("accept_unknown"):

@@ -684,6 +684,42 @@ class AvailState(Base):
     detail = Column(String, nullable=True)                                      # how it was last checked ("ping OK", "TCP 443 open", why it failed)
 
 
+class AssetSource(Base):
+    """One source of data about one asset and when it last delivered (services/comm_watch.py): icmp, routeros_api, syslog, netflow, winrm,
+    ssh, host_logs, redfish. A source that delivered on EXPECT_DAYS different days becomes expected; `expected_override` (1 / 0) is the
+    operator's word and wins. gap_avg is the learned cadence (seconds between deliveries) so a quiet but healthy source is not alarmed."""
+    __tablename__ = "asset_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, nullable=False, index=True)
+    source = Column(String, nullable=False)
+    first_seen = Column(DateTime, nullable=True)
+    last_seen = Column(DateTime, nullable=True)
+    last_day = Column(String, nullable=True)              # the last UTC day it delivered (YYYY-MM-DD)
+    days_seen = Column(Integer, nullable=False, default=0)
+    gap_avg = Column(Float, nullable=True)
+    error = Column(String, nullable=True)                 # the last delivery failed with this (the data are stale)
+    error_at = Column(DateTime, nullable=True)
+    expected_override = Column(Integer, nullable=True)    # 1 expected / 0 not expected / NULL automatic
+
+    __table_args__ = (UniqueConstraint("asset_id", "source", name="uq_asset_source"),)
+
+
+class AssetComm(Base):
+    """The communication state of one asset over its expected sources (services/comm_watch.py): ok | down | silent | degraded | stale,
+    since when, whether a SOC alert is open for it, and what is missing."""
+    __tablename__ = "asset_comm"
+
+    asset_id = Column(Integer, primary_key=True)
+    state = Column(String, nullable=False, default="ok")
+    since = Column(DateTime, nullable=False, default=datetime.utcnow)
+    bad_since = Column(DateTime, nullable=True)           # when the current problem began (kept through the recovery wait)
+    ok_since = Column(DateTime, nullable=True)            # the recovery wait: ok since then, closed after RECOVER_SEC
+    alerted = Column(Boolean, nullable=False, default=False)
+    missing = Column(Text, nullable=True)                 # JSON [{source, last_seen, error}]
+    cause = Column(String, nullable=True)                 # grouped under: the device above that is down / silent
+
+
 class AvailEvent(Base):
     """One change of state of a monitored asset: the history the uptime and the outage list are computed from (kept 400 days)."""
     __tablename__ = "avail_events"

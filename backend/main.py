@@ -94,6 +94,8 @@ async def lifespan(app: FastAPI):
     metrics.start()
     ups_monitor.start()
     coverage.start()
+    from services import comm_watch
+    comm_watch.start()                   # expected data sources per asset, silence / loss of communication (services/comm_watch.py)
     tls_scan.start()
     asset_scan_svc.start()
     lan_sweep_svc.start()

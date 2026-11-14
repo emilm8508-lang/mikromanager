@@ -223,7 +223,8 @@ def _upsert(db, *, fp: str, rule: str, source: str, category: str, severity: str
     ).scalars().first()
     rank = RANK.get(severity, 1)
     if row is not None:
-        row.count = (row.count or 0) + max(1, count)
+        if count > 0:                # count 0: a standing condition re-confirmed - last seen and evidence refreshed, not one more occurrence
+            row.count = (row.count or 0) + count
         row.last_seen = now
         if detail:
             row.detail = json.dumps(detail, ensure_ascii=False)

@@ -311,6 +311,8 @@ async def _build_snapshot() -> dict:
         alert_events += availability.collect_alert_events()          # devices that stopped answering (topology-aware), see services/availability.py
         from services import business_services
         alert_events += business_services.collect_alert_events()     # business services that are down or degraded
+        from services import comm_watch
+        alert_events += comm_watch.collect_alert_events()            # assets whose expected data stopped / came back (services/comm_watch.py)
     except Exception as e:
         print(f"[uplink] availability alert events error: {e}")
 
@@ -550,7 +552,8 @@ async def _build_snapshot() -> dict:
     # services/soc.py; Central gets the numbers and the open alerts in the plaintext metadata.
     try:
         from services import soc
-        soc.ingest([e for e in alert_events if e.get("type") != "wazuh_alert"] + soc_extra)
+        # comm_lost / comm_restored are raised in the SOC by services/comm_watch.py itself (one alert per asset); here they only go to Central
+        soc.ingest([e for e in alert_events if e.get("type") not in ("wazuh_alert", "comm_lost", "comm_restored")] + soc_extra)
         try:
             from services import soc_rules
             await _bounded(soc_rules.run_due())                  # the agent's own detection rules (each at its own interval)
@@ -676,7 +679,17 @@ async def _build_snapshot() -> dict:
         "checkmk_status": checkmk_status,
         "wazuh_status": wazuh_status,
         "inventory_summary": inventory_summary,
+        "comm_status": _comm_status(),
     }
+
+
+def _comm_status() -> dict:
+    """The communication state of the important / critical assets (services/comm_watch.py) - plaintext, for Central and the MCP coverage."""
+    try:
+        from services import comm_watch
+        return comm_watch.public_summary()
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"[:200]}
 
 
 def _vuln_reeval_status() -> dict:
@@ -792,6 +805,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             # possible without the E2E key. See vuln_scan.public_summary().
             "vuln_findings_status": snapshot.get("vuln_findings_status", []),
             "vuln_reeval": snapshot.get("vuln_reeval"),
+            "comm_status": snapshot.get("comm_status"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
