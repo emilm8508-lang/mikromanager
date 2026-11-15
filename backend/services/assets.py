@@ -121,6 +121,12 @@ class _Rec(dict):
                 self[k] = v
 
 
+def _alive(r: "_Rec", at) -> None:
+    """A sign of life of the entry at `at` (3.76: services/asset_state.py)."""
+    if at and (r.get("alive_at") is None or at > r["alive_at"]):
+        r["alive_at"] = at
+
+
 def _collect(directory: List[dict]) -> Dict[str, _Rec]:
     recs: Dict[str, _Rec] = {}
 
@@ -154,6 +160,9 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             continue
         r = rec(e["ip"])
         r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"), via=e.get("via"), hops=e.get("hops"))
+        srcs = set(e.get("sources") or [])
+        if "arp" in srcs or "sweep" in srcs or ("dhcp" in srcs and not any("only a" in n for n in e.get("notes") or [])):
+            _alive(r, now)                            # 3.76: an ARP entry / an answer to the sweep / a bound lease: it is there
         if e.get("dhcp_class"):
             r["dhcp_class"] = e["dhcp_class"]
         if e.get("shared_mac"):
@@ -171,6 +180,8 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         text_by_ip[h.ip] = text_by_host.get(h.id, "")
         r = rec(h.ip)
         r.put(refs={"vuln_host_id": h.id}, seen=h.last_scan_at, scan_level="credentialed" if h.credential_id else "passive")
+        if h.last_scan_at:
+            _alive(r, h.last_scan_at)                 # a port scan stores only the hosts that answered
     sweep_ports = {e["ip"]: set(e.get("ports") or []) for e in directory if e.get("ip") and "sweep" in (e.get("sources") or [])}
     hints = {e["ip"]: e.get("hint") for e in directory if e.get("ip") and e.get("hint")}
     from services import oui, asset_type as atype, device_class
@@ -233,16 +244,22 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             if getattr(d, "serial", None):
                 r.put(True, serial=d.serial)
         r.put(scan_level="credentialed" if d.credential_id else "snmp" if d.has_snmp else "passive")
+        if d.online:
+            _alive(r, now)                            # 3.76: the router answered the liveness check (ping / a port)
 
     for h in linux:
         r = rec(h.ip)
         r.put(True, asset_type="linux", role="server", name=h.hostname, os_name=h.distro_pretty, os_version=h.distro_version, type_src=["managed host (SSH)"])
         r.put(refs={"linux_host_id": h.id}, seen=h.last_seen_at, first=h.first_seen_at, scan_level="credentialed" if h.managed else "passive")
+        if h.last_status == "ok" and getattr(h, "last_check_at", None):
+            _alive(r, h.last_check_at)
     for h in windows:
         r = rec(h.ip)
         r.put(True, asset_type="windows", role="workstation" if h.host_type == "workstation" else "server", name=h.hostname,
               os_name=h.os_name, os_version=h.os_version, manufacturer=None, type_src=["managed host (WinRM)"])
         r.put(refs={"windows_host_id": h.id}, seen=h.last_seen_at, first=h.first_seen_at, scan_level="credentialed" if h.managed else "passive")
+        if h.last_status == "ok" and getattr(h, "last_check_at", None):
+            _alive(r, h.last_check_at)
         if h.system_model and "virtual" in h.system_model.lower():
             r.put(True, asset_type="virtual")
         elif h.system_model:
@@ -270,6 +287,8 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
         r.put(manufacturer="Microsoft Hyper-V", model=f"Generation {vm.generation}" if vm.generation else None,
               refs={"hyperv_vm_id": vm.id}, seen=vm.last_seen_at, first=vm.first_seen_at, scan_level="credentialed")
         r.setdefault("host_name", host.hostname or host.ip)
+        if (vm.state or "").lower() == "running":
+            _alive(r, now)
     _router_addresses(recs)
     _collect_attached(recs, monitors, host_assets)
     _classify(recs, text_by_ip)
@@ -417,6 +436,7 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
     what appears afterwards; so does the first LAN discovery (`force_baseline`), which finds every computer at once."""
     now = datetime.utcnow()
     created = updated = 0
+    after_commit: list = []
     with SessionLocal() as db:
         baseline = force_baseline or db.execute(select(Asset.id).limit(1)).first() is None
         existing = db.execute(select(Asset)).scalars().all()
@@ -482,6 +502,8 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             if r.get("asset_type") and "type" not in over and (r["asset_type"] != "other" or not a.asset_type or a.asset_type == "other"):
                 a.asset_type = r["asset_type"]
             identity.record_changes(db, a, before, "inventory")
+            from services import asset_state
+            asset_state.evaluate(db, a, r.get("alive_at"), now, after_commit)   # 3.76: probably removed / back
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
@@ -516,6 +538,9 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             a.last_seen_at = max(filter(None, [a.last_seen_at, r.get("seen")]), default=now)
         gone = _prune(db, recs, now)
         db.commit()
+    if after_commit:
+        from services import asset_state
+        asset_state.run_after(after_commit)
     if gone:
         print(f"[assets] removed {gone} asset(s) that nothing lists any more")
     from services import asset_merge
@@ -682,6 +707,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
              "type_src": det.get("_type_src") or [], "dq": det.get("_dq") or [], "addrs": det.get("_addrs") or [], "alias_of": det.get("_alias_of")}
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
+        "state": a.state, "state_since": _iso(a.state_since), "replaced_by": a.replaced_by, "alive_at": _iso(a.alive_at),
         "manufacturer": a.manufacturer, "model": a.model, "serial": a.serial, "os_name": a.os_name, "os_version": a.os_version,
         "location": a.location_override or locate(a.ip), "place": a.place, "attach": _attach(a.id), "groups": _groups(a), "scan_level": a.scan_level, "dclass": _jload(a.details, {}).get("_class"), "hints": _jload(a.details, {}).get("_hints") or [], "via": _jload(a.details, {}).get("_via"), "hops": _jload(a.details, {}).get("_hops"),
         "lifecycle": lc["status"], "lifecycle_product": lc["product"], "eol": lc["eol"],
@@ -872,6 +898,8 @@ async def public_summary() -> dict:
                 row["crw"] = r["criticality_reason"]         # why it is suggested (3.67)
         if r["dq"]:
             row["dq"] = r["dq"]
+        if r.get("state"):
+            row["st"] = r["state"]                                     # probably_removed / decommissioned / replaced_by / ignore (3.76)
         if r.get("personal"):
             row["pv"] = 1
             row["pw"] = r.get("personal_why")                          # the signal that decided (3.66)
@@ -1082,6 +1110,11 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             if not over:
                 d.pop("_over")
             a.details = json.dumps(d)
+        if "state" in fields:
+            from services import asset_state
+            db.commit()
+            asset_state.set_state(asset_id, fields.get("state") or None, fields.get("replaced_by"), fields.get("_who") or "operator")
+            a = db.get(Asset, asset_id)
         if "manual_groups" in fields:
             tags = []
             for t in fields["manual_groups"] or []:
@@ -1210,6 +1243,10 @@ def apply_central_op(op: dict, who: str = "Centrala") -> dict:
                     fields["role"] = v
                 if "criticality" in op:
                     fields["criticality"] = str(op.get("criticality") or "")
+                if "state" in op:                                    # 3.76: decommissioned / replaced_by / ignore / "" (in use)
+                    fields["state"] = str(op.get("state") or "")
+                    fields["replaced_by"] = int(op["replaced_by"]) if str(op.get("replaced_by") or "").isdigit() else None
+                    fields["_who"] = who
                 if not fields:
                     raise ValueError("nothing to change")
                 n = 0

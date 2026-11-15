@@ -3159,6 +3159,15 @@
         }
     },
     "assets": {
+        "state": {
+            "label": "Stan",
+            "in_use": "w użyciu",
+            "probably_removed": "prawdopodobnie usunięty",
+            "decommissioned": "wycofany",
+            "replaced_by": "zastąpiony przez",
+            "ignore": "ignorowany",
+            "probablyNote": "brak ARP, DHCP i odpowiedzi od tygodnia: potwierdź albo poczekaj na sygnał życia"
+        },
         "versionRead": "Wersja odczytana",
         "previously": "Wcześniej",
         "installedOn": "Zainstalowana na komputerach",

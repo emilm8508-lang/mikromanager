@@ -70,6 +70,14 @@ function AssetEdit({ row, dups }: { row: Row; dups: AssetsDupGroup[] }) {
             {t('assetsCentral.edit.delete')}
           </Button>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">{t('assets.state.label')}:</span>
+          {(['decommissioned', 'ignore', ''] as const).map(k => (
+            <Button key={k || 'in_use'} size="sm" variant="secondary" disabled={busy || (row.st ?? '') === k} onClick={() => send({ op: 'set', ids: [id], state: k })}>
+              {t(`assets.state.${k || 'in_use'}`)}
+            </Button>
+          ))}
+        </div>
         {row.x && <p className="text-[11px] text-slate-400">{t('assetsCentral.edit.managedNote')}</p>}
         {mine.length > 0 && (
           <div className="border-t border-slate-100 pt-3 space-y-2">
@@ -217,6 +225,7 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
           {fact(t('assets.colScan') as string, <ScanLevelPill level={row.sl} />)}
           {fact(t('assets.colLastSeen') as string, ago(row.seen))}
           {row.was && fact(t('assets.previously') as string, [...(row.was.n ?? []), ...(row.was.ip ?? [])].join(' / '))}
+          {row.st && fact(t('assets.state.label') as string, t(`assets.state.${row.st}`, { defaultValue: row.st }))}
           {row.lg && fact(t('logons.last') as string, row.lg.why ? <span className="text-slate-500">{t(`logons.reason.${row.lg.why}`)}</span>
             : <span>{row.lg.u}{row.lg.p ? ` (${t('logons.privileged')})` : ''} · {row.lg.t ?? '—'}{row.lg.f ? ` · ${row.lg.f}` : ''}{row.lg.at ? ` · ${new Date(row.lg.at).toLocaleString()}` : ''}{row.lg.ses ? ` · ${t('logons.sessions', { n: row.lg.ses })}` : ''}</span>)}
         </dl>

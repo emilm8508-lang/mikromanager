@@ -66,7 +66,33 @@ def is_watched(a: Asset, parents: Optional[set] = None) -> bool:
 def _targets() -> List[dict]:
     parents = _parents()
     with SessionLocal() as db:
-        return [{"id": a.id, "name": a.name or a.ip, "ip": a.ip} for a in db.execute(select(Asset)).scalars().all() if is_watched(a, parents)]
+        return [{"id": a.id, "name": a.name or a.ip, "ip": a.ip} for a in db.execute(select(Asset)).scalars().all()
+                if is_watched(a, parents) and not a.state]          # 3.76: probably removed / set aside: not watched (_recheck_removed)
+
+
+_rechecked: Dict[int, float] = {}
+
+
+async def _recheck_removed(now: datetime) -> int:
+    """The probably-removed entries get one ping (or port) try an hour; an answer is a sign of life (services/asset_state.py brings the
+    entry back at the next inventory save). No alert either way. Returns how many answered."""
+    import time as _time
+    from services import asset_state
+    with SessionLocal() as db:
+        cand = [(a.id, a.ip) for a in db.execute(select(Asset).where(Asset.state == "probably_removed", Asset.ip.is_not(None))).scalars().all()
+                if _time.time() - _rechecked.get(a.id, 0) >= asset_state.RECHECK_SEC]
+    n = 0
+    for aid, ip in cand[:50]:
+        _rechecked[aid] = _time.time()
+        ok, _d = await _answers(ip)
+        if ok:
+            with SessionLocal() as db:
+                a = db.get(Asset, aid)
+                if a is not None:
+                    a.alive_at = now
+                    db.commit()
+            n += 1
+    return n
 
 
 # ── Probing ──────────────────────────────────────────────────────────────────
@@ -169,6 +195,10 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
     from services import topology_map
     topology_map.kick()                      # the placement is as old as the last map; this starts a rebuild when it is due
     targets = _targets()
+    try:
+        await _recheck_removed(now)
+    except Exception as e:
+        print(f"[availability] recheck of removed entries: {type(e).__name__}: {e}")
     sem = asyncio.Semaphore(20)
     results = {aid: (ok, detail) for aid, ok, detail in await asyncio.gather(*[_probe(t, sem) for t in targets])}
     attach = topology_map.attachments()

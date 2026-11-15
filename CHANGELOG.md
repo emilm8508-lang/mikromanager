@@ -2,6 +2,30 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.76 — 2026-11-15
+- Entries of devices that are gone (services/asset_state.py).
+  - Every entry now keeps when something last proved the device is there (alive_at): an ARP entry, a bound DHCP lease, an answer to the LAN sweep or the liveness ping, a managed host's successful check, a port scan, a running VM.
+  - The old "last seen" could not be used: a router's liveness loop wrote it at every try, answered or not. That is why "R2-ĄP1" at sanmed's 192.168.2.94 never looked gone.
+  - The migration starts each entry's count from what was known.
+- An entry with no sign of life for 7 days (configurable: data/asset_state.json removed_after_days) is "probably_removed":
+  - its availability alerts are closed ("auto: probably_removed");
+  - one low reminder "Device probably removed - confirm" is raised, only for what was watched: network gear, servers, VMs, anything with a criticality;
+  - it is no longer watched by the availability check and gets no TLS tries;
+  - its vulnerabilities do not count in the risk.
+  - It is pinged once an hour without alerts; one answer, or any sign of life in the inventory, brings it back and closes the reminder.
+- Manual states, on the asset page (with the replacing entry for "replaced by") and in the Central drawer: decommissioned, replaced_by, ignore.
+  - A rebuild does not change a manual state.
+  - Only deleting an entry removes its data; every state change goes into the asset's history.
+  - MCP client_assets gives "state" (in_use / probably_removed / decommissioned / replaced_by / ignore).
+- Fixed on the way: the inventory raised the reminder from inside its own write transaction, which locked SQLite. Alerts are now raised after the commit.
+- Tested:
+  - 6 new regression tests (backend/tests/test_round3_c.py; 183 in all):
+    - case 8 of the round-3 brief: the .94 router row with nothing answering for 9 days, while its liveness loop keeps writing last_seen, becomes probably_removed; its "not answering" alert is closed, one reminder is raised, and it leaves the availability targets and the TLS tries;
+    - an ARP entry brings it back and closes the reminder, and so does the hourly ping;
+    - a router that answers stays;
+    - manual states (replaced_by needs the replacing entry, unknown states refused from Central, a rebuild keeps them, history written).
+  - Not yet run on the clients' agents.
+
 ## 3.75 — 2026-11-15
 - A router's facts every cycle, with the time they were read (services/device_facts.py). Before, the version, identity, model, serial number and RouterBOOT firmware were read once a day, and a failed read kept the old values with no date. Seen at sanmed: the AP R2-AP1 on 7.25.1 shown with 7.23.2 and its vulnerabilities "confirmed".
   - Now every resource cycle (hourly by default, over the API login 3.73 keeps open, two more reads) writes them with version_seen_at / facts_seen_at and the source.

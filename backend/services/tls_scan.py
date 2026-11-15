@@ -395,6 +395,9 @@ async def run_all(ids: Optional[List[int]] = None) -> dict:
             if ids:
                 q = q.where(TlsCheck.id.in_(ids))
             rows = db.execute(q).all()
+        from services import asset_state
+        gone = asset_state.inactive_ips()
+        rows = [r for r in rows if r[1] not in gone]               # 3.76: no TLS tries on an entry that is probably removed / set aside
         sem = asyncio.Semaphore(CONCURRENCY)
 
         async def one(cid, ip, port):

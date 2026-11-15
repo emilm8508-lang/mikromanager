@@ -85,7 +85,7 @@ def _factors(row: dict, alerts: List[dict], failed: List[dict], risky: List[int]
 async def compute() -> List[dict]:
     """Every active asset with a score above zero, the worst first."""
     from services import assets as assets_svc
-    rows = [r for r in await assets_svc.list_assets() if r["active"]]
+    rows = [r for r in await assets_svc.list_assets() if r["active"] and not r.get("state")]      # 3.76: gone / set aside: no risk
     vulns_by_ip = await assets_svc._vulns_by_ip()
     with SessionLocal() as db:
         open_alerts = db.execute(select(SocAlert.asset_id, SocAlert.device_name, SocAlert.severity, SocAlert.rule, SocAlert.title, SocAlert.id).where(SocAlert.status.in_(soc.OPEN), SocAlert.root_asset_id.is_(None))).all()

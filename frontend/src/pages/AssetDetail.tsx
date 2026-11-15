@@ -474,6 +474,29 @@ function Supplies({ a }: { a: Detail }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+// The entry's state (3.76): in use, probably removed (no sign of life for a week), or set by hand - decommissioned, replaced, ignored.
+function StateEdit({ a }: { a: Detail }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [v, setV] = useState(a.state ?? '')
+  const [by, setBy] = useState(a.replaced_by ? String(a.replaced_by) : '')
+  const save = useMutation({ mutationFn: () => assetsApi.update(a.id, { state: v, replaced_by: v === 'replaced_by' ? Number(by) || undefined : undefined } as never),
+                             onSuccess: () => qc.invalidateQueries({ queryKey: ['asset', a.id] }) })
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <select value={v} onChange={e => setV(e.target.value)} className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white">
+        <option value="">{t('assets.state.in_use')}</option>
+        {a.state === 'probably_removed' && <option value="probably_removed" disabled>{t('assets.state.probably_removed')}</option>}
+        {(['decommissioned', 'replaced_by', 'ignore'] as const).map(k => <option key={k} value={k}>{t(`assets.state.${k}`)}</option>)}
+      </select>
+      {v === 'replaced_by' && <input value={by} onChange={e => setBy(e.target.value)} placeholder="ID" className="w-16 border border-slate-300 rounded px-1 py-0.5 text-xs" />}
+      {v !== (a.state ?? '') && v !== 'probably_removed' && <button onClick={() => save.mutate()} className="text-xs text-indigo-600 hover:underline">{t('common.save')}</button>}
+      {a.state === 'probably_removed' && <span className="text-[11px] text-amber-700">{t('assets.state.probablyNote')}</span>}
+      {save.isError && <span className="text-[11px] text-red-600">{(save.error as Error).message}</span>}
+    </span>
+  )
+}
+
 // Who logged on, from the asset's own sources (3.70) - shown to an admin only (personal data; the read is in the audit log).
 function Logons({ id }: { id: number }) {
   const { t } = useTranslation()
@@ -568,6 +591,7 @@ export function AssetDetail() {
             {fact(t('assets.lastSuccessfulScan') as string, a.last_scan_at ? ago(a.last_scan_at) : t('assets.neverScanned'))}
             {fact(t('assets.colLastSeen') as string, ago(a.last_seen_at))}
             {a.version_seen_at && fact(t('assets.versionRead') as string, ago(a.version_seen_at))}
+            {fact(t('assets.state.label') as string, <StateEdit a={a} />)}
             {a.previously && Object.keys(a.previously).length > 0 && fact(t('assets.previously') as string,
               [...(a.previously.name ?? []), ...(a.previously.ip ?? []), ...(a.previously.model ?? [])].join(' / '))}
           </dl>

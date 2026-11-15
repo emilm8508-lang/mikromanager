@@ -482,6 +482,12 @@ class Asset(Base):
     owner = Column(String, nullable=True)                          # who is responsible for it (a person or a team)
     criticality = Column(String, nullable=True)                    # low | medium | high | critical - what its loss means for the business
     monitor = Column(Integer, nullable=True)                       # availability monitoring (services/availability.py): 1 on, 0 off, NULL = automatic (network gear, servers, anything others hang on)
+    # 3.76 (services/asset_state.py): when something last proved the device is there (an ARP entry, a bound lease, a ping / port answer,
+    # a managed host's successful check) - last_seen_at is not that: a router's liveness loop wrote it at every try, answered or not
+    alive_at = Column(DateTime, nullable=True)
+    state = Column(String, nullable=True)                          # None (in use) / probably_removed / decommissioned / replaced_by / ignore
+    state_since = Column(DateTime, nullable=True)
+    replaced_by = Column(Integer, nullable=True)                   # the asset that replaced it (state replaced_by)
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
     scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
@@ -1714,6 +1720,12 @@ def _migrate_add_columns():
             if name not in as_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+        for name, ddl in (("alive_at", "DATETIME"), ("state", "VARCHAR"), ("state_since", "DATETIME"), ("replaced_by", "INTEGER")):
+            if name not in as_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+                    if name == "alive_at":                 # 3.76: the count of days without a sign of life starts from what is known
+                        conn.execute(text("UPDATE assets SET alive_at = COALESCE(last_seen_at, first_seen_at)"))
 
     for table, cols in (("windows_hosts", (("license_name", "VARCHAR"), ("license_status", "VARCHAR"), ("license_eval", "BOOLEAN"),
                                             ("license_expires_at", "DATETIME"), ("reboot_required_since", "DATETIME"))),

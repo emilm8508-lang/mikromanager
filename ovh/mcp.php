@@ -437,7 +437,7 @@ function t_assets(McpContext $c, array $a): array {
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
                        'previously' => isset($x['was']) ? ['names' => $x['was']['n'] ?? [], 'addresses' => $x['was']['ip'] ?? []] : null,
-                       'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null]
+                       'state' => $x['st'] ?? 'in_use', 'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null]
                      + mcp_logon_fields($c, $x);
         }
     }

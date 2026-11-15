@@ -2995,6 +2995,15 @@
         }
     },
     "assets": {
+        "state": {
+            "label": "Status",
+            "in_use": "in Betrieb",
+            "probably_removed": "wahrscheinlich entfernt",
+            "decommissioned": "außer Betrieb",
+            "replaced_by": "ersetzt durch",
+            "ignore": "ignoriert",
+            "probablyNote": "seit einer Woche kein ARP, DHCP oder Antwort: bestätigen oder auf ein Lebenszeichen warten"
+        },
         "versionRead": "Version gelesen",
         "previously": "Früher",
         "installedOn": "Auf diesen Computern installiert",

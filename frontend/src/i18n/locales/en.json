@@ -2995,6 +2995,15 @@
         }
     },
     "assets": {
+        "state": {
+            "label": "State",
+            "in_use": "in use",
+            "probably_removed": "probably removed",
+            "decommissioned": "decommissioned",
+            "replaced_by": "replaced by",
+            "ignore": "ignored",
+            "probablyNote": "no ARP, DHCP or answer for a week: confirm it, or wait for a sign of life"
+        },
         "versionRead": "Version read",
         "previously": "Earlier",
         "installedOn": "Installed on these computers",

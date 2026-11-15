@@ -173,6 +173,8 @@ class AssetEdit(BaseModel):
     owner: Optional[str] = None
     criticality: Optional[str] = None            # low | medium | high | critical
     manual_groups: Optional[List[str]] = None
+    state: Optional[str] = None                  # 3.76: decommissioned | replaced_by | ignore | "" (in use)
+    replaced_by: Optional[int] = None
 
 
 @router.put("/{asset_id}")
