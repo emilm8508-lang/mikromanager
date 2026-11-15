@@ -213,13 +213,17 @@ async def _scan_device(device_id: int) -> dict:
     # address; "uplink" - the interface its default route leaves through on a device without a WAN list (a switch's / AP's way to the
     # router - not a WAN: seen as ether1 on CRS switches); "access" - the rest.
     default_iface = None
-    if not wan_iface_names:
-        try:
-            routes = await asyncio.wait_for(client.get_routes(), timeout=8)
-            from services import iface_roles
+    default_gw = None
+    routes_read = False
+    try:
+        routes = await asyncio.wait_for(client.get_routes(), timeout=8)
+        from services import iface_roles
+        routes_read = True
+        default_gw = iface_roles.default_route_gateway(routes or [])          # 3.67: whether the device is at the edge (iface_roles.refine)
+        if not wan_iface_names:
             default_iface = iface_roles.default_route_iface(routes or [])
-        except Exception as e:
-            print(f"[edge_discovery] {device.ip}: get_routes failed: {type(e).__name__}: {e}")
+    except Exception as e:
+        print(f"[edge_discovery] {device.ip}: get_routes failed: {type(e).__name__}: {e}")
     from services import iface_roles
     addresses = []
     for a in addrs or []:
@@ -231,7 +235,8 @@ async def _scan_device(device_id: int) -> dict:
                           "network": str(a.get("network") or ""), "prefix": str(a.get("address") or ""),
                           "role": iface_roles.role_of(iface, ip, wan_iface_names, default_iface)})
 
-    return {"public_ips": public_ips, "wan_ifaces": wan_ifaces, "addresses": addresses}
+    return {"public_ips": public_ips, "wan_ifaces": wan_ifaces, "addresses": addresses, "device_id": device.id,
+            "wan_list": wan_iface_names, "gateway": default_gw, "routes_read": routes_read}
 
 
 async def _run_full_scan() -> None:
@@ -269,10 +274,25 @@ async def _run_full_scan() -> None:
     public_flat = []
     wan_iface_flat = []
     addresses = []
+    gateways, wan_lists = {}, {}
     for r in results:
         public_flat.extend(r.get("public_ips") or [])
         wan_iface_flat.extend(r.get("wan_ifaces") or [])
         addresses.extend(r.get("addresses") or [])
+        if r.get("device_id") is not None:
+            wan_lists[r["device_id"]] = r.get("wan_list") or []
+            if r.get("routes_read"):
+                gateways[r["device_id"]] = r.get("gateway")
+    # 3.67: only a device at the edge has WAN links - a switch or AP behind the router keeps its defconf "WAN" ether1 as an uplink
+    from services import iface_roles
+    edge = iface_roles.refine(addresses, gateways, wan_lists)
+    wan_iface_flat = [w for w in wan_iface_flat if w["device_id"] in edge]
+    # an edge router without a WAN interface list: its interfaces with a public address are its WAN links
+    have = {w["device_id"] for w in wan_iface_flat}
+    for p in public_flat:
+        if p["device_id"] in edge and p["device_id"] not in have and p.get("running") is not None:
+            wan_iface_flat.append({"device_id": p["device_id"], "device_name": p["device_name"], "iface": p["iface"], "running": p["running"]})
+    _scan_cache["edge_devices"] = sorted(edge)
     _scan_cache["data"] = public_flat
     _scan_cache["wan_iface_data"] = wan_iface_flat
     _scan_cache["addresses"] = addresses

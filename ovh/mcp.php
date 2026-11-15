@@ -425,7 +425,8 @@ function t_assets(McpContext $c, array $a): array {
                        'vulnerabilities_crit_high_med_low' => $x['v'] ?? null, 'place' => $x['loc'] ?? ($x['pl'] ?? null),
                        // stage 2: criticality (set by the operator, or "suggested"), data-quality flags, a router's own addresses with the
                        // interface role (wan / uplink / access), the other addresses of the same device
-                       'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']), 'data_quality' => $x['dq'] ?? null,
+                       'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']),
+                       'criticality_source' => isset($x['cr']) ? (!empty($x['crs']) ? 'suggested' : 'manual') : null, 'criticality_reason' => $x['crw'] ?? null, 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
                        'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null];
@@ -546,6 +547,9 @@ function t_data_quality(McpContext $c, array $a): array {
         $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'],
                   'inventory' => $sum['data_quality'] ?? null, 'personal_devices' => $sum['personal'] ?? null,
                   'assets_flagged' => array_slice($flagged, 0, 60), 'assets_flagged_total' => count($flagged),
+                  // 3.67: important / critical by suggestion only - nobody confirmed them
+                  'criticality_unconfirmed' => array_map(function ($x) { return ['asset' => $x['n'] ?? null, 'ip' => $x['ip'] ?? null,
+                      'suggested' => $x['s'] ?? null, 'why' => $x['w'] ?? null]; }, (array)($m['assets_status']['criticality_review'] ?? [])),
                   'vulnerability_confidence' => $vul, 'vulnerability_recheck' => $m['vuln_reeval'] ?? null,
                   'hardware_parse_errors' => $parse,
                   'communication' => ['states' => $cs['states'] ?? null, 'routers_not_sending_logs' => $cs['router_logging']['not_sending'] ?? null,

@@ -5,6 +5,13 @@ The role of each router / switch interface and which addresses belong to the rou
   uplink  - on a device without a WAN list (a switch, an AP), the interface its default route leaves through: its way to the router.
             Not a WAN - seen in production: ether1 on CRS switches (R2-S1, R2-S2, R1-S3) read as a WAN link
   access  - everything else (where the users and servers are)
+  tunnel  - EoIP / GRE / IPIP / WireGuard / L2TP / SSTP / OVPN / PPTP between sites (3.67): neither a WAN nor the LAN
+
+3.67 - which device is at the edge at all (refine()): a WAN interface list alone is not proof - RouterOS's default configuration puts ether1
+in it on every hAP / wAP / CRS set up from defconf, so access points and switches (mcprojekt AP3, sanmed R1-S3, R1-S4, R4, mcprojekt R2-S1,
+R2-S2) showed their way to the router as a WAN link. A device is at the edge when it has a public address, or when its default route goes
+to something that is not one of the client's managed devices (the ISP's modem); a device whose default route goes to another managed
+device's address is behind it - its "WAN" interfaces are uplinks.
 
 The addresses come from services/edge_discovery.py's scan (data/router_addresses.json). With them the inventory puts a router's own
 address on that router instead of listing it as a host (seen: 192.168.0.2, the WAN address of mcprojekt's MC-R1, as a host of its own),
@@ -16,7 +23,7 @@ import os
 import time
 from typing import Dict, Iterable, List, Optional
 
-ROLES = ("wan", "uplink", "access")
+ROLES = ("wan", "uplink", "access", "tunnel")
 _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "router_addresses.json")
 _cache = {"at": 0.0, "mtime": 0.0, "rows": []}
 
@@ -47,7 +54,54 @@ def default_route_iface(routes: Iterable[dict]) -> Optional[str]:
     return None
 
 
+def default_route_gateway(routes: Iterable[dict]) -> Optional[str]:
+    """The IPv4 address an active default route goes to ("gateway" 192.168.2.1, or "immediate-gw" 192.168.2.1%bridge); None if it names only
+    an interface (pppoe-out1) or there is no default route."""
+    for r in routes:
+        if not isinstance(r, dict) or str(r.get("dst-address") or "") != "0.0.0.0/0":
+            continue
+        if str(r.get("active", "true")).lower() not in ("true", "yes") or str(r.get("disabled", "false")).lower() in ("true", "yes"):
+            continue
+        for key in ("gateway", "immediate-gw"):
+            v = str(r.get(key) or "").split("%", 1)[0].split()[0] if r.get(key) else ""
+            try:
+                return str(ipaddress.IPv4Address(v))
+            except ValueError:
+                continue
+    return None
+
+
+def is_tunnel(iface: str) -> bool:
+    import re
+    return bool(re.match(r"^(eoip|gre|gretap|ipip|wireguard|wg\d|wg-|l2tp-|sstp-|ovpn-|pptp-|<l2tp|<sstp|<ovpn|<pptp)", (iface or "").lower()))
+
+
+def refine(addresses: List[dict], gateways: Dict[int, Optional[str]], wan_lists: Dict[int, List[str]]) -> set:
+    """The roles of every address after looking at all devices together (3.67). gateways: device -> its default route's gateway address (None
+    when not read). wan_lists: device -> the interfaces in its WAN list. Sets each address's "role" in place and returns the devices at the
+    edge (a public address, or a default route to something that is not a managed device)."""
+    managed = {r["ip"] for r in addresses if r.get("ip")}
+    edge = set()
+    for did in {r["device_id"] for r in addresses} | set(gateways) | set(wan_lists):
+        own = [r for r in addresses if r["device_id"] == did]
+        public = any(is_public(r["ip"]) and not is_tunnel(r.get("iface") or "") for r in own)
+        gw = gateways.get(did)
+        if public or (gw is not None and gw not in managed) or (gw is None and did not in gateways and wan_lists.get(did)):
+            edge.add(did)                      # (route not read: the WAN list is taken as it was before 3.67)
+    for r in addresses:
+        iface = r.get("iface") or ""
+        if is_tunnel(iface):
+            r["role"] = "tunnel"
+        elif r.get("role") == "wan" and r["device_id"] not in edge:
+            r["role"] = "uplink"               # a switch's / AP's way to the router, even with ether1 in a defconf WAN list
+        elif r.get("role") == "wan" and not is_public(r["ip"]) and gateways.get(r["device_id"]) in managed:
+            r["role"] = "uplink"
+    return edge
+
+
 def role_of(iface: str, ip: Optional[str], wan_ifaces: Iterable[str], default_iface: Optional[str]) -> str:
+    if is_tunnel(iface):
+        return "tunnel"
     wan = {w.lower() for w in wan_ifaces or []}
     if (iface or "").lower() in wan or (ip and is_public(ip)):
         return "wan"

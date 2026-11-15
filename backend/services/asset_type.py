@@ -17,7 +17,7 @@ _COMPUTER_PORTS = {22, 135, 445, 3389, 5985, 5986}
 _WIN_BANNER = re.compile(r"microsoft-iis|microsoft-httpapi|\bwindows\b|microsoft ftp", re.I)
 _LINUX_BANNER = re.compile(r"lighttpd|nginx|openssh[_ -][\w.]+ (debian|ubuntu|raspbian)|apache[^ ]* \((debian|ubuntu|raspbian|centos|red hat|fedora)\)|"
                            r"\blinux\b|dropbear|openwrt|busybox|samba|cups", re.I)
-_PRINTER_NAME = re.compile(r"printer|drukark|\bhp[0-9a-f]{6}\b|^brn[0-9a-f]{12}$|^brw[0-9a-f]{12}$|brother|epson|canon|xerox|lexmark|kyocera|ricoh|"
+_PRINTER_NAME = re.compile(r"printer|drukark|\bhp[0-9a-f]{6}\b|^brn[0-9a-f]{12}$|^brw[0-9a-f]{12}$|^et[0-9a-f]{12}$|brother|epson|canon|xerox|lexmark|kyocera|ricoh|"
                            r"konica|^km[0-9a-f]{6}|\bmfp\b|sharp-bp|^npi[0-9a-f]{6}", re.I)
 _WIN_NAME = re.compile(r"^(desktop|laptop|win)-[a-z0-9]{4,}$|pc\d{2,}$|^nb\d{2,}|^ws\d{2,}", re.I)
 _PI_NAME = re.compile(r"raspberry|\brpi\b|raspi|\bpi\d?$|pi$", re.I)
@@ -103,6 +103,28 @@ def normalize_level(v: Optional[str]) -> Optional[str]:
     return _LEGACY.get((v or "").strip().lower()) if v else None
 
 
+def printer_name(name: Optional[str]) -> bool:
+    """A printer's factory host name (BRN / BRW + MAC of Brother, ET + MAC of Lexmark, HP + 6 hex, NPI ...)."""
+    return bool(name and _PRINTER_NAME.search(name.strip()))
+
+
+_MIKROTIK_MAKER = re.compile(r"mikrotik|routerboard", re.I)
+
+
+def maker_fix(stored: Optional[str], own_oui: Optional[str], *, confirmed_mikrotik: bool, behind_router: bool) -> Tuple[bool, Optional[str]]:
+    """(change, value) for a stored "MikroTik" maker that nothing confirms (3.67). The maker comes from the device's own MAC prefix or its
+    own data - not from being behind a MikroTik (a routed / proxy-ARP address answers with the router's MAC) or seen in its ARP table.
+    Seen: mcprojekt wazuh (an Ubuntu VM), MCPROJEKTPC007, sanmed sanmed-serwer, CMSANMED - "MikroTik"; Brother printers flagged
+    not_mikrotik still "MikroTik / RouterOS"."""
+    if not stored or not _MIKROTIK_MAKER.search(stored) or confirmed_mikrotik:
+        return False, stored
+    if own_oui and not _MIKROTIK_MAKER.search(own_oui):
+        return True, own_oui
+    if own_oui and not behind_router:
+        return False, stored                      # its own MAC is a MikroTik one: an unmanaged MikroTik
+    return True, None
+
+
 def suggest(*, asset_type: Optional[str], dclass: Optional[str], name: Optional[str], role: Optional[str], ports: Iterable[int] = (),
             hyperv_host: bool = False, os_name: Optional[str] = None) -> Tuple[str, Optional[str]]:
     """(level, reason) - the default the operator sees until they set one: edge routers, domain controllers, hypervisors, file and
@@ -121,6 +143,40 @@ def suggest(*, asset_type: Optional[str], dclass: Optional[str], name: Optional[
     if server and (ports & _DB_PORTS or _SQL_NAME.search(n)):
         return "important", "database server"
     return "normal", None
+
+
+# 3.67: a suggestion becomes "critical" when the asset is the only one of its kind - the only way out of a site, the only domain controller,
+# hypervisor or file server of the client. Seen: every value was a suggestion and none was critical; sanmed R1 (CCR2004, the main router),
+# psb PSB (the only router) and aluplasti alu (WAN 80.54.58.238) were "normal".
+SOLE_KINDS = ("domain controller", "hypervisor", "file server")
+
+
+def uplift(rows: List[dict]) -> None:
+    """Sets criticality_suggested / criticality_reason in place on the inventory rows (assets.list_assets): an edge router alone in its place
+    (site) is critical, one of several important; a domain controller / hypervisor / file server alone at the client is critical."""
+    active = [r for r in rows if r.get("active", True)]
+    count: Dict[str, int] = {}
+    for r in active:
+        if r.get("criticality_reason") in SOLE_KINDS:
+            count[r["criticality_reason"]] = count.get(r["criticality_reason"], 0) + 1
+    gw_by_place: Dict[str, int] = {}
+    for r in active:
+        if r.get("criticality_reason") == "edge router":
+            k = (r.get("place") or r.get("location") or "").strip().lower()
+            gw_by_place[k] = gw_by_place.get(k, 0) + 1
+    for r in active:
+        why = r.get("criticality_reason")
+        if why == "edge router":
+            k = (r.get("place") or r.get("location") or "").strip().lower()
+            n = gw_by_place.get(k, 0)
+            if n == 1:
+                r["criticality_suggested"] = "critical"
+                r["criticality_reason"] = "edge router: the only way out" + (f" of {r.get('place') or r.get('location')}" if k else "")
+            else:
+                r["criticality_reason"] = f"edge router: one of {n}" + (f" at {r.get('place') or r.get('location')}" if k else "")
+        elif why in SOLE_KINDS and count.get(why) == 1:
+            r["criticality_suggested"] = "critical"
+            r["criticality_reason"] = f"{why}: the only one"
 
 
 # ── personal devices (stage 5): phones, tablets, watches, TVs and consoles in the company LAN ──

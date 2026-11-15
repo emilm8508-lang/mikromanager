@@ -28,6 +28,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import select, delete
 
+from services import asset_type as atype_mod
 from models.database import (
     VulnDaily, SessionLocal, Asset, AssetPeripheral, Device, VulnHost, VulnService, VulnPackage, LinuxHost, WindowsHost, LinuxHostDisk,
     WindowsHostDisk, DellServer, HypervHost, HypervVM, ScanRange,
@@ -202,10 +203,18 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             # version): the type and the maker come from the other signals, not from the "mikrotik" label
             r.put(refs={"device_id": d.id}, seen=d.last_seen, name=d.identity or d.name)
             r.setdefault("dq", []).append(f"not_mikrotik: {ident['reason']}")
-            r.put(asset_type="other")
+            # 3.67: the flag changes the type, the maker and the OS, not only shows: a printer by its factory name or ports, else what
+            # the other signals decided (never "network" / RouterOS from the label) - applied when saved (not_mikrotik)
+            kind = r.get("asset_type") if r.get("asset_type") not in (None, "other", "network") else None
+            if not kind:
+                kind = "printer" if (atype_mod.printer_name(r.get("name")) or ports & _PRINTER_PORTS) else "other"
+            r["asset_type"] = kind
+            r["not_mikrotik"] = True
+            r["type_src"] = [f"not MikroTik: {ident['reason']}"]
             continue
         if vendor == "mikrotik":
             kind, maker = "network", "MikroTik"
+            r["mikrotik_confirmed"] = True
         elif vendor.startswith("cisco"):
             kind, maker = "network", "Cisco"
         else:
@@ -452,6 +461,19 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                 if r.get(f) and not (f == "role" and "role" in _jload(a.details, {}).get("_over", {})):
                     setattr(a, f, r[f])
             over = _jload(a.details, {}).get("_over", {})
+            # 3.67: a stored value nothing confirms any more is corrected, not kept because the new sources say nothing
+            confirmed_mt = bool(r.get("mikrotik_confirmed")) and not r.get("not_mikrotik")
+            change, mk = atype_mod.maker_fix(a.manufacturer, r.get("oui_vendor"), confirmed_mikrotik=confirmed_mt,
+                                            behind_router="mac_behind_router" in (r.get("dq") or []) or bool(r.get("not_mikrotik")))
+            if change and not r.get("manufacturer"):
+                a.manufacturer = mk
+            if not confirmed_mt and not r.get("os_name") and re.match(r"(routeros|swos|mikrotik)", (a.os_name or "").lower()):
+                a.os_name, a.os_version = None, None
+            if r.get("not_mikrotik") and "type" not in over:
+                a.asset_type = r["asset_type"]
+            elif (a.asset_type == "mobile" and r.get("asset_type") in (None, "other") and "type" not in over
+                  and not any("phone" in s or "mobile" in s for s in (r.get("type_src") or []))):
+                a.asset_type = "other"                         # an address keeps a phone's type after the phone left (psb KSIEGOWOSC)
             if r.get("asset_type") and "type" not in over and (r["asset_type"] != "other" or not a.asset_type or a.asset_type == "other"):
                 a.asset_type = r["asset_type"]
             old = _jload(a.refs, {})
@@ -704,8 +726,27 @@ async def list_assets() -> List[dict]:
         if r["alias_of"] in by_id:
             by_id[r["alias_of"]].setdefault("interfaces", []).append({"ip": r["ip"], "mac": r["mac"]})
     rows = [r for r in rows if r["alias_of"] not in by_id]
+    from services import asset_type as atype
+    atype.uplift(rows)                         # the only way out / the only DC, hypervisor, file server: critical (3.67)
+    _sug_cache.clear()
+    _sug_cache.update({r["id"]: (r["criticality_suggested"], r["criticality_reason"]) for r in rows})
     rows.sort(key=lambda r: (-r["risk"], _ip_sort(r["ip"])))
     return rows
+
+
+_sug_cache: Dict[int, tuple] = {}
+
+
+def suggested_level(asset_id: int) -> Optional[tuple]:
+    """(level, reason) the last inventory listing suggested for this asset (with the uplift of asset_type.uplift); None before one ran."""
+    return _sug_cache.get(asset_id)
+
+
+def criticality_review(rows: List[dict]) -> List[dict]:
+    """3.67: the assets whose suggested criticality is critical or important that nobody confirmed - for the operator to set (or correct)."""
+    out = [{"id": r["id"], "name": r["name"], "ip": r["ip"], "suggested": r["criticality_suggested"], "why": r["criticality_reason"]}
+           for r in rows if r["active"] and not r["criticality"] and r["criticality_suggested"] in ("critical", "important")]
+    return sorted(out, key=lambda x: (0 if x["suggested"] == "critical" else 1, (x["name"] or "").lower()))
 
 
 async def summary() -> dict:
@@ -740,6 +781,7 @@ async def summary() -> dict:
         "data_quality": _dq_counts(rows),
         "personal": _personal_counts(rows),
         "by_criticality": {k: sum(1 for r in rows if (r["criticality"] or r["criticality_suggested"]) == k) for k in ("critical", "important", "normal", "ignore")},
+        "criticality_review": criticality_review(rows),
         "top_risk": [r for r in rows if r["risk"] > 0][:8],
         "last_refresh": _iso(_state["last_refresh"]),
     }
@@ -805,6 +847,8 @@ async def public_summary() -> dict:
         row["cr"] = r["criticality"] or r["criticality_suggested"]
         if not r["criticality"]:
             row["crs"] = 1                                   # suggested, not set by the operator
+            if r.get("criticality_reason"):
+                row["crw"] = r["criticality_reason"]         # why it is suggested (3.67)
         if r["dq"]:
             row["dq"] = r["dq"]
         if r.get("personal"):
@@ -833,6 +877,7 @@ async def public_summary() -> dict:
     return {
         "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable",
                                       "data_quality", "by_criticality", "personal")},
+        "criticality_review": [{"n": x["name"], "ip": x["ip"], "s": x["suggested"], "w": x["why"]} for x in s.get("criticality_review", [])][:60],
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 

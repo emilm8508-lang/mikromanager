@@ -238,6 +238,10 @@ def _level(a: Asset, row: Optional[dict] = None) -> str:
     lv = at.normalize_level(a.criticality)
     if lv:
         return lv
+    from services import assets
+    sug = assets.suggested_level(a.id)                    # with the uplift of 3.67 (the only way out, the only DC ...) when known
+    if sug:
+        return sug[0]
     det = json.loads(a.details or "{}")
     return at.suggest(asset_type=a.asset_type, dclass=det.get("_class"), name=a.name, role=a.role)[0]
 

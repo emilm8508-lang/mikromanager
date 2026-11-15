@@ -2,6 +2,32 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.67 — 2026-11-15
+- Criticality: a suggestion becomes "critical" when the asset is the only one of its kind (services/asset_type.uplift). Seen in Central: every value was a suggestion and none was critical. sanmed R1 (CCR2004, the main router), psb PSB (the only router) and aluplasti alu (WAN 80.54.58.238) were "normal".
+  - An edge router alone in its place (site) is critical, "the only way out". One of several is important ("one of N at ...").
+  - A domain controller, hypervisor or file server that is the only one at the client is critical, otherwise important.
+  - Loss-of-communication monitoring (comm_watch) uses the same level.
+- Setting the criticality by hand stays on the asset page.
+  - In MCP client_assets, each asset now says criticality_source (manual / suggested) and criticality_reason.
+  - The review of important and critical assets nobody confirmed is in the inventory summary (criticality_review) and in MCP client_data_quality (criticality_unconfirmed).
+- Which device is at the edge (services/iface_roles.refine). A WAN interface list alone is no proof: RouterOS's default configuration puts ether1 in it on every hAP, wAP or CRS set up from defconf. Seen: mcprojekt AP3; sanmed R1-S3, R1-S4, R4; mcprojekt R2-S1, R2-S2 showed their way to the router as WAN links.
+  - A device is at the edge when it has a public address, or when its default route goes to something that is not one of the client's managed devices (the ISP's box).
+  - A device whose default route goes to another managed device is behind it: its "WAN" interfaces are uplinks, and it has no WAN links in the availability view.
+  - An edge router without a WAN list gets its public-address interfaces as WAN links.
+  - Tunnels (EoIP, GRE, IPIP, WireGuard, L2TP, SSTP, OVPN, PPTP) have a role of their own: tunnel.
+  - The WAN scan now reads every router's routes, one more API call per router per scan.
+- Maker, type and OS: a stored value that nothing confirms any more is corrected. Before, the inventory only filled empty fields, so an old wrong value stayed for good.
+  - not_mikrotik changes the type (printer by its factory name or printer ports, else what the other signals say), clears "RouterOS" and corrects the maker. Seen: mcprojekt BRN94DDF81D98BE and sanmed BRN30055C32CB07 were "MikroTik / RouterOS" and one was typed network; Lexmark's ET + MAC names (sanmed ET0021B73C433C) are now printers.
+  - The maker "MikroTik" is kept only for a confirmed MikroTik device or a MAC of its own with MikroTik's prefix. It is not kept for an address answered by the router's MAC (routed or proxy-ARP) or one seen in its ARP table. Otherwise it is replaced by the own MAC's maker, or cleared. Seen: mcprojekt wazuh (an Ubuntu VM), MCPROJEKTPC007, sanmed sanmed-serwer, CMSANMED.
+  - A "mobile" type left on an address by a phone that had it before is reset when nothing says phone any more (psb KSIEGOWOSC).
+- Tested:
+  - 9 new regression tests (backend/tests/test_round2_b.py; 127 in all):
+    - case 7 of the round-2 brief: the only way out is critical, one per site, the sole DC, hypervisor and file server;
+    - the unconfirmed-criticality review;
+    - case 9: AP3's defconf "WAN" ether1 is an uplink while the router behind the ISP's box keeps its WAN, a public address makes a device an edge, routes not read keep the old rule, the tunnel role;
+    - case 8: on a temporary database, the stored "MikroTik / RouterOS / network" printer becomes a printer without RouterOS, a VM's "MikroTik" maker is replaced, a leftover "mobile" type is reset.
+  - Not yet run on the clients' agents or on a real router's routes.
+
 ## 3.66 — 2026-11-15
 - What a CVE needs from the host (services/vuln_env.py). NVD's version ranges say which versions are affected; the conditions on the platform are often only in the description. Seen in Central: CVE-2026-123158 says "OpenSSH before 10.6p2 on Linux, when musl libc is used without PAM". Matched by version alone, it sat on:
   - Ubuntu 22.04 / 24.04 and Oracle Linux 9.8;
