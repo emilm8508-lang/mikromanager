@@ -270,6 +270,17 @@ REPLACES = {"login_failed": "auth_failure", "config_change": "config_change", "r
             "ipsec_fail": "ipsec_probe", "ipsec_respond": "ipsec_probe", "winbox_denied": "winbox_denied"}
 
 
+def _is_agent_account(user: Optional[str]) -> bool:
+    """The user name of one of the agent's own credentials (services/logons.is_technical knows them)."""
+    if not user:
+        return False
+    try:
+        from services import logons
+        return user.split("\\")[-1].split("@")[0].strip().lower() in logons._agent_users()
+    except Exception:
+        return False
+
+
 def handle(*, device: str, device_ip: str, message: str, app: Optional[str] = None, asset_id: Optional[int] = None, via: str = "syslog",
            at: Optional[datetime] = None, device_ips: Optional[List[str]] = None, now: Optional[float] = None) -> dict:
     """One router log line through the rules. Returns {"parsed", "raised": [rule ids], "skip_builtin": {ids}, "duplicate": bool}."""
@@ -296,6 +307,9 @@ def handle(*, device: str, device_ip: str, message: str, app: Optional[str] = No
         for k in [k for k, v in _seen_lines.items() if not any(v.values())][:10000]:
             _seen_lines.pop(k, None)
     _stats[p["kind"]] += 1
+    if p["kind"] in ("login_ok", "logout") and _is_agent_account(p.get("user")):
+        out["self"] = True                                    # the agent's own API / REST login (3.73): not a person's, no rule, no logon
+        return out
     if p["kind"] in ("login_ok", "login_failed") and p.get("user"):
         try:                                                  # who logged on to the router (3.70: services/logons.py)
             from services import logons

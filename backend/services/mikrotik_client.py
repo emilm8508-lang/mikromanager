@@ -178,6 +178,74 @@ def _api_ssl_ttl(ip: str) -> int:
     return min(_API_SSL_MAX_TTL, _API_SSL_BROKEN_TTL * 2 ** (n - 1))
 
 
+# ── one API login per router, kept for a while (3.73) ─────────────────────────────────────────────────────────────────────────────────
+# Every read used to log in, run one command and log out: about a dozen modules poll each router (resources, logs, DHCP / ARP, WAN scan,
+# tunnels, topology, logging check ...), so a router's log filled with the agent's own "user webshot logged in / out" - seen: seven of
+# them within 4 seconds on sanmed R2's access point. Now a router's API login is kept open and shared for API_IDLE_SEC after its last
+# use; the commands to one router run one after another on it; a connection that broke is closed and the command tried once on a fresh
+# one. Sockets are closed when idle (checked at every use) - the leak of 2.x (open sockets piling up) cannot come back through here.
+import threading
+from librouteros.exceptions import TrapError, MultiTrapError
+
+API_IDLE_SEC = 60.0
+_pool_lock = threading.Lock()
+_pool: dict = {}                     # (ip, port, user, password, ssl) -> {"api", "lock", "used", "logins"}
+
+
+def _pool_close(e: dict) -> None:
+    api, e["api"] = e.get("api"), None
+    if api is not None:
+        try:
+            api.close()
+        except Exception:
+            pass
+
+
+def _pool_reap(now: float) -> None:
+    """Closes the connections not used for API_IDLE_SEC (only those nobody is using right now)."""
+    with _pool_lock:
+        entries = list(_pool.items())
+    for key, e in entries:
+        if e["api"] is not None and now - e["used"] > API_IDLE_SEC and e["lock"].acquire(blocking=False):
+            try:
+                if e["api"] is not None and now - e["used"] > API_IDLE_SEC:
+                    _pool_close(e)
+            finally:
+                e["lock"].release()
+
+
+def pooled_call(key: tuple, connect, run):
+    """run(api) on the shared connection of `key`, logging in with connect() only when there is none (or it went idle / broke)."""
+    now = time.time()
+    _pool_reap(now)
+    with _pool_lock:
+        e = _pool.setdefault(key, {"api": None, "lock": threading.Lock(), "used": 0.0, "logins": 0})
+    with e["lock"]:
+        for attempt in (0, 1):
+            fresh = e["api"] is None or time.time() - e["used"] > API_IDLE_SEC
+            if fresh:
+                _pool_close(e)
+                e["api"] = connect()
+                e["logins"] += 1
+            try:
+                out = run(e["api"])
+                e["used"] = time.time()
+                return out
+            except (TrapError, MultiTrapError):
+                e["used"] = time.time()                  # the router said no to the command; the connection itself is fine
+                raise
+            except Exception:
+                _pool_close(e)                           # broken (closed by the router, a timeout ...): never reused
+                if fresh or attempt:
+                    raise
+
+
+def pool_stats() -> dict:
+    """{ip: logins} since the start - for checking that a router is not logged into over and over."""
+    with _pool_lock:
+        return {k[0]: e["logins"] for k, e in _pool.items()}
+
+
 def _api_ssl_is_broken(ip: str) -> bool:
     ts = _api_ssl_broken.get(ip)
     return ts is not None and (time.time() - ts) < _api_ssl_ttl(ip)
@@ -304,7 +372,7 @@ class MikrotikClient:
         loop = asyncio.get_event_loop()
         _note_access("api-ssl" if self.api_port == 8729 else "api", self.ip, command)
 
-        def _run():
+        def _connect():
             ssl_wrapper = None
             if self.api_port == 8729:
                 if _api_ssl_is_broken(self.ip):
@@ -334,14 +402,16 @@ class MikrotikClient:
                 raise
             if self.api_port == 8729:
                 _mark_api_ssl_ok(self.ip)
-            try:
-                # librouteros expects paths like "/system/resource/print"
-                cmd = command if command.startswith("/") else f"/{command}"
-                if not cmd.endswith("/print"):
-                    cmd = f"{cmd}/print"
-                return list(api(cmd))
-            finally:
-                api.close()
+            return api
+
+        # librouteros expects paths like "/system/resource/print"
+        cmd = command if command.startswith("/") else f"/{command}"
+        if not cmd.endswith("/print"):
+            cmd = f"{cmd}/print"
+        key = (self.ip, self.api_port, self.username, self.password)
+
+        def _run():
+            return pooled_call(key, _connect, lambda api: list(api(cmd)))
 
         return await loop.run_in_executor(_API_EXECUTOR, _run)
 

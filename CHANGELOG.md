@@ -2,6 +2,25 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.73 — 2026-11-15
+- One RouterOS API login per router, kept and shared. Before, every read logged in, ran one command and logged out. With about a dozen modules polling each router, its log filled with the agent's own "user webshot logged in / logged out via api". Seen on sanmed R2's access point: seven pairs within 4 seconds.
+  - A router's API login now stays open for 60 seconds after its last use and every read goes over it, one command after another.
+  - A command the router refuses (a trap) keeps the connection.
+  - A connection that broke is closed, and the command is tried once on a fresh login.
+  - Idle connections are closed at the next use, so open sockets cannot pile up.
+  - Writes (rare: identity, update channel, blocklist, torch) still use a login of their own.
+  - REST requests still log in each time, because that is how RouterOS REST works.
+- Router logs: the agent's own successful logins and logouts (the user name of one of its credentials) are no longer taken as a person's - no rule, no logon record. Its failed logins still count (e.g. a changed password).
+- Tested: 7 new regression tests (backend/tests/test_api_pool.py):
+  - five reads with one login;
+  - an idle connection closed and a new login made;
+  - a broken connection retried once on a fresh one;
+  - a refused command keeping the connection;
+  - a failed login keeping nothing;
+  - 12 parallel reads sharing one login;
+  - the agent's own login line skipped while a person's is recorded.
+  - Not yet run against a real router.
+
 ## 3.72 — 2026-11-15
 - Router logs: a REST answer that is a web page no longer hides why a router could not be read. Seen in Central: psb PSB, sanmed R4-S1, R4-S2, R4-S4, R4-S5 and two "MikroTik" devices came out as "error" with "ContentTypeError: 200 ... Attempt to decode JSON". That is RouterOS 6, or the www service answering without REST.
   - The client's message names every method that failed ("REST: ... | API: ..."), but it was matched as one text and cut at 160 characters, so the API's part - the one that says why - was lost.
