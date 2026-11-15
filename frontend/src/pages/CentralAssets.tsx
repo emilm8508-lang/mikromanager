@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type CentralRiskDevice, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
+import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type AssetsDupGroup, type CentralAssetOp, type CentralRiskDevice, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
 import { Widget, Empty, Donut, NumberTiles, OTHER, type Seg } from '../components/SecCharts'
 import { Button } from '../components/ui/Button'
 import { TypeIcon, TYPE_COLOR, TYPE_ORDER, TypePill, VulnPill, LifecyclePill, ScanLevelPill, Pill } from '../components/AssetBits'
@@ -19,6 +19,128 @@ const ago = (epoch: number | null) => {
   if (!epoch) return '—'
   const min = Math.max(0, Math.round((Date.now() / 1000 - epoch) / 60))
   return min < 90 ? `${min} min` : min < 2880 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`
+}
+
+const LEVELS = ['critical', 'important', 'normal', 'ignore'] as const
+
+// Correcting the inventory from Central (3.70): the type, the criticality, deleting a wrong entry, joining duplicates - queued at Central,
+// carried out by the agent on its next synchronisation (it checks the operation itself).
+function AssetEdit({ row, dups }: { row: Row; dups: AssetsDupGroup[] }) {
+  const { t } = useTranslation()
+  const [kind, setKind] = useState<string>('')
+  const [crit, setCrit] = useState<string>('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const id = row.id
+  const mine = dups.filter(g => id != null && g.ids.includes(id))
+  const send = async (op: CentralAssetOp, confirmKey?: string) => {
+    if (confirmKey && !window.confirm(t(confirmKey) as string)) return
+    setBusy(true); setMsg(null)
+    try { await centralApi.requestAssetOp(row.tenant, op); setMsg({ ok: true, text: t('assetsCentral.requested') as string }) }
+    catch (e) { setMsg({ ok: false, text: (e as Error).message }) }
+    finally { setBusy(false) }
+  }
+  if (id == null) return null
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100">{t('assetsCentral.edit.title')}</h4>
+      <div className="p-4 space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block"><span className="text-xs text-slate-500">{t('assets.colType')}</span>
+            <select value={kind} onChange={e => setKind(e.target.value)} className="mt-0.5 w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
+              <option value="">{t('assetsCentral.edit.keep')} ({t(`assets.type.${row.t}`, { defaultValue: row.t })})</option>
+              <option value="auto">{t('assetsCentral.edit.auto')}</option>
+              {TYPE_ORDER.map(k => <option key={k} value={k}>{t(`assets.type.${k}`, { defaultValue: k })}</option>)}
+            </select>
+          </label>
+          <label className="block"><span className="text-xs text-slate-500">{t('assets.criticality')}</span>
+            <select value={crit} onChange={e => setCrit(e.target.value)} className="mt-0.5 w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white">
+              <option value="">{t('assetsCentral.edit.keep')}{row.cr ? ` (${t(`assets.crit.${row.cr}`, { defaultValue: row.cr })}${row.crs ? ', ' + t('assetsCentral.edit.suggested') : ''})` : ''}</option>
+              {LEVELS.map(k => <option key={k} value={k}>{t(`assets.crit.${k}`, { defaultValue: k })}</option>)}
+              <option value="clear">{t('assetsCentral.edit.auto')}</option>
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={busy || (!kind && !crit)}
+                  onClick={() => send({ op: 'set', ids: [id], ...(kind ? { asset_type: kind as AssetType | 'auto' } : {}), ...(crit ? { criticality: crit === 'clear' ? '' : crit } : {}) })}>
+            {t('assetsCentral.edit.save')}
+          </Button>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => send({ op: 'delete', ids: [id] }, 'assetsCentral.edit.deleteConfirm')}>
+            {t('assetsCentral.edit.delete')}
+          </Button>
+        </div>
+        {row.x && <p className="text-[11px] text-slate-400">{t('assetsCentral.edit.managedNote')}</p>}
+        {mine.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-700">{t('assetsCentral.edit.dupTitle')}</p>
+            {mine.map(g => (
+              <div key={g.ids.join('-')} className="border border-amber-200 bg-amber-50/50 rounded-lg p-2 space-y-1">
+                <p className="text-[11px] text-slate-500">{t('assetsCentral.edit.dupWhy')}: {g.why.map(w => t(`assetsCentral.edit.why.${w}`, { defaultValue: w })).join(', ')}</p>
+                <ul className="text-xs">
+                  {g.a.map(([aid, n, ip, ty, alive]) => (
+                    <li key={aid} className={cn('flex gap-2', aid === id && 'font-semibold')}>
+                      <span>{n}</span><span className="font-mono text-slate-500">{ip ?? '—'}</span><span className="text-slate-400">{ty}</span>
+                      {!alive && <span className="text-slate-400">{t('assetsCentral.edit.gone')}</span>}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" disabled={busy} onClick={() => send({ op: 'merge', keep_id: id, drop_ids: g.ids.filter(i => i !== id) }, 'assetsCentral.edit.mergeConfirm')}>
+                    {t('assetsCentral.edit.mergeHere')}
+                  </Button>
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => send({ op: 'not_duplicate', ids: g.ids })}>{t('assetsCentral.edit.notDup')}</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg && <p className={cn('text-xs', msg.ok ? 'text-emerald-700' : 'text-red-600')}>{msg.text}</p>}
+      </div>
+    </section>
+  )
+}
+
+// The duplicate candidates of every client (3.70): join them into the entry the agent would keep, or say they are different devices.
+function DupList({ parts, onDone }: { parts: Part[]; onDone: () => void }) {
+  const { t } = useTranslation()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [done, setDone] = useState<Set<string>>(new Set())
+  const groups = parts.flatMap(p => (p.assets.dups ?? []).map(g => ({ ...g, tenant: p.tenant })))
+  if (groups.length === 0) return null
+  const send = async (key: string, tenant: string, op: CentralAssetOp, confirmKey?: string) => {
+    if (confirmKey && !window.confirm(t(confirmKey) as string)) return
+    setBusy(key)
+    try { await centralApi.requestAssetOp(tenant, op); setDone(d => new Set(d).add(key)); onDone() }
+    catch (e) { alert((e as Error).message) }
+    finally { setBusy(null) }
+  }
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100">{t('assetsCentral.edit.dupsTitle', { count: groups.length })}</h4>
+      <p className="px-4 pt-2 text-[11px] text-slate-500">{t('assetsCentral.edit.dupsNote')}</p>
+      <ul className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+        {groups.map(g => {
+          const key = `${g.tenant}:${g.ids.join('-')}`
+          return (
+            <li key={key} className="px-4 py-2 text-xs flex flex-wrap items-center gap-2">
+              <TenantBadge tenant={g.tenant} />
+              <span className="text-slate-500">{g.why.map(w => t(`assetsCentral.edit.why.${w}`, { defaultValue: w })).join(', ')}</span>
+              <span className="flex-1 min-w-[200px]">{g.a.map(([aid, n, ip]) => <span key={aid} className={cn('mr-3', aid === g.keep && 'font-semibold')}>{n} <span className="font-mono text-slate-400">{ip ?? ''}</span></span>)}</span>
+              {done.has(key) ? <span className="text-emerald-700">{t('assetsCentral.requested')}</span> : (
+                <>
+                  <Button size="sm" disabled={busy === key} onClick={() => send(key, g.tenant, { op: 'merge', keep_id: g.keep, drop_ids: g.ids.filter(i => i !== g.keep) }, 'assetsCentral.edit.mergeConfirm')}>
+                    {t('assetsCentral.edit.merge')}
+                  </Button>
+                  <Button size="sm" variant="secondary" disabled={busy === key} onClick={() => send(key, g.tenant, { op: 'not_duplicate', ids: g.ids })}>{t('assetsCentral.edit.notDup')}</Button>
+                </>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
 }
 
 // Drawer with what Central knows about one device and the commands it may send to the agent for it (the same ones as on the
@@ -41,6 +163,12 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
     return () => { live = false }
   }, [row.tenant, row.ip])
   // what is wrong with the device and what it is made of (the agent sends the detail for its most exposed devices): from the SOC part of the snapshot
+  const [dups, setDups] = useState<AssetsDupGroup[]>([])
+  useEffect(() => {
+    let live = true
+    centralApi.assetsStatusAll().then(r => { if (live) setDups(r.tenants.find(tn => tn.tenant === row.tenant)?.assets?.dups ?? []) }).catch(() => undefined)
+    return () => { live = false }
+  }, [row.tenant])
   const [risk, setRisk] = useState<CentralRiskDevice | null | undefined>(undefined)
   useEffect(() => {
     let live = true
@@ -88,6 +216,8 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
           {fact(t('assets.colAttach') as string, row.at ? [row.at[0], row.at[1] ? t('assets.attach.port', { port: row.at[1] }) : null, row.at[2] ? t('assets.attach.vlan', { vlan: row.at[2] }) : null].filter(Boolean).join(' · ') + (row.at[3] ? `  (+${row.at[3]})` : '') : null)}
           {fact(t('assets.colScan') as string, <ScanLevelPill level={row.sl} />)}
           {fact(t('assets.colLastSeen') as string, ago(row.seen))}
+          {row.lg && fact(t('logons.last') as string, row.lg.why ? <span className="text-slate-500">{t(`logons.reason.${row.lg.why}`)}</span>
+            : <span>{row.lg.u}{row.lg.p ? ` (${t('logons.privileged')})` : ''} · {row.lg.t ?? '—'}{row.lg.f ? ` · ${row.lg.f}` : ''}{row.lg.at ? ` · ${new Date(row.lg.at).toLocaleString()}` : ''}{row.lg.ses ? ` · ${t('logons.sessions', { n: row.lg.ses })}` : ''}</span>)}
         </dl>
         <p className="text-[11px] text-slate-400">{t('assetsCentral.drawerNote')}</p>
 
@@ -119,6 +249,8 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
             <p className="px-4 py-1.5 text-[11px] text-slate-400">{t('assetsCentral.findingsNote')}</p>
           </section>
         )}
+
+        <AssetEdit row={row} dups={dups} />
 
         <section className="bg-white border border-slate-200 rounded-xl shadow-sm">
           <h4 className="px-4 py-2.5 text-sm font-semibold text-slate-800 border-b border-slate-100">{t('assetsCentral.actionsTitle')}</h4>
@@ -449,6 +581,7 @@ export function CentralAssets() {
               </div>
             )}
           </section>
+          <DupList parts={vis} onDone={() => undefined} />
           {selected && <AssetDrawer row={selected} onClose={() => setSelected(null)} />}
           {truncated.length > 0 && <p className="text-xs text-slate-400">{t('assetsCentral.truncated', { clients: truncated.join(', ') })}</p>}
         </>

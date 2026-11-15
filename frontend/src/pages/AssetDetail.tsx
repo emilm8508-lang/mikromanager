@@ -2,7 +2,8 @@ import { Fragment, useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut } from '../lib/api'
+import { useAuth } from './Login'
+import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut, logonsApi, type LogonBrief } from '../lib/api'
 import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, AttachDetail, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
 import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
@@ -473,6 +474,38 @@ function Supplies({ a }: { a: Detail }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+// Who logged on, from the asset's own sources (3.70) - shown to an admin only (personal data; the read is in the audit log).
+function Logons({ id }: { id: number }) {
+  const { t } = useTranslation()
+  const { role } = useAuth()
+  const q = useQuery({ queryKey: ['asset-logons', id], queryFn: () => logonsApi.asset(id), enabled: role === 'admin', retry: false })
+  if (role !== 'admin') return null
+  const d = q.data
+  const line = (l: LogonBrief) => (
+    <li key={`${l.at}:${l.user}:${l.result}`} className="flex flex-wrap gap-x-2 text-xs">
+      <span className={cn('font-medium', l.result === 'failure' ? 'text-red-700' : 'text-slate-800')}>{l.user}</span>
+      {l.privileged && <span className="text-amber-700">{t('logons.privileged')}</span>}
+      <span className="text-slate-500">{l.type ?? '—'}</span>
+      {l.from && <span className="font-mono text-slate-500">{l.from}</span>}
+      <span className="text-slate-400">{ago(l.at)}</span>
+      <span className="text-slate-400">({l.source})</span>
+    </li>
+  )
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+      <h3 className="text-sm font-semibold text-slate-800">{t('logons.title')}</h3>
+      {q.isLoading && <p className="text-xs text-slate-400">{t('common.loading')}</p>}
+      {d && !d.last_logon && <p className="text-xs text-slate-500">{t(`logons.reason.${d.reason ?? 'no_source'}`)}</p>}
+      {d?.last_logon && <p className="text-sm">{t('logons.last')}: <b>{d.last_logon.user}</b> · {d.last_logon.type} {d.last_logon.from ? `· ${d.last_logon.from}` : ''} · {ago(d.last_logon.at)}</p>}
+      {d?.active_sessions && d.active_sessions.length > 0 && <p className="text-xs text-slate-600">{t('logons.now')}: {d.active_sessions.map(s => s.user).join(', ')}</p>}
+      {d && <p className="text-xs text-slate-500">{t('logons.users30', { n: d.distinct_users_30d })}{d.network_logons_7d ? ` · ${t('logons.network', { n: d.network_logons_7d.success })}` : ''}</p>}
+      {d?.domain_logon && <p className="text-xs text-slate-500">{t('logons.domain', { when: ago(d.domain_logon.at), days: d.domain_logon.accuracy_days })}</p>}
+      {d && d.last_logons.length > 0 && <ul className="space-y-0.5">{d.last_logons.map(line)}</ul>}
+      <p className="text-[11px] text-slate-400">{t('logons.note')}</p>
+    </section>
+  )
+}
+
 export function AssetDetail() {
   const { t } = useTranslation()
   const nav = useNavigate()
@@ -546,6 +579,7 @@ export function AssetDetail() {
             ))}
           </div>
           {active === 'overview' && <Overview key={a.id} a={a} />}
+          {active === 'overview' && <Logons id={a.id} />}
           {(active === 'hardware' || active === 'config') && <Hardware a={a} />}
           {active === 'software' && <Software id={a.id} hostId={a.refs.vuln_host_id} />}
           {active === 'vulns' && <RiskInsights a={a} />}

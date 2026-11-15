@@ -582,7 +582,55 @@ def _run_ps_safe(session, script: str):
     which made a naive comma-split/boolean check read as a false FAIL.
     Suppressing the progress stream at the source is far more robust than
     trying to strip CLIXML markers out of output after the fact."""
-    return session.run_ps(_SUPPRESS_PROGRESS + script)
+    full = _SUPPRESS_PROGRESS + script
+    if _encoded_len(full) <= MAX_ENCODED_PS:
+        return session.run_ps(full)
+    return _run_ps_staged(session, full)
+
+
+# pywinrm's run_ps sends the script as "powershell -encodedcommand <base64 of UTF-16>" - one command line, which Windows cuts at 8191
+# characters ("The command line is too long"). Seen after 3.66 made the Windows Update install script longer: every install failed with
+# "couldn't write install script: The command line is too long". A longer script is written to a temporary file in pieces, each well
+# under the limit, then run in the same PowerShell as a script block (no execution policy applies to a script block) and removed.
+MAX_ENCODED_PS = 7000
+_STAGE_CHUNK = 2000                     # bytes of the script per write: base64 of it, UTF-16 encoded again, stays far below the limit
+
+
+def _encoded_len(script: str) -> int:
+    import base64
+    return len(base64.b64encode(script.encode("utf-16-le"))) + 40
+
+
+def write_remote_file(session, path_expr: str, text: str):
+    """Writes `text` (UTF-8 with BOM, so Windows PowerShell 5.1 reads non-ASCII right) to the file the PowerShell expression `path_expr`
+    names, in pieces that each stay under the command line limit. Returns the last run_ps result (status_code != 0 = failed)."""
+    import base64
+    data = b"\xef\xbb\xbf" + text.encode("utf-8")
+    r = None
+    for i in range(0, len(data), _STAGE_CHUNK):
+        b64 = base64.b64encode(data[i:i + _STAGE_CHUNK]).decode("ascii")
+        mode = "Create" if i == 0 else "Append"
+        r = session.run_ps(f"$p = {path_expr}; $b = [Convert]::FromBase64String('{b64}'); "
+                           f"$f = [IO.File]::Open($p, [IO.FileMode]::{mode}); try {{ $f.Write($b, 0, $b.Length) }} finally {{ $f.Close() }}")
+        if r.status_code != 0:
+            return r
+    return r
+
+
+def _run_ps_staged(session, full: str):
+    import secrets
+    name = f"mm_ps_{secrets.token_hex(6)}.ps1"
+    path_expr = f"(Join-Path $env:TEMP '{name}')"
+    r = write_remote_file(session, path_expr, full)
+    if r is not None and r.status_code != 0:
+        return r
+    try:
+        return session.run_ps(f"$c = [IO.File]::ReadAllText({path_expr}); & ([ScriptBlock]::Create($c))")
+    finally:
+        try:
+            session.run_ps(f"Remove-Item -Force -ErrorAction SilentlyContinue {path_expr}")
+        except Exception:
+            pass
 
 
 def _winrm_identity_sync(ip: str, port: int, username: str, password: str,

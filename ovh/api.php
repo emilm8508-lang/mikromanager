@@ -1318,6 +1318,37 @@ try {
             ]);
             break;
 
+        case 'request_asset_op':
+            // 3.70: an inventory edit made in Central - change the type / role / criticality of assets, delete a wrong entry, join
+            // duplicates into one, or mark a candidate group "not the same device". The agent applies it after checking the signature
+            // of the command list and the operation itself (services/assets.apply_central_op). Unique marker per request: in order.
+            $tenant = $_GET['tenant'] ?? '';
+            $op_json = (string)($_GET['op'] ?? '');
+            $op = json_decode($op_json, true);
+            $ops_ok = ['set', 'delete', 'merge', 'not_duplicate'];
+            $ids_ok = function ($v, $max) { return is_array($v) && count($v) > 0 && count($v) <= $max && count(array_filter($v, function ($i) { return is_int($i) && $i > 0; })) === count($v); };
+            $valid = is_array($op) && in_array($op['op'] ?? '', $ops_ok, true) && strlen($op_json) <= 4000
+                && ($op['op'] === 'merge' ? (is_int($op['keep_id'] ?? null) && $op['keep_id'] > 0 && $ids_ok($op['drop_ids'] ?? null, 20))
+                                          : $ids_ok($op['ids'] ?? null, 500));
+            if ($tenant === '' || !$valid) {
+                http_response_code(400);
+                echo json_encode(['error' => 'tenant and op (JSON: set | delete | merge | not_duplicate with asset ids, up to 4000 bytes) required']);
+                break;
+            }
+            require_tenant($identity, $tenant);
+            require_write($identity);
+            $op['by'] = substr((string)($identity['username'] ?? ''), 0, 64);
+            $state_dir = $config['state_dir'] ?? __DIR__ . '/state';
+            if (!is_dir($state_dir)) @mkdir($state_dir, 0700, true);
+            $safe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $tenant);
+            file_put_contents($state_dir . "/asset_op_{$safe}_" . sprintf('%010x', (int)(microtime(true) * 1000) & 0xFFFFFFFFFF) . bin2hex(random_bytes(1)) . ".pending", json_encode($op));
+            try {
+                $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "asset_op_requested", ?, ?)')
+                    ->execute([$tenant, "Zmiana w inwentarzu ({$op['op']}) zlecona przez " . ($identity['username'] ?? '?'), json_encode(['op' => $op['op'], 'ids' => $op['ids'] ?? $op['drop_ids'] ?? [], 'keep_id' => $op['keep_id'] ?? null])]);
+            } catch (Throwable $e) {}
+            echo json_encode(['ok' => true, 'tenant' => $tenant, 'queued_at' => date('c'), 'note' => 'Delivered on next agent heartbeat (max 2 min)']);
+            break;
+
         case 'request_rack_op':
             // An edit of a server rack made in Central (place / move / remove a device, cable it, create a rack ...). The operation is
             // a JSON string the agent applies as is - after checking the signature of the command list it arrives in. Whitelisted
@@ -2893,6 +2924,7 @@ try {
                     'hv_action_'              => ['Akcja na maszynie Hyper-V',   '/^hv_action_(.+)_(\d+)_(?:start|shutdown|poweroff|restart|checkpoint)$/'],
                     'device_reboot_'          => ['Restart routera',             '/^device_reboot_(.+)_(\d+)$/'],
                     'rack_op_'                => ['Zmiana w szafie rack',        '/^rack_op_(.+)_[0-9a-f]{12}$/'],
+                    'asset_op_'               => ['Zmiana w inwentarzu',         '/^asset_op_(.+)_[0-9a-f]{12}$/'],
                     'soar_decision_'          => ['Decyzja o akcji reakcji',     '/^soar_decision_(.+)_(\d+)_(?:approve|reject)$/'],
                     'soc_update_'             => ['Zmiana statusu alertu SOC',   '/^soc_update_(.+)_(\d+)_(?:ack|in_progress|closed|false_positive)$/'],
                 ];
@@ -2920,7 +2952,7 @@ try {
                 'windows_update_delivered', 'windows_update_installed', 'windows_update_failed',
                 'windows_restart_delivered', 'windows_restarted',
                 'windows_manage_toggle_delivered',
-                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'soar_decision_delivered', 'soc_update_delivered', 'rack_op_delivered', 'rack_op_done', 'rack_op_failed',
+                'hyperv_vm_action_delivered', 'device_reboot_delivered', 'soar_decision_delivered', 'soc_update_delivered', 'rack_op_delivered', 'rack_op_done', 'rack_op_failed', 'asset_op_delivered', 'asset_op_done', 'asset_op_failed',
                 'dell_check_delivered',
                 'vuln_remediation_delivered',
                 'device_router_override_delivered',
@@ -2986,6 +3018,7 @@ try {
                 'hyperv_vm_action_delivered'       => ['Akcja na maszynie Hyper-V', []],
                 'device_reboot_delivered'          => ['Restart routera', []],
                 'rack_op_delivered'                => ['Zmiana w szafie rack', ['rack_op_done', 'rack_op_failed']],
+                'asset_op_delivered'               => ['Zmiana w inwentarzu', ['asset_op_done', 'asset_op_failed']],
                 'dell_check_delivered'             => ['Sprawdzenie iDRAC', []],
                 'vuln_remediation_delivered'       => ['Status podatności', []],
                 'device_router_override_delivered' => ['Klasyfikacja urządzenia', []],

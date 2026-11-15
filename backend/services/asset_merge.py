@@ -15,6 +15,7 @@ a machine that is only known by its name from two sources, or an entry made befo
   * mark_interfaces() the same name with sibling MACs (a router's / AP's ports, a dual NIC) is one device seen on several addresses: kept, shown on the main entry.
 """
 import json
+import os
 import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -122,6 +123,38 @@ def _groups(db, now: datetime) -> List[dict]:
     return out
 
 
+_DISTINCT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "asset_distinct.json")
+
+
+def _distinct() -> List[set]:
+    """The groups the operator marked "not the same device" (3.70, from the asset page or Central)."""
+    try:
+        with open(_DISTINCT_PATH, encoding="utf-8") as f:
+            return [set(int(i) for i in g) for g in json.load(f) if isinstance(g, list)]
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def mark_distinct(ids: List[int]) -> dict:
+    """These entries are different devices: their group is no longer offered as a duplicate nor joined by itself."""
+    ids = sorted({int(i) for i in ids if isinstance(i, int)})
+    if len(ids) < 2:
+        raise ValueError("at least two entries")
+    groups = [sorted(g) for g in _distinct() if not set(ids) <= g]
+    groups.append(ids)
+    os.makedirs(os.path.dirname(_DISTINCT_PATH), exist_ok=True)
+    tmp = _DISTINCT_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(groups[-500:], f)
+    os.replace(tmp, _DISTINCT_PATH)
+    return {"ok": True, "ids": ids}
+
+
+def _not_distinct(comps: List[dict]) -> List[dict]:
+    marked = _distinct()
+    return [c for c in comps if not any(set(c["ids"]) <= g for g in marked)]
+
+
 def _components(groups: List[dict]) -> List[dict]:
     """Joins the groups that share an entry into components: [{"ids": [...], "reasons": [...], "auto": all groups auto}]."""
     comps: List[dict] = []
@@ -154,7 +187,7 @@ def duplicates(live_keys: Optional[set] = None) -> List[dict]:
     now = datetime.utcnow()
     with SessionLocal() as db:
         out = []
-        for c in _components(_groups(db, now)):
+        for c in _not_distinct(_components(_groups(db, now))):
             ids = sorted(c["ids"])
             keep = _survivor(db, ids, live_keys)
             rows = [db.get(Asset, i) for i in ids]
@@ -322,7 +355,7 @@ def auto_merge(live_keys: Optional[set] = None) -> int:
         now = datetime.utcnow()
         n = 0
         with SessionLocal() as db:
-            comps = [c for c in _components(_groups(db, now)) if c["auto"]]
+            comps = [c for c in _not_distinct(_components(_groups(db, now))) if c["auto"]]
         for c in comps:
             ids = sorted(c["ids"])
             with SessionLocal() as db:

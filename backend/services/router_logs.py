@@ -296,6 +296,14 @@ def handle(*, device: str, device_ip: str, message: str, app: Optional[str] = No
         for k in [k for k, v in _seen_lines.items() if not any(v.values())][:10000]:
             _seen_lines.pop(k, None)
     _stats[p["kind"]] += 1
+    if p["kind"] in ("login_ok", "login_failed") and p.get("user"):
+        try:                                                  # who logged on to the router (3.70: services/logons.py)
+            from services import logons
+            logons.record([{"host_ip": device_ip, "host_name": device, "user": p.get("user"), "logon_type": (p.get("service") or "").lower() or None,
+                            "source_ip": p.get("src_ip"), "at": at, "result": "success" if p["kind"] == "login_ok" else "failure",
+                            "source": "routeros_log"}])
+        except Exception as e:
+            print(f"[router_logs] logon record error: {type(e).__name__}: {e}")
     ips = device_ips or [device_ip]
     nets = settings()["mgmt_nets"]
 

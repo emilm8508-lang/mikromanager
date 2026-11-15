@@ -832,6 +832,13 @@ async def public_summary() -> dict:
         channel = {d.id: d.ros_channel for d in devs if getattr(d, "ros_channel", None)}
         vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
+    lg = None
+    try:                                                         # who logged on last (services/logons.py), unless this client keeps it local
+        from services import logons
+        if logons.settings()["send_to_central"]:
+            lg = logons.last_by_host(rows[:MAX_PUBLIC_ROWS])
+    except Exception as e:
+        print(f"[assets] logons for Central: {type(e).__name__}: {e}")
     for r in shown:
         seen = datetime.fromisoformat(r["last_seen_at"].rstrip("Z")) if r["last_seen_at"] else None
         v = r["vulns"]
@@ -854,6 +861,8 @@ async def public_summary() -> dict:
         if r.get("personal"):
             row["pv"] = 1
             row["pw"] = r.get("personal_why")                          # the signal that decided (3.66)
+        if lg is not None and r["id"] in lg:
+            row["lg"] = lg[r["id"]]                                    # the last logon, or why there is none (3.70)
         if r["addrs"]:
             row["if"] = [[x["ip"], x.get("iface"), x.get("role")] for x in r["addrs"]][:12]
         if r.get("interfaces"):
@@ -878,6 +887,7 @@ async def public_summary() -> dict:
         "summary": {k: s[k] for k in ("total", "total_7d_ago", "new_7d", "new_by_day", "by_type", "by_location", "by_lifecycle", "by_scan_level", "inactive", "vulnerable",
                                       "data_quality", "by_criticality", "personal")},
         "criticality_review": [{"n": x["name"], "ip": x["ip"], "s": x["suggested"], "w": x["why"]} for x in s.get("criticality_review", [])][:60],
+        "dups": public_duplicates(),                          # 3.70: duplicate candidates Central can join or dismiss
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 
@@ -1131,3 +1141,82 @@ def stop():
     if _task:
         _task.cancel()
         _task = None
+
+
+# ── edits from Central (3.70): the asset_op command, signed like every other command (services/uplink.py) ─────────────────────────────
+
+CENTRAL_OPS = ("set", "delete", "merge", "not_duplicate")
+
+
+def apply_central_op(op: dict, who: str = "Centrala") -> dict:
+    """{"ok", "error", ...} for one operation on the inventory asked for in Central:
+      set            {"ids": [...], "asset_type": a type | "auto", "role": "server" | "workstation" | "auto", "criticality": a level | ""}
+      delete         {"ids": [...]}                               - a wrong entry (it comes back only if a source still reports it)
+      merge          {"keep_id": n, "drop_ids": [...]}             - duplicates joined into one
+      not_duplicate  {"ids": [...]}                               - a candidate group the operator says are different devices
+    Only these, only on this agent's own assets (the ids are its own); values outside the lists are refused."""
+    from services import asset_merge, activity
+    kind = str(op.get("op") or "")
+    try:
+        if kind not in CENTRAL_OPS:
+            raise ValueError("unknown operation")
+        if kind == "merge":
+            keep = int(op.get("keep_id") or 0)
+            drop = [int(i) for i in (op.get("drop_ids") or []) if str(i).isdigit()][:20]
+            r = asset_merge.merge(keep, drop)
+            out = {"ok": True, "error": None, "merged": r["merged"]}
+        else:
+            ids = [int(i) for i in (op.get("ids") or []) if str(i).isdigit()][:500]
+            if not ids:
+                raise ValueError("no assets given")
+            if kind == "delete":
+                r = delete_assets(ids)
+                out = {"ok": True, "error": None, **r}
+            elif kind == "not_duplicate":
+                asset_merge.mark_distinct(ids)
+                out = {"ok": True, "error": None, "ids": ids}
+            else:
+                fields = {}
+                if "asset_type" in op:
+                    v = str(op.get("asset_type") or "")
+                    if v != "auto" and v not in TYPES:
+                        raise ValueError("unknown asset type")
+                    fields["asset_type"] = v
+                if "role" in op:
+                    v = str(op.get("role") or "")
+                    if v not in ("server", "workstation", "auto"):
+                        raise ValueError("role is server, workstation or auto")
+                    fields["role"] = v
+                if "criticality" in op:
+                    fields["criticality"] = str(op.get("criticality") or "")
+                if not fields:
+                    raise ValueError("nothing to change")
+                n = 0
+                for i in ids:
+                    if update_asset(i, fields) is not None:
+                        n += 1
+                out = {"ok": True, "error": None, "changed": n}
+    except (ValueError, TypeError) as e:
+        out = {"ok": False, "error": str(e)[:200]}
+    try:
+        activity.record("asset_op_done" if out["ok"] else "asset_op_failed", op=kind, by=who, error=out.get("error"),
+                        ids=[int(i) for i in (op.get("ids") or op.get("drop_ids") or []) if str(i).isdigit()][:20],
+                        keep_id=op.get("keep_id"))
+    except Exception:
+        pass
+    _vuln_cache["at"] = 0.0
+    return out
+
+
+def public_duplicates(limit: int = 40) -> List[dict]:
+    """The duplicate candidates for Central: [{"ids", "why", "auto", "keep", "a": [[id, name, ip, type, alive, managed]]}]."""
+    try:
+        from services import asset_merge
+        out = []
+        for g in asset_merge.duplicates()[:limit]:
+            out.append({"ids": g["ids"], "why": g["reasons"], "auto": g["auto"], "keep": g["keep"],
+                        "a": [[x["id"], x["name"], x["ip"], x["type"], x["alive"], bool(x["managed"])] for x in g["assets"]][:8]})
+        return out
+    except Exception as e:
+        print(f"[assets] duplicates for Central: {type(e).__name__}: {e}")
+        return []

@@ -82,6 +82,8 @@ function canonical_commands(array $commands): string {
             $parts[] = 'soc_update:' . (int)($c['alert_id'] ?? 0) . ':' . ($c['status'] ?? '');
         } elseif (is_array($c) && ($c['type'] ?? '') === 'anomaly_verdict') {
             $parts[] = 'anomaly_verdict:' . (int)($c['event_id'] ?? 0) . ':' . ($c['verdict'] ?? '');
+        } elseif (is_array($c) && ($c['type'] ?? '') === 'asset_op') {
+            $parts[] = 'asset_op:' . hash('sha256', (string)($c['op'] ?? ''));
         } elseif (is_array($c) && ($c['type'] ?? '') === 'rack_op') {
             // the operation is an opaque JSON string; its SHA-256 is what is signed (see _canonical_commands in uplink.py)
             $parts[] = 'rack_op:' . hash('sha256', (string)($c['op'] ?? ''));
@@ -640,6 +642,23 @@ try {
                 $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "anomaly_verdict_delivered", ?, ?)')
                     ->execute([$tenant_header, "Ocena anomalii ({$m[2]}) dostarczona do agenta {$tenant_header}", json_encode(['event_id'=>(int)$m[1],'verdict'=>$m[2],'delivered_at'=>date('c')])]);
             } catch (Throwable $e) {}
+        }
+    }
+
+    // 3d3b. inventory edits made in Central (3.70): type / role / criticality, delete, join duplicates, "not a duplicate" - the marker's
+    // content is the operation (a JSON string), delivered as is; the agent checks it (services/assets.apply_central_op)
+    foreach (glob($state_dir . "/asset_op_{$safe}_*.pending") as $f) {
+        $base = basename($f, '.pending');
+        if (preg_match('/^asset_op_.+_[0-9a-f]{12}$/', $base)) {
+            $op = trim(@file_get_contents($f));
+            if ($op !== '' && strlen($op) <= 4000) {
+                $commands[] = ['type' => 'asset_op', 'op' => $op];
+                try {
+                    $pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "asset_op_delivered", ?, ?)')
+                        ->execute([$tenant_header, "Zmiana w inwentarzu dostarczona do agenta {$tenant_header}", json_encode(['delivered_at'=>date('c')])]);
+                } catch (Throwable $e) {}
+            }
+            @unlink($f);
         }
     }
 

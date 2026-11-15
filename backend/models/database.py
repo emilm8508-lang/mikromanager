@@ -255,6 +255,41 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class AssetLogon(Base):
+    """One logon on an asset, read from its own source (services/logons.py, 3.70): who, when, how, from where, whether it worked.
+    Technical accounts (machine accounts, SYSTEM, the agent's own account ...) are never stored; network logons (type 3) only counted
+    (AssetLogonDaily). Personal data under the GDPR: only the fields needed for security, kept LOGON_RETENTION_DAYS (90 by default)."""
+    __tablename__ = "asset_logons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, nullable=True, index=True)          # the inventory asset (by address) when known
+    host_ip = Column(String, nullable=True, index=True)
+    host_name = Column(String, nullable=True)
+    user = Column(String, nullable=False, index=True)
+    domain = Column(String, nullable=True)
+    logon_type = Column(String, nullable=True)                     # interactive / rdp / cached / unlock / ssh / winbox / api / web / redfish / domain ...
+    source_ip = Column(String, nullable=True)
+    source_host = Column(String, nullable=True)
+    at = Column(DateTime, nullable=False, index=True)
+    ended_at = Column(DateTime, nullable=True)
+    result = Column(String, nullable=False, default="success")     # success / failure
+    source = Column(String, nullable=False)                        # event_log / wazuh / wtmp / auth_log / routeros_api / routeros_log / idrac / ad
+    is_privileged = Column(Boolean, nullable=False, default=False)
+    dedup = Column(String, nullable=False, unique=True)            # source|host|user|time|result - the same logon read twice is one row
+
+
+class AssetLogonDaily(Base):
+    """Network logons (Windows type 3: file shares, RPC ...) only counted - thousands a day, not stored one by one (3.70)."""
+    __tablename__ = "asset_logon_daily"
+
+    id = Column(Integer, primary_key=True, index=True)
+    host_ip = Column(String, nullable=False, index=True)
+    day = Column(String, nullable=False)                           # YYYY-MM-DD
+    network_success = Column(Integer, nullable=False, default=0)
+    network_failure = Column(Integer, nullable=False, default=0)
+    __table_args__ = (UniqueConstraint("host_ip", "day", name="uq_logon_daily"),)
+
+
 class AuditLog(Base):
     """Who did what — one row per mutating (non-GET) API request that
     reached a handler, written by services/audit.py. Insert-only: no code

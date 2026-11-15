@@ -141,6 +141,16 @@ async def check_server(server_id: int) -> dict:
                 health = {"ok": False, "error": f"{type(e).__name__}: {e}"}
             if health.get("ok"):
                 result = {**health, "access_method": "redfish"}
+                try:                                          # who is logged on to the BMC (3.70: services/logons.py)
+                    sess = await idrac_client.get_sessions(base_url, username, password)
+                    if sess is not None:
+                        from services import logons
+                        logons.set_sessions(idrac_ip, sess, "idrac")
+                        logons.record([{"host_ip": idrac_ip, "user": x.get("user"), "logon_type": "redfish" if x.get("type") == "Redfish" else "web",
+                                        "source_ip": x.get("from"), "at": _redfish_time(x.get("since")), "result": "success", "source": "idrac"}
+                                       for x in sess if x.get("since")])
+                except Exception as e:
+                    print(f"[dell_monitor] sessions of {idrac_ip}: {type(e).__name__}: {e}")
             else:
                 result = health  # keep the error around in case local fallback also fails
         else:
@@ -641,3 +651,13 @@ def list_sel_entries(server_id: int, limit: int = 50) -> list:
             "id": r.id, "severity": r.severity, "message": r.message,
             "logged_at": r.logged_at.isoformat() if r.logged_at else None,
         } for r in rows]
+
+
+def _redfish_time(v) -> Optional[datetime]:
+    """A Redfish time ("2026-11-15T08:12:03+01:00") as naive UTC, or None."""
+    from datetime import timezone
+    try:
+        t = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return t.astimezone(timezone.utc).replace(tzinfo=None) if t.tzinfo else t

@@ -1,4 +1,20 @@
 {
+    "logons": {
+        "title": "Logowania",
+        "last": "Ostatnie logowanie",
+        "now": "Zalogowani teraz",
+        "users30": "{{n}} różnych użytkowników w 30 dniach",
+        "network": "{{n}} logowań sieciowych w 7 dniach",
+        "domain": "konto komputera w AD: ostatnio {{when}} (dokładność ok. {{days}} dni)",
+        "privileged": "uprzywilejowane",
+        "sessions": "sesje: {{n}}",
+        "note": "Z własnych źródeł zasobu (dziennik zdarzeń, auth.log, log RouterOS, iDRAC, AD). Dane osobowe: widzi je tylko administrator, każdy odczyt trafia do dziennika audytu.",
+        "reason": {
+            "no_source": "brak źródła logowań (bez agenta, WinRM, SSH ani logu urządzenia)",
+            "source_silent": "źródło jest, ale nie przysłało logowań",
+            "not_supported": "urządzenie nie udostępnia logowań"
+        }
+    },
     "nav":  {
                 "netflow": "Ruch sieciowy (NetFlow)",
                 "dashboard":  "Dashboard",
@@ -3577,6 +3593,31 @@
         "lastSuccessfulScan": "Ostatni udany skan"
     },
     "assetsCentral": {
+        "edit": {
+            "title": "Popraw w inwentarzu",
+            "keep": "bez zmian",
+            "auto": "automatycznie",
+            "suggested": "sugestia",
+            "save": "Zapisz",
+            "delete": "Usuń wadliwy wpis",
+            "deleteConfirm": "Usunąć ten wpis z inwentarza klienta? Wróci tylko wtedy, gdy któreś źródło nadal go zgłasza.",
+            "managedNote": "Zarządzany host lub router: usunięty wpis wróci, dopóki jest na liście hostów lub urządzeń.",
+            "dupTitle": "Możliwe duplikaty tego wpisu",
+            "dupWhy": "dlaczego",
+            "gone": "(nieaktywny)",
+            "mergeHere": "Scal w ten wpis",
+            "merge": "Scal",
+            "notDup": "To nie duplikat",
+            "mergeConfirm": "Scalić te wpisy w jeden? Historia, alerty i notatki przejdą na wpis, który zostaje.",
+            "dupsTitle": "Możliwe duplikaty ({{count}})",
+            "dupsNote": "Pogrubiony wpis zostaje. Zmiany wykonuje agent klienta przy najbliższej synchronizacji (do 2 min).",
+            "why": {
+                "ref": "ten sam zarządzany obiekt",
+                "mac": "ten sam MAC",
+                "name": "ta sama nazwa",
+                "serial": "ten sam numer seryjny"
+            }
+        },
         "bulkClients": "klient(ów)",
         "bulkNothing": "Żadne z zaznaczonych urządzeń nie może wykonać tej akcji (niezarządzane, stacja robocza albo brak poleceń).",
         "bulkConfirmInstall": "Zlecić instalację aktualizacji dla urządzeń: {{count}} (klientów: {{clients}})? Każdy agent wykona ją przy najbliższej synchronizacji.",

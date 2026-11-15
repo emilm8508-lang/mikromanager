@@ -678,11 +678,8 @@ def _install_updates_sync(ip: str, port: int, username: str, password: str, doma
     script_body = _INSTALL_TASK_SCRIPT.format(job_id=job_id)
 
     try:
-        write_cmd = (
-            f"$s = @'\n{script_body}\n'@; "
-            f'Set-Content -Path "{script_path}" -Value $s'
-        )
-        r = vs._run_ps_safe(session, write_cmd)
+        # written in pieces: the whole script in one command line passed Windows' 8191-character limit after 3.66 (vuln_scan.write_remote_file)
+        r = vs.write_remote_file(session, f"'{script_path}'", script_body)
         if r.status_code != 0:
             return {"ok": False, "error": f"couldn't write install script: {r.std_err.decode('utf-8', errors='ignore')[-1000:]}"}
 

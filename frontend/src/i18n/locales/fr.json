@@ -1,4 +1,20 @@
 {
+    "logons": {
+        "title": "Connexions",
+        "last": "Dernière connexion",
+        "now": "Connectés maintenant",
+        "users30": "{{n}} utilisateurs différents en 30 jours",
+        "network": "{{n}} connexions réseau en 7 jours",
+        "domain": "compte ordinateur AD : dernière {{when}} (précision d'environ {{days}} jours)",
+        "privileged": "privilégié",
+        "sessions": "sessions : {{n}}",
+        "note": "Depuis les sources propres de l'équipement (journal d'événements, auth.log, journal RouterOS, iDRAC, AD). Données personnelles : seul un administrateur les voit, chaque lecture est inscrite au journal d'audit.",
+        "reason": {
+            "no_source": "aucune source de connexions (ni agent, ni WinRM, ni SSH, ni journal de l'équipement)",
+            "source_silent": "une source existe mais n'a envoyé aucune connexion",
+            "not_supported": "l'équipement ne fournit pas de connexions"
+        }
+    },
     "nav":  {
                 "netflow": "Flux réseau (NetFlow)",
                 "dashboard":  "Tableau de bord",
@@ -3413,6 +3429,31 @@
         "lastSuccessfulScan": "Dernière analyse réussie"
     },
     "assetsCentral": {
+        "edit": {
+            "title": "Corriger l'inventaire",
+            "keep": "inchangé",
+            "auto": "automatique",
+            "suggested": "suggéré",
+            "save": "Enregistrer",
+            "delete": "Supprimer l'entrée erronée",
+            "deleteConfirm": "Supprimer cette entrée de l'inventaire du client ? Elle ne revient que si une source la signale encore.",
+            "managedNote": "Un hôte ou routeur géré : une entrée supprimée revient tant qu'elle figure dans la liste des hôtes ou équipements.",
+            "dupTitle": "Doublons possibles de cette entrée",
+            "dupWhy": "pourquoi",
+            "gone": "(inactif)",
+            "mergeHere": "Fusionner dans cette entrée",
+            "merge": "Fusionner",
+            "notDup": "Pas un doublon",
+            "mergeConfirm": "Fusionner ces entrées en une seule ? L'historique, les alertes et les notes passent à l'entrée conservée.",
+            "dupsTitle": "Doublons possibles ({{count}})",
+            "dupsNote": "L'entrée en gras est conservée. L'agent du client applique le changement à sa prochaine synchronisation (jusqu'à 2 min).",
+            "why": {
+                "ref": "le même objet géré",
+                "mac": "la même MAC",
+                "name": "le même nom",
+                "serial": "le même numéro de série"
+            }
+        },
         "bulkClients": "client(s)",
         "bulkNothing": "Aucun des appareils sélectionnés ne peut effectuer cette action (non géré, poste de travail ou pas de commande).",
         "bulkConfirmInstall": "Demander l'installation des mises à jour pour {{count}} appareils de {{clients}} client(s) ? Chaque agent l'exécute à sa prochaine synchronisation.",

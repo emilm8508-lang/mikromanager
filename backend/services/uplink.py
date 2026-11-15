@@ -682,7 +682,18 @@ async def _build_snapshot() -> dict:
         "comm_status": _comm_status(),
         "soc_quality": _soc_quality(),
         "device_logs": _device_logs(),
+        "logons": _logons(),
     }
+
+
+def _logons() -> Optional[list]:
+    """The logons of the last 7 days (services/logons.public_recent) - for the MCP client_logons; None when this client keeps them local."""
+    try:
+        from services import logons
+        return logons.public_recent()
+    except Exception as e:
+        print(f"[uplink] logons error: {type(e).__name__}: {e}")
+        return None
 
 
 def _device_logs() -> list:
@@ -729,7 +740,7 @@ def _vuln_reeval_status() -> dict:
 _META_ONLY = ("racks_status", "assets_status", "topology_status", "soc_status")
 MAX_BODY_BYTES = int(os.environ.get("MIKROTIK_UPLINK_MAX_BYTES", str(1_900_000)))      # the relay refuses more than 2 MB
 # What may be cut down, in this order (least important first), when a report is still too big: the lists inside are halved, then dropped.
-_TRIM_ORDER = ("device_logs", "topology_status", "racks_status", "assets_status", "soc_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
+_TRIM_ORDER = ("logons", "device_logs", "topology_status", "racks_status", "assets_status", "soc_status", "hostmon_details", "vuln_findings_status", "hostmon_status", "security_stats", "prtg_status", "wazuh_status")
 
 
 def _halve(v):
@@ -830,6 +841,7 @@ def _build_request_body_raw(snapshot: dict) -> tuple:
             "comm_status": snapshot.get("comm_status"),
             "soc_quality": snapshot.get("soc_quality"),
             "device_logs": snapshot.get("device_logs"),
+            "logons": snapshot.get("logons"),
         }
         body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
     else:
@@ -956,6 +968,8 @@ def _canonical_commands(commands: list) -> str:
             parts.append(f"soc_update:{int(c.get('alert_id') or 0)}:{c.get('status') or ''}")
         elif isinstance(c, dict) and c.get("type") == "anomaly_verdict":
             parts.append(f"anomaly_verdict:{int(c.get('event_id') or 0)}:{c.get('verdict') or ''}")
+        elif isinstance(c, dict) and c.get("type") == "asset_op":
+            parts.append("asset_op:" + hashlib.sha256(str(c.get("op") or "").encode("utf-8")).hexdigest())
         elif isinstance(c, dict) and c.get("type") == "rack_op":
             # the operation travels as an opaque JSON string; its SHA-256 is what is signed
             parts.append("rack_op:" + hashlib.sha256(str(c.get("op") or "").encode("utf-8")).hexdigest())
@@ -1304,6 +1318,19 @@ async def _handle_commands(commands: list) -> None:
                     print(f"[uplink] received ANOMALY_VERDICT event {event_id} -> {verdict}")
                 except (KeyError, ValueError) as e:
                     print(f"[uplink] anomaly_verdict rejected: {e}")
+            elif cmd_type == "asset_op":
+                # 3.70: an inventory edit made in Central - type / role / criticality, delete a wrong entry, join duplicates, or say
+                # "not the same device" (services/assets.apply_central_op checks the operation and its values)
+                from services import assets as assets_svc
+                try:
+                    op = json.loads(str(cmd.get("op") or ""))
+                    if not isinstance(op, dict):
+                        raise ValueError("not an object")
+                except ValueError as e:
+                    print(f"[uplink] asset_op rejected: {e}")
+                else:
+                    r = assets_svc.apply_central_op(op, "Centrala" + (f" ({op.get('by')})" if op.get("by") else ""))
+                    print(f"[uplink] received ASSET_OP {op.get('op')}: {'ok' if r['ok'] else r['error']}")
             elif cmd_type == "rack_op":
                 from services import racks as racks_svc
                 try:

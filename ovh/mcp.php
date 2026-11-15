@@ -258,6 +258,13 @@ function mcp_tools(): array {
             'description' => 'The clients\' inventories: devices with type, maker / model, OS, support status (lifecycle), vulnerability counts, place; and a summary per client.'],
         'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
             'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
+        'client_logons' => ['title' => 'Logons on assets', 'fn' => 't_logons', 'schema' => $s($tenant + [
+                'asset' => ['type' => 'string', 'description' => 'part of an asset name or address'],
+                'user' => ['type' => 'string', 'description' => 'part of a user name'],
+                'days' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 7, 'description' => 'how far back (the agent sends the last 7 days)'],
+                'result' => ['type' => 'string', 'enum' => ['success', 'failure']],
+                'privileged' => ['type' => 'boolean', 'description' => 'only privileged accounts (true) or only the others (false)']] + $limit),
+            'description' => 'Who logged on to the clients\' assets and when, from the assets\' own sources (Windows event log, Linux auth log, RouterOS log, iDRAC sessions, AD): user, logon type (interactive, RDP, SSH, WinBox ...), from where, result, privileged or not, newest first. Personal data: an admin account only; every read is recorded.'],
         'client_device_logs' => ['title' => 'Device logs', 'fn' => 't_device_logs', 'schema' => $s($tenant + [
                 'device' => ['type' => 'string', 'description' => 'part of a device name or address'],
                 'hours' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 48, 'description' => 'how far back (the agent sends the last 48 h)'],
@@ -429,10 +436,12 @@ function t_assets(McpContext $c, array $a): array {
                        'criticality_source' => isset($x['cr']) ? (!empty($x['crs']) ? 'suggested' : 'manual') : null, 'criticality_reason' => $x['crw'] ?? null, 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
-                       'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null];
+                       'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null]
+                     + mcp_logon_fields($c, $x);
         }
     }
     $pg = mcp_page($rows, $a, 40, 150);
+    if (mcp_logons_allowed($c)) mcp_logons_viewed($c, 'client_assets', $a);
     return ['summaries' => ($q === null || $q === '') ? $sums : null, 'assets' => $pg['items']] + $pg;
 }
 
@@ -564,4 +573,61 @@ function t_data_quality(McpContext $c, array $a): array {
                   'note' => isset($m['comm_status']) ? null : 'this agent does not report the newer quality data yet (3.58-3.65)'];
     }
     return ['clients' => $out];
+}
+
+
+// ── logons on assets (3.70): personal data - an admin account only, every read written to the activity log ───────────────────────────────
+
+function mcp_logons_allowed(McpContext $c): bool {
+    return ($c->identity['role'] ?? '') === 'admin';
+}
+
+function mcp_logons_viewed(McpContext $c, string $tool, array $a): void {
+    try {
+        $c->pdo->prepare('INSERT INTO activity_log (tenant, event_type, message, details) VALUES (?, "logons_viewed", ?, ?)')
+            ->execute([(string)($a['tenant'] ?? '*'), 'Dane logowań odczytane przez konektor AI (' . ($c->identity['username'] ?? '?') . ', ' . $tool . ')',
+                       json_encode(['user' => $c->identity['username'] ?? null, 'client' => $c->identity['client_id'] ?? null, 'tool' => $tool,
+                                    'filter' => array_intersect_key($a, array_flip(['tenant', 'asset', 'user', 'days', 'result', 'privileged', 'q']))])]);
+    } catch (Throwable $e) {}
+}
+
+/** The last logon and the active sessions of an inventory row ("lg" from the agent): for an admin account; others see that it is restricted. */
+function mcp_logon_fields(McpContext $c, array $x): array {
+    if (!isset($x['lg']) || !is_array($x['lg'])) return [];
+    if (!mcp_logons_allowed($c)) return ['last_logon' => 'restricted (admin account only)'];
+    $lg = $x['lg'];
+    if (isset($lg['why'])) return ['last_logon' => null, 'last_logon_missing_because' => $lg['why'], 'active_sessions' => $lg['ses'] ?? null];
+    return ['last_logon' => ['user' => $lg['u'] ?? null, 'at' => $lg['at'] ?? null, 'type' => $lg['t'] ?? null, 'from' => $lg['f'] ?? null,
+                             'privileged' => !empty($lg['p']), 'source' => $lg['s'] ?? null],
+            'active_sessions' => $lg['ses'] ?? null];
+}
+
+function t_logons(McpContext $c, array $a): array {
+    if (!mcp_logons_allowed($c)) return ['error' => 'logon data is personal data: available to an admin account only'];
+    $asset = trim((string)($a['asset'] ?? ''));
+    $user = trim((string)($a['user'] ?? ''));
+    $since = time() - 86400 * max(1, min(7, (int)($a['days'] ?? 7)));
+    $res = $a['result'] ?? null;
+    $priv = array_key_exists('privileged', $a) ? (bool)$a['privileged'] : null;
+    $rows = [];
+    $local = [];
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $lg = $r['meta']['logons'] ?? null;
+        if (!is_array($lg)) { $local[] = $r['tenant']; continue; }
+        foreach ($lg as $x) {
+            if (!is_array($x)) continue;
+            if ((strtotime((string)($x['at'] ?? '')) ?: 0) < $since) continue;
+            if ($asset !== '' && mb_stripos(($x['h'] ?? '') . ' ' . ($x['ip'] ?? ''), $asset) === false) continue;
+            if ($user !== '' && mb_stripos((string)($x['u'] ?? ''), $user) === false) continue;
+            if ($res !== null && ($x['r'] ?? '') !== $res) continue;
+            if ($priv !== null && (bool)($x['p'] ?? 0) !== $priv) continue;
+            $rows[] = ['tenant' => $r['tenant'], 'asset' => $x['h'] ?? null, 'ip' => $x['ip'] ?? null, 'user' => $x['u'] ?? null, 'domain' => $x['d'] ?? null,
+                       'type' => $x['t'] ?? null, 'from' => $x['f'] ?? null, 'at' => $x['at'] ?? null, 'result' => $x['r'] ?? null,
+                       'source' => $x['s'] ?? null, 'privileged' => !empty($x['p'])];
+        }
+    }
+    usort($rows, function ($p, $q) { return strcmp((string)$q['at'], (string)$p['at']); });
+    mcp_logons_viewed($c, 'client_logons', $a);
+    $pg = mcp_page($rows, $a, 50, 150);
+    return ['logons' => $pg['items']] + $pg + ['note' => $local ? 'no logons from these clients (agent before 3.70, or kept on the agent): ' . implode(', ', $local) : null];
 }

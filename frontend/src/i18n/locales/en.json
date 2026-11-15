@@ -1,4 +1,20 @@
 {
+    "logons": {
+        "title": "Logons",
+        "last": "Last logon",
+        "now": "Logged on now",
+        "users30": "{{n}} different users in 30 days",
+        "network": "{{n}} network logons in 7 days",
+        "domain": "AD computer account: last {{when}} (accurate to about {{days}} days)",
+        "privileged": "privileged",
+        "sessions": "sessions: {{n}}",
+        "note": "From the asset's own sources (event log, auth.log, RouterOS log, iDRAC, AD). Personal data: only an administrator sees it, every read goes into the audit log.",
+        "reason": {
+            "no_source": "no logon source (no agent, WinRM, SSH or device log)",
+            "source_silent": "a source exists but sent no logons",
+            "not_supported": "the device does not expose logons"
+        }
+    },
     "nav":  {
                 "netflow": "Network flows (NetFlow)",
                 "dashboard":  "Dashboard",
@@ -3413,6 +3429,31 @@
         "lastSuccessfulScan": "Last successful scan"
     },
     "assetsCentral": {
+        "edit": {
+            "title": "Correct the inventory",
+            "keep": "no change",
+            "auto": "automatic",
+            "suggested": "suggested",
+            "save": "Save",
+            "delete": "Delete wrong entry",
+            "deleteConfirm": "Delete this entry from the client's inventory? It comes back only if a source still reports it.",
+            "managedNote": "A managed host or router: a deleted entry comes back while it is on the host or device list.",
+            "dupTitle": "Possible duplicates of this entry",
+            "dupWhy": "why",
+            "gone": "(inactive)",
+            "mergeHere": "Join into this entry",
+            "merge": "Join",
+            "notDup": "Not a duplicate",
+            "mergeConfirm": "Join these entries into one? History, alerts and notes move to the entry that stays.",
+            "dupsTitle": "Possible duplicates ({{count}})",
+            "dupsNote": "The entry in bold stays. The client's agent makes the change at its next synchronisation (up to 2 min).",
+            "why": {
+                "ref": "the same managed object",
+                "mac": "the same MAC",
+                "name": "the same name",
+                "serial": "the same serial number"
+            }
+        },
         "bulkClients": "client(s)",
         "bulkNothing": "None of the selected devices can take this action (not managed, a workstation, or no commands for it).",
         "bulkConfirmInstall": "Queue the update installation for {{count}} devices of {{clients}} client(s)? Each agent runs it on its next synchronisation.",

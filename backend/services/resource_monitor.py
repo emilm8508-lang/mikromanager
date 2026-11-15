@@ -460,6 +460,13 @@ async def _poll_device_logs(device_id: int, log_state: dict) -> List[dict]:
         return []
 
     device_name = device.identity or device.name or device.ip
+    try:                                                      # who is logged on to the router now (3.70: services/logons.py)
+        active = await asyncio.wait_for(client._try_methods("user/active", "/user/active"), timeout=8)
+        from services import logons
+        logons.set_sessions(device.ip, [{"user": a.get("name"), "type": a.get("via"), "from": a.get("address"), "since": a.get("when")}
+                                        for a in (active if isinstance(active, list) else []) if isinstance(a, dict)], "routeros_api", device_name)
+    except Exception:
+        pass
     return _check_device_log_events(log_state, device_id, device_name, logs, device.ip)
 
 

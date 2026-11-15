@@ -1,4 +1,20 @@
 {
+    "logons": {
+        "title": "Anmeldungen",
+        "last": "Letzte Anmeldung",
+        "now": "Jetzt angemeldet",
+        "users30": "{{n}} verschiedene Benutzer in 30 Tagen",
+        "network": "{{n}} Netzwerkanmeldungen in 7 Tagen",
+        "domain": "AD-Computerkonto: zuletzt {{when}} (auf etwa {{days}} Tage genau)",
+        "privileged": "privilegiert",
+        "sessions": "Sitzungen: {{n}}",
+        "note": "Aus den eigenen Quellen des Geräts (Ereignisprotokoll, auth.log, RouterOS-Log, iDRAC, AD). Personenbezogene Daten: nur ein Administrator sieht sie, jeder Zugriff wird im Audit-Log festgehalten.",
+        "reason": {
+            "no_source": "keine Anmeldequelle (kein Agent, WinRM, SSH oder Geräte-Log)",
+            "source_silent": "eine Quelle ist da, hat aber keine Anmeldungen gesendet",
+            "not_supported": "das Gerät stellt keine Anmeldungen bereit"
+        }
+    },
     "nav":  {
                 "netflow": "Netzwerkflüsse (NetFlow)",
                 "dashboard":  "Übersicht",
@@ -3413,6 +3429,31 @@
         "lastSuccessfulScan": "Letzter erfolgreicher Scan"
     },
     "assetsCentral": {
+        "edit": {
+            "title": "Inventar korrigieren",
+            "keep": "unverändert",
+            "auto": "automatisch",
+            "suggested": "Vorschlag",
+            "save": "Speichern",
+            "delete": "Fehlerhaften Eintrag löschen",
+            "deleteConfirm": "Diesen Eintrag aus dem Inventar des Kunden löschen? Er kommt nur zurück, wenn eine Quelle ihn weiter meldet.",
+            "managedNote": "Ein verwalteter Host oder Router: ein gelöschter Eintrag kommt zurück, solange er in der Host- oder Geräteliste steht.",
+            "dupTitle": "Mögliche Duplikate dieses Eintrags",
+            "dupWhy": "warum",
+            "gone": "(inaktiv)",
+            "mergeHere": "In diesen Eintrag zusammenführen",
+            "merge": "Zusammenführen",
+            "notDup": "Kein Duplikat",
+            "mergeConfirm": "Diese Einträge zu einem zusammenführen? Verlauf, Alarme und Notizen gehen auf den bleibenden Eintrag über.",
+            "dupsTitle": "Mögliche Duplikate ({{count}})",
+            "dupsNote": "Der fett gedruckte Eintrag bleibt. Der Agent des Kunden führt die Änderung bei der nächsten Synchronisierung aus (bis 2 Min.).",
+            "why": {
+                "ref": "dasselbe verwaltete Objekt",
+                "mac": "dieselbe MAC",
+                "name": "derselbe Name",
+                "serial": "dieselbe Seriennummer"
+            }
+        },
         "bulkClients": "Kunde(n)",
         "bulkNothing": "Keines der ausgewählten Geräte kann diese Aktion ausführen (nicht verwaltet, Arbeitsplatz oder keine Befehle).",
         "bulkConfirmInstall": "Updateinstallation für {{count}} Geräte von {{clients}} Kunde(n) beauftragen? Jeder Agent führt sie bei der nächsten Synchronisierung aus.",

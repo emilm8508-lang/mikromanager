@@ -199,6 +199,26 @@ def _worst(*healths: Optional[str]) -> Optional[str]:
     return min(known, key=lambda h: order[h])
 
 
+async def get_sessions(base_url: str, username: str, password: str, cap: int = 20) -> Optional[list]:
+    """The BMC's open web / Redfish sessions (3.70: who is logged on to the iDRAC): [{user, from, since}], or None when not readable.
+    The agent reads with basic authentication - it opens no session of its own."""
+    col = await _get(base_url, "/redfish/v1/SessionService/Sessions", username, password)
+    if not isinstance(col, dict):
+        return None
+    out = []
+    for m in (col.get("Members") or [])[:cap]:
+        path = m.get("@odata.id") if isinstance(m, dict) else None
+        if not path:
+            continue
+        s = await _get(base_url, path, username, password)
+        if not isinstance(s, dict):
+            continue
+        oem = ((s.get("Oem") or {}).get("Dell") or {}) if isinstance(s.get("Oem"), dict) else {}
+        out.append({"user": s.get("UserName"), "from": s.get("ClientOriginIPAddress") or oem.get("ClientIP"),
+                    "since": s.get("CreatedTime"), "type": s.get("SessionType") or "redfish"})
+    return out
+
+
 async def get_system_summary(base_url: str, username: str, password: str) -> dict:
     """Core identity + top-level health from the server's own /Systems
     member — service tag, model, BIOS version, power state, CPU/memory

@@ -1168,12 +1168,23 @@ export interface AssetsPublicRow {
   lc: AssetLifecycle; v: [number, number, number, number]; loc: string | null; sl: AssetScanLevel; seen: number | null
   // what Central may ask the agent to do with the device (ids and flags only)
   x?: { k: 'linux' | 'windows' | 'device' | 'vm'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean; st?: string | null }
+  cr?: string | null; crs?: 1                                  // criticality, and whether it is only suggested (3.67)
+  lg?: { u?: string; at?: string; t?: string | null; f?: string | null; p?: 0 | 1; s?: string; ses?: number; why?: string }   // last logon (3.70)
 }
+// a group of entries that may be one device (services/assets.public_duplicates, 3.70): a = [id, name, ip, type, alive, managed]
+export interface AssetsDupGroup { ids: number[]; why: string[]; auto: boolean; keep: number; a: Array<[number, string, string | null, string, boolean, boolean]> }
 export interface AssetsPublic {
   summary: Pick<AssetSummary, 'total' | 'total_7d_ago' | 'new_7d' | 'new_by_day' | 'by_type' | 'by_location' | 'by_lifecycle' | 'by_scan_level' | 'inactive' | 'vulnerable'>
   rows: AssetsPublicRow[]
   truncated: boolean
+  dups?: AssetsDupGroup[]
 }
+// an inventory edit asked for in Central (3.70) - the agent checks and applies it (services/assets.apply_central_op)
+export type CentralAssetOp =
+  | { op: 'set'; ids: number[]; asset_type?: AssetType | 'auto'; role?: 'server' | 'workstation' | 'auto'; criticality?: string }
+  | { op: 'delete'; ids: number[] }
+  | { op: 'merge'; keep_id: number; drop_ids: number[] }
+  | { op: 'not_duplicate'; ids: number[] }
 
 export interface AssetPeripheralOut {
   id: number
@@ -1220,6 +1231,18 @@ export interface AssetDuplicateGroup {
   ids: number[]; reasons: Array<'ref' | 'mac' | 'name'>; auto: boolean; keep: number
   assets: Array<{ id: number; name: string; ip: string | null; mac: string | null; type: string; last_seen_at: string | null; alive: boolean; managed: string[]; has_notes: boolean }>
 }
+// who logged on to an asset (services/logons.py, 3.70) - an admin role only; every read is in the audit log
+export interface LogonBrief { user: string; domain: string | null; type: string | null; from: string | null; at: string; ended_at: string | null
+  result: 'success' | 'failure'; source: string; privileged: boolean }
+export interface AssetLogons {
+  last_logon: LogonBrief | null; last_logons: LogonBrief[]; active_sessions: Array<{ user: string; type?: string | null; from?: string | null; since?: string | null; state?: string | null }> | null
+  distinct_users_30d: number; last_failed_logon: LogonBrief | null; network_logons_7d: { success: number; failure: number } | null
+  domain_logon: { at: string; accuracy_days: number; dc: string | null } | null; reason: 'no_source' | 'source_silent' | 'not_supported' | null
+}
+export const logonsApi = {
+  asset: (id: number) => api.get<AssetLogons>(`/logons/asset/${id}`).then(r => r.data),
+}
+
 export const assetsApi = {
   summary: () => api.get<AssetSummary>('/assets/summary').then(r => r.data),
   list: () => api.get<{ assets: AssetRow[] }>('/assets').then(r => r.data.assets),
@@ -3306,6 +3329,8 @@ export const centralApi = {
     ),
   requestSoarDecision: (tenant: string, actionId: number, decision: 'approve' | 'reject') =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_soar_decision', { tenant, action_id: String(actionId), decision }),
+  requestAssetOp: (tenant: string, op: CentralAssetOp) =>
+    centralRequest<{ ok: boolean; queued_at: string }>('request_asset_op', { tenant, op: JSON.stringify(op) }),
   requestAnomalyVerdict: (tenant: string, eventId: number, verdict: 'true' | 'false' | 'clear') =>
     centralRequest<{ ok: boolean; queued_at: string }>('request_anomaly_verdict', { tenant, event_id: String(eventId), verdict }),
   // The AI connector (ovh/mcp.php): apps connected with a Central account, and revoking one

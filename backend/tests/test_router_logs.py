@@ -48,6 +48,12 @@ class Rules(unittest.TestCase):
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
         soc.SessionLocal = self.Session
         soc._new_alert_events.clear()
+        from services import logons                      # 3.70: a login line is also a logon - kept in this test's database
+        saved_lg = (logons.SessionLocal, logons._SESSIONS_PATH, logons._SETTINGS_PATH, logons._AD_PATH)
+        self.addCleanup(lambda: (setattr(logons, "SessionLocal", saved_lg[0]), setattr(logons, "_SESSIONS_PATH", saved_lg[1]),
+                                 setattr(logons, "_SETTINGS_PATH", saved_lg[2]), setattr(logons, "_AD_PATH", saved_lg[3])))
+        logons.SessionLocal = self.Session
+        logons._SESSIONS_PATH, logons._SETTINGS_PATH, logons._AD_PATH = (os.path.join(tmp, "s.json"), os.path.join(tmp, "lg.json"), os.path.join(tmp, "ad.json"))
         router_logs._SETTINGS_PATH = os.path.join(tmp, "rl.json")
         router_logs._LOGINS_PATH = os.path.join(tmp, "logins.json")
         router_logs._OWNER_PATH = os.path.join(tmp, "owners.json")

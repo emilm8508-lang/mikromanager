@@ -2,6 +2,81 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.71 — 2026-11-15
+- Windows Update install from the agent or Central works again. Since 3.66 every install failed with "couldn't write install script: The command line is too long" (seen at several clients, e.g. 192.168.1.104, .107, .187, .66, .123, .15, .236).
+  - Cause: pywinrm sends a PowerShell script as one "powershell -encodedcommand" command line (the script in base64 of UTF-16), which Windows cuts at 8191 characters.
+  - 3.66 added to the install script the reading of since when a restart is pending, and the command that writes it grew to about 9000 characters. The mistake was in 3.66.
+- The fix covers every PowerShell script the agent sends:
+  - The install script is written to the host in pieces, each well under the limit, as UTF-8 with BOM.
+  - Any script longer than the limit is staged the same way into a temporary file, run as a script block in the same session (no execution policy applies to it, the output comes back as before), then removed.
+  - This also covers the Windows log script of 3.70, which was at about 7900 of the 8191 characters.
+- Tested: 3 new regression tests (backend/tests/test_winrm_cmdline.py) with a stand-in WinRM session that refuses anything over 8191 characters:
+  - the install script reaches the host byte for byte and no command passes the limit;
+  - a long script is staged, run as a script block and removed, while a short one goes as it is;
+  - every Windows script of the agent fits or is staged.
+  - Not yet run on a real Windows host.
+
+## 3.70 — 2026-11-15
+- Last logons on an asset (services/logons.py): who logged on and when, from the asset's own sources, never guessed. Every row names its source.
+  - Windows (event log over WinRM):
+    - 4624 of types 2 / 7 / 10 / 11 with the domain, address, workstation and whether the token was elevated;
+    - 4625 failures, 4647 logoffs, 4778 / 4779 RDP reconnects;
+    - type-3 network logons only counted per day;
+    - who is logged on now (quser).
+  - A domain controller, once a day: every account's lastLogonTimestamp (marked as accurate to about 14 days), the accounts with adminCount=1 (they count as privileged on every host) and each computer account's last logon.
+  - Linux: sshd Accepted / Failed (with "invalid user"), and who is logged on (who).
+  - RouterOS: the "user X logged in from Y via winbox / ssh / api / web" lines (syslog or the API read of the log) and /user/active.
+  - Dell iDRAC: the Redfish sessions. The agent reads with basic authentication and opens none of its own.
+- Not stored: machine accounts (DC1$), SYSTEM, LOCAL / NETWORK SERVICE, ANONYMOUS LOGON, DWM-* / UMFD-*, and the agent's own accounts (the user names of its credentials).
+- Privileged: Administrator / admin / root, an elevated token, adminCount=1.
+- New tables asset_logons and asset_logon_daily.
+- At each asset:
+  - the last interactive, RDP or administrative logon;
+  - the last 10 logons, the active sessions, the distinct users in 30 days, the last failed logon and the network logons of 7 days;
+  - the AD computer logon.
+  - When there is none, the reason: no_source, source_silent or not_supported.
+- Rules, each switchable per client (data/logons.json):
+  - a privileged account from an address or workstation it has not used on the asset in 90 days;
+  - a logon to a critical asset outside working hours (7-18, Monday-Friday by default);
+  - the first logon of an account on a server or router, once the asset has a week of history;
+  - the built-in Administrator / admin account;
+  - failed logons for accounts that do not exist (seen: mcprojekt SERWER, admin and test).
+  - A RouterOS log line keeps its own rules from 3.61 (login from a new source, from outside) and is not alerted twice.
+- Personal data (GDPR):
+  - only the fields needed for security are kept;
+  - details are kept 90 days and the daily counts a year, both configurable per client;
+  - names are text only (control characters out, cut to 64);
+  - the local API (GET /api/logons, /api/logons/asset/{id}) is for an admin role only, and every read is written to the audit log;
+  - the client can keep it all on the agent (send_to_central false).
+- Central and MCP:
+  - client_assets gives last_logon and active_sessions, or why there is none;
+  - a new read-only tool, client_logons (12 in all), filters by client, asset, user, days, result and privilege, with paging;
+  - both are for an admin account only (others see "restricted"), and every read is written to Central's activity log;
+  - the asset page and the Central asset drawer show the last logon.
+- Correcting the inventory from Central (a new signed command, asset_op). In the Central asset drawer:
+  - change the type (or back to automatic) and the criticality;
+  - delete a wrong entry;
+  - join the entry's possible duplicates into it;
+  - say they are not the same device.
+  - The Central assets page lists every client's duplicate candidates (the same managed object, MAC, serial number or name), with Join and Not a duplicate.
+  - The agent checks each operation and its values (services/assets.apply_central_op).
+  - A group marked "not the same device" is no longer offered nor joined by itself (data/asset_distinct.json).
+  - Requests and deliveries are in Central's activity log and its list of waiting commands.
+  - Only an admin account may send one.
+- Tested:
+  - 12 new regression tests (backend/tests/test_round2_e.py; 151 in all), from the round-2 brief:
+    - jkowalski's RDP logon from 192.168.1.50 is the last logon, while DC1$, SYSTEM and the agent's account are skipped and 412 network logons only counted;
+    - RouterOS admin from a new address raises one alert, none for the same address again and no duplicate, and an Administrator from a new address does;
+    - no_source / source_silent / not_supported;
+    - the other rules, retention, names as text only, Linux ssh and who;
+    - the Central edits (type, refused values and operations, duplicates offered then dismissed, merge, delete) and the command's signature.
+  - The old router-log test now keeps its logons in its own database.
+  - MCP checks on a local Central: 58 pass (12 tools, logons with filters, the last logon and the printer's reason in assets, a viewer refused or shown "restricted").
+  - The frontend type-checks.
+  - Not yet run on the clients' agents:
+    - the WinRM script's new queries (quser, the AD export) have not been run on their hosts;
+    - the Redfish session fields are from the DMTF schema, not tried on their iDRACs.
+
 ## 3.69 — 2026-11-15
 - One alert per device across renames.
   - The same rule, device and parameters now count up one alert even when the device was named by its address one time and by its name the next (a name a scan, DHCP or the inventory learnt in between). Before, that opened a second alert (seen: aluplasti ALU-SW2, a TLS alert under 192.168.1.127 and another under ALU-SW2).

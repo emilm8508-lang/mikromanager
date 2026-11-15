@@ -81,8 +81,10 @@ def update_settings(body: Dict) -> Dict:
 
 # ── Windows ──────────────────────────────────────────────────────────────────
 
-def windows_script(since: datetime) -> str:
-    """PowerShell that returns {"events": [{id, t, d: {field: value}}], "errors": [...]} for the events since `since` (UTC)."""
+def windows_script(since: datetime, ad: bool = False) -> str:
+    """PowerShell that returns {"events": [{id, t, d: {field: value}}], "errors": [...], "net3": n, "sessions": "<quser>", "ad": ...} for
+    the events since `since` (UTC). 3.70: logons of types 2 / 7 / 10 / 11, 4647 logoffs, 4778 / 4779 RDP re-/disconnects, the count of
+    type-3 (network) logons, who is logged on now (quser); with `ad` on a domain controller, the accounts' lastLogonTimestamp."""
     iso = since.strftime("%Y-%m-%dT%H:%M:%SZ")
     return r'''
 $ErrorActionPreference = 'Stop'
@@ -103,10 +105,28 @@ function Get-Ev($log, $xp, $max) {
 }
 $t = "TimeCreated[timediff(@SystemTime) <= $ms]"
 $events += @(Get-Ev 'Security' "*[System[(EventID=4625 or EventID=4720 or EventID=4728 or EventID=4732 or EventID=4756 or EventID=4740 or EventID=1102 or EventID=4698) and $t]]" 3000)
-$events += @(Get-Ev 'Security' "*[System[EventID=4624 and $t] and EventData[Data[@Name='LogonType']='10']]" 500)
+$events += @(Get-Ev 'Security' "*[System[EventID=4624 and $t] and EventData[Data[@Name='LogonType']='2' or Data[@Name='LogonType']='7' or Data[@Name='LogonType']='10' or Data[@Name='LogonType']='11']]" 800)
+$events += @(Get-Ev 'Security' "*[System[(EventID=4647 or EventID=4778 or EventID=4779) and $t]]" 500)
 $events += @(Get-Ev 'System' "*[System[EventID=7045 and $t]]" 200)
-ConvertTo-Json -InputObject ([pscustomobject]@{ events = @($events); errors = @($errors) }) -Depth 5 -Compress
-'''.replace("__SINCE__", iso)
+$net3 = $null
+try { $net3 = @(Get-WinEvent -LogName Security -FilterXPath "*[System[EventID=4624 and $t] and EventData[Data[@Name='LogonType']='3']]" -MaxEvents 20000 -ErrorAction Stop).Count } catch { if ($_.FullyQualifiedErrorId -match 'NoMatchingEventsFound') { $net3 = 0 } }
+$sessions = $null
+try { $sessions = (quser 2>$null | Out-String) } catch { }
+$ad = $null
+if (__AD__) {
+  try {
+    if ((Get-CimInstance Win32_ComputerSystem).DomainRole -ge 4) {
+      Import-Module ActiveDirectory -ErrorAction Stop
+      $u = @(Get-ADUser -Filter 'Enabled -eq $true' -Properties lastLogonTimestamp,adminCount -ResultSetSize 5000 | ForEach-Object {
+        [pscustomobject]@{ u = $_.SamAccountName; a = [int]($_.adminCount -eq 1); l = $(if ($_.lastLogonTimestamp) { [DateTime]::FromFileTimeUtc($_.lastLogonTimestamp).ToString('o') } else { $null }) } })
+      $c = @(Get-ADComputer -Filter 'Enabled -eq $true' -Properties lastLogonTimestamp -ResultSetSize 5000 | ForEach-Object {
+        [pscustomobject]@{ n = $_.Name; l = $(if ($_.lastLogonTimestamp) { [DateTime]::FromFileTimeUtc($_.lastLogonTimestamp).ToString('o') } else { $null }) } })
+      $ad = [pscustomobject]@{ dc = $env:COMPUTERNAME; users = $u; computers = $c }
+    }
+  } catch { $errors += ('AD: ' + $_.Exception.Message) }
+}
+ConvertTo-Json -InputObject ([pscustomobject]@{ events = @($events); errors = @($errors); net3 = $net3; sessions = $sessions; ad = $ad }) -Depth 5 -Compress
+'''.replace("__SINCE__", iso).replace("__AD__", "$true" if ad else "$false")
 
 
 # 4625 Status / SubStatus in words (the most frequent ones)
@@ -150,7 +170,15 @@ def parse_windows(payload: dict) -> List[dict]:
                         "status": sub if sub and sub != "0x0" else st or None, "reason": reason,
                         "no_such_user": sub == "0xc0000064" or st == "0xc0000064"})
         elif i == 4624:
-            out.append({"t": t, "kind": "logon_ok", "user": d.get("TargetUserName"), "src": src})
+            # 3.70: with the type, the domain, the workstation and whether the token was elevated (an administrator's logon)
+            out.append({"t": t, "kind": "logon_ok", "user": d.get("TargetUserName"), "src": src, "domain": _blank(d.get("TargetDomainName")),
+                        "ip": _blank(d.get("IpAddress")), "workstation": _blank(d.get("WorkstationName")), "logon_type": _blank(d.get("LogonType")),
+                        "elevated": str(d.get("ElevatedToken") or "") == "%%1842"})
+        elif i == 4647:
+            out.append({"t": t, "kind": "logoff", "user": d.get("TargetUserName"), "domain": _blank(d.get("TargetDomainName"))})
+        elif i in (4778, 4779):
+            out.append({"t": t, "kind": "rdp_reconnect" if i == 4778 else "rdp_disconnect", "user": d.get("AccountName"),
+                        "domain": _blank(d.get("AccountDomain")), "ip": _blank(d.get("ClientAddress")), "workstation": _blank(d.get("ClientName"))})
         elif i == 4740:
             out.append({"t": t, "kind": "lockout", "user": d.get("TargetUserName"), "src": d.get("TargetDomainName")})
         elif i == 4720:
@@ -200,7 +228,8 @@ _RE_SUDOFAIL = re.compile(r"sudo\S*:\s+(\S+)\s*:\s*(\d+) incorrect password atte
 
 LINUX_COMMAND = ("sh -c \"if command -v journalctl >/dev/null 2>&1 && journalctl -q -n 1 --no-pager >/dev/null 2>&1; then "
                  "journalctl -q --since '@SINCE@' -o short-iso --no-pager -t sshd -t sudo -t useradd -t usermod -t groupadd -t adduser 2>/dev/null | tail -n 4000; "
-                 "else for f in /var/log/auth.log /var/log/secure; do [ -r $f ] && tail -n 4000 $f; done; fi\"")
+                 "else for f in /var/log/auth.log /var/log/secure; do [ -r $f ] && tail -n 4000 $f; done; fi; "
+                 "echo @@WHO@@; who 2>/dev/null | head -n 50\"")
 
 
 def linux_command(since: datetime) -> str:
@@ -243,7 +272,7 @@ def parse_linux(output: str, since: datetime, now: Optional[datetime] = None) ->
         seen.add(key)
         m = _RE_FAILED.search(msg)
         if m:
-            out.append({"t": t, "kind": "logon_failed", "user": m.group(1), "src": m.group(2)})
+            out.append({"t": t, "kind": "logon_failed", "user": m.group(1), "src": m.group(2), "no_such_user": "invalid user" in msg})
             continue
         m = _RE_OK.search(msg)
         if m:
@@ -384,7 +413,8 @@ async def collect_windows(host_id: int) -> dict:
     started = datetime.utcnow()
     from services import vuln_scan as vs
     try:
-        r = await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(vs._EXECUTOR, _run_windows_sync, ip, port, cred[0], cred[1], cred[2], windows_script(since)), timeout=120)
+        r = await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(vs._EXECUTOR, _run_windows_sync, ip, port, cred[0], cred[1], cred[2],
+                                                                            windows_script(since, ad=_ad_due(host_id))), timeout=120)
     except Exception as e:
         _finish("windows", host_id, started, 0, f"{type(e).__name__}: {e}", read_ok=False)
         return {"error": str(e)}
@@ -394,6 +424,10 @@ async def collect_windows(host_id: int) -> dict:
     errs = r["payload"].get("errors") or []
     events = parse_windows(r["payload"])
     evaluate(name, ip, "windows", events)
+    try:
+        windows_logons(name, ip, events, r["payload"], started)
+    except Exception as e:
+        print(f"[host_logs] logons of {name}: {type(e).__name__}: {e}")
     _finish("windows", host_id, started, len(events), "; ".join(errs) if errs else None)
     return {"ok": True, "events": len(events), "errors": errs}
 
@@ -429,8 +463,98 @@ async def collect_linux(host_id: int) -> dict:
         return {"error": str(e)}
     events = parse_linux(out, since, started)
     evaluate(name, ip, "linux", events)
+    try:
+        linux_logons(name, ip, events, out, started)
+    except Exception as e:
+        print(f"[host_logs] logons of {name}: {type(e).__name__}: {e}")
     _finish("linux", host_id, started, len(events), None)
     return {"ok": True, "events": len(events)}
+
+
+# ── logons (3.70): services/logons.py ────────────────────────────────────────
+
+_WIN_TYPES = {"2": "interactive", "7": "unlock", "10": "rdp", "11": "cached", "3": "network"}
+_AD_EVERY_SEC = 86400
+_ad_last: Dict[int, float] = {}
+
+
+def _ad_due(host_id: int) -> bool:
+    """The AD export (lastLogonTimestamp) once a day per Windows host; the script itself checks it runs on a domain controller."""
+    if time.time() - _ad_last.get(host_id, 0) < _AD_EVERY_SEC:
+        return False
+    _ad_last[host_id] = time.time()
+    return True
+
+
+def parse_quser(text: Optional[str]) -> List[dict]:
+    """quser's table -> [{user, state, since, type}] (">admin  rdp-tcp#3  2  Active  .  15.11.2026 08:12")."""
+    out = []
+    for line in (text or "").splitlines()[1:]:
+        cols = line.strip().lstrip(">").split()
+        if len(cols) < 4:
+            continue
+        user = cols[0]
+        state = next((c for c in cols if c.lower() in ("active", "disc", "aktywny", "rozł.", "rozl.", "aktiv", "getr.")), None)
+        sess = cols[1] if not cols[1].isdigit() else None
+        out.append({"user": user, "state": state, "type": "rdp" if (sess or "").lower().startswith("rdp") else ("console" if sess == "console" else None),
+                    "since": " ".join(cols[-2:]) if len(cols) >= 6 else None})
+    return out
+
+
+def windows_logons(name: str, ip: str, events: List[dict], payload: dict, now: datetime) -> dict:
+    from services import logons
+    rows = []
+    for e in events:
+        if e["kind"] in ("logon_ok", "logon_failed"):
+            rows.append({"host_ip": ip, "host_name": name, "user": e.get("user"), "domain": e.get("domain"),
+                         "logon_type": _WIN_TYPES.get(str(e.get("logon_type") or ""), e.get("logon_type")),
+                         "source_ip": e.get("ip"), "source_host": e.get("workstation"), "at": e["t"],
+                         "result": "success" if e["kind"] == "logon_ok" else "failure", "source": "event_log",
+                         "privileged": bool(e.get("elevated")), "no_such_user": bool(e.get("no_such_user"))})
+        elif e["kind"] == "rdp_reconnect":
+            rows.append({"host_ip": ip, "host_name": name, "user": e.get("user"), "domain": e.get("domain"), "logon_type": "rdp",
+                         "source_ip": e.get("ip"), "source_host": e.get("workstation"), "at": e["t"], "result": "success", "source": "event_log"})
+    r = logons.record(rows, now)
+    n3 = payload.get("net3")
+    if isinstance(n3, int) and n3 > 0:
+        logons.count_network(ip, now, success=n3)
+    if payload.get("sessions") is not None:
+        logons.set_sessions(ip, parse_quser(payload.get("sessions")), "quser", name)
+    ad = payload.get("ad")
+    if isinstance(ad, dict):
+        users = [{"user": u.get("u"), "admin": bool(u.get("a")), "last": u.get("l")} for u in (ad.get("users") or []) if isinstance(u, dict)]
+        comps = [{"name": c.get("n"), "last": c.get("l")} for c in (ad.get("computers") or []) if isinstance(c, dict)]
+        logons.set_ad(users, comps, ad.get("dc"))
+        recent = []
+        for u in users:
+            try:
+                t = datetime.fromisoformat(str(u["last"]).replace("Z", "+00:00")).replace(tzinfo=None) if u.get("last") else None
+            except ValueError:
+                t = None
+            if t and t >= now - timedelta(days=30):
+                recent.append({"host_ip": ip, "host_name": name, "user": u["user"], "logon_type": "domain", "at": t, "result": "success",
+                               "source": "ad", "privileged": u["admin"]})
+        logons.record(recent, now)
+    return r
+
+
+_RE_WHO = re.compile(r"^(\S+)\s+(\S+)\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?:\s+\((.+)\))?")
+
+
+def linux_logons(name: str, ip: str, events: List[dict], output: str, now: datetime) -> dict:
+    from services import logons
+    rows = [{"host_ip": ip, "host_name": name, "user": e.get("user"), "logon_type": "ssh", "source_ip": e.get("src"), "at": e["t"],
+             "result": "success" if e["kind"] == "logon_ok" else "failure", "source": "auth_log", "no_such_user": bool(e.get("no_such_user"))}
+            for e in events if e["kind"] in ("logon_ok", "logon_failed")]
+    r = logons.record(rows, now)
+    if "@@WHO@@" in (output or ""):
+        sess = []
+        for line in output.split("@@WHO@@", 1)[1].splitlines():
+            m = _RE_WHO.match(line.strip())
+            if m:
+                sess.append({"user": m.group(1), "type": "ssh" if m.group(4) else "console", "since": m.group(3), "from": m.group(4)})
+        logons.set_sessions(ip, sess, "who", name)
+    return r
 
 
 async def run_cycle() -> dict:

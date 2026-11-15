@@ -1,4 +1,20 @@
 {
+    "logons": {
+        "title": "Inicios de sesión",
+        "last": "Último inicio de sesión",
+        "now": "Conectados ahora",
+        "users30": "{{n}} usuarios distintos en 30 días",
+        "network": "{{n}} inicios de sesión de red en 7 días",
+        "domain": "cuenta de equipo en AD: último {{when}} (precisión de unos {{days}} días)",
+        "privileged": "privilegiado",
+        "sessions": "sesiones: {{n}}",
+        "note": "De las fuentes propias del activo (registro de eventos, auth.log, registro de RouterOS, iDRAC, AD). Datos personales: solo un administrador los ve y cada lectura queda en el registro de auditoría.",
+        "reason": {
+            "no_source": "sin fuente de inicios de sesión (sin agente, WinRM, SSH ni registro del dispositivo)",
+            "source_silent": "hay una fuente pero no envió inicios de sesión",
+            "not_supported": "el dispositivo no ofrece inicios de sesión"
+        }
+    },
     "nav":  {
                 "netflow": "Flujos de red (NetFlow)",
                 "dashboard":  "Panel",
@@ -3413,6 +3429,31 @@
         "lastSuccessfulScan": "Último análisis correcto"
     },
     "assetsCentral": {
+        "edit": {
+            "title": "Corregir el inventario",
+            "keep": "sin cambios",
+            "auto": "automático",
+            "suggested": "sugerido",
+            "save": "Guardar",
+            "delete": "Eliminar entrada errónea",
+            "deleteConfirm": "¿Eliminar esta entrada del inventario del cliente? Vuelve solo si una fuente la sigue informando.",
+            "managedNote": "Un host o router gestionado: una entrada eliminada vuelve mientras esté en la lista de hosts o dispositivos.",
+            "dupTitle": "Posibles duplicados de esta entrada",
+            "dupWhy": "por qué",
+            "gone": "(inactivo)",
+            "mergeHere": "Unir en esta entrada",
+            "merge": "Unir",
+            "notDup": "No es un duplicado",
+            "mergeConfirm": "¿Unir estas entradas en una? El historial, las alertas y las notas pasan a la entrada que se queda.",
+            "dupsTitle": "Posibles duplicados ({{count}})",
+            "dupsNote": "La entrada en negrita se queda. El agente del cliente hace el cambio en su próxima sincronización (hasta 2 min).",
+            "why": {
+                "ref": "el mismo objeto gestionado",
+                "mac": "la misma MAC",
+                "name": "el mismo nombre",
+                "serial": "el mismo número de serie"
+            }
+        },
         "bulkClients": "cliente(s)",
         "bulkNothing": "Ninguno de los dispositivos seleccionados puede realizar esta acción (no gestionado, estación de trabajo o sin comandos).",
         "bulkConfirmInstall": "¿Solicitar la instalación de actualizaciones para {{count}} dispositivos de {{clients}} cliente(s)? Cada agente la ejecuta en su próxima sincronización.",
