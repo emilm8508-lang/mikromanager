@@ -410,31 +410,121 @@ def judge_logging(actions: List[dict], rules: List[dict], agent_ip: Optional[str
     return {"remote": addrs, "to_agent": bool(agent_ip and agent_ip in addrs), "topics": topics, "agent_ip": agent_ip}
 
 
+# 3.68: why a router's logging could not be read - before, one "unknown" list (sanmed R1 and psb PSB, the most important routers, in it)
+# with nothing to act on
+READ_REASONS = {
+    "no_credential": "no credential assigned to the router",
+    "credentials_rejected": "the router refused the user name / password",
+    "no_api_permission": "the user may not read /system/logging (needs the read policy)",
+    "timeout": "the router did not answer in time",
+    "api_unreachable": "the API / REST service is off or filtered (connection refused / reset)",
+    "error": "another error (see the message)",
+}
+
+
+def classify_error(err: Optional[str]) -> str:
+    e = (err or "").lower()
+    if re.search(r"invalid user name or password|login failure|cannot log ?in|authenticat|\b401\b|unauthori", e):
+        return "credentials_rejected"
+    if re.search(r"not enough permissions|permission|policy|\b403\b|forbidden", e):
+        return "no_api_permission"
+    if re.search(r"timeout|timed out", e):
+        return "timeout"
+    if re.search(r"refused|reset by peer|unreachable|no route|connecterror|connection aborted|errno 111|winerror 10061", e):
+        return "api_unreachable"
+    return "error"
+
+
+def router_kind(d) -> Optional[str]:
+    """None for a RouterOS device whose logging is checked; else why it is left out: "swos" (no API - a switch OS), "not_routeros" (a
+    printer / another maker's device marked mikrotik). A device marked mikrotik without a version yet is checked (it may be a router
+    nobody gave a credential)."""
+    from services.vuln_scan import device_product
+    from services import asset_type
+    ident = device_product(d)
+    if ident["product"] == "MikroTik RouterOS":
+        return None
+    if ident["product"] and "swos" in ident["product"].lower():
+        return "swos"
+    if ident["reason"] == "no version":
+        return "not_routeros" if asset_type.printer_name(d.identity or d.name) else None
+    if "SwOS" in (ident["reason"] or ""):
+        return "swos"
+    return "not_routeros"
+
+
+def setup_script(agent_ip: Optional[str], firewall_logging: bool = False, action: str = "mikromanager", port: int = 514) -> str:
+    """A RouterOS script that sends the log to this agent - for the administrator to copy (3.68). Never run by the application.
+    Idempotent: the action and each rule are only added when missing."""
+    target = agent_ip or "<AGENT-IP>"
+    topics = ["system,!debug", "account", "critical", "error", "warning"] + (["firewall"] if firewall_logging else [])
+    lines = [f"# MikroManager: send this router's log to the agent at {target} (UDP {port})",
+             f':if ([:len [/system logging action find name="{action}"]] = 0) do={{ /system logging action add name={action} target=remote '
+             f'remote={target} remote-port={port} bsd-syslog=no }} else={{ /system logging action set [find name="{action}"] remote={target} remote-port={port} }}']
+    for t in topics:
+        lines.append(f':if ([:len [/system logging find action="{action}" topics="{t}"]] = 0) do={{ /system logging add action={action} topics={t} }}')
+    return "\n".join(lines)
+
+
 async def check_logging() -> List[dict]:
-    """Every MikroTik with a credential: does it send its log to a remote syslog, and to this agent? Saved for the coverage and Central."""
+    """Every RouterOS device: does it send its log to a remote syslog, and to this agent? Saved for the coverage and Central.
+    3.68: a device without a credential is listed with that reason, a failure with its reason (READ_REASONS); SwOS switches and printers
+    marked mikrotik are left out (counted in "skipped"); a router that does not send its log here gets the script to copy."""
     from sqlalchemy import select
     from models.database import SessionLocal, Device, Credential
     from services.device_client import build_client
     with SessionLocal() as db:
-        rows = db.execute(select(Device, Credential).join(Credential, Device.credential_id == Credential.id)).all()
-        rows = [(d, c) for d, c in rows if (d.vendor or "mikrotik").lower() == "mikrotik"]
+        devs = [d for d in db.execute(select(Device)).scalars().all() if (d.vendor or "mikrotik").lower() == "mikrotik"]
+        creds = {c.id: c for c in db.execute(select(Credential)).scalars().all()}
     out = []
+    skipped: Dict[str, List[str]] = {}
+    rows = []
+    for d in devs:
+        kind = router_kind(d)
+        if kind:
+            skipped.setdefault(kind, []).append(d.identity or d.name or d.ip)
+            continue
+        rows.append((d, creds.get(d.credential_id) if d.credential_id else None))
     sem = asyncio.Semaphore(4)
+    try:
+        from services import syslog_receiver
+        port = int(syslog_receiver.settings().get("syslog_port") or 514)
+    except Exception:
+        port = 514
 
     async def one(d, c):
         async with sem:
             name = d.identity or d.name or d.ip
+            agent_ip = _agent_ip_for(d.ip)
+            base = {"device_id": d.id, "name": name, "ip": d.ip, "agent_ip": agent_ip}
+            if c is None:
+                out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": None, "reason": "no_credential",
+                            "script": setup_script(agent_ip, port=port)})
+                return
             try:
                 client = build_client(d, c)
                 actions = await asyncio.wait_for(client._try_methods("system/logging/action", "/system/logging/action"), timeout=10)
                 rules = await asyncio.wait_for(client._try_methods("system/logging", "/system/logging"), timeout=10)
-                j = judge_logging(actions if isinstance(actions, list) else [], rules if isinstance(rules, list) else [], _agent_ip_for(d.ip))
-                out.append({"device_id": d.id, "name": name, "ip": d.ip, **j, "error": None})
+                fw_log = False
+                try:
+                    fw = await asyncio.wait_for(client._try_methods("ip/firewall/filter", "/ip/firewall/filter"), timeout=10)
+                    fw_log = any(str(r.get("log", "false")).lower() in ("true", "yes") and str(r.get("disabled", "false")).lower() not in ("true", "yes")
+                                 for r in (fw if isinstance(fw, list) else []) if isinstance(r, dict))
+                except Exception:
+                    pass
+                j = judge_logging(actions if isinstance(actions, list) else [], rules if isinstance(rules, list) else [], agent_ip)
+                row = {**base, **j, "error": None, "reason": None, "firewall_logging": fw_log}
+                if not j["to_agent"]:
+                    row["reason"] = "sends_elsewhere" if j["remote"] else "not_configured"
+                    row["script"] = setup_script(agent_ip, fw_log, port=port)
+                out.append(row)
             except Exception as e:
-                out.append({"device_id": d.id, "name": name, "ip": d.ip, "remote": [], "to_agent": None, "topics": [], "error": f"{type(e).__name__}: {e}"[:160]})
+                err = f"{type(e).__name__}: {e}"[:160]
+                out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": err, "reason": classify_error(err),
+                            "script": setup_script(agent_ip, port=port)})
 
     await asyncio.gather(*[one(d, c) for d, c in rows])
-    _write(_LOGGING_PATH, {"at": datetime.utcnow().isoformat() + "Z", "routers": out})
+    _write(_LOGGING_PATH, {"at": datetime.utcnow().isoformat() + "Z", "routers": out, "skipped": skipped})
     return out
 
 
@@ -449,8 +539,19 @@ def logging_status() -> dict:
 def public_summary() -> dict:
     st = logging_status()
     rs = st.get("routers") or []
+    scripts: Dict[str, dict] = {}
+    for r in rs:
+        if r.get("script") and not r.get("to_agent"):
+            s = scripts.setdefault(r.get("agent_ip") or "?", {"agent_ip": r.get("agent_ip"), "routers": [], "script": r["script"]})
+            s["routers"].append(r["name"])
+            if r.get("firewall_logging"):
+                s["script"] = r["script"]                       # the variant with the firewall topic
     return {"at": st.get("at"), "routers": len(rs), "to_agent": sum(1 for r in rs if r.get("to_agent")),
             "not_sending": [r["name"] for r in rs if r.get("to_agent") is False][:40], "unknown": [r["name"] for r in rs if r.get("to_agent") is None][:40],
+            # 3.68: why each could not be read / does not send, what was left out, and the script to copy
+            "why": [{"n": r["name"], "r": r.get("reason"), "e": (r.get("error") or "")[:120] or None} for r in rs if not r.get("to_agent")][:60],
+            "skipped": {k: len(v) for k, v in (st.get("skipped") or {}).items()},
+            "scripts": [{"agent_ip": s["agent_ip"], "routers": s["routers"][:40], "script": s["script"]} for s in scripts.values()][:5],
             "lines": dict(_stats)}
 
 

@@ -1681,6 +1681,30 @@
             "tls_legacy_protocol": "Usługa przyjmuje stary protokół TLS",
             "config_changed": "Zmieniono konfigurację routera",
             "syslog": {
+                "logging": {
+                    "title": "Logi routerów do agenta",
+                    "sending": "wysyła {{n}} z {{total}}",
+                    "check": "Sprawdź teraz",
+                    "note": "Odczyt przez API routera co 6 godzin. Aplikacja nie zmienia konfiguracji routera: skrypt kopiuje i uruchamia administrator (terminal WinBox).",
+                    "all": "Wszystkie routery wysyłają log do agenta.",
+                    "script": "Skrypt RouterOS do skopiowania",
+                    "copy": "Kopiuj",
+                    "copied": "Skopiowano",
+                    "reason": {
+                        "no_credential": "brak danych dostępowych",
+                        "credentials_rejected": "router odrzucił login lub hasło",
+                        "no_api_permission": "brak uprawnień API (polityka read)",
+                        "timeout": "brak odpowiedzi w czasie",
+                        "api_unreachable": "API wyłączone lub zablokowane",
+                        "error": "błąd odczytu",
+                        "not_configured": "nie wysyła logu nigdzie",
+                        "sends_elsewhere": "wysyła log gdzie indziej"
+                    },
+                    "skipped": {
+                        "swos": "pominięte SwOS (bez API)",
+                        "not_routeros": "pominięte (to nie routery)"
+                    }
+                },
                 "ipsec_probe": "Próby IPsec z internetu", "winbox_denied": "Odrzucone połączenia Winbox", "loop": "Wykryta pętla", "link_flap": "Niestabilny link", "link_slow": "Link z prędkością 10 Mb/s", "auth_failure": "Powtarzające się nieudane logowania",
                 "config_change": "Zmiana konfiguracji urządzenia",
                 "restart": "Restart urządzenia",

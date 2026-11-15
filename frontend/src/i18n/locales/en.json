@@ -1517,6 +1517,30 @@
             "tls_legacy_protocol": "Service accepts an outdated TLS protocol",
             "config_changed": "Router configuration changed",
             "syslog": {
+                "logging": {
+                    "title": "Router logs to the agent",
+                    "sending": "{{n}} of {{total}} sending",
+                    "check": "Check now",
+                    "note": "Read over the router's API every 6 hours. The application never changes a router: the administrator copies and runs the script (WinBox terminal).",
+                    "all": "Every router sends its log to the agent.",
+                    "script": "RouterOS script to copy",
+                    "copy": "Copy",
+                    "copied": "Copied",
+                    "reason": {
+                        "no_credential": "no credential",
+                        "credentials_rejected": "user name / password refused",
+                        "no_api_permission": "no API permission (read policy)",
+                        "timeout": "no answer in time",
+                        "api_unreachable": "API off or filtered",
+                        "error": "read error",
+                        "not_configured": "sends its log nowhere",
+                        "sends_elsewhere": "sends its log elsewhere"
+                    },
+                    "skipped": {
+                        "swos": "left out: SwOS (no API)",
+                        "not_routeros": "left out (not routers)"
+                    }
+                },
                 "ipsec_probe": "IPsec negotiation attempts from outside", "winbox_denied": "Denied Winbox connections", "loop": "Loop detected", "link_flap": "Unstable link", "link_slow": "Link at 10 Mb/s", "auth_failure": "Repeated failed logins",
                 "config_change": "Device configuration changed",
                 "restart": "Device restarted",

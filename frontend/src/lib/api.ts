@@ -1684,8 +1684,16 @@ export interface SyslogStatus {
   stored_24h: number; top_sources: Array<{ ip: string; n: number; name: string | null }>; unknown: Array<{ ip: string; n: number }>; rules: SyslogRule[]
 }
 export interface SyslogEventRow { id: number; at: string; ip: string; name: string | null; asset_id: number | null; host: string | null; app: string | null; severity: number; kind: string; message: string; raised: string[] }
+// whether each RouterOS router sends its log to this agent, why not, and the script to copy (services/router_logs.check_logging, 3.68)
+export interface RouterLoggingRow {
+  device_id: number; name: string; ip: string; agent_ip: string | null; remote: string[]; to_agent: boolean | null
+  reason?: string | null; error?: string | null; script?: string | null
+}
+export interface RouterLogging { at: string | null; routers: RouterLoggingRow[]; skipped?: Record<string, string[]> }
 export const syslogApi = {
   status: () => api.get<SyslogStatus>('/syslog/status').then(r => r.data),
+  routerLogging: () => api.get<RouterLogging>('/syslog/router-logging').then(r => r.data),
+  checkRouterLogging: () => api.post('/syslog/router-logging/check').then(r => r.data),
   save: (body: Record<string, unknown>) => api.put('/syslog/settings', body).then(r => r.data),
   events: (p: { kind?: string; q?: string; max_severity?: number; ip?: string; limit?: number }) => api.get<{ total: number; items: SyslogEventRow[] }>('/syslog/events', { params: p }).then(r => r.data),
 }

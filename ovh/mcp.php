@@ -484,7 +484,12 @@ function t_coverage(McpContext $c, array $a): array {
         $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'], 'states' => $cs['states'] ?? null, 'checked_at' => $cs['at'] ?? null, 'assets' => $items,
                   // whether the routers send their log to the agent (read over their API): which do not, which could not be read
                   'router_logging' => $lg ? ['checked_at' => $lg['at'] ?? null, 'routers' => $lg['routers'] ?? null, 'sending_to_agent' => $lg['to_agent'] ?? null,
-                                             'not_sending' => $lg['not_sending'] ?? [], 'not_read' => $lg['unknown'] ?? []] : null];
+                                             'not_sending' => $lg['not_sending'] ?? [], 'not_read' => $lg['unknown'] ?? [],
+                                             // 3.68: the reason per router (no_credential, credentials_rejected, no_api_permission, timeout,
+                                             // api_unreachable, not_configured, sends_elsewhere), SwOS / printers left out, the script to copy
+                                             'reasons' => array_map(function ($x) { return ['router' => $x['n'] ?? null, 'reason' => $x['r'] ?? null,
+                                                 'error' => $x['e'] ?? null]; }, (array)($lg['why'] ?? [])),
+                                             'left_out' => $lg['skipped'] ?? null, 'setup_scripts' => $lg['scripts'] ?? []] : null];
     }
     return ['clients' => $out];
 }

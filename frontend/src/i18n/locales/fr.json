@@ -1517,6 +1517,30 @@
             "tls_legacy_protocol": "Le service accepte un protocole TLS obsolète",
             "config_changed": "Configuration du routeur modifiée",
             "syslog": {
+                "logging": {
+                    "title": "Journaux des routeurs vers l'agent",
+                    "sending": "{{n}} sur {{total}} envoient",
+                    "check": "Vérifier maintenant",
+                    "note": "Lu via l'API du routeur toutes les 6 heures. L'application ne modifie aucun routeur : l'administrateur copie et exécute le script (terminal WinBox).",
+                    "all": "Tous les routeurs envoient leur journal à l'agent.",
+                    "script": "Script RouterOS à copier",
+                    "copy": "Copier",
+                    "copied": "Copié",
+                    "reason": {
+                        "no_credential": "pas d'identifiants",
+                        "credentials_rejected": "identifiant / mot de passe refusé",
+                        "no_api_permission": "pas de droit API (politique read)",
+                        "timeout": "pas de réponse à temps",
+                        "api_unreachable": "API désactivée ou filtrée",
+                        "error": "erreur de lecture",
+                        "not_configured": "n'envoie son journal nulle part",
+                        "sends_elsewhere": "envoie son journal ailleurs"
+                    },
+                    "skipped": {
+                        "swos": "ignorés : SwOS (pas d'API)",
+                        "not_routeros": "ignorés (pas des routeurs)"
+                    }
+                },
                 "ipsec_probe": "Tentatives de négociation IPsec depuis l'extérieur", "winbox_denied": "Connexions Winbox refusées", "loop": "Boucle détectée", "link_flap": "Lien instable", "link_slow": "Lien à 10 Mb/s", "auth_failure": "Échecs de connexion répétés",
                 "config_change": "Configuration de l'appareil modifiée",
                 "restart": "Appareil redémarré",

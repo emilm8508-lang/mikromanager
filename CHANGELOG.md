@@ -2,6 +2,30 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.68 — 2026-11-15
+- Router logs: why a router does not send its log here (services/router_logs.check_logging). Seen in Central: 1 of about 40 routers sent its log, and the "not read" list held sanmed R1 and psb PSB, the most important routers, with nothing to act on.
+  - Every RouterOS device is listed with a reason: no_credential, credentials_rejected, no_api_permission (the read policy for /system/logging), timeout, api_unreachable (API / REST off or filtered), not_configured (sends its log nowhere), sends_elsewhere, error.
+  - A router without a credential is now listed too, instead of being left out.
+  - SwOS switches and printers marked mikrotik are not routers: they are left out and counted ("skipped").
+- Configuration hint: for every router that does not send its log here, a ready RouterOS script to copy.
+  - It adds a /system logging action with remote syslog to the agent's address (as the router reaches it) on the agent's syslog port, plus /system logging rules for system (without debug), account, critical, error, warning, and firewall when the router has firewall rules with logging.
+  - It only adds what is missing, so it can be run twice.
+  - The application never changes the router. The administrator copies the script into the router's terminal.
+- Where the reasons and scripts are shown:
+  - on the SOC Syslog page, in a new "Router logs to the agent" panel (translated into all seven languages);
+  - in the counts sent to Central;
+  - in MCP client_coverage under router_logging: reasons, left_out and setup_scripts. not_read stays as it was.
+- Vulnerabilities: a RouterOS version read over the router's API or SNMP always decides over a banner's. A banner's RouterOS findings are not used for that device. Before, the banner's findings came first and could hide the device's own (sanmed R1-S3).
+- Tested:
+  - 5 new regression tests (backend/tests/test_round2_c.py; 132 in all):
+    - the error reasons;
+    - SwOS and printers left out, a router without a credential checked;
+    - the script with the firewall topic and the configured port;
+    - a logging check on a temporary database: one router sending, one not configured with firewall logging, one refusing the password, one without a credential, a SwOS switch and a printer left out, and the summary's reasons and grouped script;
+    - case 4 of the round-2 brief: RouterOS 7.24.4 from the API with a banner saying 6.40 does not get CVE-2018-14847.
+  - The frontend type-checks.
+  - Not yet run on a real router: the script's RouterOS syntax (the :if / find on topics) is written from the RouterOS documentation and has not been run on a device.
+
 ## 3.67 — 2026-11-15
 - Criticality: a suggestion becomes "critical" when the asset is the only one of its kind (services/asset_type.uplift). Seen in Central: every value was a suggestion and none was critical. sanmed R1 (CCR2004, the main router), psb PSB (the only router) and aluplasti alu (WAN 80.54.58.238) were "normal".
   - An edge router alone in its place (site) is critical, "the only way out". One of several is important ("one of N at ...").

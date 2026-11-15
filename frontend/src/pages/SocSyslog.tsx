@@ -194,6 +194,62 @@ function Events() {
   )
 }
 
+// Which routers send their log here, why the others do not, and the RouterOS script to copy - the application never changes a router.
+function RouterLogging() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const ago = useAgo()
+  const q = useQuery({ queryKey: ['router-logging'], queryFn: syslogApi.routerLogging })
+  const check = useMutation({ mutationFn: syslogApi.checkRouterLogging, onSuccess: () => void qc.invalidateQueries({ queryKey: ['router-logging'] }) })
+  const [copied, setCopied] = useState<number | null>(null)
+  const rows = q.data?.routers ?? []
+  const missing = rows.filter(r => !r.to_agent)
+  const skipped = Object.entries(q.data?.skipped ?? {}).filter(([, v]) => v.length)
+  const copy = (r: { device_id: number; script?: string | null }) => {
+    if (!r.script) return
+    void navigator.clipboard?.writeText(r.script).then(() => setCopied(r.device_id)).catch(() => undefined)
+  }
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 text-sm">
+      <div className="flex items-center gap-3 flex-wrap">
+        <h2 className="font-semibold text-slate-900">{t('syslog.logging.title')}</h2>
+        <span className="text-xs text-slate-500">{t('syslog.logging.sending', { n: rows.length - missing.length, total: rows.length })}</span>
+        {q.data?.at && <span className="text-xs text-slate-400">{ago(q.data.at)}</span>}
+        <button onClick={() => check.mutate()} disabled={check.isPending}
+                className="ml-auto text-xs border border-slate-300 rounded-lg px-2.5 py-1 hover:bg-slate-50 disabled:opacity-50">{t('syslog.logging.check')}</button>
+      </div>
+      <p className="text-xs text-slate-500">{t('syslog.logging.note')}</p>
+      {missing.length === 0 && rows.length > 0 && <p className="text-xs text-green-700">{t('syslog.logging.all')}</p>}
+      <ul className="space-y-2">
+        {missing.map(r => (
+          <li key={r.device_id} className="border border-slate-100 rounded-lg p-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-slate-800">{r.name}</span>
+              <span className="text-xs text-slate-400">{r.ip}</span>
+              <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">
+                {t(`syslog.logging.reason.${r.reason ?? 'error'}`, { defaultValue: r.reason ?? '' })}
+              </span>
+              {r.error && <span className="text-xs text-slate-400 truncate max-w-[420px]" title={r.error}>{r.error}</span>}
+            </div>
+            {r.script && (
+              <details className="mt-1">
+                <summary className="text-xs text-indigo-600 cursor-pointer">{t('syslog.logging.script')}</summary>
+                <pre className="mt-1 text-[11px] bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre">{r.script}</pre>
+                <button onClick={() => copy(r)} className="mt-1 text-xs border border-slate-300 rounded px-2 py-0.5 hover:bg-slate-50">
+                  {copied === r.device_id ? t('syslog.logging.copied') : t('syslog.logging.copy')}
+                </button>
+              </details>
+            )}
+          </li>
+        ))}
+      </ul>
+      {skipped.length > 0 && (
+        <p className="text-xs text-slate-400">{skipped.map(([k, v]) => `${t(`syslog.logging.skipped.${k}`, { defaultValue: k })}: ${v.join(', ')}`).join(' · ')}</p>
+      )}
+    </div>
+  )
+}
+
 // Syslog and SNMP traps of the devices that cannot run an agent: what is received, what it raised, and how to switch it on.
 export function SocSyslog() {
   const { t } = useTranslation()
@@ -206,6 +262,7 @@ export function SocSyslog() {
       </div>
       {st.data && <SyslogSetup key={st.data.agent_ip ?? 'none'} agentIp={st.data.agent_ip ?? null} />}
       <Settings />
+      <RouterLogging />
       <Unknown />
       <Rules />
       <Events />

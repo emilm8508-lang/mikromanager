@@ -1813,6 +1813,12 @@ async def hosts_with_findings(severities: Optional[frozenset] = None, env: bool 
         win_ips = {w.ip for w in db.execute(select(WindowsHost)).scalars().all()}
         asset_by_ip = {a.ip: a for a in db.execute(select(Asset).where(Asset.ip.is_not(None))).scalars().all()}
         pkg_hosts = {p.host_id for p in packages}
+        # the devices whose RouterOS version was read over their API or SNMP (3.68): a banner's RouterOS version is not used for them
+        api_identity = {}
+        for d in devices:
+            di = device_product(d)
+            if di["product"] == "MikroTik RouterOS" and di["source"] in ("routeros_api", "snmp"):
+                api_identity[d.ip] = di
 
         def env_of(ip: str, banner: Optional[str] = None) -> dict:
             a = asset_by_ip.get(ip)
@@ -1843,6 +1849,9 @@ async def hosts_with_findings(severities: Optional[frozenset] = None, env: bool 
             matches = findings_by_pv.get((s.product, s.version))
             if not matches:
                 continue
+            ident_api = api_identity.get(host.ip)
+            if ident_api and re.search(r"routeros|mikrotik", s.product or "", re.I):
+                continue                    # 3.68: the version read over the router's API / SNMP decides, never a banner's (sanmed R1-S3)
             packaged = vuln_env.distro_packaged(s.product)
             if env and packaged and s.host_id in pkg_hosts:
                 continue                    # the installed package's version (the distribution's advisories) decides, not the banner
