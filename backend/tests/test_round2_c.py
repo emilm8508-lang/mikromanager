@@ -34,6 +34,18 @@ class Reasons(unittest.TestCase):
         self.assertEqual(rl.classify_error("API: ConnectionRefusedError: [WinError 10061]"), "api_unreachable")
         self.assertEqual(rl.classify_error("ValueError: odd"), "error")
 
+    def test_rest_without_json_does_not_hide_the_api_reason(self):
+        """3.72: psb PSB and sanmed R4-S1 ... came out as "error" - the REST answer was a web page and the API's part was cut off."""
+        page = "ConnectionError: Wszystkie metody dostępu zawiodły. REST: ContentTypeError: 200, message='Attempt to decode JSON with unexpected mimetype: text/html', url='http://192.168.0.1/rest/system/logging/action'"
+        self.assertEqual(rl.explain_error(page + " | API: ConnectionRefusedError: [WinError 10061] refused"),
+                         ("no_rest_api_closed", "API: ConnectionRefusedError: [WinError 10061] refused"))
+        self.assertEqual(rl.explain_error(page + " | API: TimeoutError: ")[0], "no_rest_api_timeout")
+        self.assertEqual(rl.explain_error(page + " | API: TrapError: invalid user name or password (6)")[0], "credentials_rejected")
+        self.assertEqual(rl.explain_error(page + " | API: TrapError: not enough permissions (9)")[0], "no_api_permission")
+        self.assertEqual(rl.explain_error("ConnectionError: x. REST: ClientResponseError: 404, message='Not Found' | API: ConnectionError: api-ssl previously failed for 1.2.3.4, skipping retry")[0],
+                         "api_ssl_failed")
+        self.assertIn(rl.explain_error(page)[0], ("no_rest_api_closed",), "the API part cut off: still not a bare error")
+
     def test_swos_and_printers_are_not_routers(self):
         d = lambda **kw: NS(**{"vendor": "mikrotik", "model": None, "board_name": None, "identity": None, "name": None, "mac": None, "has_api": False,
                                "os_source": None, "ros_version": None, **kw})

@@ -426,21 +426,72 @@ READ_REASONS = {
     "no_api_permission": "the user may not read /system/logging (needs the read policy)",
     "timeout": "the router did not answer in time",
     "api_unreachable": "the API / REST service is off or filtered (connection refused / reset)",
+    "no_rest_api_closed": "no REST on the router (RouterOS 6, or the www service answers without REST) and the API service (8728 / 8729) is off or filtered",
+    "no_rest_api_timeout": "no REST on the router (RouterOS 6, or the www service answers without REST) and the API did not answer in time",
+    "api_ssl_failed": "api-ssl (8729) failed the TLS handshake before (no certificate / no common cipher) and is not tried again for a while",
     "error": "another error (see the message)",
 }
 
 
-def classify_error(err: Optional[str]) -> str:
-    e = (err or "").lower()
+def _one(e: str) -> Optional[str]:
+    """The reason one access method's error says, or None."""
+    e = e.lower()
     if re.search(r"invalid user name or password|login failure|cannot log ?in|authenticat|\b401\b|unauthori", e):
         return "credentials_rejected"
     if re.search(r"not enough permissions|permission|policy|\b403\b|forbidden", e):
         return "no_api_permission"
+    if "api-ssl previously failed" in e or re.search(r"ssl|tls|handshake|no common cipher", e):
+        return "api_ssl_failed"
     if re.search(r"timeout|timed out", e):
         return "timeout"
-    if re.search(r"refused|reset by peer|unreachable|no route|connecterror|connection aborted|errno 111|winerror 10061", e):
+    if re.search(r"refused|reset by peer|unreachable|no route|connecterror|connection aborted|errno 111|winerror 10061|10054|cannot connect", e):
         return "api_unreachable"
-    return "error"
+    return None
+
+
+def _parts(err: str) -> Dict[str, str]:
+    """"... REST: X | API: Y | SNMP: Z" (mikrotik_client._try_methods) -> {"rest": X, "api": Y, "snmp": Z}."""
+    out: Dict[str, str] = {}
+    for m in re.finditer(r"\b(REST|API|SNMP): (.*?)(?= \| (?:REST|API|SNMP): |$)", err or "", re.S):
+        out[m.group(1).lower()] = m.group(2).strip()
+    return out
+
+
+def _rest_absent(rest: str) -> bool:
+    """The REST answer says there is no REST here: a page instead of JSON (ContentTypeError: the www service of RouterOS 6, or webfig),
+    404, or no answer from www at all - nothing to do with the credentials."""
+    r = rest.lower()
+    return bool(re.search(r"contenttypeerror|attempt to decode json|unexpected mimetype|\b404\b|not found|jsondecodeerror", r))
+
+
+def explain_error(err: Optional[str]) -> Tuple[str, Optional[str]]:
+    """(reason, the part of the message that says it) - 3.72. The message names each method that failed ("REST: ... | API: ..."); before,
+    the whole text was matched at once and cut at 160 characters, so a REST answer that was a web page (ContentTypeError: 200 ... -
+    seen on psb PSB and sanmed R4-S1, R4-S2, R4-S4, R4-S5) hid the API's reason and came out as "error". Now: what the API says
+    decides; a REST that is not there only says the API is the way in."""
+    e = err or ""
+    parts = _parts(e)
+    api, rest = parts.get("api"), parts.get("rest")
+    if api is not None:
+        r = _one(api)
+        if rest is not None and _rest_absent(rest):
+            if r in (None, "api_unreachable"):
+                return "no_rest_api_closed", f"API: {api}"[:200]
+            if r == "timeout":
+                return "no_rest_api_timeout", f"API: {api}"[:200]
+        if r:
+            return r, f"API: {api}"[:200]
+    if rest is not None:
+        r = _one(rest)
+        if r and r != "api_unreachable":
+            return r, f"REST: {rest}"[:200]
+        if _rest_absent(rest) and api is None:
+            return "no_rest_api_closed", f"REST: {rest}"[:200]
+    return (_one(e) or "error"), e[:200] or None
+
+
+def classify_error(err: Optional[str]) -> str:
+    return explain_error(err)[0]
 
 
 def router_kind(d) -> Optional[str]:
@@ -527,8 +578,9 @@ async def check_logging() -> List[dict]:
                     row["script"] = setup_script(agent_ip, fw_log, port=port)
                 out.append(row)
             except Exception as e:
-                err = f"{type(e).__name__}: {e}"[:160]
-                out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": err, "reason": classify_error(err),
+                err = f"{type(e).__name__}: {e}"[:1200]                 # whole: the API's part comes after the REST one
+                reason, said = explain_error(err)
+                out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": said, "reason": reason,
                             "script": setup_script(agent_ip, port=port)})
 
     await asyncio.gather(*[one(d, c) for d, c in rows])

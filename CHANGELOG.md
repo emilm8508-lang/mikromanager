@@ -2,6 +2,23 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.72 — 2026-11-15
+- Router logs: a REST answer that is a web page no longer hides why a router could not be read. Seen in Central: psb PSB, sanmed R4-S1, R4-S2, R4-S4, R4-S5 and two "MikroTik" devices came out as "error" with "ContentTypeError: 200 ... Attempt to decode JSON". That is RouterOS 6, or the www service answering without REST.
+  - The client's message names every method that failed ("REST: ... | API: ..."), but it was matched as one text and cut at 160 characters, so the API's part - the one that says why - was lost.
+  - Now each method's part is read on its own and the API's decides:
+    - no_rest_api_closed: no REST, and the API service on 8728 / 8729 is off or filtered;
+    - no_rest_api_timeout: no REST, and the API did not answer in time;
+    - credentials_rejected / no_api_permission when the API says so;
+    - api_ssl_failed: api-ssl failed the TLS handshake before and is in its back-off.
+  - The part shown with the reason is the API's (up to 200 characters).
+- The panel "Router logs to the agent" on the SOC Syslog page shows its texts again in every language. Since 3.68 they were filed under a wrong key (soc.rule.syslog instead of syslog), so the panel showed key names. The new reasons are translated too.
+- Tested: a regression test in backend/tests/test_round2_c.py, with the messages seen in Central:
+  - a web page plus a refused API gives no_rest_api_closed;
+  - plus an API timeout gives no_rest_api_timeout;
+  - plus a refused password or missing permission gives credentials_rejected / no_api_permission;
+  - 404 plus api-ssl back-off gives api_ssl_failed.
+  - The locale files were checked to have the panel's texts under syslog.logging.
+
 ## 3.71 — 2026-11-15
 - Windows Update install from the agent or Central works again. Since 3.66 every install failed with "couldn't write install script: The command line is too long" (seen at several clients, e.g. 192.168.1.104, .107, .187, .66, .123, .15, .236).
   - Cause: pywinrm sends a PowerShell script as one "powershell -encodedcommand" command line (the script in base64 of UTF-16), which Windows cuts at 8191 characters.

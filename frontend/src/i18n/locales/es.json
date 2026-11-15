@@ -1533,30 +1533,6 @@
             "tls_legacy_protocol": "El servicio acepta un protocolo TLS obsoleto",
             "config_changed": "Configuración del router modificada",
             "syslog": {
-                "logging": {
-                    "title": "Registros de routers al agente",
-                    "sending": "{{n}} de {{total}} envían",
-                    "check": "Comprobar ahora",
-                    "note": "Leído por la API del router cada 6 horas. La aplicación no cambia ningún router: el administrador copia y ejecuta el script (terminal de WinBox).",
-                    "all": "Todos los routers envían su registro al agente.",
-                    "script": "Script de RouterOS para copiar",
-                    "copy": "Copiar",
-                    "copied": "Copiado",
-                    "reason": {
-                        "no_credential": "sin credenciales",
-                        "credentials_rejected": "usuario / contraseña rechazados",
-                        "no_api_permission": "sin permiso de API (política read)",
-                        "timeout": "sin respuesta a tiempo",
-                        "api_unreachable": "API desactivada o filtrada",
-                        "error": "error de lectura",
-                        "not_configured": "no envía su registro a ningún sitio",
-                        "sends_elsewhere": "envía su registro a otro sitio"
-                    },
-                    "skipped": {
-                        "swos": "omitidos: SwOS (sin API)",
-                        "not_routeros": "omitidos (no son routers)"
-                    }
-                },
                 "ipsec_probe": "Intentos de negociación IPsec desde fuera", "winbox_denied": "Conexiones Winbox rechazadas", "loop": "Bucle detectado", "link_flap": "Enlace inestable", "link_slow": "Enlace a 10 Mb/s", "auth_failure": "Inicios de sesión fallidos repetidos",
                 "config_change": "Configuración del dispositivo modificada",
                 "restart": "Dispositivo reiniciado",
@@ -1913,6 +1889,33 @@
         }
     },
     "syslog": {
+        "logging": {
+            "title": "Registros de routers al agente",
+            "sending": "{{n}} de {{total}} envían",
+            "check": "Comprobar ahora",
+            "note": "Leído por la API del router cada 6 horas. La aplicación no cambia ningún router: el administrador copia y ejecuta el script (terminal de WinBox).",
+            "all": "Todos los routers envían su registro al agente.",
+            "script": "Script de RouterOS para copiar",
+            "copy": "Copiar",
+            "copied": "Copiado",
+            "reason": {
+                "no_rest_api_closed": "sin REST (RouterOS 6) y API desactivada",
+                "no_rest_api_timeout": "sin REST (RouterOS 6) y la API no responde",
+                "api_ssl_failed": "api-ssl: falló TLS (sin certificado)",
+                "no_credential": "sin credenciales",
+                "credentials_rejected": "usuario / contraseña rechazados",
+                "no_api_permission": "sin permiso de API (política read)",
+                "timeout": "sin respuesta a tiempo",
+                "api_unreachable": "API desactivada o filtrada",
+                "error": "error de lectura",
+                "not_configured": "no envía su registro a ningún sitio",
+                "sends_elsewhere": "envía su registro a otro sitio"
+            },
+            "skipped": {
+                "swos": "omitidos: SwOS (sin API)",
+                "not_routeros": "omitidos (no son routers)"
+            }
+        },
         "title": "Syslog y traps SNMP",
         "subtitle": "Eventos de dispositivos que no pueden ejecutar un agente: switches, impresoras, SAI, cortafuegos. El dispositivo envía lo que registra (syslog) o que ha ocurrido algo (trap SNMP), y el agente reconoce lo importante y lo convierte en alertas.",
         "status": {

@@ -1533,30 +1533,6 @@
             "tls_legacy_protocol": "Dienst akzeptiert ein veraltetes TLS-Protokoll",
             "config_changed": "Router-Konfiguration geändert",
             "syslog": {
-                "logging": {
-                    "title": "Router-Logs an den Agenten",
-                    "sending": "{{n}} von {{total}} senden",
-                    "check": "Jetzt prüfen",
-                    "note": "Alle 6 Stunden über die API des Routers gelesen. Die Anwendung ändert keinen Router: der Administrator kopiert das Skript und führt es aus (WinBox-Terminal).",
-                    "all": "Alle Router senden ihr Log an den Agenten.",
-                    "script": "RouterOS-Skript zum Kopieren",
-                    "copy": "Kopieren",
-                    "copied": "Kopiert",
-                    "reason": {
-                        "no_credential": "keine Zugangsdaten",
-                        "credentials_rejected": "Benutzername / Passwort abgelehnt",
-                        "no_api_permission": "keine API-Berechtigung (Policy read)",
-                        "timeout": "keine Antwort rechtzeitig",
-                        "api_unreachable": "API aus oder gefiltert",
-                        "error": "Lesefehler",
-                        "not_configured": "sendet sein Log nirgendwohin",
-                        "sends_elsewhere": "sendet sein Log anderswohin"
-                    },
-                    "skipped": {
-                        "swos": "ausgelassen: SwOS (keine API)",
-                        "not_routeros": "ausgelassen (keine Router)"
-                    }
-                },
                 "ipsec_probe": "IPsec-Verhandlungsversuche von außen", "winbox_denied": "Abgewiesene Winbox-Verbindungen", "loop": "Schleife erkannt", "link_flap": "Instabiler Link", "link_slow": "Link mit 10 Mb/s", "auth_failure": "Wiederholte fehlgeschlagene Anmeldungen",
                 "config_change": "Gerätekonfiguration geändert",
                 "restart": "Gerät neu gestartet",
@@ -1913,6 +1889,33 @@
         }
     },
     "syslog": {
+        "logging": {
+            "title": "Router-Logs an den Agenten",
+            "sending": "{{n}} von {{total}} senden",
+            "check": "Jetzt prüfen",
+            "note": "Alle 6 Stunden über die API des Routers gelesen. Die Anwendung ändert keinen Router: der Administrator kopiert das Skript und führt es aus (WinBox-Terminal).",
+            "all": "Alle Router senden ihr Log an den Agenten.",
+            "script": "RouterOS-Skript zum Kopieren",
+            "copy": "Kopieren",
+            "copied": "Kopiert",
+            "reason": {
+                "no_rest_api_closed": "kein REST (RouterOS 6) und API aus",
+                "no_rest_api_timeout": "kein REST (RouterOS 6) und API antwortet nicht",
+                "api_ssl_failed": "api-ssl: TLS fehlgeschlagen (kein Zertifikat)",
+                "no_credential": "keine Zugangsdaten",
+                "credentials_rejected": "Benutzername / Passwort abgelehnt",
+                "no_api_permission": "keine API-Berechtigung (Policy read)",
+                "timeout": "keine Antwort rechtzeitig",
+                "api_unreachable": "API aus oder gefiltert",
+                "error": "Lesefehler",
+                "not_configured": "sendet sein Log nirgendwohin",
+                "sends_elsewhere": "sendet sein Log anderswohin"
+            },
+            "skipped": {
+                "swos": "ausgelassen: SwOS (keine API)",
+                "not_routeros": "ausgelassen (keine Router)"
+            }
+        },
         "title": "Syslog und SNMP-Traps",
         "subtitle": "Ereignisse von Geräten, auf denen kein Agent läuft: Switches, Drucker, USVs, Firewalls. Das Gerät sendet, was es protokolliert (Syslog) oder dass etwas passiert ist (SNMP-Trap); der Agent erkennt, was wichtig ist, und macht daraus Alarme.",
         "status": {
