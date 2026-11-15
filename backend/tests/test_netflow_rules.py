@@ -171,7 +171,7 @@ class Personal(unittest.TestCase):
     def test_personal_devices(self):
         from services import asset_type as at
         self.assertTrue(at.personal(asset_type="other", name="Redmi-Note-14-Pro-5G"))
-        self.assertTrue(at.personal(asset_type="mobile", name="x"))
+        self.assertFalse(at.personal(asset_type="mobile", name="x"), "3.66: the stored type alone is no signal (an address keeps a phone's old type)")
         self.assertTrue(at.personal(asset_type="other", name="SM-L325F"))
         self.assertFalse(at.personal(asset_type="windows", name="MCPROJEKTPC011"))
         self.assertFalse(at.personal(asset_type="mobile", name="iPhone", managed=True))

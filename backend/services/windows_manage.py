@@ -45,7 +45,7 @@ import os
 import re
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Optional
 from sqlalchemy import select, func
 
@@ -520,7 +520,16 @@ try {{
     $pending = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
                (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
     try {{ $pending = $pending -or (New-Object -ComObject Microsoft.Update.SystemInfo).RebootRequired }} catch {{ }}
-    if ($pending) {{ $out.Stage = "reboot_pending"; return }}
+    if ($pending) {{
+        $out.Stage = "reboot_pending"
+        # since when: the first update installed after the last boot (WindowsUpdateClient event 19) - 3.66
+        try {{
+            $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+            $ev = Get-WinEvent -FilterHashtable @{{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WindowsUpdateClient'; Id = 19; StartTime = $boot }} -MaxEvents 200 -ErrorAction Stop | Sort-Object TimeCreated | Select-Object -First 1
+            if ($ev) {{ $out.PendingSince = $ev.TimeCreated.ToUniversalTime().ToString('o') }}
+        }} catch {{ }}
+        return
+    }}
     $session = New-Object -ComObject Microsoft.Update.Session
     $installer = $session.CreateUpdateInstaller()
     if ($installer.IsBusy) {{ $out.Stage = "busy"; return }}
@@ -577,6 +586,17 @@ WU_ERRORS = {
 _CODE_WORDS = {2: "succeeded", 3: "succeeded with errors", 4: "failed", 5: "aborted"}
 
 
+def pending_since_utc(value) -> Optional[datetime]:
+    """The install task's PendingSince (ISO, with its offset) as naive UTC; None when missing or not a time."""
+    if not value:
+        return None
+    try:
+        t = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return t.astimezone(timezone.utc).replace(tzinfo=None) if t.tzinfo else t
+
+
 def describe_install_result(parsed: dict) -> dict:
     """The JSON the install task wrote -> {"ok", "result_code", "reboot_required", "count", "error"} with an error a person can act on."""
     stage = parsed.get("Stage")
@@ -590,7 +610,8 @@ def describe_install_result(parsed: dict) -> dict:
         words = WU_ERRORS.get(hx.upper().replace("0X", "0x"))
         return f"{f.get('Kb') or (f.get('Title') or '?')[:60]}: {hx}" + (f" ({words})" if words else "")
 
-    base = {"result_code": code, "reboot_required": bool(parsed.get("RebootRequired")), "count": parsed.get("Count")}
+    base = {"result_code": code, "reboot_required": bool(parsed.get("RebootRequired")), "count": parsed.get("Count"),
+            "pending_since": parsed.get("PendingSince")}
     if parsed.get("Error"):
         hx = str(parsed.get("HResult") or "")
         words = WU_ERRORS.get(hx.upper().replace("0X", "0x"))
@@ -862,7 +883,9 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
                 with SessionLocal() as db:
                     host = db.get(WindowsHost, host_id)
                     if host:
-                        host.reboot_required = True
+                        from services import server_health
+                        server_health.note_reboot(host, True, pending_since_utc(result.get("pending_since")),
+                                                  "update_log" if pending_since_utc(result.get("pending_since")) else "unknown")
                         db.commit()
             return _fail_job(host_id, ip, result["error"])
 
@@ -873,7 +896,8 @@ async def upgrade_host(host_id: int, reason: str) -> dict:
                 host.last_upgrade_at = now
                 host.last_status = "ok"
                 host.last_error = None
-                host.reboot_required = result["reboot_required"]
+                from services import server_health
+                server_health.note_reboot(host, result["reboot_required"], now, "agent_install")   # the agent's own install finished now
                 host.upgradable_count = 0
                 host.upgradable_titles = json.dumps([])
                 db.commit()
@@ -1187,7 +1211,7 @@ def set_host_type(host_id: int, host_type: str) -> dict:
 
 _RESOURCES_SCRIPT = r"""
 $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,Size,FreeSpace
-$os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
+$os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory,Caption,Version
 $cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
 $lic = $null
 try {
@@ -1273,7 +1297,11 @@ def _parse_resources(parsed: dict) -> dict:
 
     from services import server_health
     lic = server_health.license(parsed.get("Lic"), datetime.utcnow())       # the edition, evaluation or not, when it ends
-    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
+    # 3.66: the OS name as Windows says it now (Caption) - an edition changed from Evaluation to Standard (DISM /Set-Edition) was still
+    # shown as "Evaluation" from the name read when the host was added (seen: mcprojekt DC2, FS1 with a full Standard licence)
+    caption = str(mem.get("Caption") or "").strip()
+    os_name = re.sub(r"\s+", " ", caption)[:120] if caption and len(caption) > 6 else None
+    return {"os_name": os_name, "disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
             "cpu_used_pct": cpu_used_pct, "license": lic}
 
 
@@ -1314,6 +1342,8 @@ async def check_host_resources(host_id: int) -> dict:
             host.mem_total_bytes = parsed["mem_total_bytes"]
         if parsed["cpu_used_pct"] is not None:
             host.cpu_used_pct = parsed["cpu_used_pct"]
+        if parsed.get("os_name") and parsed["os_name"] != host.os_name:
+            host.os_name = parsed["os_name"]
         lic = parsed.get("license")
         if lic:
             host.license_name, host.license_status = lic["name"], lic["status"]
@@ -1481,5 +1511,6 @@ def public_summary() -> list:
                 "license": {"name": h.license_name, "status": h.license_status, "evaluation": h.license_eval,
                             "expires_at": h.license_expires_at.isoformat() if h.license_expires_at else None} if h.license_name else None,
                 "reboot_required_since": h.reboot_required_since.isoformat() if h.reboot_required_since else None,
+                "reboot_since_source": getattr(h, "reboot_since_source", None) if h.reboot_required else None,
             })
         return result

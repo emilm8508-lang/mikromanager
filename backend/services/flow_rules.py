@@ -143,17 +143,47 @@ def check_exception(exceptions: Iterable[dict], rule: str, src: str, ports: Iter
     return None, []
 
 
-def regular(times: List[float], min_count: int = 4, max_cv: float = 0.2) -> Optional[dict]:
-    """{"every_h", "cv", "count"} when the times come at a steady interval (a scheduled scanner), else None."""
+def regular(times: List[float], min_count: int = 4, max_cv: float = 0.2, min_span_h: float = 24.0, fit: float = 0.8) -> Optional[dict]:
+    """{"every_h", "cv", "count", "span_h", "fit"} when the times come at a steady interval (a scheduled scanner), else None.
+    3.66: the rhythm is the median gap and a gap of two or three rhythms counts (a run missed - restarts, a quiet NetFlow export - broke
+    the plain spread before: no suggestion anywhere although check-mk scanned every 6 h for a week); a gap fits within 10 % of the rhythm
+    (at least 10 minutes), `fit` of them have to; the times have to span `min_span_h` (one scan, or one afternoon, is no rhythm)."""
     ts = sorted(times)
-    if len(ts) < min_count:
+    if len(ts) < min_count or ts[-1] - ts[0] < min_span_h * 3600:
         return None
     gaps = [b - a for a, b in zip(ts, ts[1:])]
     gaps = [g for g in gaps if g > 900]                    # two windows of one scan run are one run
     if len(gaps) < min_count - 1:
         return None
-    mean = statistics.mean(gaps)
-    cv = statistics.pstdev(gaps) / mean if mean else 1.0
-    if cv > max_cv or mean < 3600:
+    m = statistics.median(gaps)
+    if m < 3600:
         return None
-    return {"every_h": round(mean / 3600, 1), "cv": round(cv, 2), "count": len(ts)}
+    tol = max(600.0, 0.1 * m)
+    ok, norm = 0, []
+    for g in gaps:
+        k = max(1, round(g / m))
+        if k <= 3 and abs(g - k * m) <= tol * k:
+            ok += 1
+            norm.append(g / k)
+    if not norm or ok / len(gaps) < fit:
+        return None
+    mean = statistics.mean(norm)
+    cv = statistics.pstdev(norm) / mean if mean else 1.0
+    if cv > max_cv:
+        return None
+    return {"every_h": round(mean / 3600, 1), "cv": round(cv, 2), "count": len(ts), "span_h": round((ts[-1] - ts[0]) / 3600, 1),
+            "fit": round(ok / len(gaps), 2)}
+
+
+def common_ports(port_lists: List[List[int]], min_share: float = 0.5, cap: int = 50) -> Tuple[List[int], float]:
+    """The ports in at least `min_share` of the scans, and how alike the scans' port lists are (mean Jaccard of neighbours, 0..1)."""
+    sets = [set(p) for p in port_lists if p]
+    if not sets:
+        return [], 0.0
+    count: Dict[int, int] = {}
+    for s in sets:
+        for p in s:
+            count[p] = count.get(p, 0) + 1
+    ports = sorted(p for p, c in count.items() if c >= min_share * len(sets))[:cap]
+    sims = [len(a & b) / len(a | b) for a, b in zip(sets, sets[1:]) if a | b]
+    return ports, round(statistics.mean(sims), 2) if sims else 1.0

@@ -955,7 +955,8 @@ class LinuxHost(Base):
     last_check_at = Column(DateTime, nullable=True)
     last_upgrade_at = Column(DateTime, nullable=True)
     upgradable_count = Column(Integer, nullable=True)
-    reboot_required_since = Column(DateTime, nullable=True)   # when a pending restart was first seen (services/server_health.py)
+    reboot_required_since = Column(DateTime, nullable=True)   # since when a restart is pending, from the host (services/server_health.note_reboot)
+    reboot_since_source = Column(String, nullable=True)       # file (/var/run/reboot-required) / kernel_install / agent_upgrade / unknown
     upgradable_packages = Column(Text, nullable=True)   # JSON list, capped
     reboot_required = Column(Boolean, nullable=False, default=False)
     last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
@@ -1044,7 +1045,8 @@ class WindowsHost(Base):
     license_status = Column(String, nullable=True)            # licensed | oob_grace | notification | ...
     license_eval = Column(Boolean, nullable=True)
     license_expires_at = Column(DateTime, nullable=True)
-    reboot_required_since = Column(DateTime, nullable=True)   # when a pending restart was first seen
+    reboot_required_since = Column(DateTime, nullable=True)   # since when a restart is pending, from the host (services/server_health.note_reboot)
+    reboot_since_source = Column(String, nullable=True)       # update_log (WindowsUpdateClient event 19 after the boot) / agent_install / unknown
     # "System Model:" from systeminfo — e.g. "Virtual Machine" for a
     # Hyper-V guest, "PowerEdge R640" for real Dell hardware. Lets
     # services/dell_monitor.py's discover_local_servers() skip VMs
@@ -1666,6 +1668,15 @@ def _migrate_add_columns():
                 if name not in have:
                     with engine.begin() as conn:
                         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+    for table in ("windows_hosts", "linux_hosts"):
+        if table in inspector.get_table_names() and "reboot_since_source" not in {c["name"] for c in inspector.get_columns(table)}:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN reboot_since_source VARCHAR"))
+                # 3.63-3.65 wrote the time a pending restart was first SEEN (after the deploy: every host 2026-11-14 ~17:53), not when it
+                # became pending: forgotten (unknown) until the host says it (3.66)
+                conn.execute(text(f"UPDATE {table} SET reboot_required_since = NULL, reboot_since_source = 'unknown' WHERE reboot_required = 1"))
+                conn.execute(text(f"UPDATE {table} SET reboot_required_since = NULL WHERE reboot_required = 0 OR reboot_required IS NULL"))
 
     if "syslog_events" in inspector.get_table_names():
         se_cols = {c["name"] for c in inspector.get_columns("syslog_events")}

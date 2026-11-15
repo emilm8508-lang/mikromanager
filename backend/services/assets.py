@@ -153,6 +153,8 @@ def _collect(directory: List[dict]) -> Dict[str, _Rec]:
             continue
         r = rec(e["ip"])
         r.put(name=e.get("name") or e.get("comment"), mac=_norm_mac(e.get("mac")), seen=now, ttl=e.get("ttl"), apple=e.get("apple"), via=e.get("via"), hops=e.get("hops"))
+        if e.get("dhcp_class"):
+            r["dhcp_class"] = e["dhcp_class"]
         if e.get("shared_mac"):
             r.setdefault("dq", []).append("mac_behind_router")         # only a router's proxy MAC known for it (services/directory_merge.py)
         if any("another device" in n for n in e.get("notes") or []):
@@ -455,8 +457,10 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
-            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl") or r.get("hints") is not None or r.get("via"):
+            if r.get("host_name") or r.get("extra") or r.get("cls") or r.get("ttl") or r.get("hints") is not None or r.get("via") or r.get("dhcp_class"):
                 d = _jload(a.details, {})
+                if r.get("dhcp_class"):
+                    d["_dhcp_class"] = r["dhcp_class"]
                 if r.get("host_name"):
                     d["host"] = r["host_name"]
                 d.update(r.get("extra") or {})
@@ -644,7 +648,9 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
     from services import oui
     managed = any(refs.get(k) for k in ("linux_host_id", "windows_host_id", "device_id", "hyperv_vm_id", "dell_server_id"))
     extra = {"criticality": atype.normalize_level(a.criticality), "criticality_suggested": sug, "criticality_reason": sug_why,
-             "personal": atype.personal(asset_type=a.asset_type, name=a.name, random_mac=oui.is_private(a.mac), managed=managed),
+             **dict(zip(("personal", "personal_why"), atype.personal_signal(
+                 name=a.name, oui_vendor=a.manufacturer, dhcp_class=det.get("_dhcp_class"), random_mac=oui.is_private(a.mac), managed=managed,
+                 company=ctx.get("company"), asset_type=a.asset_type))),
              "type_src": det.get("_type_src") or [], "dq": det.get("_dq") or [], "addrs": det.get("_addrs") or [], "alias_of": det.get("_alias_of")}
     return {
         "id": a.id, "name": a.name or a.ip or a.key, "ip": a.ip, "mac": a.mac, "type": a.asset_type, "role": a.role,
@@ -672,7 +678,12 @@ def _row_ctx(db) -> dict:
         hv = {h.windows_host_id for h in db.execute(select(HypervHost)).scalars().all() if h.windows_host_id}
     except Exception:
         hv = set()
-    return {"ports": ports, "hyperv_hosts": hv}
+    # the company's naming scheme (3.66): prefixes of the managed and Windows hosts' names ("MCPROJEKTPC" of MCPROJEKTPC007, MCPROJEKTPC011)
+    from services import asset_type as atype
+    names = [a.name for a in db.execute(select(Asset)).scalars().all()
+             if a.name and (a.asset_type == "windows" or any(_jload(a.refs, {}).get(k) for k in ("windows_host_id", "linux_host_id")))]
+    names += [w.hostname for w in db.execute(select(WindowsHost)).scalars().all() if w.hostname]
+    return {"ports": ports, "hyperv_hosts": hv, "company": atype.company_prefixes(names)}
 
 
 async def list_assets() -> List[dict]:
@@ -798,6 +809,7 @@ async def public_summary() -> dict:
             row["dq"] = r["dq"]
         if r.get("personal"):
             row["pv"] = 1
+            row["pw"] = r.get("personal_why")                          # the signal that decided (3.66)
         if r["addrs"]:
             row["if"] = [[x["ip"], x.get("iface"), x.get("role")] for x in r["addrs"]][:12]
         if r.get("interfaces"):

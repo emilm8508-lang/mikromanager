@@ -61,7 +61,7 @@ from sqlalchemy import select, delete
 
 from models.database import (
     SessionLocal, Device, Credential, ScanRange, VulnHost, VulnService, VulnPackage,
-    VulnFinding, VulnRemediation, LinuxHost,
+    VulnFinding, VulnRemediation, LinuxHost, WindowsHost, Asset,
 )
 from services.crypto import decrypt
 from services import scanner as scan_svc
@@ -1761,7 +1761,7 @@ def _finding_brief(f: VulnFinding, remediation: Optional[VulnRemediation] = None
             "note": remediation.note if remediation else None}
 
 
-async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
+async def hosts_with_findings(severities: Optional[frozenset] = None, env: bool = True) -> list:
     """Compact, phone/central-viewer-friendly summary: only hosts or known
     devices that CURRENTLY have at least one matching CVE finding, grouped
     by ip with the finding list beneath — hosts with zero matches are
@@ -1808,6 +1808,31 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             return vuln_match.finding_confidence(match_source=f.match_source or "banner", evaluation=f.evaluation or "unknown",
                                                  product_confidence=product_confidence, distro=distro)
 
+        # 3.66: the environment a CVE needs (services/vuln_env.py) against what is known of the host
+        from services import vuln_env
+        win_ips = {w.ip for w in db.execute(select(WindowsHost)).scalars().all()}
+        asset_by_ip = {a.ip: a for a in db.execute(select(Asset).where(Asset.ip.is_not(None))).scalars().all()}
+        pkg_hosts = {p.host_id for p in packages}
+
+        def env_of(ip: str, banner: Optional[str] = None) -> dict:
+            a = asset_by_ip.get(ip)
+            return vuln_env.host_env(banner=banner, os_name=a.os_name if a else None, linux_distro=linux_os.get(ip) or None,
+                                     windows_host=ip in win_ips, asset_type=a.asset_type if a else None)
+
+        def with_env(brief: dict, f: VulnFinding, host: dict) -> dict:
+            if not env:
+                return brief                                # the view before 3.66 (the re-check's "before" counts)
+            verdict, why = vuln_env.check(vuln_env.conditions(f.summary), host)
+            if verdict == "excluded":
+                brief["environment"] = {"verdict": "not_affected", "why": why}
+                if brief["status"] in ("open", "in_progress"):
+                    brief["status"] = "resolved"
+                    brief["note"] = f"[auto_closed: environment_not_affected] {why}"
+            elif verdict == "unconfirmed":
+                brief["environment"] = {"verdict": "unconfirmed", "why": why}
+                brief["confidence"] = "suspected"           # a condition nothing confirms: never more than suspected
+            return brief
+
         by_ip: dict = {}
         for s in services:
             if not (s.product and s.version):
@@ -1818,10 +1843,17 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             matches = findings_by_pv.get((s.product, s.version))
             if not matches:
                 continue
+            packaged = vuln_env.distro_packaged(s.product)
+            if env and packaged and s.host_id in pkg_hosts:
+                continue                    # the installed package's version (the distribution's advisories) decides, not the banner
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
             distro = distro_by_host.get(s.host_id)
+            henv = env_of(host.ip, s.banner_raw)
+            # a banner of a product the distribution packages is a hint only (fixes are backported): at most suspected (3.66)
+            pc = "suspected" if packaged and env else "likely"
             entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, "likely", distro), "banner") for f in matches)
+                with_env(_finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, pc, distro), "banner"), f, henv)
+                for f in matches)
 
         for p in packages:
             host = hosts.get(p.host_id)
@@ -1831,8 +1863,9 @@ async def hosts_with_findings(severities: Optional[frozenset] = None) -> list:
             if not matches:
                 continue
             entry = by_ip.setdefault(host.ip, {"ip": host.ip, "device_name": None, "findings": []})
+            henv = env_of(host.ip)
             entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), "confirmed", "package") for f in matches)
+                with_env(_finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), "confirmed", "package"), f, henv) for f in matches)
 
         for d in devices:
             ident = device_product(d)

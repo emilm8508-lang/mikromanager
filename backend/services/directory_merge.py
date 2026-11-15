@@ -42,7 +42,8 @@ def _lease(l: dict) -> Optional[dict]:
         return None
     status = (l.get("status") or "").strip().lower()
     return {"ip": ip, "mac": mac, "name": (l.get("host-name") or "").strip() or None, "comment": (l.get("comment") or "").strip() or None,
-            "bound": status in ("bound", ""), "status": status or None}
+            "bound": status in ("bound", ""), "status": status or None,
+            "class_id": (str(l.get("class-id") or "").strip()[:60] or None)}           # DHCP option 60 (android-dhcp-13, MSFT 5.0 ...)
 
 
 def _arp(a: dict) -> Optional[dict]:
@@ -79,10 +80,11 @@ def build(datas: Iterable[dict]) -> List[dict]:
     # the name / comment of each MAC, from its leases (a bound lease wins over a waiting reservation)
     name_by_mac: Dict[str, dict] = {}
     for l in sorted(leases, key=lambda x: x["bound"]):
-        if l["mac"] and (l["name"] or l["comment"]):
+        if l["mac"] and (l["name"] or l["comment"] or l.get("class_id")):
             cur = name_by_mac.setdefault(l["mac"], {})
             cur["name"] = l["name"] or cur.get("name")
             cur["comment"] = l["comment"] or cur.get("comment")
+            cur["class_id"] = l.get("class_id") or cur.get("class_id")
 
     lease_routers_by_ip: Dict[str, set] = {}
     for l in leases:
@@ -131,6 +133,8 @@ def build(datas: Iterable[dict]) -> List[dict]:
         n = name_by_mac.get(e["mac"]) if e["mac"] else None
         if n:
             e["name"], e["comment"] = n.get("name"), n.get("comment")
+            if n.get("class_id"):
+                e["dhcp_class"] = n["class_id"]
         elif not e["mac"] and not e["shared_mac"]:
             # nobody seen: a waiting reservation may still name the address
             l = next((x for x in leases if x["ip"] == e["ip"] and x["mac"] and not x["bound"]), None)

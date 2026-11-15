@@ -2,6 +2,49 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.66 — 2026-11-15
+- What a CVE needs from the host (services/vuln_env.py). NVD's version ranges say which versions are affected; the conditions on the platform are often only in the description. Seen in Central: CVE-2026-123158 says "OpenSSH before 10.6p2 on Linux, when musl libc is used without PAM". Matched by version alone, it sat on:
+  - Ubuntu 22.04 / 24.04 and Oracle Linux 9.8;
+  - a printer's OpenSSH 3.9 (aluplasti 192.168.1.21);
+  - the OpenSSH of a Windows host (psb HYPER-V, risk 94).
+
+  The 7 critical alerts it raised were all "likely", not "suspected": a banner was taken as likely whenever it named no distribution.
+- How the conditions are checked:
+  - The conditions (OS, C library, PAM, a configuration) are read from the description and checked against what the agent knows of the host: the Linux distribution, a Windows host, "OpenSSH_for_Windows" in the banner, the asset's type.
+  - A condition the host cannot meet closes the finding for that host with "[auto_closed: environment_not_affected]" and the reason (Ubuntu, Debian, RHEL and Oracle are glibc with PAM; Windows is not Linux).
+  - A condition nothing confirms leaves the finding at most "suspected", which raises no critical alert and is not counted as KEV in the risk.
+- Banners of products a distribution packages and patches by backporting (OpenSSH, Apache, OpenSSL, nginx, PHP, Samba ...) are hints only: never more than suspected. On a host whose packages the agent reads, the package version decides and the banner's findings are not shown (e.g. sanmed glpi2, Apache 2.4.52 on Ubuntu 22.04).
+- A one-off pass after the update (vuln_reeval, "env_pass" in data/vuln_reeval.json and in the counts sent to Central) does three things:
+  - counts the findings before (version only) and after;
+  - closes the "new vulnerability" alerts whose finding is now closed ("auto: environment_not_affected") or only suspected;
+  - recomputes the risk, with the levels before and after and the 10 biggest drops.
+- Pending restart: since when it is pending now comes from the host, never from the time it was first read. Before, every host showed 2026-11-14 ~17:53, the deploy of 3.63. The sources:
+  - on Linux, the date of /var/run/reboot-required, or the install of the newest kernel if it came after the last boot;
+  - on Windows, the first update installed after the last boot (WindowsUpdateClient event 19);
+  - the agent's own installation.
+
+  When nothing says, the time is null and the source is "unknown" (new column reboot_since_source; the migration forgets the times 3.63-3.65 wrote). The "restart pending for days" alert needs a known time.
+- Personal devices: decided by signals, each shown with what decided (personal_why, and personal_signal in MCP client_assets).
+  - Company first: a managed host, a member of the AD domain, or a name in the company's naming scheme. The scheme is the prefix shared by the managed or Windows hosts' names, e.g. MCPROJEKTPC*.
+  - Personal only on a phone's signal: a phone or tablet name, a phone maker's MAC, or the DHCP class from the RouterOS lease (class-id, e.g. android-dhcp-14). A random MAC adds to such a signal but is not one on its own.
+  - The stored type alone no longer counts. An address keeps the type of a phone that had it before (seen: psb KSIEGOWOSC, a Xerox printer typed mobile; mcprojekt MCPROJEKTPC014).
+- NetFlow:
+  - The summary's detections_24h is counted from the net.* SOC alerts of the last 24 hours, the same source as the alert list. It counted a list in memory, emptied by every restart (seen: psb "detections_24h: []" next to open net.portscan alerts). The detections are now also kept across restarts.
+  - Suggested scanner exceptions: the rhythm is the median gap, and a missed run (a gap of two or three rhythms) no longer breaks it. 80 % of the gaps must fit within 10 % (at least 10 minutes), and the history must span a day.
+  - Each suggestion proposes the exception: the source, the ports seen in at least half of its scans as ranges, and the rhythm. It is never added by itself.
+- Windows: the OS name is refreshed from Win32_OperatingSystem.Caption at every resource read. An edition changed from Evaluation to Standard was still shown as "Evaluation" (seen: mcprojekt DC2, FS1 with a full Standard licence).
+- Tested:
+  - 18 new regression tests (backend/tests/test_round2_a.py; 118 in all):
+    - cases 1-3 of the round-2 brief: Ubuntu closed, Alpine matched, Windows OpenSSH without the Linux CVE, suspected raising no critical alert and no KEV in the risk;
+    - case 5: pending since 10.11 from the host, plus the migration;
+    - case 6: MCPROJEKTPC014 company, Redmi personal;
+    - case 10: every 6 h for a week suggested, once not;
+    - the environment pass closing a critical alert, with the before / after counts and the risk drop;
+    - NetFlow counted from the alerts; the Windows name.
+  - The old personal-device test now expects the stored type alone not to count.
+  - The migration and the environment pass ran on a copy of a real agent database (small, with no such CVE, so nothing changed).
+  - Not yet run on the clients' agents.
+
 ## 3.65 — 2026-11-14
 - MCP connector in Central: every tool still reads only, and its answers are backward-compatible. What changed:
   - Paging: the alert, vulnerability, asset and device-log lists take "offset". A cut answer now says how many items there are in all, gives next_offset, and tells how to ask for the rest (how_to_get_more).

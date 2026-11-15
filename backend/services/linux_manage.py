@@ -478,12 +478,16 @@ def _upgrade_command(pkg_mgr: str) -> str:
 
 
 def _reboot_check_command(pkg_mgr: str) -> str:
+    # 3.66: with the time of the cause and of the boot (services/server_health.parse_linux_reboot) - since when it is pending, from the host
+    btime = "$(awk '/^btime/{print $2}' /proc/stat 2>/dev/null)"
     if pkg_mgr == "apt":
-        return "test -f /var/run/reboot-required && echo REBOOT_REQUIRED || true"
+        return ("if [ -f /var/run/reboot-required ]; then echo REBOOT_REQUIRED $(stat -c %Y /var/run/reboot-required 2>/dev/null) "
+                + btime + " file; fi; true")
     # needs-restarting -r (yum-utils/dnf-utils) exits 1 if a reboot is
     # needed, 0 if not. If the tool isn't installed the command exits 127 —
     # treated as "unknown", never surfaced as a false positive.
-    return "needs-restarting -r >/dev/null 2>&1; test $? -eq 1 && echo REBOOT_REQUIRED || true"
+    return ("needs-restarting -r >/dev/null 2>&1; if [ $? -eq 1 ]; then echo REBOOT_REQUIRED "
+            "$(rpm -q --qf '%{INSTALLTIME}\n' kernel kernel-core kernel-uek 2>/dev/null | grep -E '^[0-9]+$' | sort -n | tail -1) " + btime + " kernel; fi; true")
 
 
 def _lock_message(output: str, pkg_mgr: str) -> Optional[str]:
@@ -717,11 +721,12 @@ async def upgrade_host(host_id: int) -> dict:
         if lock_msg or up["exit_code"] != 0:
             return _fail_job(host_id, ip, lock_msg or f"{pkg_mgr} upgrade failed (exit {up['exit_code']})", up["output"])
 
-        reboot_required = False
+        reboot_required, reboot_since, reboot_src = False, None, ""
         try:
             rr = await loop.run_in_executor(
                 vs._EXECUTOR, _plain_exec_sync, ip, username, password, _reboot_check_command(pkg_mgr), 15)
-            reboot_required = "REBOOT_REQUIRED" in rr.get("output", "")
+            from services import server_health
+            reboot_required, reboot_since, reboot_src = server_health.parse_linux_reboot(rr.get("output", ""))
         except Exception:
             pass
 
@@ -732,7 +737,8 @@ async def upgrade_host(host_id: int) -> dict:
                 host.last_upgrade_at = now
                 host.last_status = "ok"
                 host.last_error = None
-                host.reboot_required = reboot_required
+                from services import server_health
+                server_health.note_reboot(host, reboot_required, reboot_since, reboot_src)
                 host.upgradable_count = 0
                 host.upgradable_packages = json.dumps([])
                 db.commit()
@@ -1255,6 +1261,7 @@ def public_summary() -> list:
                 "mem_used_pct": h.mem_used_pct, "mem_total_bytes": h.mem_total_bytes,
                 "cpu_used_pct": h.cpu_used_pct,
                 "reboot_required_since": h.reboot_required_since.isoformat() if getattr(h, "reboot_required_since", None) else None,
+                "reboot_since_source": getattr(h, "reboot_since_source", None) if h.reboot_required else None,
                 "disks": [{"mount_point": d.mount_point, "pct": d.pct, "days_to_full": _days_to_full(f"lin:{h.id}:disk:{d.mount_point}"), "total_bytes": d.total_bytes,
                            "used_bytes": d.used_bytes} for d in disks],
             })

@@ -427,7 +427,7 @@ function t_assets(McpContext $c, array $a): array {
                        // interface role (wan / uplink / access), the other addresses of the same device
                        'criticality' => $x['cr'] ?? null, 'criticality_is_suggestion' => !empty($x['crs']), 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
-                       'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']),
+                       'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
                        'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null];
         }
     }
@@ -452,7 +452,7 @@ function t_servers(McpContext $c, array $a): array {
                                 'days_to_full' => $d['days_to_full'] ?? null];
                 }
                 $hosts[] = ['kind' => $kind] + mcp_pick($h, ['hostname', 'ip', 'os_name', 'distro_pretty', 'host_type', 'group', 'last_status', 'last_check_at',
-                    'upgradable_count', 'reboot_required', 'reboot_required_since', 'license', 'last_upgrade_at', 'cpu_used_pct', 'mem_used_pct']) + ['disks' => $disks];
+                    'upgradable_count', 'reboot_required', 'reboot_required_since', 'reboot_since_source', 'license', 'last_upgrade_at', 'cpu_used_pct', 'mem_used_pct']) + ['disks' => $disks];
             }
         }
         $bmc = [];

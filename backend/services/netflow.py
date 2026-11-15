@@ -31,7 +31,7 @@ import statistics
 import struct
 import time
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "netflow.json")
@@ -82,6 +82,7 @@ _wan = {"ips": set(), "at": 0.0}              # the routers' WAN addresses (serv
 _scan_times: Dict[str, List[float]] = {}      # internal source -> the windows its scans were seen in (14 days): regular ones are offered as exceptions
 _recent_by_src: Dict[str, Dict[str, float]] = {}   # internal source -> {behaviour: last seen} (24 h): beacon + scan together is worse
 _excepted: deque = deque(maxlen=200)          # scans an exception covered, for the page
+_scan_ports: Dict[str, List[List[int]]] = {}  # internal source -> the ports of its last scans (the suggested exception's port range)
 
 
 # ── Settings ────────────────────────────────────────────────────────────────
@@ -104,6 +105,12 @@ def load_settings() -> dict:
             st = json.load(f)
             _tracked.update({k: float(v) for k, v in (st.get("tracked") or {}).items()})
             _scan_times.update({k: [float(x) for x in v][-60:] for k, v in (st.get("scan_times") or {}).items() if isinstance(v, list)})
+            # 3.66: the ports of the scans (the suggested exception) and the detections survive a restart too - before, every deploy
+            # emptied the detections, so the page showed none next to open net.portscan alerts
+            _scan_ports.update({k: [[int(p) for p in x if isinstance(p, int)][:200] for x in v if isinstance(x, list)][-20:]
+                                for k, v in (st.get("scan_ports") or {}).items() if isinstance(v, list)})
+            if not _detections:
+                _detections.extend(x for x in (st.get("detections") or [])[-300:] if isinstance(x, dict) and x.get("at") and x.get("rule"))
     except Exception:
         pass
     return _settings
@@ -522,6 +529,9 @@ def _scan_allowed(rule: str, ip: str, ports, hosts: int, now: float, names: Dict
     t = _scan_times.setdefault(ip, [])
     if not t or now - t[-1] > WINDOW_SEC * 1.5:
         t.append(now)
+        pl = _scan_ports.setdefault(ip, [])
+        pl.append(sorted({int(p) for p in (ports or []) if isinstance(p, int)})[:200])
+        del pl[:-20]
     del t[:-60]
     _recent_by_src.setdefault(ip, {})["scan" if rule == "net.portscan" else "lateral"] = now
     exc, beyond = flow_rules.check_exception(_settings.get("scanner_exceptions") or [], rule, ip, ports, hosts, datetime.fromtimestamp(now))
@@ -549,8 +559,24 @@ def suggested_exceptions(now: Optional[float] = None) -> List[dict]:
             continue
         if flow_rules.check_exception(_settings.get("scanner_exceptions") or [], "net.portscan", ip, [], 0, datetime.fromtimestamp(now))[0]:
             continue
-        out.append({"source": ip, "name": (names.get(ip) or {}).get("name"), **r})
+        ports, alike = flow_rules.common_ports(_scan_ports.get(ip) or [])
+        # what the exception would cover - offered, never added by itself (the operator adds it on the NetFlow page)
+        proposal = {"source": ip, "ports": _port_ranges(ports) if ports else None, "every_h": r["every_h"]}
+        out.append({"source": ip, "name": (names.get(ip) or {}).get("name"), **r, "ports_alike": alike, "proposal": proposal})
     return sorted(out, key=lambda x: -x["count"])
+
+
+def _port_ranges(ports: List[int]) -> str:
+    """[22, 80, 443, 444, 445] -> "22,80,443-445" (the form of an exception's ports)."""
+    out, ps = [], sorted(set(ports))
+    i = 0
+    while i < len(ps):
+        j = i
+        while j + 1 < len(ps) and ps[j + 1] == ps[j] + 1:
+            j += 1
+        out.append(str(ps[i]) if i == j else f"{ps[i]}-{ps[j]}")
+        i = j + 1
+    return ",".join(out)
 
 
 def _combined(ip: str, now: float, names: Dict[str, dict]) -> None:
@@ -668,7 +694,7 @@ def _save_state() -> None:
         os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
         tmp = _STATE_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"tracked": _tracked, "scan_times": _scan_times}, f)
+            json.dump({"tracked": _tracked, "scan_times": _scan_times, "scan_ports": _scan_ports, "detections": list(_detections)}, f)
         os.replace(tmp, _STATE_PATH)
     except Exception as e:
         print(f"[netflow] state save error: {e}")
@@ -765,14 +791,27 @@ def status() -> dict:
     }
 
 
+def detections_by_rule_24h(now: Optional[datetime] = None) -> Dict[str, int]:
+    """3.66: the NetFlow alerts (net.*) that fired in the last 24 hours, per rule, from the SOC alerts themselves - the same source as the
+    alert list, so the summary cannot say none while alerts are open (it counted a list in memory that a restart emptied)."""
+    from models.database import SessionLocal, SocAlert
+    from sqlalchemy import select
+    since = (now or datetime.utcnow()) - timedelta(hours=24)
+    out: Dict[str, int] = {}
+    try:
+        with SessionLocal() as db:
+            for (rule,) in db.execute(select(SocAlert.rule).where(SocAlert.rule.like("net.%"), SocAlert.last_seen >= since)).all():
+                out[rule] = out.get(rule, 0) + 1
+    except Exception as e:
+        print(f"[netflow] detection count error: {e}")
+    return out
+
+
 def public_summary() -> dict:
     """For Central (inside the SOC status): whether flows come in, the busiest hosts of the last window and the detections of the day."""
     st = status()
     w = st["window"] or {}
-    by_rule: Dict[str, int] = defaultdict(int)
-    for d in st["detections"]:
-        if datetime.fromisoformat(d["at"].rstrip("Z")).timestamp() >= time.time() - 86400:
-            by_rule[d["rule"]] += 1
+    by_rule = detections_by_rule_24h()
     return {
         "on": bool(st["settings"]["enabled"]), "listening": st["listening"], "error": st["error"], "exporters": len(st["exporters"]),
         "unknown": len(st["unknown"]), "hosts": st["tracked"], "window_bytes": w.get("bytes"), "window_at": w.get("start"),
@@ -781,5 +820,6 @@ def public_summary() -> dict:
         "recent": [{"at": d["at"], "rule": d["rule"], "n": d["name"], "sev": d["severity"], "msg": d["message"]} for d in st["detections"][:10]],
         "exceptions": len(st["settings"].get("scanner_exceptions") or []), "excepted_24h": sum(1 for x in st["excepted"]
                                                                                               if datetime.fromisoformat(x["at"].rstrip("Z")).timestamp() >= time.time() - 86400),
-        "suggested_exceptions": [{"n": x["name"] or x["source"], "every_h": x["every_h"]} for x in st["suggested_exceptions"][:10]],
+        "suggested_exceptions": [{"n": x["name"] or x["source"], "every_h": x["every_h"], "ip": x["source"], "ports": (x.get("proposal") or {}).get("ports"),
+                                  "count": x.get("count"), "span_h": x.get("span_h")} for x in st["suggested_exceptions"][:10]],
     }

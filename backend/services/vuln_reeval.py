@@ -30,6 +30,7 @@ from sqlalchemy import select
 from models.database import SessionLocal, VulnFinding, VulnRemediation, VulnService, VulnPackage, Device, SocAlert
 
 VERSION = 1
+ENV_VERSION = 1                     # the pass of 3.66: the environment a CVE needs, banners of distribution packages as hints only
 _PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vuln_reeval.json")
 RETRY_ATTEMPTS = 5                  # further passes over the pairs NVD did not answer for
 RETRY_PAUSE_SEC = 3600.0
@@ -59,10 +60,12 @@ def status() -> dict:
     return dict(_state or _load())
 
 
-def _close_soc_alerts(current: dict, now: datetime) -> dict:
-    """Open "new vulnerability" alerts whose (ip, CVE) is no longer a finding, or is only suspected now."""
+def _close_soc_alerts(current: dict, now: datetime, env_closed: Optional[set] = None) -> dict:
+    """Open "new vulnerability" alerts whose (ip, CVE) is no longer a finding, or is only suspected now. env_closed: the (ip, CVE) closed
+    because the host cannot meet what the CVE needs (3.66) - closed with that reason."""
     from services import soc
-    out = {"gone": 0, "downgraded": 0}
+    env_closed = env_closed or set()
+    out = {"gone": 0, "downgraded": 0, "environment": 0}
     with SessionLocal() as db:
         for a in db.execute(select(SocAlert).where(SocAlert.rule == "rule.new_vuln", SocAlert.status.in_(soc.OPEN))).scalars().all():
             try:
@@ -73,7 +76,9 @@ def _close_soc_alerts(current: dict, now: datetime) -> dict:
             if not key[1]:
                 continue
             conf = current.get(key)
-            if conf is None:
+            if conf is None and key in env_closed:
+                reason, out_key = "auto: environment_not_affected", "environment"
+            elif conf is None:
                 reason, out_key = "auto: version_not_affected", "gone"
             elif conf == "suspected" and a.severity in ("critical", "high"):
                 reason, out_key = "auto: suspected (banner only, not confirmed)", "downgraded"
@@ -169,7 +174,9 @@ async def run(force: bool = False, retry: bool = False) -> dict:
         hosts = await vuln_scan.hosts_with_findings()
         current = {(h["ip"], f["cve_id"]): f.get("confidence") for h in hosts for f in h["findings"]
                    if (f.get("status") or "open") in ("open", "in_progress")}
-        closed = _close_soc_alerts(current, datetime.utcnow())
+        env_closed = {(h["ip"], f["cve_id"]) for h in hosts for f in h["findings"]
+                      if (f.get("environment") or {}).get("verdict") == "not_affected"} - set(current)
+        closed = _close_soc_alerts(current, datetime.utcnow(), env_closed)
         _state["soc_alerts_closed"] = int(_state.get("soc_alerts_closed") or 0) + closed["gone"]                  # a retry adds to the first pass's counts
         _state["soc_alerts_downgraded"] = int(_state.get("soc_alerts_downgraded") or 0) + closed["downgraded"]
         with SessionLocal() as db:
@@ -191,6 +198,75 @@ async def run(force: bool = False, retry: bool = False) -> dict:
         print(f"[vuln_reeval] failed: {_state['error']}")
     _save(_state)
     return _state
+
+
+def _hosts_counts(hosts: list) -> dict:
+    open_f = [f for h in hosts for f in h["findings"] if (f.get("status") or "open") in ("open", "in_progress")]
+    return {"findings_open": len(open_f),
+            "confirmed": sum(1 for f in open_f if f.get("confidence") == "confirmed"),
+            "likely": sum(1 for f in open_f if f.get("confidence") == "likely"),
+            "suspected": sum(1 for f in open_f if f.get("confidence") == "suspected"),
+            "kev_counted": sum(1 for f in open_f if f.get("kev") and f.get("confidence") != "suspected"),
+            "environment_closed": sum(1 for h in hosts for f in h["findings"] if (f.get("environment") or {}).get("verdict") == "not_affected"),
+            "environment_unconfirmed": sum(1 for f in open_f if (f.get("environment") or {}).get("verdict") == "unconfirmed")}
+
+
+async def _risk_with(hosts: list) -> dict:
+    from services import assets, soc_risk
+    assets._vuln_cache.update(by_ip={h["ip"]: h["findings"] for h in hosts}, at=time.time())
+    rows = await soc_risk.compute()
+    levels: dict = {}
+    for r in rows:
+        levels[r["level"]] = levels.get(r["level"], 0) + 1
+    return {"levels": levels, "scores": {r["name"] or r["ip"]: r["score"] for r in rows}}
+
+
+def _open_vuln_alerts() -> dict:
+    from services import soc
+    with SessionLocal() as db:
+        rows = db.execute(select(SocAlert.severity).where(SocAlert.rule == "rule.new_vuln", SocAlert.status.in_(soc.OPEN))).all()
+    out: dict = {}
+    for (sev,) in rows:
+        out[sev] = out.get(sev, 0) + 1
+    return out
+
+
+async def env_pass() -> dict:
+    """Once after 3.66: the findings as they were (version only) against the findings with the environment checked; the alerts of what is
+    gone or only suspected now closed; the risk before and after. Kept in data/vuln_reeval.json as "env_pass". Never raises."""
+    global _state
+    from services import vuln_scan, assets
+    st: dict = {"version": ENV_VERSION, "started_at": datetime.utcnow().isoformat() + "Z", "finished_at": None}
+    try:
+        before = await vuln_scan.hosts_with_findings(env=False)
+        st["before"] = _hosts_counts(before)
+        st["vuln_alerts_before"] = _open_vuln_alerts()
+        risk_before = await _risk_with(before)
+        after = await vuln_scan.hosts_with_findings()
+        current = {(h["ip"], f["cve_id"]): f.get("confidence") for h in after for f in h["findings"]
+                   if (f.get("status") or "open") in ("open", "in_progress")}
+        env_closed = {(h["ip"], f["cve_id"]) for h in after for f in h["findings"]
+                      if (f.get("environment") or {}).get("verdict") == "not_affected"} - set(current)
+        st["alerts_closed"] = _close_soc_alerts(current, datetime.utcnow(), env_closed)
+        st["after"] = _hosts_counts(after)
+        st["vuln_alerts_after"] = _open_vuln_alerts()
+        risk_after = await _risk_with(after)
+        st["risk_levels_before"], st["risk_levels_after"] = risk_before["levels"], risk_after["levels"]
+        changes = [{"asset": n, "before": b, "after": risk_after["scores"].get(n, 0.0)} for n, b in risk_before["scores"].items()]
+        changes = [c for c in changes if c["after"] != c["before"]]
+        st["risk_changed"] = len(changes)
+        st["risk_biggest_drops"] = sorted(changes, key=lambda c: c["after"] - c["before"])[:10]
+        assets._vuln_cache["at"] = 0.0
+        st["finished_at"] = datetime.utcnow().isoformat() + "Z"
+        print(f"[vuln_reeval] environment pass: {st}")
+    except Exception as e:
+        st["error"] = f"{type(e).__name__}: {e}"[:300]
+        print(f"[vuln_reeval] environment pass failed: {st['error']}")
+    d = _load()
+    d["env_pass"] = st
+    _save(d)
+    _state = d
+    return st
 
 
 def _note_old_rows(prev: dict) -> dict:
@@ -217,12 +293,17 @@ def start(delay_sec: float = 120.0) -> None:
     answer for, an hour apart, up to RETRY_ATTEMPTS times (counted across restarts)."""
     global _task
     prev = _note_old_rows(_load())
-    if prev.get("version") == VERSION and prev.get("finished_at") and not _retry_due(prev):
+    need_main = not (prev.get("version") == VERSION and prev.get("finished_at")) or _retry_due(prev)
+    need_env = (prev.get("env_pass") or {}).get("version") != ENV_VERSION or not (prev.get("env_pass") or {}).get("finished_at")
+    if not need_main and not need_env:
         return
 
     async def later():
         await asyncio.sleep(delay_sec)
-        d = await run(retry=_retry_due(_load()))
+        d = await run(retry=_retry_due(_load())) if need_main else _load()
+        if need_env:
+            await env_pass()
+            d = _load()
         while _retry_due(d):
             await asyncio.sleep(RETRY_PAUSE_SEC)
             d = await run(retry=True)

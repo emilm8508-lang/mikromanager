@@ -129,11 +129,58 @@ _PERSONAL_NAME = re.compile(r"iphone|ipad|galaxy|redmi|xiaomi|poco|huawei|honor|
                             r"\bsm-[a-z]\d|android|watch|tablet|kindle|playstation|xbox|nintendo|chromecast|fire[- ]?tv|smart[- ]?tv|roku", re.I)
 
 
-def personal(*, asset_type: Optional[str], name: Optional[str], random_mac: bool = False, managed: bool = False) -> bool:
-    """A device of a person rather than of the company - for the segmentation policy (a guest / BYOD network, not the servers' LAN).
-    A managed host (WinRM / SSH / the router) never is; a phone-like name or type is; a random (private) MAC alone is not enough."""
+# DHCP option 60 (RouterOS lease "class-id") of phones and tablets
+_PERSONAL_DHCP = re.compile(r"android-dhcp|\biphone\b|\bipad\b|harmonyos|\bmiui\b", re.I)
+_PHONE_MAKER = re.compile(r"(xiaomi|oneplus|guangdong oppo|oppo mobile|vivo mobile|motorola mobility|realme|honor device|huawei device|"
+                          r"nothing technology|samsung electronics|apple)", re.I)
+_COMPANY_NAME = re.compile(r"^([a-z][a-z\-_.]{3,}?)[-_]?\d{1,4}$", re.I)
+
+
+def company_prefix(name: Optional[str]) -> Optional[str]:
+    """"MCPROJEKTPC014" -> "MCPROJEKTPC": the naming scheme a company gives its computers (a name, then a number)."""
+    m = _COMPANY_NAME.match((name or "").strip())
+    if not m or _PERSONAL_NAME.search(name or ""):
+        return None
+    return m.group(1).upper().rstrip("-_.")
+
+
+def company_prefixes(names) -> set:
+    """The prefixes used by at least two of the given (managed or Windows) hosts' names: the company's naming scheme."""
+    seen: Dict[str, int] = {}
+    for n in names:
+        p = company_prefix(n)
+        if p:
+            seen[p] = seen.get(p, 0) + 1
+    return {p for p, c in seen.items() if c >= 2}
+
+
+def personal_signal(*, name: Optional[str], oui_vendor: Optional[str] = None, dhcp_class: Optional[str] = None, random_mac: bool = False,
+                    managed: bool = False, domain_member: bool = False, company: Optional[set] = None,
+                    asset_type: Optional[str] = None) -> Tuple[bool, str]:
+    """(personal, what decided) - 3.66. A device of a person rather than of the company - for the segmentation policy.
+    Company first: a managed host (agent, WinRM, SSH, the router), a member of the AD domain, a name in the company's naming scheme.
+    Personal only on a phone's signal: a phone / tablet name (iPhone, Galaxy, Redmi ...), a phone maker's MAC, a phone's DHCP class;
+    a random (private) MAC adds to such a signal but is never one on its own. The stored type alone ("mobile") is not a signal: an address
+    keeps the type of a phone that had it before (seen: psb KSIEGOWOSC, a Xerox, typed mobile)."""
     if managed:
-        return False
-    if asset_type == "mobile":
-        return True
-    return bool(name and _PERSONAL_NAME.search(name)) and asset_type in (None, "other", "mobile", "windows", "linux")
+        return False, "managed host (agent / WinRM / SSH / router)"
+    if domain_member:
+        return False, "member of the AD domain"
+    p = company_prefix(name)
+    if p and company and p in company:
+        return False, f"company naming scheme {p}*"
+    signals = []
+    if name and _PERSONAL_NAME.search(name):
+        signals.append(f"phone name ({_PERSONAL_NAME.search(name).group(0)})")
+    if oui_vendor and _PHONE_MAKER.search(oui_vendor) and asset_type not in ("windows", "linux", "printer", "network", "camera", "server", "virtual"):
+        signals.append(f"phone maker ({oui_vendor[:40]})")
+    if dhcp_class and _PERSONAL_DHCP.search(dhcp_class):
+        signals.append(f"DHCP class {dhcp_class[:40]}")
+    if signals:
+        return True, "; ".join(signals + (["random MAC"] if random_mac else []))
+    return False, "random MAC only (not enough)" if random_mac else "no personal signal"
+
+
+def personal(*, asset_type: Optional[str], name: Optional[str], random_mac: bool = False, managed: bool = False) -> bool:
+    """Kept for callers of before 3.66: personal_signal without the maker, DHCP class and naming scheme."""
+    return personal_signal(name=name, random_mac=random_mac, managed=managed, asset_type=asset_type)[0]

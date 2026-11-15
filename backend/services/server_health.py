@@ -155,6 +155,36 @@ def boot_space(mount: str, total: Optional[int], used: Optional[int], upgradable
 RESTART_DAYS = 7
 
 
+def note_reboot(host, pending: bool, since: Optional[datetime], source: str) -> None:
+    """A host's pending restart as the host says it (3.66): `since` only from a source - the date of /var/run/reboot-required, the install of
+    the newest kernel, the first update installed after the last boot, the agent's own installation - never the time it was first read.
+    Unknown: None with source "unknown". The earliest known time is kept."""
+    host.reboot_required = bool(pending)
+    if not pending:
+        host.reboot_required_since, host.reboot_since_source = None, None
+        return
+    if since and (not host.reboot_required_since or since < host.reboot_required_since):
+        host.reboot_required_since, host.reboot_since_source = since, source
+    elif not host.reboot_required_since:
+        host.reboot_since_source = "unknown"
+
+
+def parse_linux_reboot(output: str) -> Tuple[bool, Optional[datetime], str]:
+    """The reboot check's output (linux_manage._reboot_check_command): "REBOOT_REQUIRED <epoch of the cause> <boot epoch> file|kernel"."""
+    for line in (output or "").splitlines():
+        parts = line.split()
+        if not parts or parts[0] != "REBOOT_REQUIRED":
+            continue
+        nums = [int(x) for x in parts[1:3] if x.isdigit()]
+        src = "file" if parts[-1] == "file" else "kernel_install"
+        if len(nums) == 2 and nums[0] > nums[1]:          # the cause came after the last boot: that is when the restart became pending
+            return True, datetime.utcfromtimestamp(nums[0]), src
+        if len(nums) == 1 and src == "file":
+            return True, datetime.utcfromtimestamp(nums[0]), src
+        return True, None, "unknown"
+    return False, None, ""
+
+
 def restart_age(since: Optional[datetime], now: datetime, important: bool, days: int = RESTART_DAYS) -> Optional[Tuple[str, int]]:
     """(severity, days) for a restart pending longer than `days`."""
     if not since:
@@ -232,10 +262,11 @@ def findings(now: Optional[datetime] = None) -> List[dict]:
         lins = db.query(LinuxHost).all()
         for kind, hosts in (("windows_host_id", wins), ("linux_host_id", lins)):
             for h in hosts:
-                if h.reboot_required and not h.reboot_required_since:
-                    h.reboot_required_since = now
-                elif not h.reboot_required and h.reboot_required_since:
-                    h.reboot_required_since = None
+                # 3.66: never "now" - since when a restart is pending comes from the host (note_reboot); unknown stays unknown
+                if h.reboot_required and not h.reboot_required_since and not getattr(h, "reboot_since_source", None):
+                    h.reboot_since_source = "unknown"
+                elif not h.reboot_required and (h.reboot_required_since or getattr(h, "reboot_since_source", None)):
+                    h.reboot_required_since, h.reboot_since_source = None, None
                 important, _n = imp.get((kind, h.id), (False, None))
                 name = h.hostname or h.ip
                 r = restart_age(h.reboot_required_since, now, important)
