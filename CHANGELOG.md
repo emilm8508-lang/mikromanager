@@ -2,6 +2,36 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.75 — 2026-11-15
+- A router's facts every cycle, with the time they were read (services/device_facts.py). Before, the version, identity, model, serial number and RouterBOOT firmware were read once a day, and a failed read kept the old values with no date. Seen at sanmed: the AP R2-AP1 on 7.25.1 shown with 7.23.2 and its vulnerabilities "confirmed".
+  - Now every resource cycle (hourly by default, over the API login 3.73 keeps open, two more reads) writes them with version_seen_at / facts_seen_at and the source.
+  - The daily refresh does the same.
+- A new version:
+  - goes into the asset's history ("RouterOS updated 7.23.2 → 7.25.1", the proof of patching);
+  - the findings of the old version that the new one does not have are closed "fixed_by_upgrade: old → new": the remediation rows (when no other device still runs the old version) and this device's "new vulnerability" alerts.
+  - When NVD does not answer for the new version, nothing is closed on a guess; the next read tries again.
+- How sure a finding on a router is depends on how fresh its version is:
+
+  | Version read over the API | Most the finding can be |
+  |---|---|
+  | in the last 24 h | confirmed |
+  | up to 7 days ago | likely |
+  | older | suspected, with stale_version |
+
+  - The date the version was read goes with every finding (MCP client_vulnerabilities: version_seen_at), with the asset (MCP client_assets: os_version_read_at), and on the asset page.
+- RouterBOOT: when the current firmware is older than the one the installed RouterOS brings (current-firmware < upgrade-firmware), one low alert says what to do: /system routerboard upgrade, then a restart in a maintenance window. It closes once they match.
+- The routers' neighbor tables (MNDP / LLDP, read with the daily topology pass) are a second source.
+  - A device whose version or identity there differs from the inventory is updated when the API read is older than 24 hours.
+  - Otherwise the difference is reported (MCP client_data_quality: neighbor_table_mismatches, with the address and whether it was updated).
+- Routers not read: each says when it was last read successfully. A router where nothing answers at the address is "address_dead" instead of a timeout (MCP client_coverage: last_read_ok).
+- Tested:
+  - 6 new regression tests (backend/tests/test_round3_b.py; 177 in all):
+    - case 5 of the round-3 brief: a version read 8 days ago gives suspected with stale_version, 2 hours ago confirmed, 3 days likely;
+    - case 6: 7.23.2 → 7.25.1 closes CVE-2026-86060 and CVE-2026-67278 (remediation rows and alerts) as fixed_by_upgrade and writes the history event, while an unanswered NVD lookup closes nothing;
+    - case 7: RouterBOOT 7.19.6 < 7.25.1 gives one low alert with the instruction, closed when equal;
+    - MNDP updating a stale device and only reporting a fresh one.
+  - Not yet run against real routers.
+
 ## 3.74 — 2026-11-15
 - Device identity (services/identity.py): a device's address and name are attributes, its key is what does not change.
   - Keys:

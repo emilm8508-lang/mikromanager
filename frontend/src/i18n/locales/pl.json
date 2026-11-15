@@ -3159,6 +3159,7 @@
         }
     },
     "assets": {
+        "versionRead": "Wersja odczytana",
         "previously": "Wcześniej",
         "installedOn": "Zainstalowana na komputerach",
         "attachedTo": "Podłączony do komputera",

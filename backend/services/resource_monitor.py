@@ -198,6 +198,25 @@ async def _collect_device_resources(device_id: int) -> Optional[dict]:
         resource = await asyncio.wait_for(client.get_resource(), timeout=8)
     except Exception:
         resource = {}
+    if resource:
+        # 3.75: the version, identity, model, serial and RouterBOOT firmware every cycle, with the time they were read
+        # (services/device_facts.py) - over the same API login (3.73), two more reads
+        try:
+            facts = {"ros_version": resource.get("version"), "model": resource.get("board-name")}
+            try:
+                facts["identity"] = (await asyncio.wait_for(client.get_identity(), timeout=8)).get("name")
+            except Exception:
+                pass
+            try:
+                rb = await asyncio.wait_for(client.get_routerboard(), timeout=8)
+                facts.update(board_name=rb.get("board-name"), serial=rb.get("serial-number"), current_firmware=rb.get("current-firmware"),
+                             upgrade_firmware=rb.get("upgrade-firmware"))
+            except Exception:
+                pass
+            from services import device_facts
+            await device_facts.apply(device_id, facts, "routeros_api")
+        except Exception as e:
+            print(f"[resource_monitor] facts of {device.ip}: {type(e).__name__}: {e}")
 
     mem_total = resource.get("total-memory")
     mem_free = resource.get("free-memory")

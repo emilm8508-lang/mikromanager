@@ -443,6 +443,7 @@ READ_REASONS = {
     "no_rest_api_closed": "no REST on the router (RouterOS 6, or the www service answers without REST) and the API service (8728 / 8729) is off or filtered",
     "no_rest_api_timeout": "no REST on the router (RouterOS 6, or the www service answers without REST) and the API did not answer in time",
     "api_ssl_failed": "api-ssl (8729) failed the TLS handshake before (no certificate / no common cipher) and is not tried again for a while",
+    "address_dead": "nothing answers at the address (no ping, no port) - the device may be gone or moved",
     "error": "another error (see the message)",
 }
 
@@ -569,7 +570,8 @@ async def check_logging() -> List[dict]:
         async with sem:
             name = d.identity or d.name or d.ip
             agent_ip = _agent_ip_for(d.ip)
-            base = {"device_id": d.id, "name": name, "ip": d.ip, "agent_ip": agent_ip}
+            base = {"device_id": d.id, "name": name, "ip": d.ip, "agent_ip": agent_ip,
+                    "last_ok": (d.version_seen_at.isoformat() + "Z") if getattr(d, "version_seen_at", None) else None}      # 3.75
             if c is None:
                 out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": None, "reason": "no_credential",
                             "script": setup_script(agent_ip, port=port)})
@@ -594,6 +596,8 @@ async def check_logging() -> List[dict]:
             except Exception as e:
                 err = f"{type(e).__name__}: {e}"[:1200]                 # whole: the API's part comes after the REST one
                 reason, said = explain_error(err)
+                if reason in ("timeout", "api_unreachable", "no_rest_api_closed", "no_rest_api_timeout", "error") and d.online is False:
+                    reason = "address_dead"                          # 3.75: nothing answers at the address (the liveness check says so)
                 out.append({**base, "remote": [], "to_agent": None, "topics": [], "error": said, "reason": reason,
                             "script": setup_script(agent_ip, port=port)})
 
@@ -623,7 +627,8 @@ def public_summary() -> dict:
     return {"at": st.get("at"), "routers": len(rs), "to_agent": sum(1 for r in rs if r.get("to_agent")),
             "not_sending": [r["name"] for r in rs if r.get("to_agent") is False][:40], "unknown": [r["name"] for r in rs if r.get("to_agent") is None][:40],
             # 3.68: why each could not be read / does not send, what was left out, and the script to copy
-            "why": [{"n": r["name"], "r": r.get("reason"), "e": (r.get("error") or "")[:120] or None} for r in rs if not r.get("to_agent")][:60],
+            "why": [{"n": r["name"], "r": r.get("reason"), "e": (r.get("error") or "")[:120] or None, "ok": r.get("last_ok")}
+                    for r in rs if not r.get("to_agent")][:60],
             "skipped": {k: len(v) for k, v in (st.get("skipped") or {}).items()},
             "scripts": [{"agent_ip": s["agent_ip"], "routers": s["routers"][:40], "script": s["script"]} for s in scripts.values()][:5],
             "lines": dict(_stats)}

@@ -1932,8 +1932,19 @@ async def hosts_with_findings(severities: Optional[frozenset] = None, env: bool 
             if not matches:
                 continue
             entry = by_ip.setdefault(d.ip, {"ip": d.ip, "device_name": d.identity or d.name, "findings": []})
-            entry["findings"].extend(
-                _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, ident["confidence"]), ident["source"]) for f in matches)
+            # 3.75: "confirmed" only on a version read over the API in the last 24 h; up to 7 days likely; older suspected, stale_version
+            from services import device_facts
+            cap, stale = device_facts.freshness(getattr(d, "version_seen_at", None))
+            seen = d.version_seen_at.isoformat() + "Z" if getattr(d, "version_seen_at", None) else None
+            for f in matches:
+                b = _finding_brief(f, remediations.get((f.product, f.version, f.cve_id)), conf(f, ident["confidence"]), ident["source"])
+                order = {"suspected": 0, "likely": 1, "confirmed": 2}
+                if cap and order.get(b["confidence"], 0) > order[cap]:
+                    b["confidence"] = cap
+                b["version_seen_at"] = seen
+                if stale:
+                    b["stale_version"] = True
+                entry["findings"].append(b)
 
         # the CVEs of the security updates a Windows host has not installed (services/windows_updates.py)
         from services import windows_updates

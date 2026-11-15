@@ -117,6 +117,9 @@ class Device(Base):
     software_id = Column(String, nullable=True)         # /system/license software-id: the key of a CHR (no serial number) - 3.74
     mac_physical = Column(String, nullable=True)        # ether1's orig-mac-address: the fallback key - 3.74
     model_source = Column(String, nullable=True)        # routerboard / resource / mndp - where the model was read (3.74)
+    version_seen_at = Column(DateTime, nullable=True)   # when ros_version was last read (3.75: services/device_facts.py)
+    version_source = Column(String, nullable=True)      # routeros_api / snmp / mndp
+    facts_seen_at = Column(DateTime, nullable=True)     # when identity / serial / firmware were last read
     os_source = Column(String, nullable=True)           # where ros_version came from: routeros_api (REST / API answered) | snmp
     ros_channel = Column(String, nullable=True)         # /system/package/update channel (stable, long-term, ...)
     uptime_sec = Column(Integer, nullable=True)
@@ -1724,7 +1727,8 @@ def _migrate_add_columns():
                         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
     # 3.74: the stable keys of a device / host (the address and the name are attributes, not keys)
-    for table, cols in (("devices", (("software_id", "VARCHAR"), ("mac_physical", "VARCHAR"), ("model_source", "VARCHAR"))),
+    for table, cols in (("devices", (("software_id", "VARCHAR"), ("mac_physical", "VARCHAR"), ("model_source", "VARCHAR"),
+                                     ("version_seen_at", "DATETIME"), ("version_source", "VARCHAR"), ("facts_seen_at", "DATETIME"))),
                         ("windows_hosts", (("hw_uuid", "VARCHAR"),)),
                         ("linux_hosts", (("machine_id", "VARCHAR"),))):
         if table in inspector.get_table_names():

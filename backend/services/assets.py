@@ -839,6 +839,7 @@ async def public_summary() -> dict:
         devs = db.execute(select(Device)).scalars().all()
         mik = {d.id for d in devs if (d.vendor or "mikrotik").lower() == "mikrotik"}
         channel = {d.id: d.ros_channel for d in devs if getattr(d, "ros_channel", None)}
+        vseen = {d.id: d.version_seen_at.isoformat() + "Z" for d in devs if getattr(d, "version_seen_at", None)}
         vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
     from services import identity
@@ -862,6 +863,8 @@ async def public_summary() -> dict:
             row["ov"] = r["os_version"]
         if channel.get(r["refs"].get("device_id")):
             row["ch"] = channel[r["refs"]["device_id"]]                 # RouterOS update channel (stable / long-term ...)
+        if vseen.get(r["refs"].get("device_id")):
+            row["ovs"] = vseen[r["refs"]["device_id"]]                  # when the version was read (3.75)
         row["cr"] = r["criticality"] or r["criticality_suggested"]
         if not r["criticality"]:
             row["crs"] = 1                                   # suggested, not set by the operator
@@ -902,6 +905,7 @@ async def public_summary() -> dict:
         "criticality_review": [{"n": x["name"], "ip": x["ip"], "s": x["suggested"], "w": x["why"]} for x in s.get("criticality_review", [])][:60],
         "dups": public_duplicates(),                          # 3.70: duplicate candidates Central can join or dismiss
         "name_pairs": _name_pairs(rows),                       # 3.74: names that differ only in diacritics (never joined on that alone)
+        "mndp_mismatches": _mndp_mismatches(),                 # 3.75: what the routers' neighbor tables say differently
         "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
@@ -1005,6 +1009,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
                     p["details"] = {**p["details"], "asset_id": tgt.id, "asset_name": tgt.name or tgt.ip}
         row.update({
             "history": _identity_history(a.id), "previously": _identity_previously(a.id),          # 3.74
+            "version_seen_at": _version_seen(a.refs),                                               # 3.75
             "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "owner": a.owner, "criticality": a.criticality, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
@@ -1265,3 +1270,20 @@ def _identity_stats() -> Optional[dict]:
     if not d:
         return None
     return {k: d.get(k) for k in ("finished_at", "before", "after", "devices", "joined_by_key", "proposed", "proposed_by_reason", "error")}
+
+
+def _mndp_mismatches() -> list:
+    try:
+        from services import device_facts
+        return device_facts.mismatches()[:50]
+    except Exception:
+        return []
+
+
+def _version_seen(refs_json) -> Optional[str]:
+    did = _jload(refs_json, {}).get("device_id")
+    if not did:
+        return None
+    with SessionLocal() as db:
+        d = db.get(Device, did)
+        return d.version_seen_at.isoformat() + "Z" if d is not None and getattr(d, "version_seen_at", None) else None

@@ -2995,6 +2995,7 @@
         }
     },
     "assets": {
+        "versionRead": "Versión leída",
         "previously": "Antes",
         "installedOn": "Instalada en estos equipos",
         "attachedTo": "Conectado al equipo",

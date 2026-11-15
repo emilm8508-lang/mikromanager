@@ -1200,6 +1200,7 @@ export interface AssetPeripheralOut {
 
 export interface AssetDetail extends AssetRow {
   previously?: { name?: string[]; ip?: string[]; model?: string[] }   // 3.74
+  version_seen_at?: string | null                                    // 3.75
   history?: Array<{ field: string; old: string | null; new: string | null; at: string; source: string | null }>
   notes: string | null
   owner?: string | null

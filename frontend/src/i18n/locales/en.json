@@ -2995,6 +2995,7 @@
         }
     },
     "assets": {
+        "versionRead": "Version read",
         "previously": "Earlier",
         "installedOn": "Installed on these computers",
         "attachedTo": "Connected to computer",

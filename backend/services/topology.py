@@ -102,6 +102,11 @@ async def discover_for_device(device_id: int, ip_map: Optional[dict] = None) -> 
         neighbors = await client.get_neighbors()
     except Exception:
         neighbors = []
+    try:                                                      # 3.75: the neighbor table as a second source (services/device_facts.py)
+        from services import device_facts
+        device_facts.neighbors(device_id, neighbors)
+    except Exception as e:
+        print(f"[topology] neighbor facts: {type(e).__name__}: {e}")
 
     with SessionLocal() as db:
         for n in neighbors:

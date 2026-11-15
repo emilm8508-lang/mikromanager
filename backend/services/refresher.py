@@ -218,6 +218,12 @@ async def _refresh_one(dev_id: int) -> bool:
 
             if info.get("identity") or info.get("model") or info.get("ros_version"):
                 online_now = True
+                if info.get("ros_version") and vendor != "cisco-sb":
+                    try:                                              # 3.75: the time of the read, and a new version handled
+                        from services import device_facts
+                        await device_facts.apply(dev_id, info, info.get("os_source") or "routeros_api")
+                    except Exception as e:
+                        print(f"[refresher] facts of {ip}: {type(e).__name__}: {e}")
                 if info.get("identity"):
                     new_fields["identity"] = info["identity"]
                 if info.get("model"):
