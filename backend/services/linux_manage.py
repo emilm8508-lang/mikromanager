@@ -1027,7 +1027,7 @@ _MEM_FREE_RE = re.compile(r'^MemFree:\s*(\d+)\s*kB', re.MULTILINE)
 def _resources_command() -> str:
     excludes = " ".join(f"-x {t}" for t in _DF_EXCLUDE_TYPES)
     return (f"df -B1 -P {excludes} 2>/dev/null; echo '@@MEM@@'; cat /proc/meminfo; "
-            "echo '@@CPU@@'; cat /proc/loadavg; nproc")
+            "echo '@@CPU@@'; cat /proc/loadavg; nproc; echo '@@MID@@'; cat /etc/machine-id 2>/dev/null")
 
 
 def _parse_resources_output(output: str) -> dict:
@@ -1040,6 +1040,7 @@ def _parse_resources_output(output: str) -> dict:
     capped at 100) — /proc/loadavg + nproc need no extra tooling or sudo,
     unlike mpstat/top, at the cost of being a load-based estimate rather
     than a true instantaneous CPU busy percentage."""
+    output, _, mid_part = output.partition("@@MID@@")         # 3.74: /etc/machine-id, the host's key
     df_part, _, rest = output.partition("@@MEM@@")
     mem_part, _, cpu_part = rest.partition("@@CPU@@")
     disks = []
@@ -1082,7 +1083,9 @@ def _parse_resources_output(output: str) -> dict:
         except (ValueError, IndexError):
             cpu_used_pct = None
 
-    return {"disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
+    import re as _re
+    mid = next((x.strip().lower() for x in mid_part.splitlines() if _re.fullmatch(r"[0-9a-fA-F]{32}", x.strip())), None)
+    return {"machine_id": mid, "disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
             "cpu_used_pct": cpu_used_pct}
 
 
@@ -1123,6 +1126,8 @@ async def check_host_resources(host_id: int) -> dict:
             host.mem_total_bytes = parsed["mem_total_bytes"]
         if parsed["cpu_used_pct"] is not None:
             host.cpu_used_pct = parsed["cpu_used_pct"]
+        if parsed.get("machine_id"):
+            host.machine_id = parsed["machine_id"]                     # 3.74: the host's key across renames
         host.last_resources_check_at = now
 
         seen_mounts = set()

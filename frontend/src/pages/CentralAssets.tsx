@@ -216,6 +216,7 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
           {fact(t('assets.colAttach') as string, row.at ? [row.at[0], row.at[1] ? t('assets.attach.port', { port: row.at[1] }) : null, row.at[2] ? t('assets.attach.vlan', { vlan: row.at[2] }) : null].filter(Boolean).join(' · ') + (row.at[3] ? `  (+${row.at[3]})` : '') : null)}
           {fact(t('assets.colScan') as string, <ScanLevelPill level={row.sl} />)}
           {fact(t('assets.colLastSeen') as string, ago(row.seen))}
+          {row.was && fact(t('assets.previously') as string, [...(row.was.n ?? []), ...(row.was.ip ?? [])].join(' / '))}
           {row.lg && fact(t('logons.last') as string, row.lg.why ? <span className="text-slate-500">{t(`logons.reason.${row.lg.why}`)}</span>
             : <span>{row.lg.u}{row.lg.p ? ` (${t('logons.privileged')})` : ''} · {row.lg.t ?? '—'}{row.lg.f ? ` · ${row.lg.f}` : ''}{row.lg.at ? ` · ${new Date(row.lg.at).toLocaleString()}` : ''}{row.lg.ses ? ` · ${t('logons.sessions', { n: row.lg.ses })}` : ''}</span>)}
         </dl>

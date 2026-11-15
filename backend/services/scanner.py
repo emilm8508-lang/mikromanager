@@ -463,6 +463,26 @@ async def enrich_device(ip: str, username: str, password: str,
             info["serial"] = rb["serial-number"]
         if rb:
             info["os_source"] = "routeros_api"     # /system/routerboard answers over REST / API only: the version is RouterOS's own
+            if rb.get("model"):
+                info["model_source"] = "routerboard"   # the board's own model ("wAPG-5HaxD2HaxD"); "model" above is its board-name
+    except Exception:
+        pass
+    if info.get("model") and "model_source" not in info:
+        info["model_source"] = "resource" if info.get("os_source") == "routeros_api" or "board_name" in info else "snmp"
+    # 3.74: the device's stable keys - a CHR has no serial number, its license software-id is its key; ether1's own (orig-) MAC is the
+    # fallback. Over the API login 3.73 keeps open, so two more reads cost no new login.
+    try:
+        lic = await client._try_methods("system/license", "/system/license", single_object=True)
+        if isinstance(lic, dict) and lic.get("software-id"):
+            info["software_id"] = str(lic["software-id"])[:32]
+    except Exception:
+        pass
+    try:
+        eth = await client._try_methods("interface/ethernet", "/interface/ethernet")
+        first = next((e for e in (eth or []) if isinstance(e, dict) and (e.get("default-name") or e.get("name")) == "ether1"), None)
+        mac = (first or {}).get("orig-mac-address") or (first or {}).get("mac-address")
+        if mac:
+            info["mac_physical"] = str(mac).upper()[:17]
     except Exception:
         pass
     if info.get("ros_version") and "os_source" not in info:

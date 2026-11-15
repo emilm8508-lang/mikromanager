@@ -1170,6 +1170,7 @@ export interface AssetsPublicRow {
   x?: { k: 'linux' | 'windows' | 'device' | 'vm'; id: number; m?: boolean; u?: number | null; rb?: boolean; ws?: boolean; st?: string | null }
   cr?: string | null; crs?: 1                                  // criticality, and whether it is only suggested (3.67)
   lg?: { u?: string; at?: string; t?: string | null; f?: string | null; p?: 0 | 1; s?: string; ses?: number; why?: string }   // last logon (3.70)
+  was?: { n?: string[]; ip?: string[] }                       // earlier names / addresses (3.74)
 }
 // a group of entries that may be one device (services/assets.public_duplicates, 3.70): a = [id, name, ip, type, alive, managed]
 export interface AssetsDupGroup { ids: number[]; why: string[]; auto: boolean; keep: number; a: Array<[number, string, string | null, string, boolean, boolean]> }
@@ -1198,6 +1199,8 @@ export interface AssetPeripheralOut {
 }
 
 export interface AssetDetail extends AssetRow {
+  previously?: { name?: string[]; ip?: string[]; model?: string[] }   // 3.74
+  history?: Array<{ field: string; old: string | null; new: string | null; at: string; source: string | null }>
   notes: string | null
   owner?: string | null
   criticality?: string | null

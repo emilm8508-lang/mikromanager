@@ -436,6 +436,7 @@ function t_assets(McpContext $c, array $a): array {
                        'criticality_source' => isset($x['cr']) ? (!empty($x['crs']) ? 'suggested' : 'manual') : null, 'criticality_reason' => $x['crw'] ?? null, 'data_quality' => $x['dq'] ?? null,
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
+                       'previously' => isset($x['was']) ? ['names' => $x['was']['n'] ?? [], 'addresses' => $x['was']['ip'] ?? []] : null,
                        'os_version' => $x['ov'] ?? null, 'update_channel' => $x['ch'] ?? null]
                      + mcp_logon_fields($c, $x);
         }
@@ -560,6 +561,8 @@ function t_data_quality(McpContext $c, array $a): array {
         $q = is_array($m['soc_quality'] ?? null) ? $m['soc_quality'] : null;
         $out[] = ['tenant' => $r['tenant'], 'agent_reporting' => $r['online'],
                   'inventory' => $sum['data_quality'] ?? null, 'personal_devices' => $sum['personal'] ?? null,
+                  // 3.74: names that differ only in diacritics, and the one-off identity pass (rows of one key joined, counts before / after)
+                  'name_pairs_diacritics' => $m['assets_status']['name_pairs'] ?? null, 'identity_merge' => $m['assets_status']['identity'] ?? null,
                   'assets_flagged' => array_slice($flagged, 0, 60), 'assets_flagged_total' => count($flagged),
                   // 3.67: important / critical by suggestion only - nobody confirmed them
                   'criticality_unconfirmed' => array_map(function ($x) { return ['asset' => $x['n'] ?? null, 'ip' => $x['ip'] ?? null,

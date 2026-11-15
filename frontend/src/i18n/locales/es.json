@@ -2995,6 +2995,7 @@
         }
     },
     "assets": {
+        "previously": "Antes",
         "installedOn": "Instalada en estos equipos",
         "attachedTo": "Conectado al equipo",
         "openAsset": "Abrir la ficha de {{name}}",

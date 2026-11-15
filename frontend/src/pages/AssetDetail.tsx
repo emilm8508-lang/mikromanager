@@ -567,6 +567,8 @@ export function AssetDetail() {
             {fact(t('assets.colScan') as string, <ScanLevelPill level={a.scan_level} />)}
             {fact(t('assets.lastSuccessfulScan') as string, a.last_scan_at ? ago(a.last_scan_at) : t('assets.neverScanned'))}
             {fact(t('assets.colLastSeen') as string, ago(a.last_seen_at))}
+            {a.previously && Object.keys(a.previously).length > 0 && fact(t('assets.previously') as string,
+              [...(a.previously.name ?? []), ...(a.previously.ip ?? []), ...(a.previously.model ?? [])].join(' / '))}
           </dl>
         </div>
 

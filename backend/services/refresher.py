@@ -230,6 +230,9 @@ async def _refresh_one(dev_id: int) -> bool:
                     new_fields["serial"] = info["serial"]
                 if info.get("os_source"):
                     new_fields["os_source"] = info["os_source"]
+                for k in ("software_id", "mac_physical", "model_source"):          # 3.74: the stable keys (services/identity.py)
+                    if info.get(k):
+                        new_fields[k] = info[k]
                 # These can legitimately be "" (e.g. upgrade_firmware empty
                 # when already current) so persist whenever the key is
                 # present at all, not just when truthy like the fields above.
@@ -308,6 +311,15 @@ async def refresh_all_devices() -> None:
                     _devices_checked += 1
 
         await asyncio.gather(*(_bounded(i) for i in ids))
+
+        # 3.74: rows that turned out to be one device (the same serial / software-id / ether1 MAC under another address) become one
+        try:
+            from services import identity
+            r = identity.reconcile_devices()
+            if r["absorbed"]:
+                print(f"[refresher] identity: {r['absorbed']} device row(s) joined by key: {r['details'][:5]}")
+        except Exception as e:
+            print(f"[refresher] identity error: {type(e).__name__}: {e}")
 
         # After per-device refresh, rediscover topology (LLDP/CDP/MNDP + tunnels).
         # This is cheap relative to the refresh itself.

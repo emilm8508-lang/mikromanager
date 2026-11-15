@@ -2,6 +2,46 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.74 — 2026-11-15
+- Device identity (services/identity.py): a device's address and name are attributes, its key is what does not change.
+  - Keys:
+    - RouterOS: the routerboard serial number; a CHR (no serial): the license software-id; fallback: ether1's own (orig-) MAC;
+    - Windows: the SMBIOS UUID (Win32_ComputerSystemProduct);
+    - Linux: /etc/machine-id;
+    - everything else: the MAC (the inventory already followed a MAC to a new address).
+  - The keys are read with the daily device refresh and the hosts' resource reads (new columns, migrated).
+  - The router table was keyed by the address: a router at a new address was a new row and the old one stayed for good, with whatever was last read from it. Seen at sanmed: "R2-ĄP1" at 192.168.2.94 (cAP ac, RouterOS 7.23.1, nothing at the address any more) next to "wAP" at .90, both with the same vulnerabilities.
+  - Rows sharing a key are now one device. The one read most recently stays; the others' names, addresses, models and versions go into its history; their inventory entries are joined into its entry; their rows are removed. This runs after every device refresh.
+- History of an asset (new table asset_history): every change of name, address, model, version, serial number or maker, and every entry joined into it, with time and source.
+  - The asset page and the Central drawer show "earlier: wAP / R2-ĄP1 / 192.168.2.94".
+  - MCP client_assets gives "previously" (names, addresses).
+- Joining:
+  - Entries of one key are joined by themselves.
+  - A similar name (the same without diacritics) in the same /24, where one of the two has been silent for a week, is only offered (reason similar_name in the duplicates list, joinable from the asset page or Central).
+  - Names are compared after Unicode NFC and case folding.
+  - Names that differ only in diacritics (R2-ĄP1 / R2-AP1) are listed in the data-quality report (MCP client_data_quality: name_pairs_diacritics) and never joined on that alone.
+- Virtual monitors are not assets. Seen at sanmed: 143 of the 155 "one name on several entries" were "HyperVMonitor" (maker MSH, model 062E), the virtual display of every Hyper-V VM, read by WMI as a monitor. Each was an asset of its own, and as its name says "HyperV" each was suggested as an important "hypervisor".
+  - Hyper-V / remote-desktop / basic displays are no longer listed; the existing entries go with the next inventory rebuild.
+  - A monitor or printer is never suggested above normal.
+- The model of a router says where it was read (model_source: routerboard / resource / snmp).
+- A one-off pass after the update (data/identity_merge.json, to Central in the inventory summary and MCP client_data_quality: identity_merge):
+  - the counts before (entries, router rows, entries sharing a name, virtual monitors);
+  - the router rows joined by key and the inventory entries joined;
+  - the counts after;
+  - the join proposals left for the operator, by reason.
+- Tested:
+  - 9 new regression tests (backend/tests/test_round3_a.py):
+    - case 1 of the round-3 brief: the two router rows of one serial become one; after the next read the entry is R2-AP1 / .90 / wAP ax / HM20B0T2CND / 7.25.1 with "wAP", "R2-ĄP1", .94 and cAP ac in its history;
+    - without a common key the pair is only proposed (similar_name) and, once accepted, keeps .94 in its history;
+    - case 3: a new identity of a known serial renames;
+    - case 4: a known MAC at a new address moves the entry;
+    - a CHR joined by its software-id;
+    - case 12: R2-ĄP1 / R2-AP1 listed as a pair, not joined;
+    - Hyper-V monitors not listed while a real monitor is;
+    - the keys cleaned (placeholder UUIDs and serials, multicast MACs) and read from Linux and Windows.
+  - The migration and the one-off pass ran on a copy of a real agent database (small: nothing to join, one MAC proposal).
+  - Not yet run on the clients' agents; whether the sanmed .94 row shares a key with the AP will show there - if it was the old cAP ac (another serial), it is a proposal (similar_name) and goes with stage C's "probably removed".
+
 ## 3.73 — 2026-11-15
 - One RouterOS API login per router, kept and shared. Before, every read logged in, ran one command and logged out. With about a dozen modules polling each router, its log filled with the agent's own "user webshot logged in / logged out via api". Seen on sanmed R2's access point: seven pairs within 4 seconds.
   - A router's API login now stays open for 60 seconds after its last use and every read goes over it, one command after another.

@@ -67,6 +67,8 @@ async def lifespan(app: FastAPI):
     vuln_scan.start()
     from services import vuln_reeval
     vuln_reeval.start()                  # once after 3.58: the findings looked up again with version ranges (services/vuln_reeval.py)
+    from services import identity
+    identity.start()                     # once after 3.74: device rows of one key joined, virtual monitors out, counts before / after
     agent_backup.start()
     supply_chain.start()
     updater_svc.start_auto_update()

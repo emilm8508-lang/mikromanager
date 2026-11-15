@@ -114,6 +114,9 @@ class Device(Base):
     # fleet-management view lists. Refreshed hourly, never wiped on a failed read.
     architecture = Column(String, nullable=True)        # /system/resource architecture-name (arm, mipsbe, ...)
     serial = Column(String, nullable=True)              # /system/routerboard serial-number (the device's identity across address changes)
+    software_id = Column(String, nullable=True)         # /system/license software-id: the key of a CHR (no serial number) - 3.74
+    mac_physical = Column(String, nullable=True)        # ether1's orig-mac-address: the fallback key - 3.74
+    model_source = Column(String, nullable=True)        # routerboard / resource / mndp - where the model was read (3.74)
     os_source = Column(String, nullable=True)           # where ros_version came from: routeros_api (REST / API answered) | snmp
     ros_channel = Column(String, nullable=True)         # /system/package/update channel (stable, long-term, ...)
     uptime_sec = Column(Integer, nullable=True)
@@ -253,6 +256,20 @@ class AppAccount(Base):
     totp_secret_enc = Column(Text, nullable=True)  # encrypted; set at setup time
     mfa_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AssetHistory(Base):
+    """What an asset was before (3.74): a field's old and new value, when, and what said so - its other names and addresses ("R2-AP1,
+    earlier: wAP / R2-ĄP1, 192.168.2.94"), its RouterOS updates, the entries joined into it. Kept as long as the asset."""
+    __tablename__ = "asset_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, nullable=False, index=True)
+    field = Column(String, nullable=False)                 # name / ip / model / os_version / serial / manufacturer / merged / ...
+    old = Column(String, nullable=True)
+    new = Column(String, nullable=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    source = Column(String, nullable=True)                 # inventory / identity: serial HM20B0T2CND / merge / routeros_api ...
 
 
 class AssetLogon(Base):
@@ -992,6 +1009,7 @@ class LinuxHost(Base):
     upgradable_count = Column(Integer, nullable=True)
     reboot_required_since = Column(DateTime, nullable=True)   # since when a restart is pending, from the host (services/server_health.note_reboot)
     reboot_since_source = Column(String, nullable=True)       # file (/var/run/reboot-required) / kernel_install / agent_upgrade / unknown
+    machine_id = Column(String, nullable=True)            # /etc/machine-id: the host's key across renames - 3.74
     upgradable_packages = Column(Text, nullable=True)   # JSON list, capped
     reboot_required = Column(Boolean, nullable=False, default=False)
     last_status = Column(String, nullable=True)          # "ok" | "error" | "timeout"
@@ -1082,6 +1100,7 @@ class WindowsHost(Base):
     license_expires_at = Column(DateTime, nullable=True)
     reboot_required_since = Column(DateTime, nullable=True)   # since when a restart is pending, from the host (services/server_health.note_reboot)
     reboot_since_source = Column(String, nullable=True)       # update_log (WindowsUpdateClient event 19 after the boot) / agent_install / unknown
+    hw_uuid = Column(String, nullable=True)               # Win32_ComputerSystemProduct.UUID (SMBIOS): the host's key across renames - 3.74
     # "System Model:" from systeminfo — e.g. "Virtual Machine" for a
     # Hyper-V guest, "PowerEdge R640" for real Dell hardware. Lets
     # services/dell_monitor.py's discover_local_servers() skip VMs
@@ -1697,6 +1716,17 @@ def _migrate_add_columns():
                                             ("license_expires_at", "DATETIME"), ("reboot_required_since", "DATETIME"))),
                         ("linux_hosts", (("reboot_required_since", "DATETIME"),)),
                         ("dell_servers", (("parse_error", "VARCHAR"),))):
+        if table in inspector.get_table_names():
+            have = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl in cols:
+                if name not in have:
+                    with engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+    # 3.74: the stable keys of a device / host (the address and the name are attributes, not keys)
+    for table, cols in (("devices", (("software_id", "VARCHAR"), ("mac_physical", "VARCHAR"), ("model_source", "VARCHAR"))),
+                        ("windows_hosts", (("hw_uuid", "VARCHAR"),)),
+                        ("linux_hosts", (("machine_id", "VARCHAR"),))):
         if table in inspector.get_table_names():
             have = {c["name"] for c in inspector.get_columns(table)}
             for name, ddl in cols:

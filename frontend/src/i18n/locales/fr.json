@@ -2995,6 +2995,7 @@
         }
     },
     "assets": {
+        "previously": "Auparavant",
         "installedOn": "Installée sur ces ordinateurs",
         "attachedTo": "Connecté à l'ordinateur",
         "openAsset": "Ouvrir la fiche de {{name}}",

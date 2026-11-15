@@ -1210,12 +1210,14 @@ _RESOURCES_SCRIPT = r"""
 $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,Size,FreeSpace
 $os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory,Caption,Version
 $cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
+$hwid = $null
+try { $hwid = (Get-CimInstance Win32_ComputerSystemProduct -ErrorAction Stop).UUID } catch { }
 $lic = $null
 try {
     $lic = Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
         Select-Object Name,Description,LicenseStatus,GracePeriodRemaining
 } catch { }
-[PSCustomObject]@{ Disks = $disks; Mem = $os; Cpu = $cpu; Lic = $lic } | ConvertTo-Json -Compress -Depth 4
+[PSCustomObject]@{ Disks = $disks; Mem = $os; Cpu = $cpu; Lic = $lic; Uuid = $hwid } | ConvertTo-Json -Compress -Depth 4
 """
 
 
@@ -1298,7 +1300,8 @@ def _parse_resources(parsed: dict) -> dict:
     # shown as "Evaluation" from the name read when the host was added (seen: mcprojekt DC2, FS1 with a full Standard licence)
     caption = str(mem.get("Caption") or "").strip()
     os_name = re.sub(r"\s+", " ", caption)[:120] if caption and len(caption) > 6 else None
-    return {"os_name": os_name, "disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
+    from services import identity
+    return {"os_name": os_name, "hw_uuid": identity.clean_uuid(parsed.get("Uuid")), "disks": disks, "mem_total_bytes": mem_total_bytes, "mem_used_pct": mem_used_pct,
             "cpu_used_pct": cpu_used_pct, "license": lic}
 
 
@@ -1341,6 +1344,8 @@ async def check_host_resources(host_id: int) -> dict:
             host.cpu_used_pct = parsed["cpu_used_pct"]
         if parsed.get("os_name") and parsed["os_name"] != host.os_name:
             host.os_name = parsed["os_name"]
+        if parsed.get("hw_uuid"):
+            host.hw_uuid = parsed["hw_uuid"]                           # 3.74: the host's key across renames
         lic = parsed.get("license")
         if lic:
             host.license_name, host.license_status = lic["name"], lic["status"]

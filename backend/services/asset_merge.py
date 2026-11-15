@@ -38,8 +38,10 @@ def _jl(s, default):
 
 
 def norm_name(n: Optional[str]) -> Optional[str]:
-    """The name as a comparison key, or None for names that say nothing (empty, too short, generic, or just an address)."""
-    n = (n or "").strip().lower()
+    """The name as a comparison key, or None for names that say nothing (empty, too short, generic, or just an address).
+    3.74: Unicode NFC and case folding (services/identity.name_key)."""
+    from services import identity
+    n = identity.name_key(n) or ""
     if len(n) < 3 or n in GENERIC_NAMES or re.fullmatch(r"[\d.:]+", n):
         return None
     return n
@@ -120,6 +122,18 @@ def _groups(db, now: datetime) -> List[dict]:
     for sn, g in by_serial.items():
         if len(g) > 1:
             out.append({"reason": "serial", "ids": [a.id for a in g], "auto": True})
+    # 3.74: a similar name (the same without diacritics) in the same /24, one of the two silent for a week - offered, never joined by itself
+    from services import identity
+    by_bare: Dict[tuple, List[Asset]] = {}
+    for a in assets:
+        b = identity.bare(a.name)
+        net = ".".join((a.ip or "").split(".")[:3]) if a.ip and a.ip.count(".") == 3 else None
+        if b and net and len(b) >= 3 and not a.key.startswith(("mon:", "prt:")):
+            by_bare.setdefault((b, net), []).append(a)
+    week = now - timedelta(days=7)
+    for g in by_bare.values():
+        if len(g) == 2 and sum(1 for a in g if (a.last_seen_at or datetime.min) < week) == 1 and _compatible(g[0], g[1]):
+            out.append({"reason": "similar_name", "ids": [a.id for a in g], "auto": False})
     return out
 
 
@@ -291,6 +305,14 @@ def _merge_one(db, keep: Asset, drop: Asset) -> None:
         for m in (VulnService, VulnPackage):
             db.execute(delete(m).where(m.host_id == dvuln).execution_options(synchronize_session=False))
         db.execute(delete(VulnHost).where(VulnHost.id == dvuln).execution_options(synchronize_session=False))
+    # 3.74: the joined entry stays in the survivor's history, with its own history
+    from services import identity
+    from models.database import AssetHistory
+    identity.history(db, kid, "merged", f"{drop.name or ''} {drop.ip or ''}".strip() or drop.key, keep.name or keep.ip, "merge")
+    for f in ("name", "ip", "model", "os_version"):
+        if getattr(drop, f) and getattr(drop, f) != getattr(keep, f):
+            identity.history(db, kid, f, getattr(drop, f), getattr(keep, f), "merge")
+    db.query(AssetHistory).filter(AssetHistory.asset_id == did).update({AssetHistory.asset_id: kid}, synchronize_session=False)
     db.delete(drop)
     db.flush()
 

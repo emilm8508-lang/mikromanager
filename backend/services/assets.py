@@ -342,10 +342,13 @@ def _collect_attached(recs: Dict[str, _Rec], items: list, host_assets: Dict[int,
     connections, not devices."""
     best: Dict[str, tuple] = {}
     seen_no_serial: Dict[tuple, int] = {}
+    from services import identity
     for p in sorted(items, key=lambda x: (x.asset_id, x.id)):
         host = host_assets.get(p.asset_id)
         if host is None:
             continue
+        if p.kind == "monitor" and identity.virtual_monitor(p.manufacturer, p.model, p.name):
+            continue                                  # 3.74: a VM's / remote session's virtual display is not a screen (pruned with the rest)
         if p.kind == "printer":
             d = _jload(p.details, {})
             ip = _ipv4(d.get("address"))
@@ -453,6 +456,8 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
             else:
                 updated += 1
             used.add(a.id)
+            from services import identity
+            before = identity.tracked_values(a)                # 3.74: what changes goes into the asset's history
             if r.get("ip"):
                 a.ip = r["ip"]
             if r.get("oui_vendor") and not a.manufacturer:
@@ -476,6 +481,7 @@ def _save(recs: Dict[str, _Rec], force_baseline: bool = False) -> dict:
                 a.asset_type = "other"                         # an address keeps a phone's type after the phone left (psb KSIEGOWOSC)
             if r.get("asset_type") and "type" not in over and (r["asset_type"] != "other" or not a.asset_type or a.asset_type == "other"):
                 a.asset_type = r["asset_type"]
+            identity.record_changes(db, a, before, "inventory")
             old = _jload(a.refs, {})
             old.update(r.get("refs", {}))
             a.refs = json.dumps(old)
@@ -812,6 +818,9 @@ def _dq_counts(rows: List[dict]) -> dict:
         if n:
             names[n] = names.get(n, 0) + 1
     out["same_name"] = sum(c for c in names.values() if c > 1)
+    from services import identity
+    pairs = identity.diacritic_pairs((r["id"], r["name"]) for r in rows if r["active"] and r["name"] != r["ip"])
+    out["diacritic_pairs"] = len(pairs)
     return out
 
 
@@ -832,6 +841,8 @@ async def public_summary() -> dict:
         channel = {d.id: d.ros_channel for d in devs if getattr(d, "ros_channel", None)}
         vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
+    from services import identity
+    was = identity.previously_many([r["id"] for r in shown])
     lg = None
     try:                                                         # who logged on last (services/logons.py), unless this client keeps it local
         from services import logons
@@ -861,6 +872,8 @@ async def public_summary() -> dict:
         if r.get("personal"):
             row["pv"] = 1
             row["pw"] = r.get("personal_why")                          # the signal that decided (3.66)
+        if r["id"] in was:
+            row["was"] = was[r["id"]]                                  # earlier names / addresses (3.74)
         if lg is not None and r["id"] in lg:
             row["lg"] = lg[r["id"]]                                    # the last logon, or why there is none (3.70)
         if r["addrs"]:
@@ -888,6 +901,8 @@ async def public_summary() -> dict:
                                       "data_quality", "by_criticality", "personal")},
         "criticality_review": [{"n": x["name"], "ip": x["ip"], "s": x["suggested"], "w": x["why"]} for x in s.get("criticality_review", [])][:60],
         "dups": public_duplicates(),                          # 3.70: duplicate candidates Central can join or dismiss
+        "name_pairs": _name_pairs(rows),                       # 3.74: names that differ only in diacritics (never joined on that alone)
+        "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 
@@ -989,6 +1004,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
                 if tgt and tgt.id != a.id:
                     p["details"] = {**p["details"], "asset_id": tgt.id, "asset_name": tgt.name or tgt.ip}
         row.update({
+            "history": _identity_history(a.id), "previously": _identity_previously(a.id),          # 3.74
             "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "owner": a.owner, "criticality": a.criticality, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
@@ -1220,3 +1236,32 @@ def public_duplicates(limit: int = 40) -> List[dict]:
     except Exception as e:
         print(f"[assets] duplicates for Central: {type(e).__name__}: {e}")
         return []
+
+
+def _identity_history(asset_id: int) -> list:
+    try:
+        from services import identity
+        return identity.asset_history(asset_id, 30)
+    except Exception:
+        return []
+
+
+def _identity_previously(asset_id: int) -> dict:
+    try:
+        from services import identity
+        return identity.previously(asset_id)
+    except Exception:
+        return {}
+
+
+def _name_pairs(rows: List[dict]) -> list:
+    from services import identity
+    return identity.diacritic_pairs((r["id"], r["name"]) for r in rows if r["active"] and r["name"] != r["ip"])[:30]
+
+
+def _identity_stats() -> Optional[dict]:
+    from services import identity
+    d = identity.load()
+    if not d:
+        return None
+    return {k: d.get(k) for k in ("finished_at", "before", "after", "devices", "joined_by_key", "proposed", "proposed_by_reason", "error")}

@@ -131,6 +131,8 @@ def suggest(*, asset_type: Optional[str], dclass: Optional[str], name: Optional[
     SQL servers are "important"; everything else "normal"."""
     n = name or ""
     ports = set(ports or ())
+    if asset_type in ("monitor", "printer"):
+        return "normal", None                          # 3.74: a screen named "HyperVMonitor" is no hypervisor
     if dclass == "gateway":
         return "important", "edge router"
     if hyperv_host or _HV_NAME.search(n):
