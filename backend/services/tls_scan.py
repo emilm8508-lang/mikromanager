@@ -339,10 +339,28 @@ def alerts(now: Optional[datetime] = None) -> dict:
         open_tls = db.execute(select(SocAlert).where(SocAlert.rule.like("tls_%"), SocAlert.status.in_(soc.OPEN))).scalars().all()
         stale = [(a.rule, a.device_name, a.fingerprint) for a in open_tls]
     active = set()
+    merged = 0
     for (ip, code), g in groups.items():
         name = names.get(ip, ip)
         fp = f"tls_{code}|{name.strip().lower()}|{ip}"[:240]
         active.add(fp)
+        # 3.69: one alert per device even when its name changes between scans (seen: aluplasti ALU-SW2 with a second alert under its
+        # address 192.168.1.127): an open alert of this device under another name is carried over to this one, any further copy closed
+        mine = [a for a in open_tls if a.rule == f"tls_{code}" and a.fingerprint != fp and (a.ip == ip or a.fingerprint.endswith(f"|{ip}"))
+                and a.fingerprint.rsplit("|", 1)[-1].count(":") == 0]
+        if mine:
+            with SessionLocal() as db:
+                have = db.execute(select(SocAlert).where(SocAlert.fingerprint == fp, SocAlert.status.in_(soc.OPEN))).scalars().first()
+                for a in sorted((db.get(SocAlert, m.id) for m in mine), key=lambda x: x.first_seen):
+                    if a is None or a.status not in soc.OPEN:
+                        continue
+                    if have is None:
+                        a.fingerprint, a.device_name = fp, name
+                        have = a
+                    else:
+                        a.status, a.closed_at, a.closed_by = "closed", now, "auto: merged into the device's alert"
+                        merged += 1
+                db.commit()
         soc.raise_alert(rule=f"tls_{code}", device=name, title=_TITLES[code], severity=g["sev"],
                         category="vulnerability" if code not in ("expired", "expiring") else "system", fp_detail=ip, ip=ip,
                         detail={"message": f"{ip} - " + "; ".join(sorted(set(g["messages"])))[:400], "ports": sorted(set(g["ports"]))},
@@ -357,7 +375,7 @@ def alerts(now: Optional[datetime] = None) -> dict:
                 a.status, a.closed_at, a.closed_by = "closed", now, ("auto: regrouped per device" if regrouped else "auto: recovered")
                 closed += 1
         db.commit()
-    return {"alerts": len(active), "closed": closed}
+    return {"alerts": len(active), "closed": closed, "merged": merged}
 
 
 _TITLES = {"self_signed_default": "Factory default TLS certificate", "expired": "TLS certificate expired", "expiring": "TLS certificate about to expire", "self_signed": "Self-signed TLS certificate", "weak_key": "Weak key in a TLS certificate",

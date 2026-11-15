@@ -344,6 +344,23 @@ MGMT_PORTS = {21, 22, 23, 80, 443, 993, 995, 8080, 8291, 8443, 8728, 8729}
 _mgmt: deque = deque(maxlen=20000)                 # (time, src, dst, dport) of the flows to management ports, newest last
 
 
+# 3.69: the connections to a host's logon services (SMB, RPC, Kerberos, LDAP, RDP, WinRM) - the source of a failed Windows logon whose event
+# has no address (NTLM over SMB: IpAddress "-"; seen: mcprojekt SERWER, "Repeated failed logons" from "-")
+AUTH_PORTS = {88, 135, 139, 389, 445, 636, 3389, 5985, 5986}
+_auth: deque = deque(maxlen=20000)                 # (time, src, dst, dport) of the flows to those ports, newest last
+
+
+def auth_sources(dst_ip: str, start: float, end: float, window_sec: float = 120.0) -> List[str]:
+    """The addresses that opened a connection to dst_ip on a logon port between start - window and end + window, most frequent first."""
+    cnt = defaultdict(int)
+    for t, src, dst, dport in reversed(_auth):
+        if t < start - window_sec:
+            break
+        if t <= end + window_sec and dst == dst_ip and src != dst_ip:
+            cnt[src] += 1
+    return sorted(cnt, key=lambda k: -cnt[k])[:10]
+
+
 def mgmt_sources(dst_ips: List[str], at: float, window_sec: float, ports: Tuple[int, ...]) -> List[str]:
     """The addresses that opened a connection to one of these addresses on one of these ports within window_sec of `at`, most frequent first."""
     dsts, cnt = set(dst_ips), defaultdict(int)
@@ -369,6 +386,8 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
         src, dst, sport, dport, proto = f["src"], f["dst"], f["sport"], f["dport"], f["proto"]
         if dport in MGMT_PORTS:
             _mgmt.append((now, src, dst, dport))           # who connects to management ports (services/router_logs.py: a log line without its source)
+        elif dport in AUTH_PORTS:
+            _auth.append((now, src, dst, dport))           # who connects to logon services (services/host_logs.py: a failed logon without its source)
         src_l, dst_l = is_local(src), is_local(dst)
         if src_l:
             h = _host(w, src)

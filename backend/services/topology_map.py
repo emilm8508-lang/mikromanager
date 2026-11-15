@@ -16,6 +16,8 @@ The readings of the devices can be slow (unreachable routers time out), so `get_
 it in the background; until the first one is ready, a quick map from the database alone (assets + stored links) is returned (`partial`)."""
 import asyncio
 import ipaddress
+import json
+import os
 import re
 import time
 from datetime import datetime, timedelta
@@ -31,6 +33,10 @@ MAX_ACCESS_MACS = 48                    # a port with more MACs than this is not
 STALE_DAYS = 7
 _SEV = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 _cache: dict = {"at": 0.0, "data": None, "attach": {}}
+# 3.69: what hangs on what survives a restart. Before, the map lived in memory only: after every start (each deploy) the availability
+# check ran with no topology until the first rebuild finished, so devices going down together had no cause ("root": null everywhere).
+_ATTACH_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "topology_attach.json")
+ATTACH_MAX_AGE_SEC = 7 * 86400
 _task: Optional[asyncio.Task] = None
 
 
@@ -377,7 +383,32 @@ def attach_of(asset_id: int) -> Optional[dict]:
 
 
 def attachments() -> Dict[int, dict]:
+    if not _cache.get("attach"):
+        _cache["attach"] = _load_attach()
     return _cache.get("attach", {})
+
+
+def _load_attach() -> Dict[int, dict]:
+    """The attachments saved by the last rebuild (at most a week old), until the first rebuild of this run is done."""
+    try:
+        if time.time() - os.path.getmtime(_ATTACH_PATH) > ATTACH_MAX_AGE_SEC:
+            return {}
+        with open(_ATTACH_PATH, encoding="utf-8") as f:
+            raw = json.load(f)
+        return {int(k): v for k, v in raw.items() if str(k).lstrip("-").isdigit() and isinstance(v, dict)}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_attach(attach: Dict[int, dict]) -> None:
+    try:
+        os.makedirs(os.path.dirname(_ATTACH_PATH), exist_ok=True)
+        tmp = _ATTACH_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({str(k): v for k, v in attach.items()}, f, default=str)
+        os.replace(tmp, _ATTACH_PATH)
+    except OSError as e:
+        print(f"[topology_map] attachments not saved: {e}")
 
 
 def ports_of(switch_id: int) -> List[dict]:
@@ -407,6 +438,8 @@ async def _refresh() -> None:
         data = await _full()
         _cache["data"] = data
         _cache["attach"] = _attach_from(data)
+        if _cache["attach"]:
+            _save_attach(_cache["attach"])
     except Exception as e:
         print(f"[topology_map] build error: {e}")
     _cache["at"] = time.time()

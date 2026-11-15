@@ -2,6 +2,36 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.69 — 2026-11-15
+- One alert per device across renames.
+  - The same rule, device and parameters now count up one alert even when the device was named by its address one time and by its name the next (a name a scan, DHCP or the inventory learnt in between). Before, that opened a second alert (seen: aluplasti ALU-SW2, a TLS alert under 192.168.1.127 and another under ALU-SW2).
+  - The open alert of the other form takes over and keeps its history (first seen, count).
+  - TLS alerts follow the device's name the same way; any further copy is closed as "auto: merged into the device's alert".
+- Closing alerts whose condition ended (soc.housekeeping). Before, every one-off alert stayed open 14 days (908 open, almost all "new").
+  - A detection nobody took up ("new") is closed as "auto: condition gone for N h" once it has not recurred for:
+    - net.portscan / net.lateral: 48 h;
+    - net.beacon / net.combined: 72 h;
+    - failed logons, sudo failures and lockouts: 48 h;
+    - metric rules and ml.anomaly: 24 h;
+    - a slow link: 24 h.
+  - data/soc_autoclose.json can change these times per client.
+  - One-off security events (an account created, a log cleared, a successful logon after failures, a privileged group change) are not closed this way, because nothing ends for them. They keep the 14-day stale rule.
+  - An alert somebody acknowledged or is working on is only closed by the 14-day rule, as before.
+- Root cause: what hangs on what (the topology map's attachments) is kept across restarts (data/topology_attach.json, at most a week old). Before, the map lived in memory only: after every start (each deploy), the availability check ran without topology until the first rebuild finished. Devices that went down together then had no cause ("root": null, "grouped_under": null; seen: four sanmed devices down in the same second).
+- Failed Windows logons (event 4625):
+  - New fields: the address and the workstation apart, the logon type (network, RDP, interactive ...), why it failed (Status / SubStatus in words: wrong password, user does not exist, account disabled ...), and which accounts do not exist.
+  - "-" is no longer shown as a source.
+  - When the events carry no address (NTLM over SMB), the alert names the hosts NetFlow saw connecting to the host's logon ports (SMB, RPC, Kerberos, LDAP, RDP, WinRM) at that time (sources_from_netflow). Seen: mcprojekt SERWER, "Repeated failed logons" for admin and test with sources "-".
+  - The new fields reach Central and the MCP alert view.
+- Tested:
+  - 7 new regression tests (backend/tests/test_round2_d.py; 139 in all):
+    - a device named by address, then by name, then by address again counts up one alert, and a TLS alert keeps its history under the new name;
+    - the quiet times: a scan closed after 48 h but not after 20 h, not when acknowledged, an account creation kept, the stale rule after 15 days, the override file (an older test that left its stand-in for the topology lookup in place now restores it);
+    - the topology read back after a restart and used for the chain;
+    - the 4625 fields;
+    - failed logons without an address get the source NetFlow saw.
+  - Not yet run on the clients' agents.
+
 ## 3.68 — 2026-11-15
 - Router logs: why a router does not send its log here (services/router_logs.check_logging). Seen in Central: 1 of about 40 routers sent its log, and the "not read" list held sanmed R1 and psb PSB, the most important routers, with nothing to act on.
   - Every RouterOS device is listed with a reason: no_credential, credentials_rejected, no_api_permission (the read policy for /system/logging), timeout, api_unreachable (API / REST off or filtered), not_configured (sends its log nowhere), sends_elsewhere, error.

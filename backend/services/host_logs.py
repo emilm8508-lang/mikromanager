@@ -109,6 +109,22 @@ ConvertTo-Json -InputObject ([pscustomobject]@{ events = @($events); errors = @(
 '''.replace("__SINCE__", iso)
 
 
+# 4625 Status / SubStatus in words (the most frequent ones)
+LOGON_STATUS = {
+    "0xc000006a": "wrong password", "0xc0000064": "user does not exist", "0xc000006d": "bad user name or authentication information",
+    "0xc0000072": "account disabled", "0xc0000234": "account locked out", "0xc0000071": "password expired", "0xc0000193": "account expired",
+    "0xc000006f": "outside the allowed hours", "0xc0000070": "workstation not allowed", "0xc000015b": "logon type not granted",
+    "0xc0000224": "password must be changed", "0xc0000133": "clock out of sync", "0xc000018c": "trust relationship failed",
+}
+LOGON_TYPES = {"2": "interactive", "3": "network", "4": "batch", "5": "service", "7": "unlock", "8": "network cleartext",
+               "9": "new credentials", "10": "remote interactive (RDP)", "11": "cached interactive"}
+
+
+def _blank(v) -> Optional[str]:
+    v = str(v or "").strip()
+    return None if v in ("", "-", "::1", "127.0.0.1", "%%2313") else v[:80]
+
+
 def parse_windows(payload: dict) -> List[dict]:
     """Normalised events from the script's output."""
     out = []
@@ -122,8 +138,17 @@ def parse_windows(payload: dict) -> List[dict]:
         src = d.get("IpAddress") or ""
         if src in ("-", "::1", "127.0.0.1", ""):
             src = d.get("WorkstationName") or src
+        if src == "-":
+            src = ""                                       # 3.69: "-" is no source - never shown as one
         if i == 4625:
-            out.append({"t": t, "kind": "logon_failed", "user": d.get("TargetUserName"), "src": src})
+            # 3.69: what the event says beyond the user: the address and workstation apart, the logon type, why it failed
+            sub = str(d.get("SubStatus") or "").lower()
+            st = str(d.get("Status") or "").lower()
+            reason = LOGON_STATUS.get(sub) or LOGON_STATUS.get(st) or _blank(d.get("FailureReason"))
+            out.append({"t": t, "kind": "logon_failed", "user": d.get("TargetUserName"), "src": src or None,
+                        "ip": _blank(d.get("IpAddress")), "workstation": _blank(d.get("WorkstationName")), "logon_type": _blank(d.get("LogonType")),
+                        "status": sub if sub and sub != "0x0" else st or None, "reason": reason,
+                        "no_such_user": sub == "0xc0000064" or st == "0xc0000064"})
         elif i == 4624:
             out.append({"t": t, "kind": "logon_ok", "user": d.get("TargetUserName"), "src": src})
         elif i == 4740:
@@ -265,9 +290,29 @@ def evaluate(host: str, ip: Optional[str], os_kind: str, events: List[dict], now
             _recent_fail[(host, e["src"])].append(now)
     if len(fails) >= FAIL_THRESHOLD:
         worst = max((len([x for x in fails if x.get("src") == s]) for s in {x.get("src") for x in fails}), default=0)
+        det = {"count": len(fails), "sources": _top(e.get("src") for e in fails), "users": _top(e.get("user") for e in fails), "message": f"{len(fails)} failed logons"}
+        # 3.69: the fields of 4625 - logon type, workstation, why, accounts that do not exist - and, when the events carry no address
+        # (NTLM over SMB), the hosts NetFlow saw connecting to this one's logon ports at that time
+        if any(e.get("logon_type") for e in fails):
+            det["logon_types"] = _top(LOGON_TYPES.get(str(e.get("logon_type")), str(e.get("logon_type"))) for e in fails if e.get("logon_type"))
+        if any(e.get("workstation") for e in fails):
+            det["workstations"] = _top(e.get("workstation") for e in fails)
+        if any(e.get("reason") for e in fails):
+            det["reasons"] = _top(e.get("reason") for e in fails)
+        if any(e.get("no_such_user") for e in fails):
+            det["no_such_users"] = _top(e.get("user") for e in fails if e.get("no_such_user"))
+        if not det["sources"] and ip:
+            try:
+                from services import netflow
+                ts = [(e["t"] - datetime(1970, 1, 1)).total_seconds() for e in fails]
+                seen = netflow.auth_sources(ip, min(ts), max(ts))
+                if seen:
+                    det["sources_from_netflow"] = seen[:5]
+                    det["message"] += f" (no address in the events; NetFlow: {', '.join(seen[:3])} connected to its logon ports then)"
+            except Exception as e:
+                print(f"[host_logs] netflow correlation error: {e}")
         alert("failed_logons", f"Repeated failed logons ({label})", "high" if worst >= 20 or len(fails) >= 50 else "medium", "auth",
-              {"count": len(fails), "sources": _top(e.get("src") for e in fails), "users": _top(e.get("user") for e in fails), "message": f"{len(fails)} failed logons"},
-              mitre="T1110", count=len(fails))
+              det, mitre="T1110", count=len(fails))
     for e in events:
         k = e["kind"]
         if k == "logon_ok":

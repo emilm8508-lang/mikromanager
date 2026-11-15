@@ -75,6 +75,8 @@ class Cycle(unittest.TestCase):
         syslog_receiver.last_by_ip.clear()
         netflow._exporters.clear()
         self.attach = {}
+        orig_attach = topology_map.attachments
+        self.addCleanup(lambda: setattr(topology_map, "attachments", orig_attach))
         topology_map.attachments = lambda: self.attach
         soc._new_alert_events.clear()
 

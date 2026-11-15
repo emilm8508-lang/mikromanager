@@ -17,6 +17,7 @@ Only the detection and the triage state live here; the evidence stays on the age
 few fields an analyst needs to decide whether to look).
 """
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -30,6 +31,16 @@ RANK = {s: i for i, s in enumerate(SEVERITIES)}
 STATUSES = ("new", "ack", "in_progress", "false_positive", "closed")
 OPEN = ("new", "ack", "in_progress")
 STALE_DAYS = 14          # an open alert of a one-off kind that has not recurred for this long is closed as stale
+# 3.69: how long the condition of a detection has to be gone before its alert is closed ("auto: condition gone for N h") - before, every
+# one-off alert stayed open for 14 days (908 open, almost all "new"); the longest prefix wins, data/soc_autoclose.json can change them
+QUIET_HOURS: Dict[str, int] = {
+    "net.portscan": 48, "net.lateral": 48, "net.beacon": 72, "net.combined": 72,
+    "hostlog.failed_logons": 48, "hostlog.sudo_failed": 48, "hostlog.lockout": 48, "failed_logins": 48, "syslog.link_slow": 24,
+    "metric.": 24, "ml.anomaly": 24,
+    # one-off security events (an account created, a log cleared, a successful logon after failures ...) are not closed this way:
+    # nothing "ends" for them, a person has to look - they keep the 14-day stale rule
+}
+_QUIET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "soc_autoclose.json")
 KEEP_DAYS = 90           # closed alerts and false positives are kept this long after their last occurrence
 LOG_MAX = 60
 PUBLIC_MAX = 80          # open alerts in the summary for Central
@@ -296,6 +307,26 @@ def ingest(events: List[dict], now: Optional[datetime] = None) -> dict:
     return {"opened": opened, "updated": updated, "closed": closed}
 
 
+def _adopt_renamed(db, *, fp: str, rule: str, device: Optional[str], ip: Optional[str], fp_detail: str) -> None:
+    """3.69: the same rule, device and parameters count up one alert even when the device was named by its address one time and by its name
+    the next (a name that a scan, DHCP or the inventory learnt in between): the open alert of the other form takes this fingerprint."""
+    if not ip or db.execute(select(SocAlert.id).where(SocAlert.fingerprint == fp, SocAlert.status.in_(OPEN)).limit(1)).first():
+        return
+    other = db.execute(select(SocAlert).where(SocAlert.rule == rule, SocAlert.ip == ip, SocAlert.status.in_(OPEN),
+                                              SocAlert.fingerprint.like(f"{rule}|%|{fp_detail}"[:240]))
+                       .order_by(SocAlert.first_seen).limit(1)).scalars().first()
+    if other is None:
+        return
+    mid = other.fingerprint[len(rule) + 1: len(other.fingerprint) - len(fp_detail) - 1] if fp_detail else other.fingerprint[len(rule) + 1:].rstrip("|")
+    now_dev = (device or "").strip().lower()
+    if mid == now_dev:
+        return
+    if mid == ip.lower() or now_dev == ip.lower():               # one of the two is the bare address: the same device
+        other.fingerprint = fp
+        if device and device.strip().lower() != ip.lower():
+            other.device_name = device
+
+
 def raise_alert(*, rule: str, device: Optional[str], title: str, severity: str = "medium", category: str = "detection", fp_detail: str = "",
                 ip: Optional[str] = None, detail: Optional[dict] = None, count: int = 1, mitre: Optional[str] = None, source: str = "rules",
                 asset_id: Optional[int] = None, now: Optional[datetime] = None) -> str:
@@ -304,6 +335,7 @@ def raise_alert(*, rule: str, device: Optional[str], title: str, severity: str =
     severity = severity if severity in RANK else "medium"
     fp = f"{rule}|{(device or '').strip().lower()}|{fp_detail}"[:240]
     with SessionLocal() as db:
+        _adopt_renamed(db, fp=fp, rule=rule, device=device, ip=ip, fp_detail=fp_detail)
         det = {k: _cut(v) for k, v in (detail or {}).items() if _cut(v) not in (None, "", [])}
         r = _upsert(db, fp=fp, rule=rule, source=source, category=category, severity=severity, title=title, device=device, ip=ip, detail=det, count=count, mitre=mitre, now=now,
                     asset_id=asset_id)
@@ -333,20 +365,48 @@ def resolve(*, rule: str, device: Optional[str], fp_detail: str = "", who: str =
     return n
 
 
+def quiet_hours(rule: str, table: Optional[Dict[str, int]] = None) -> Optional[int]:
+    """The hours a rule's condition has to be gone before its alert closes, or None (the 14-day stale rule applies)."""
+    t = table if table is not None else _quiet_table()
+    best = None
+    for prefix, h in t.items():
+        if (rule == prefix or (prefix.endswith(".") and rule.startswith(prefix)) or rule.startswith(prefix + ".")) and (best is None or len(prefix) > len(best[0])):
+            best = (prefix, h)
+    return int(best[1]) if best and best[1] else None
+
+
+def _quiet_table() -> Dict[str, int]:
+    t = dict(QUIET_HOURS)
+    try:
+        with open(_QUIET_PATH, encoding="utf-8") as f:
+            extra = json.load(f)
+        t.update({str(k): int(v) for k, v in extra.items() if isinstance(v, (int, float)) and 0 <= v <= 24 * 90})
+    except (OSError, ValueError, TypeError):
+        pass
+    return t
+
+
 def housekeeping(now: Optional[datetime] = None, force: bool = False) -> None:
     """Closes the open one-off alerts that have not recurred for STALE_DAYS and forgets what is older than KEEP_DAYS. At most every 10 minutes."""
     if not force and time.time() - _last_housekeeping[0] < 600:
         return
     _last_housekeeping[0] = time.time()
     now = now or _now()
+    table = _quiet_table()
+    shortest = min([h for h in table.values() if h] or [STALE_DAYS * 24])
     with SessionLocal() as db:
-        stale = db.execute(select(SocAlert).where(SocAlert.status.in_(OPEN), SocAlert.last_seen < now - timedelta(days=STALE_DAYS))).scalars().all()
+        stale = db.execute(select(SocAlert).where(SocAlert.status.in_(OPEN), SocAlert.last_seen < now - timedelta(hours=shortest))).scalars().all()
         for r in stale:
             kind = (CATALOG.get(r.rule) or (None, "event"))[1]
             if kind == "problem":
                 continue                    # a problem stays open until its recovery arrives (or somebody closes it)
-            r.status, r.closed_at, r.closed_by = "closed", now, "auto: stale"
-            _log(r, "auto", "stale", None, now)
+            h = quiet_hours(r.rule, table)
+            if h is not None and r.status == "new" and r.last_seen < now - timedelta(hours=h):    # nobody took it up
+                r.status, r.closed_at, r.closed_by = "closed", now, f"auto: condition gone for {h} h"
+                _log(r, "auto", "condition gone", None, now)
+            elif r.last_seen < now - timedelta(days=STALE_DAYS):
+                r.status, r.closed_at, r.closed_by = "closed", now, "auto: stale"
+                _log(r, "auto", "stale", None, now)
         db.execute(delete(SocAlert).where(SocAlert.status.in_(("closed", "false_positive")), SocAlert.last_seen < now - timedelta(days=KEEP_DAYS)))
         db.commit()
 
@@ -509,7 +569,9 @@ def public_summary() -> dict:
                                                                  # the ports of a TLS finding, the verdict of a power / temperature finding ...
                                                                  "confidence", "match_source", "fixed_version", "caused_by", "from_outside", "scanner",
                                                                  "in_10_min", "in_hour", "services", "by", "from", "state", "criticality", "missing",
-                                                                 "grouped", "ports", "verdict", "advice", "local_address", "ip")}
+                                                                 "grouped", "ports", "verdict", "advice", "local_address", "ip",
+                                                                 # 3.69: a failed Windows logon's fields and the sources NetFlow saw
+                                                                 "logon_types", "workstations", "reasons", "no_such_users", "sources_from_netflow")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
                            "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d, "root": a.root_name})
