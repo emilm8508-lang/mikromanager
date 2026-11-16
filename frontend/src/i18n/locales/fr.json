@@ -2995,6 +2995,14 @@
         }
     },
     "assets": {
+        "ra": {
+            "running": "en cours",
+            "unattended": "accès sans surveillance",
+            "outdated": "obsolète",
+            "absent": "absent",
+            "unknown": "inconnu",
+            "likelyNetwork": "probable (réseau)"
+        },
         "state": {
             "label": "État",
             "in_use": "en service",

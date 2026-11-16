@@ -226,6 +226,8 @@ export function AssetDrawer({ row, onClose }: { row: Row; onClose: () => void })
           {fact(t('assets.colLastSeen') as string, ago(row.seen))}
           {row.was && fact(t('assets.previously') as string, [...(row.was.n ?? []), ...(row.was.ip ?? [])].join(' / '))}
           {row.st && fact(t('assets.state.label') as string, t(`assets.state.${row.st}`, { defaultValue: row.st }))}
+          {(row.ra ?? []).map(r => fact('AnyDesk', r.p === 'yes' ? [r.v, r.it, r.u === 'yes' ? t('assets.ra.unattended') : null, r.o ? t('assets.ra.outdated') : null].filter(Boolean).join(' · ')
+            : r.p === 'no' ? t('assets.ra.absent') : `${t('assets.ra.unknown')}${r.why ? ` (${r.why})` : ''}${r.likely ? ` · ${t('assets.ra.likelyNetwork')}` : ''}`))}
           {row.lg && fact(t('logons.last') as string, row.lg.why ? <span className="text-slate-500">{t(`logons.reason.${row.lg.why}`)}</span>
             : <span>{row.lg.u}{row.lg.p ? ` (${t('logons.privileged')})` : ''} · {row.lg.t ?? '—'}{row.lg.f ? ` · ${row.lg.f}` : ''}{row.lg.at ? ` · ${new Date(row.lg.at).toLocaleString()}` : ''}{row.lg.ses ? ` · ${t('logons.sessions', { n: row.lg.ses })}` : ''}</span>)}
         </dl>

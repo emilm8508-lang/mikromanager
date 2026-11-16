@@ -3159,6 +3159,14 @@
         }
     },
     "assets": {
+        "ra": {
+            "running": "uruchomiony",
+            "unattended": "dostęp nienadzorowany",
+            "outdated": "nieaktualny",
+            "absent": "brak",
+            "unknown": "nieznane",
+            "likelyNetwork": "prawdopodobnie (ruch sieciowy)"
+        },
         "state": {
             "label": "Stan",
             "in_use": "w użyciu",

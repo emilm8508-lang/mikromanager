@@ -437,6 +437,7 @@ function t_assets(McpContext $c, array $a): array {
                        'interfaces' => isset($x['if']) ? array_map(function ($i) { return ['ip' => $i[0] ?? null, 'iface' => $i[1] ?? null, 'role' => $i[2] ?? null]; }, (array)$x['if']) : null,
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
                        'previously' => isset($x['was']) ? ['names' => $x['was']['n'] ?? [], 'addresses' => $x['was']['ip'] ?? []] : null,
+                       'remote_access_tools' => mcp_remote_tools($c, $x['ra'] ?? null),
                        'state' => $x['st'] ?? 'in_use', 'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null]
                      + mcp_logon_fields($c, $x);
         }
@@ -637,4 +638,23 @@ function t_logons(McpContext $c, array $a): array {
     mcp_logons_viewed($c, 'client_logons', $a);
     $pg = mcp_page($rows, $a, 50, 150);
     return ['logons' => $pg['items']] + $pg + ['note' => $local ? 'no logons from these clients (agent before 3.70, or kept on the agent): ' . implode(', ', $local) : null];
+}
+
+
+/** AnyDesk and other remote access tools of an inventory row (3.78); the tool's ID and the IDs that connected are for an admin account only. */
+function mcp_remote_tools(McpContext $c, $ra): ?array {
+    if (!is_array($ra)) return null;
+    $out = [];
+    foreach ($ra as $x) {
+        if (!is_array($x)) continue;
+        $admin = mcp_logons_allowed($c);
+        $li = $x['li'] ?? null;
+        $out[] = ['tool' => $x['t'] ?? null, 'present' => ['yes' => true, 'no' => false][$x['p'] ?? ''] ?? 'unknown', 'reason' => $x['why'] ?? null,
+                  'likely' => $x['likely'] ?? null, 'install_type' => $x['it'] ?? null, 'version' => $x['v'] ?? null, 'running' => isset($x['r']) ? (bool)$x['r'] : null,
+                  'unattended_access' => $x['u'] ?? null, 'outdated' => isset($x['o']) ? (bool)$x['o'] : null,
+                  'anydesk_id' => isset($x['id']) ? ($admin ? $x['id'] : 'restricted (admin account only)') : null,
+                  'last_incoming' => is_array($li) ? ['at' => $li['at'] ?? null, 'remote_id' => $admin ? ($li['remote_id'] ?? null) : 'restricted', 'result' => $li['result'] ?? null] : null,
+                  'seen_at' => $x['at'] ?? null];
+    }
+    return $out;
 }

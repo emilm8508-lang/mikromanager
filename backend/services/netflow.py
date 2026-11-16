@@ -401,6 +401,12 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
         elif dport in AUTH_PORTS:
             _auth.append((now, src, dst, dport))           # who connects to logon services (services/host_logs.py: a failed logon without its source)
         src_l, dst_l = is_local(src), is_local(dst)
+        if src_l and not dst_l and dport == 6568:
+            try:                                           # 3.78: a host talking to AnyDesk's relays (services/remote_access.py) - a hint only
+                from services import remote_access
+                remote_access.note_network(src, now)
+            except Exception:
+                pass
         if src_l:
             h = _host(w, src)
             h["out"] += f["bytes"]

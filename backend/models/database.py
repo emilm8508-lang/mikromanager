@@ -275,6 +275,31 @@ class AssetHistory(Base):
     source = Column(String, nullable=True)                 # inventory / identity: serial HM20B0T2CND / merge / routeros_api ...
 
 
+class RemoteAccessTool(Base):
+    """A remote access tool on a host (3.78: services/remote_access.py) - AnyDesk now; another tool is another `tool` value, no migration.
+    present yes / no / unknown; tool_id is the tool's own ID (AnyDesk ID); unattended yes / no / unknown - never a password or its hash."""
+    __tablename__ = "remote_access_tools"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, nullable=True, index=True)
+    host_ip = Column(String, nullable=False, index=True)
+    tool = Column(String, nullable=False)
+    present = Column(String, nullable=False, default="unknown")
+    install_type = Column(String, nullable=True)                   # service / portable / unknown
+    version = Column(String, nullable=True)
+    running = Column(Boolean, nullable=True)
+    service_start = Column(String, nullable=True)                  # auto / manual / disabled
+    tool_id = Column(String, nullable=True)
+    unattended = Column(String, nullable=True)
+    outdated = Column(Boolean, nullable=True)
+    portable_paths = Column(Text, nullable=True)                   # JSON list
+    last_incoming = Column(Text, nullable=True)                    # JSON {at, remote_id, result}
+    source = Column(String, nullable=True)                         # registry / service / process / file / package / netflow
+    seen_at = Column(DateTime, nullable=True)
+    first_seen_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint("host_ip", "tool", name="uq_remote_access_host_tool"),)
+
+
 class AssetLogon(Base):
     """One logon on an asset, read from its own source (services/logons.py, 3.70): who, when, how, from where, whether it worked.
     Technical accounts (machine accounts, SYSTEM, the agent's own account ...) are never stored; network logons (type 3) only counted

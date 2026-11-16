@@ -428,6 +428,15 @@ async def collect_windows(host_id: int) -> dict:
         windows_logons(name, ip, events, r["payload"], started)
     except Exception as e:
         print(f"[host_logs] logons of {name}: {type(e).__name__}: {e}")
+    if _remote_due(("w", host_id)):                       # 3.78: AnyDesk on the host (services/remote_access.py), every few hours
+        try:
+            from services import remote_access
+            ra = await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(vs._EXECUTOR, _run_windows_sync, ip, port, cred[0], cred[1], cred[2],
+                                                                                 remote_access.WINDOWS_SCRIPT), timeout=90)
+            if ra.get("ok"):
+                remote_access.record(ip, name, remote_access.parse_windows(ra["payload"]))
+        except Exception as e:
+            print(f"[host_logs] remote access tools of {name}: {type(e).__name__}: {e}")
     _finish("windows", host_id, started, len(events), "; ".join(errs) if errs else None)
     return {"ok": True, "events": len(events), "errors": errs}
 
@@ -467,6 +476,13 @@ async def collect_linux(host_id: int) -> dict:
         linux_logons(name, ip, events, out, started)
     except Exception as e:
         print(f"[host_logs] logons of {name}: {type(e).__name__}: {e}")
+    if _remote_due(("l", host_id)):                       # 3.78: AnyDesk on the host
+        try:
+            from services import remote_access
+            rr = await asyncio.wait_for(loop.run_in_executor(vs._EXECUTOR, lm._plain_exec_sync, ip, cred[0], cred[1], remote_access.LINUX_COMMAND, 30), timeout=45)
+            remote_access.record(ip, name, remote_access.parse_linux(rr.get("output", "") if isinstance(rr, dict) else ""))
+        except Exception as e:
+            print(f"[host_logs] remote access tools of {name}: {type(e).__name__}: {e}")
     _finish("linux", host_id, started, len(events), None)
     return {"ok": True, "events": len(events)}
 
@@ -476,6 +492,17 @@ async def collect_linux(host_id: int) -> dict:
 _WIN_TYPES = {"2": "interactive", "7": "unlock", "10": "rdp", "11": "cached", "3": "network"}
 _AD_EVERY_SEC = 86400
 _ad_last: Dict[int, float] = {}
+
+
+_remote_last: Dict[tuple, float] = {}
+
+
+def _remote_due(key: tuple) -> bool:
+    from services import remote_access
+    if time.time() - _remote_last.get(key, 0) < remote_access.RECHECK_H * 3600:
+        return False
+    _remote_last[key] = time.time()
+    return True
 
 
 def _ad_due(host_id: int) -> bool:

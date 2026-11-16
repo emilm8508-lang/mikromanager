@@ -868,8 +868,9 @@ async def public_summary() -> dict:
         vseen = {d.id: d.version_seen_at.isoformat() + "Z" for d in devs if getattr(d, "version_seen_at", None)}
         vmstate = {v.id: v.state for v in db.execute(select(HypervVM)).scalars().all()}
     out = []
-    from services import identity
+    from services import identity, remote_access
     was = identity.previously_many([r["id"] for r in shown])
+    ra, ra_net = remote_access.public_rows(), remote_access.network_likely()
     lg = None
     try:                                                         # who logged on last (services/logons.py), unless this client keeps it local
         from services import logons
@@ -900,6 +901,12 @@ async def public_summary() -> dict:
             row["dq"] = r["dq"]
         if r.get("state"):
             row["st"] = r["state"]                                     # probably_removed / decommissioned / replaced_by / ignore (3.76)
+        if ra.get(r["ip"] or ""):
+            row["ra"] = [{"t": "anydesk", **ra[r["ip"]]}]               # AnyDesk on it (3.78)
+        elif r["type"] in ("windows", "linux", "server", "virtual"):
+            refs_ = r["refs"]
+            row["ra"] = [{"t": "anydesk", "p": "unknown", "why": "no_credential" if any(refs_.get(k) for k in ("windows_host_id", "linux_host_id")) else "no_agent",
+                          **({"likely": "network"} if (r["ip"] or "") in ra_net else {})}]
         if r.get("personal"):
             row["pv"] = 1
             row["pw"] = r.get("personal_why")                          # the signal that decided (3.66)
@@ -934,6 +941,7 @@ async def public_summary() -> dict:
         "dups": public_duplicates(),                          # 3.70: duplicate candidates Central can join or dismiss
         "name_pairs": _name_pairs(rows),                       # 3.74: names that differ only in diacritics (never joined on that alone)
         "mndp_mismatches": _mndp_mismatches(),                 # 3.75: what the routers' neighbor tables say differently
+        "remote_access": _remote_report(rows),                 # 3.78: AnyDesk on the hosts (servers / workstations, portable, unattended)
         "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
@@ -1038,6 +1046,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
         row.update({
             "history": _identity_history(a.id), "previously": _identity_previously(a.id),          # 3.74
             "version_seen_at": _version_seen(a.refs),                                               # 3.75
+            "remote_access_tools": _remote_tools(a),                                               # 3.78
             "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "owner": a.owner, "criticality": a.criticality, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
             "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
@@ -1324,3 +1333,19 @@ def _version_seen(refs_json) -> Optional[str]:
     with SessionLocal() as db:
         d = db.get(Device, did)
         return d.version_seen_at.isoformat() + "Z" if d is not None and getattr(d, "version_seen_at", None) else None
+
+
+def _remote_tools(a) -> list:
+    try:
+        from services import remote_access
+        return remote_access.for_asset(a.id, a.ip, a.asset_type, _jload(a.refs, {}))
+    except Exception:
+        return []
+
+
+def _remote_report(rows: List[dict]) -> Optional[dict]:
+    try:
+        from services import remote_access
+        return remote_access.report(rows)
+    except Exception:
+        return None

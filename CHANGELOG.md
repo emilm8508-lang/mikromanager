@@ -2,6 +2,39 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.78 — 2026-11-16
+- AnyDesk on the hosts (services/remote_access.py), never guessed: always with its source and the time it was read. The model is general (new table remote_access_tools: tool, present, install_type, version, running, service start, the tool's ID, unattended, outdated, last incoming, source, seen_at), so another tool is a new detector, not a migration.
+- Windows (over WinRM, every 6 hours per host, with the host log read):
+  - the uninstall keys (64- and 32-bit) and the AnyDesk service (state, start mode);
+  - the file version of AnyDesk.exe;
+  - AnyDesk processes running outside the install folder (portable);
+  - AnyDesk*.exe in the users' Downloads and Desktop (one level, no disk search);
+  - from C:\ProgramData\AnyDesk\system.conf only the AnyDesk ID and a yes / no for unattended access - the script never outputs a password, its hash or any other line;
+  - the last incoming connections from connection_trace.txt, which also become logons (source anydesk_trace).
+- Linux (SSH): dpkg / rpm, systemctl, and only the ID line of /etc/anydesk/system.conf.
+- Network: a host that talks to AnyDesk's relays (TCP 6568 in NetFlow) but has no agent or credential is "unknown, likely (network)", never "present". A host that cannot be read says why: no_agent / no_credential / not_supported.
+- Rules (data/remote_access.json, on by default):
+  - a new AnyDesk: medium, high on an important or critical asset;
+  - a portable AnyDesk running on a server: high;
+  - unattended access on a server or critical asset: medium;
+  - an out-of-date AnyDesk: medium.
+  - "Out of date" means signed with the certificate revoked after AnyDesk's 2024 incident: before 7.0.15 on the 7.x line, before 8.0.8 on 8.x (AnyDesk's 8.0.8 changelog: the code signing certificate was exchanged). One minimum can be set instead (min_version).
+- The client's report (inventory summary "remote_access"): hosts with AnyDesk, servers and workstations apart, portable, unattended, out of date, likely by network only.
+- MCP: client_assets gives remote_access_tools and finds them with q=anydesk; the incoming connections are in client_logons. The AnyDesk ID and the IDs that connected are shown to an admin account only, the same rule as the logons.
+- The asset page and the Central drawer show it.
+- Tested:
+  - 8 new regression tests (backend/tests/test_round3_e.py):
+    - case 13 of the round-3 brief: service on auto, running, the ID and the file version;
+    - case 14: portable from Downloads on a server gives a high alert;
+    - case 15: traffic alone is unknown / likely (network);
+    - case 16: a hash coming back is not stored, unattended is only a yes / no, and the script outputs no secret;
+    - a new installation, unattended and an out-of-date version raise their alerts and the incoming connections become logons;
+    - the minimum per line;
+    - Linux;
+    - the report.
+  - MCP checks on a local Central: 61 pass, among them case 17: an admin sees the ID and q=anydesk works, a viewer sees the tool but not its ID, and an account limited to one client does not see another client's rows.
+  - The WinRM / SSH reads have not been run on real hosts.
+
 ## 3.77 — 2026-11-16
 - The agent's own traffic and accounts (services/agent_self.py).
   - Its addresses: the ones it reaches the routers from, plus any configured in data/agent_self.json "addresses".

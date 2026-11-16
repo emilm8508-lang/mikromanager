@@ -592,6 +592,10 @@ export function AssetDetail() {
             {fact(t('assets.colLastSeen') as string, ago(a.last_seen_at))}
             {a.version_seen_at && fact(t('assets.versionRead') as string, ago(a.version_seen_at))}
             {fact(t('assets.state.label') as string, <StateEdit a={a} />)}
+            {(a.remote_access_tools ?? []).map(r => fact(r.tool === 'anydesk' ? 'AnyDesk' : r.tool,
+              r.present === 'yes' ? [r.version, r.install_type, r.running ? t('assets.ra.running') : null, r.unattended_access === 'yes' ? t('assets.ra.unattended') : null,
+                                     r.outdated ? t('assets.ra.outdated') : null, r.seen_at ? ago(r.seen_at) : null].filter(Boolean).join(' · ')
+                : r.present === 'no' ? t('assets.ra.absent') : `${t('assets.ra.unknown')}${r.reason ? ` (${r.reason})` : ''}${r.likely ? ` · ${t('assets.ra.likelyNetwork')}` : ''}`))}
             {a.previously && Object.keys(a.previously).length > 0 && fact(t('assets.previously') as string,
               [...(a.previously.name ?? []), ...(a.previously.ip ?? []), ...(a.previously.model ?? [])].join(' / '))}
           </dl>
