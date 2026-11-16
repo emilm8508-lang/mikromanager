@@ -90,6 +90,42 @@ class Pool(unittest.TestCase):
         self.assertEqual((len(self.apis), len(self.log)), (1, 12))
 
 
+class ApiFirst(unittest.TestCase):
+    """3.79: once a device's API answers, reads go over the shared API login, not REST (RouterOS logs every REST request as a login)."""
+
+    def test_reads_stop_using_rest(self):
+        import asyncio
+        mc._pool.clear()
+        mc._API_GOOD.clear()
+        self.addCleanup(mc._pool.clear)
+        logins, rest = [], []
+
+        class Api:
+            def __call__(self, cmd):
+                return [{"name": "R2-AP1"}]
+
+            def close(self):
+                pass
+        saved = (mc._connect_and_login, mc.MikrotikClient.rest_get)
+        self.addCleanup(lambda: (setattr(mc, "_connect_and_login", saved[0]), setattr(mc.MikrotikClient, "rest_get", saved[1])))
+        mc._connect_and_login = lambda *a, **k: (logins.append(1), Api())[1]
+
+        async def rest_get(self_, path):
+            rest.append(path)
+            return {"name": "R2-AP1"}
+        mc.MikrotikClient.rest_get = rest_get
+        c = mc.MikrotikClient("10.9.9.7", "admin", "pw")
+
+        async def run():
+            await c.get_identity()                              # the API not known yet: REST, as before
+            await c.api_command("/system/resource")             # an API read works
+            for _ in range(5):
+                await c.get_identity()
+                await c.get_logs()
+        asyncio.run(run())
+        self.assertEqual((len(rest), len(logins)), (1, 1), "after the first API read: no REST, one shared login")
+
+
 class AgentLoginLines(unittest.TestCase):
     def test_the_agents_own_login_is_not_a_persons(self):
         from sqlalchemy import create_engine

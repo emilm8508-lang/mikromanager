@@ -245,6 +245,16 @@ def pooled_call(key: tuple, connect, run):
                     raise
 
 
+# 3.79: a device whose API answered is read over that one shared API login first. RouterOS logs every REST request as a login of its own
+# ("logged in from <agent> via rest-api" + "logged in via api" + the logouts), so REST-first reads kept filling the routers' logs with
+# the agent's logins although the API login was shared since 3.73 (seen at sanmed: R2-AP1, a pair every minute). REST stays the fallback.
+_API_GOOD: dict = {}                     # ip -> time of the last read that worked over the API
+
+
+def api_preferred(ip: str) -> bool:
+    return ip in _API_GOOD
+
+
 def pool_stats() -> dict:
     """{ip: logins} since the start - for checking that a router is not logged into over and over."""
     with _pool_lock:
@@ -423,7 +433,16 @@ class MikrotikClient:
         def _run():
             return pooled_call(key, _connect, lambda api: list(api(cmd)))
 
-        return await loop.run_in_executor(_API_EXECUTOR, _run)
+        try:
+            out = await loop.run_in_executor(_API_EXECUTOR, _run)
+        except (TrapError, MultiTrapError):
+            _API_GOOD[self.ip] = time.time()           # the router answered (it refused the command): the API itself works
+            raise
+        except Exception:
+            _API_GOOD.pop(self.ip, None)               # the API does not answer: REST first again
+            raise
+        _API_GOOD[self.ip] = time.time()
+        return out
 
     # ── Fallback orchestrator ─────────────────────────────────────────────────
 
@@ -434,6 +453,16 @@ class MikrotikClient:
         roundtrip (and the login/logout log line it costs on the device)
         on every single poll."""
         key = (self.ip, rest_path)
+        if api_preferred(self.ip):
+            try:
+                result = await self.api_command(api_path)
+                if single_object and isinstance(result, list):
+                    return result[0] if result else {}
+                return result
+            except (TrapError, MultiTrapError):
+                raise
+            except Exception:
+                pass                                       # the API stopped answering: REST below
         if not _rest_is_broken(key):
             try:
                 result = await self.rest_get(rest_path)
@@ -453,6 +482,17 @@ class MikrotikClient:
         errors = []
         key = (self.ip, rest_path)
 
+        # 0. the shared API login first, once the API is known to answer (3.79)
+        api_tried = api_preferred(self.ip)
+        if api_tried:
+            try:
+                result = await self.api_command(api_path)
+                if single_object and isinstance(result, list):
+                    return result[0] if result else {}
+                return result
+            except Exception as e:
+                errors.append(f"API: {type(e).__name__}: {e}")
+
         # 1. REST (skipped if known broken for this device+path)
         if not _rest_is_broken(key):
             try:
@@ -463,14 +503,15 @@ class MikrotikClient:
                 _mark_rest_broken(key)
                 errors.append(f"REST: {type(e).__name__}: {e}")
 
-        # 2. Binary API
-        try:
-            result = await self.api_command(api_path)
-            if single_object and isinstance(result, list):
-                return result[0] if result else {}
-            return result
-        except Exception as e:
-            errors.append(f"API: {type(e).__name__}: {e}")
+        # 2. Binary API (unless it was tried first above)
+        if not api_tried:
+            try:
+                result = await self.api_command(api_path)
+                if single_object and isinstance(result, list):
+                    return result[0] if result else {}
+                return result
+            except Exception as e:
+                errors.append(f"API: {type(e).__name__}: {e}")
 
         # 3. SNMP (only if community configured and helper given)
         if self._snmp and snmp_fn:

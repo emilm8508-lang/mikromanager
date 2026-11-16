@@ -2,6 +2,14 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.79 — 2026-11-16
+- Fewer agent logins on the routers. The shared API login of 3.73 only covered the binary API, but reads went over REST first, and RouterOS logs every REST request as a login of its own ("logged in from <agent> via rest-api", "logged in via api", and the logouts). Seen at sanmed's R2-AP1: a pair every minute.
+  - Now, once a device's API has answered, its reads go over that one shared API login first.
+  - REST is used only when the API stops answering (then it is REST first again until the API works) or was never seen working.
+  - A command the router refuses over the API does not switch it back to REST.
+- Tested: a regression test (backend/tests/test_api_pool.py): after the first API read, ten reads use no REST and one login.
+  - Not yet run against a real router. The router logs from the morning of 16.11 at sanmed were most likely from before the agent was updated, because git pull failed on that machine: the agent's own counter (agent_logins, 3.77) or the router's log after the update will show the difference.
+
 ## 3.78 — 2026-11-16
 - AnyDesk on the hosts (services/remote_access.py), never guessed: always with its source and the time it was read. The model is general (new table remote_access_tools: tool, present, install_type, version, running, service start, the tool's ID, unattended, outdated, last incoming, source, seen_at), so another tool is a new detector, not a migration.
 - Windows (over WinRM, every 6 hours per host, with the host log read):
