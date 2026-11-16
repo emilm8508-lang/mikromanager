@@ -499,7 +499,11 @@ function t_coverage(McpContext $c, array $a): array {
                                              // api_unreachable, not_configured, sends_elsewhere), SwOS / printers left out, the script to copy
                                              'reasons' => array_map(function ($x) { return ['router' => $x['n'] ?? null, 'reason' => $x['r'] ?? null,
                                                  'error' => $x['e'] ?? null, 'last_read_ok' => $x['ok'] ?? null]; }, (array)($lg['why'] ?? [])),
-                                             'left_out' => $lg['skipped'] ?? null, 'setup_scripts' => $lg['scripts'] ?? []] : null];
+                                             'left_out' => $lg['skipped'] ?? null, 'setup_scripts' => $lg['scripts'] ?? [],
+                                             // 3.77: where the agent's account has full rights (it needs read, api, rest-api) and its own API logins
+                                             'agent_account_full_rights' => $lg['agent_full_rights'] ?? null, 'agent_account_checked' => $lg['agent_account_checked'] ?? null,
+                                             'agent_api_logins_last_hour' => $lg['agent_logins'] ?? null,
+                                             'agent_account_recommendation' => 'a read-only account: /user group add name=mikromanager policy=read,api,rest-api,!write,!policy,!sensitive; /user add name=mikromanager group=mikromanager address=<agent IP>/32'] : null];
     }
     return ['clients' => $out];
 }

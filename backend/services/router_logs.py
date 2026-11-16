@@ -589,6 +589,18 @@ async def check_logging() -> List[dict]:
                     pass
                 j = judge_logging(actions if isinstance(actions, list) else [], rules if isinstance(rules, list) else [], agent_ip)
                 row = {**base, **j, "error": None, "reason": None, "firewall_logging": fw_log}
+                try:                                          # 3.77: the agent's own account here - which group, full rights or not
+                    from services import agent_self
+                    users = await asyncio.wait_for(client._try_methods("user", "/user"), timeout=10)
+                    groups = await asyncio.wait_for(client._try_methods("user/group", "/user/group"), timeout=10)
+                    me = next((u for u in (users or []) if isinstance(u, dict) and str(u.get("name") or "").lower() == (c.username or "").lower()), None)
+                    if me:
+                        g = next((x for x in (groups or []) if isinstance(x, dict) and x.get("name") == me.get("group")), {})
+                        row.update(agent_user=me.get("name"), agent_group=me.get("group"),
+                                   agent_full=agent_self.full_rights(me.get("group"), g.get("policy")),
+                                   agent_address_limited=bool(str(me.get("address") or "").strip()))
+                except Exception:
+                    pass
                 if not j["to_agent"]:
                     row["reason"] = "sends_elsewhere" if j["remote"] else "not_configured"
                     row["script"] = setup_script(agent_ip, fw_log, port=port)
@@ -604,6 +616,14 @@ async def check_logging() -> List[dict]:
     await asyncio.gather(*[one(d, c) for d, c in rows])
     _write(_LOGGING_PATH, {"at": datetime.utcnow().isoformat() + "Z", "routers": out, "skipped": skipped})
     return out
+
+
+def _agent_logins() -> dict:
+    try:
+        from services import agent_self
+        return agent_self.logins()
+    except Exception:
+        return {}
 
 
 def logging_status() -> dict:
@@ -630,6 +650,10 @@ def public_summary() -> dict:
             "why": [{"n": r["name"], "r": r.get("reason"), "e": (r.get("error") or "")[:120] or None, "ok": r.get("last_ok")}
                     for r in rs if not r.get("to_agent")][:60],
             "skipped": {k: len(v) for k, v in (st.get("skipped") or {}).items()},
+            # 3.77: routers where the agent's account has full rights (it only needs read, api, rest-api) - and the agent's own logins
+            "agent_full_rights": [r["name"] for r in rs if r.get("agent_full")][:60],
+            "agent_account_checked": sum(1 for r in rs if r.get("agent_group")),
+            "agent_logins": _agent_logins(),
             "scripts": [{"agent_ip": s["agent_ip"], "routers": s["routers"][:40], "script": s["script"]} for s in scripts.values()][:5],
             "lines": dict(_stats)}
 

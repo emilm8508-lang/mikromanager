@@ -83,6 +83,7 @@ _scan_times: Dict[str, List[float]] = {}      # internal source -> the windows i
 _recent_by_src: Dict[str, Dict[str, float]] = {}   # internal source -> {behaviour: last seen} (24 h): beacon + scan together is worse
 _excepted: deque = deque(maxlen=200)          # scans an exception covered, for the page
 _scan_ports: Dict[str, List[List[int]]] = {}  # internal source -> the ports of its last scans (the suggested exception's port range)
+_agent_probes: deque = deque(maxlen=20000)     # (time, device, port) of the agent's own tries (3.77)
 
 
 # ── Settings ────────────────────────────────────────────────────────────────
@@ -382,8 +383,19 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
     w = _win
     from services import flow_rules
     wans = wan_ips(now)
+    try:
+        from services import agent_self
+        agents = agent_self.addresses()
+    except Exception:
+        agents = set()
     for f in flows:
         src, dst, sport, dport, proto = f["src"], f["dst"], f["sport"], f["dport"], f["proto"]
+        if src in agents and dst not in agents and is_local(dst):
+            # 3.77: the agent polling / probing a device - traffic TO the device, never the device's own (seen: 66 tries on 33 ports from
+            # the agent to the dead 192.168.2.94 counted as that address's); the agent's own counters and scan rules still see it
+            _agent_probe(None, f, now)
+        if dst in agents and src not in agents and is_local(src):
+            continue                                       # a device answering the agent: not that device's traffic (nor a series of it)
         if dport in MGMT_PORTS:
             _mgmt.append((now, src, dst, dport))           # who connects to management ports (services/router_logs.py: a log line without its source)
         elif dport in AUTH_PORTS:
@@ -393,7 +405,7 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
             h = _host(w, src)
             h["out"] += f["bytes"]
             h["flows"] += 1
-        if dst_l:
+        if dst_l and src not in agents:
             _host(w, dst)["in"] += f["bytes"]
         w["conv"][(src, dst, dport if dport else 0, proto)] += f["bytes"]
         ports = proto in (6, 17) and sport and dport
@@ -542,9 +554,22 @@ def _beyond_text(ip: str) -> str:
     return f" - beyond its scanner exception: {b}" if b else ""
 
 
+def _agent_probe(_w, f: dict, now: float) -> None:
+    """The agent's tries to devices (kept apart, for the report: how much the agent itself polls)."""
+    _agent_probes.append((now, f["dst"], f.get("dport")))
+
+
 def _scan_allowed(rule: str, ip: str, ports, hosts: int, now: float, names: Dict[str, dict]) -> bool:
     """A scan seen: noted for the regularity check and the source's behaviours; True when this client's exception covers it whole."""
     from services import flow_rules
+    try:                                                   # 3.77: the agent's own scans inside its declared scope (services/agent_self.py)
+        from services import agent_self
+        if ip in agent_self.addresses() and agent_self.covers(ports or [], datetime.fromtimestamp(now).hour):
+            _excepted.append({"at": datetime.utcfromtimestamp(now).isoformat() + "Z", "rule": rule, "ip": ip, "name": "MikroManager agent",
+                              "exception": "agent", "hosts": hosts, "ports": len(set(ports or []))})
+            return True
+    except Exception:
+        pass
     t = _scan_times.setdefault(ip, [])
     if not t or now - t[-1] > WINDOW_SEC * 1.5:
         t.append(now)

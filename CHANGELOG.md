@@ -2,6 +2,30 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.77 — 2026-11-16
+- The agent's own traffic and accounts (services/agent_self.py).
+  - Its addresses: the ones it reaches the routers from, plus any configured in data/agent_self.json "addresses".
+  - Its accounts: the user names of its credentials, plus any configured in "accounts".
+- NetFlow: the agent's tries to a device are traffic to that device, never the device's own, and what the device answers the agent is not its traffic either. Seen at sanmed: the agent (192.168.1.38) made 66 tries on 33 ports to the dead 192.168.2.94, and they were counted as that address's traffic.
+  - So the target gets no counters and no series from them, and hence no anomaly.
+  - The agent's tries are kept apart for the report.
+- The agent's scans inside its declared scope (data/agent_self.json scan_ports and scan_hours; default any port, any hour) are not scan alerts; they are listed as excepted with the reason "agent". Beyond the scope they are alerted like any other source.
+- An entry that is probably removed or set aside (3.76) has no anomaly series.
+- TLS checks first ask each address once (ping or a port). An address that does not answer gets no tries on its ports in that cycle; they are counted as skipped.
+- The agent's account on each router (read with the 6-hourly logging check): its group, whether it has full rights ("full", or a policy with write and policy) and whether it is limited to an address.
+  - MCP client_coverage lists the routers where the agent's account has full rights, with the recommendation: a "mikromanager" group with read, api, rest-api and an account with address=<agent IP>/32.
+- The agent's own logins per router and hour: every API login (one per router per 60 s since 3.73) and every REST request, which RouterOS logs as a login. MCP client_coverage: agent_api_logins_last_hour, with the average per router and the busiest one.
+- The agent's own logons on the devices were already left out of "last logons" (3.70 / 3.73). The router log rules count them apart.
+- Tested:
+  - 6 new regression tests (backend/tests/test_round3_d.py; 189 in all):
+    - case 9 of the round-3 brief: 66 tries on 33 ports from the agent to the dead .94 and the answers back give .94 no traffic and no series;
+    - the agent's scan inside its scope is excepted, beyond the declared ports alerted, and another source unchanged;
+    - full rights by group and policy;
+    - case 11: five reads in one cycle give one login on the counter;
+    - case 10: the webshot logon is skipped;
+    - TLS: no tries on the address that does not answer.
+  - Not yet run on the clients' agents.
+
 ## 3.76 — 2026-11-15
 - Entries of devices that are gone (services/asset_state.py).
   - Every entry now keeps when something last proved the device is there (alive_at): an ARP entry, a bound DHCP lease, an answer to the LAN sweep or the liveness ping, a managed host's successful check, a port scan, a running VM.

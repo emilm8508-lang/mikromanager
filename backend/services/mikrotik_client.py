@@ -227,6 +227,11 @@ def pooled_call(key: tuple, connect, run):
                 _pool_close(e)
                 e["api"] = connect()
                 e["logins"] += 1
+                try:
+                    from services import agent_self
+                    agent_self.note_login(key[0])               # 3.77: logins per router and hour (to Central)
+                except Exception:
+                    pass
             try:
                 out = run(e["api"])
                 e["used"] = time.time()
@@ -317,6 +322,11 @@ class MikrotikClient:
     async def _rest_request(self, method: str, path: str, data: Optional[dict] = None) -> Any:
         url = f"{self._rest_base}/{path.lstrip('/')}"
         _note_access("rest", self.ip, f"{method} {path}")
+        try:
+            from services import agent_self
+            agent_self.note_login(self.ip)                      # every REST request is a login on RouterOS (3.77)
+        except Exception:
+            pass
         auth = aiohttp.BasicAuth(self.username, self.password)
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False

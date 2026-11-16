@@ -250,6 +250,12 @@ def judge(now: Optional[datetime] = None) -> Dict[str, List[dict]]:
     raw: Dict[str, Dict[str, tuple]] = {}                           # host -> {series key: (signed deviation now, name)} for the forest
     with SessionLocal() as db:
         series = [s for s in db.execute(select(MetricSeries)).scalars().all() if s.kind not in SKIP_KINDS]
+        try:                                                        # 3.77: a probably removed / set-aside entry has no anomalies
+            from services import asset_state
+            gone = asset_state.inactive_ids()
+            series = [s for s in series if not (s.asset_id and s.asset_id in gone)]
+        except Exception:
+            pass
         recent_by_key: Dict[str, List[float]] = {}                  # one query for the last readings of every series, not one per series
         for k, v in db.execute(select(MetricSample.key, MetricSample.value).where(MetricSample.at >= now - timedelta(minutes=RECENT_MIN))).all():
             recent_by_key.setdefault(k, []).append(v)

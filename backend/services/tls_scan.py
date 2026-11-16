@@ -398,6 +398,17 @@ async def run_all(ids: Optional[List[int]] = None) -> dict:
         from services import asset_state
         gone = asset_state.inactive_ips()
         rows = [r for r in rows if r[1] not in gone]               # 3.76: no TLS tries on an entry that is probably removed / set aside
+        # 3.77: one ping / port answer per address first - a dead address gets no tries on its ports in this cycle
+        from services import availability
+        alive = {}
+        for ip in {r[1] for r in rows}:
+            try:
+                alive[ip] = (await availability._answers(ip))[0]
+            except Exception:
+                alive[ip] = True
+        skipped = sum(1 for r in rows if not alive.get(r[1], True))
+        rows = [r for r in rows if alive.get(r[1], True)]
+        _last["skipped_dead"] = skipped
         sem = asyncio.Semaphore(CONCURRENCY)
 
         async def one(cid, ip, port):
