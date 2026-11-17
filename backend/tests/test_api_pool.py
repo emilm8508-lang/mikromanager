@@ -117,13 +117,39 @@ class ApiFirst(unittest.TestCase):
         c = mc.MikrotikClient("10.9.9.7", "admin", "pw")
 
         async def run():
-            await c.get_identity()                              # the API not known yet: REST, as before
-            await c.api_command("/system/resource")             # an API read works
             for _ in range(5):
                 await c.get_identity()
                 await c.get_logs()
         asyncio.run(run())
-        self.assertEqual((len(rest), len(logins)), (1, 1), "after the first API read: no REST, one shared login")
+        self.assertEqual((len(rest), len(logins)), (0, 1), "3.80: the API first by default - ten reads, no REST, one shared login")
+
+    def test_api_not_answering_falls_back_to_rest_for_a_while(self):
+        import asyncio
+        mc._pool.clear()
+        mc._API_GOOD.clear()
+        mc._API_BAD.clear()
+        self.addCleanup(mc._pool.clear)
+        self.addCleanup(mc._API_BAD.clear)
+        tries, rest = [], []
+
+        def refused(*a, **k):
+            tries.append(1)
+            raise ConnectionRefusedError("refused")
+        saved = (mc._connect_and_login, mc.MikrotikClient.rest_get)
+        self.addCleanup(lambda: (setattr(mc, "_connect_and_login", saved[0]), setattr(mc.MikrotikClient, "rest_get", saved[1])))
+        mc._connect_and_login = refused
+
+        async def rest_get(self_, path):
+            rest.append(path)
+            return {"name": "R"}
+        mc.MikrotikClient.rest_get = rest_get
+        c = mc.MikrotikClient("10.9.9.6", "admin", "pw")
+
+        async def run():
+            for _ in range(4):
+                await c.get_identity()
+        asyncio.run(run())
+        self.assertEqual((len(tries), len(rest)), (1, 4), "one API try, then REST only for the back-off")
 
 
 class AgentLoginLines(unittest.TestCase):

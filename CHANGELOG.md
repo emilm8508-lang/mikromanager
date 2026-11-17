@@ -2,6 +2,15 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.80 — 2026-11-17
+- The API first, kept longer. In 3.79 a router was read over the shared API login only after an API read had worked. On a router where REST always worked, that never happened. Seen at mcprojekt on 3.79: a REST login ("logged in from 192.168.2.21 via rest-api" + "logged in via api") about every 12.5 minutes, each logged out by RouterOS 10 minutes later.
+  - The API is now tried first by default. When it does not answer (refused, filtered, timeout), that router goes REST-first for 30 minutes, with a single API try and no repeat.
+  - The shared API login stays open 15 minutes after its last use instead of 60 seconds. That is longer than the agent's polling cycles, so one login serves many cycles instead of one per cycle.
+- Tested: 2 updated / new regression tests (backend/tests/test_api_pool.py; 199 in all):
+  - ten reads with no REST and one login;
+  - an API that refuses gives one try, then REST only for the back-off.
+  - Not yet run against a real router.
+
 ## 3.79 — 2026-11-16
 - Fewer agent logins on the routers. The shared API login of 3.73 only covered the binary API, but reads went over REST first, and RouterOS logs every REST request as a login of its own ("logged in from <agent> via rest-api", "logged in via api", and the logouts). Seen at sanmed's R2-AP1: a pair every minute.
   - Now, once a device's API has answered, its reads go over that one shared API login first.

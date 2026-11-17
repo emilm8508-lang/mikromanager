@@ -187,7 +187,7 @@ def _api_ssl_ttl(ip: str) -> int:
 import threading
 from librouteros.exceptions import TrapError, MultiTrapError
 
-API_IDLE_SEC = 60.0
+API_IDLE_SEC = 900.0                 # 3.80: 15 min - longer than the agent's polling cycles (~12.5 min seen), so one login serves many cycles
 _pool_lock = threading.Lock()
 _pool: dict = {}                     # (ip, port, user, password, ssl) -> {"api", "lock", "used", "logins"}
 
@@ -249,10 +249,15 @@ def pooled_call(key: tuple, connect, run):
 # ("logged in from <agent> via rest-api" + "logged in via api" + the logouts), so REST-first reads kept filling the routers' logs with
 # the agent's logins although the API login was shared since 3.73 (seen at sanmed: R2-AP1, a pair every minute). REST stays the fallback.
 _API_GOOD: dict = {}                     # ip -> time of the last read that worked over the API
+_API_BAD: dict = {}                      # ip -> when the API did not answer: REST first for API_BAD_SEC
+API_BAD_SEC = 1800
 
 
 def api_preferred(ip: str) -> bool:
-    return ip in _API_GOOD
+    """3.80: the API first by default - before, only after an API read had worked, and on a router where REST always worked that never
+    happened (seen at mcprojekt: a REST login every ~12.5 min). REST first only for API_BAD_SEC after the API did not answer."""
+    t = _API_BAD.get(ip)
+    return t is None or time.time() - t > API_BAD_SEC
 
 
 def pool_stats() -> dict:
@@ -437,11 +442,14 @@ class MikrotikClient:
             out = await loop.run_in_executor(_API_EXECUTOR, _run)
         except (TrapError, MultiTrapError):
             _API_GOOD[self.ip] = time.time()           # the router answered (it refused the command): the API itself works
+            _API_BAD.pop(self.ip, None)
             raise
         except Exception:
-            _API_GOOD.pop(self.ip, None)               # the API does not answer: REST first again
+            _API_GOOD.pop(self.ip, None)               # the API does not answer: REST first for a while
+            _API_BAD[self.ip] = time.time()
             raise
         _API_GOOD[self.ip] = time.time()
+        _API_BAD.pop(self.ip, None)
         return out
 
     # ── Fallback orchestrator ─────────────────────────────────────────────────
