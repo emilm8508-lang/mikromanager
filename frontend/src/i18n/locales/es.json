@@ -1701,6 +1701,66 @@
         "chart": "Gráficos y umbrales propios: página Métricas.",
         "note": "La latencia es el tiempo medio de respuesta de una serie, el jitter la diferencia media entre respuestas consecutivas, la pérdida el porcentaje de pings sin respuesta. Un equipo que no responde en absoluto lo informa la monitorización de disponibilidad, no esta medición."
     },
+    "appc": {
+        "title": "Comprobaciones de aplicaciones",
+        "subtitle": "Si la aplicación funciona de verdad, no solo si el servidor responde al ping: una página web (código, tiempo, frase, certificado), un puerto TCP (con el saludo del servicio) y DNS.",
+        "add": "Añadir comprobación",
+        "edit": "Editar",
+        "remove": "Quitar",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "test": "Probar ahora (sin guardar)",
+        "runNow": "Ejecutar todas",
+        "empty": "Aún no hay comprobaciones. Añade una página web, un puerto de servicio o un nombre DNS para que el agente lo vigile.",
+        "kind": {
+            "http": "Web (HTTP/HTTPS)",
+            "tcp": "Puerto TCP",
+            "dns": "DNS"
+        },
+        "col": {
+            "check": "Comprobación",
+            "state": "Estado",
+            "resp": "Respuesta",
+            "p95": "p95 24 h",
+            "up24": "24 h",
+            "up7": "7 d",
+            "cert": "Certificado",
+            "detail": "Detalles"
+        },
+        "ok": "funciona",
+        "fail": "error",
+        "pending": "en espera",
+        "disabled": "desactivada",
+        "days": "{{n}} días",
+        "expired": "caducado",
+        "f": {
+            "name": "Nombre",
+            "kind": "Tipo",
+            "target": "Destino",
+            "targetHttp": "https://servidor/pagina",
+            "targetTcp": "host:puerto",
+            "targetDns": "nombre.dominio.es",
+            "interval": "Cada (minutos)",
+            "timeout": "Tiempo límite (s)",
+            "slow": "Lenta desde (ms)",
+            "status": "Código esperado (p. ej. 200-399)",
+            "contains": "Debe contener la frase",
+            "containsTcp": "El saludo debe contener (p. ej. 220, SSH-)",
+            "insecure": "No verificar el certificado (página interna)",
+            "dnsServer": "Servidor DNS (vacío: el del sistema)",
+            "expectIp": "Dirección esperada",
+            "enabled": "Activada"
+        },
+        "testOk": "Funciona: {{ms}} ms",
+        "testFail": "Error: {{err}}",
+        "note": "Alerta tras dos intentos fallidos seguidos (error: alta, respuesta lenta: media), certificado desde 14 días antes de caducar. De la respuesta el agente guarda solo el código, el tiempo y un breve texto de error. Los tiempos de respuesta también están en la página Métricas.",
+        "central": {
+            "failing": "Con error",
+            "slow": "Lentas",
+            "cert": "Certificado por caducar",
+            "none": "Todas las comprobaciones funcionan ({{n}})."
+        }
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",
@@ -2183,6 +2243,8 @@
             "rtt": "latencia (RTT)",
             "jitter": "jitter",
             "loss": "pérdida de paquetes",
+            "resp": "tiempo de respuesta de la aplicación",
+            "app_up": "la aplicación funciona",
             "other": "otras"
         }
     },

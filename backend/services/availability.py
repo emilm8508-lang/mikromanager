@@ -396,7 +396,17 @@ def public_summary() -> dict:
     o = overview()
     return {"up": o["up"], "down": o["down"], "unreachable": o["unreachable"],
             "bad": [{"n": r["name"], "s": r["state"], "since": r["since"], "root": r["root"]} for r in o["items"] if r["state"] in ("down", "unreachable")][:40],
-            "at": _iso(_now()), "quality": _quality()}
+            "at": _iso(_now()), "quality": _quality(), "apps": _apps()}
+
+
+def _apps() -> Optional[dict]:
+    """3.83: the application checks (services/app_checks.py) - counts and what fails, for Central."""
+    try:
+        from services import app_checks
+        return app_checks.public_summary()
+    except Exception as e:
+        print(f"[availability] app checks summary error: {type(e).__name__}: {e}")
+        return None
 
 
 def _quality() -> Optional[dict]:

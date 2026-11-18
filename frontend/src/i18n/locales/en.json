@@ -1701,6 +1701,66 @@
         "chart": "Charts and your own thresholds: the Metrics page.",
         "note": "Latency is the average reply time of a burst, jitter the average difference between consecutive replies, loss the share of pings without a reply. A device that does not answer at all is reported by availability monitoring, not by this measurement."
     },
+    "appc": {
+        "title": "Application checks",
+        "subtitle": "Whether the application really works, not only whether the server answers a ping: a web page (code, time, phrase, certificate), a TCP port (with the service greeting) and DNS.",
+        "add": "Add check",
+        "edit": "Edit",
+        "remove": "Remove",
+        "save": "Save",
+        "cancel": "Cancel",
+        "test": "Test now (not saved)",
+        "runNow": "Run all",
+        "empty": "No checks yet. Add a web page, a service port or a DNS name for the agent to watch.",
+        "kind": {
+            "http": "Web (HTTP/HTTPS)",
+            "tcp": "TCP port",
+            "dns": "DNS"
+        },
+        "col": {
+            "check": "Check",
+            "state": "State",
+            "resp": "Response",
+            "p95": "p95 24 h",
+            "up24": "24 h",
+            "up7": "7 d",
+            "cert": "Certificate",
+            "detail": "Details"
+        },
+        "ok": "works",
+        "fail": "failing",
+        "pending": "waiting",
+        "disabled": "off",
+        "days": "{{n}} days",
+        "expired": "expired",
+        "f": {
+            "name": "Name",
+            "kind": "Kind",
+            "target": "Target",
+            "targetHttp": "https://server/page",
+            "targetTcp": "host:port",
+            "targetDns": "name.domain.com",
+            "interval": "Every (minutes)",
+            "timeout": "Timeout (s)",
+            "slow": "Slow from (ms)",
+            "status": "Expected code (e.g. 200-399)",
+            "contains": "Must contain phrase",
+            "containsTcp": "Greeting must contain (e.g. 220, SSH-)",
+            "insecure": "Do not verify the certificate (internal page)",
+            "dnsServer": "DNS server (empty: system)",
+            "expectIp": "Expected address",
+            "enabled": "Enabled"
+        },
+        "testOk": "Works: {{ms}} ms",
+        "testFail": "Failed: {{err}}",
+        "note": "An alert after two failed tries in a row (failure: high, slow response: medium), a certificate from 14 days before it expires. Of the response the agent keeps only the code, the time and a short error text. Response times are also on the Metrics page.",
+        "central": {
+            "failing": "Failing",
+            "slow": "Slow",
+            "cert": "Certificate expiring",
+            "none": "All application checks work ({{n}})."
+        }
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",
@@ -2183,6 +2243,8 @@
             "rtt": "latency (RTT)",
             "jitter": "jitter",
             "loss": "packet loss",
+            "resp": "application response time",
+            "app_up": "application works",
             "other": "other"
         }
     },

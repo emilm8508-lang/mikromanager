@@ -1470,6 +1470,22 @@ export const netQualityApi = {
   save: (s: Partial<NetQualitySettings>) => api.put<NetQualitySettings>('/net-quality/settings', s).then(r => r.data),
   run: () => api.post('/net-quality/run').then(r => r.data),
 }
+// application checks (services/app_checks.py): HTTP(S), TCP and DNS checks of your own
+export interface AppCheck {
+  id?: string; name: string | null; kind: 'http' | 'tcp' | 'dns'; target: string; enabled: boolean; interval_min: number; timeout_s: number
+  slow_ms: number | null; expect_status: string | null; contains: string | null; insecure: boolean; dns_server: string | null; expect_ip: string | null
+}
+export interface AppCheckItem extends AppCheck {
+  id: string; name: string; ok: boolean | null; ms: number | null; code: number | null; error: string | null; at: string | null; since: string | null
+  addrs: string[] | null; cert_days: number | null; up_24h: number | null; up_7d: number | null; p95_24h: number | null; keys: { resp: string; up: string }
+}
+export interface AppCheckResult { ok: boolean; ms: number | null; code?: number; error: string | null; addrs?: string[]; cert_not_after?: string }
+export const appChecksApi = {
+  overview: () => api.get<{ items: AppCheckItem[]; last: { at: string | null; ran: number; error: string | null }; max: number }>('/app-checks').then(r => r.data),
+  save: (checks: AppCheck[]) => api.put<{ checks: AppCheck[] }>('/app-checks', { checks }).then(r => r.data),
+  test: (c: AppCheck) => api.post<AppCheckResult>('/app-checks/test', c).then(r => r.data),
+  run: () => api.post('/app-checks/run').then(r => r.data),
+}
 // coverage: which sources of the agent report (services/coverage.py)
 export interface CoverageItem { id: string; group: string; name: string; state: 'ok' | 'stale' | 'error' | 'off'; last_ok: string | null; expected_s: number | null; error: string | null; detail: string | null; stale_items: string[]; total: number | null }
 export const coverageApi = { report: () => api.get<{ items: CoverageItem[]; summary: Record<'ok' | 'stale' | 'error' | 'off', number>; uptime_s: number; at: string }>('/coverage').then(r => r.data) }
@@ -1804,7 +1820,11 @@ export interface CentralSoc {
     // 3.82: latency, jitter and loss (services/net_quality.py) - the targets out of their limits and the own targets
     quality?: { targets: number; at: string | null
       bad: Array<{ n: string; rtt: number | null; j: number | null; loss: number | null; what: string[]; own: boolean }>
-      own: Array<{ n: string; rtt: number | null; j: number | null; loss: number | null; p95: number | null; loss24: number | null }> } | null }
+      own: Array<{ n: string; rtt: number | null; j: number | null; loss: number | null; p95: number | null; loss24: number | null }> } | null
+    // 3.83: application checks (services/app_checks.py)
+    apps?: { total: number; ok: number; failing: number; at: string | null
+      bad: Array<{ n: string; k: string; since: string | null; up24: number | null; code: number | null }>
+      slow: Array<{ n: string; ms: number | null }>; cert: Array<{ n: string; days: number | null }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

@@ -1865,6 +1865,66 @@
         "chart": "Wykresy i progi własne: strona Metryki.",
         "note": "Opóźnienie to średni czas odpowiedzi serii, jitter to średnia różnica między kolejnymi odpowiedziami, utrata to odsetek pingów bez odpowiedzi. Urządzenie, które nie odpowiada wcale, zgłasza monitorowanie dostępności, nie ten pomiar."
     },
+    "appc": {
+        "title": "Sprawdzenia aplikacji",
+        "subtitle": "Czy aplikacja naprawdę działa, a nie tylko czy serwer odpowiada na ping: strona WWW (kod, czas, fraza, certyfikat), port TCP (z powitaniem usługi) i DNS.",
+        "add": "Dodaj sprawdzenie",
+        "edit": "Edytuj",
+        "remove": "Usuń",
+        "save": "Zapisz",
+        "cancel": "Anuluj",
+        "test": "Sprawdź teraz (bez zapisu)",
+        "runNow": "Uruchom wszystkie",
+        "empty": "Brak sprawdzeń. Dodaj stronę WWW, port usługi albo nazwę DNS, które ma pilnować agent.",
+        "kind": {
+            "http": "WWW (HTTP/HTTPS)",
+            "tcp": "Port TCP",
+            "dns": "DNS"
+        },
+        "col": {
+            "check": "Sprawdzenie",
+            "state": "Stan",
+            "resp": "Odpowiedź",
+            "p95": "p95 24 h",
+            "up24": "24 h",
+            "up7": "7 d",
+            "cert": "Certyfikat",
+            "detail": "Szczegóły"
+        },
+        "ok": "działa",
+        "fail": "błąd",
+        "pending": "czeka",
+        "disabled": "wyłączone",
+        "days": "{{n}} dni",
+        "expired": "wygasł",
+        "f": {
+            "name": "Nazwa",
+            "kind": "Rodzaj",
+            "target": "Cel",
+            "targetHttp": "https://serwer/strona",
+            "targetTcp": "host:port",
+            "targetDns": "nazwa.domena.pl",
+            "interval": "Co ile minut",
+            "timeout": "Limit czasu (s)",
+            "slow": "Wolno od (ms)",
+            "status": "Oczekiwany kod (np. 200-399)",
+            "contains": "Musi zawierać frazę",
+            "containsTcp": "Powitanie musi zawierać (np. 220, SSH-)",
+            "insecure": "Nie weryfikuj certyfikatu (strona wewnętrzna)",
+            "dnsServer": "Serwer DNS (puste: systemowy)",
+            "expectIp": "Oczekiwany adres",
+            "enabled": "Włączone"
+        },
+        "testOk": "Działa: {{ms}} ms",
+        "testFail": "Błąd: {{err}}",
+        "note": "Alert po dwóch nieudanych próbach z rzędu (błąd: wysoki, wolna odpowiedź: średni), certyfikat od 14 dni przed wygaśnięciem. Z odpowiedzi agent zapisuje tylko kod, czas i krótki opis błędu. Czasy odpowiedzi są też na stronie Metryki.",
+        "central": {
+            "failing": "Nie działa",
+            "slow": "Wolno",
+            "cert": "Certyfikat wygasa",
+            "none": "Wszystkie sprawdzenia aplikacji działają ({{n}})."
+        }
+    },
     "svc": {
         "title": "Usługi biznesowe i SLA",
         "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",
@@ -2347,6 +2407,8 @@
             "rtt": "opóźnienie (RTT)",
             "jitter": "jitter",
             "loss": "utrata pakietów",
+            "resp": "czas odpowiedzi aplikacji",
+            "app_up": "aplikacja działa",
             "other": "inne"
         }
     },

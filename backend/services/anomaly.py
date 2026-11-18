@@ -46,7 +46,7 @@ Z_OPEN = float(os.environ.get("MIKROTIK_ANOMALY_Z", "4.0"))
 Z_CLOSE = 2.5
 CYCLES_OPEN = 2
 CYCLES_CLOSE = 2
-SKIP_KINDS = ("disk", "loss", "jitter")          # disks have their own forecast (metrics.check_forecasts); loss / jitter: mostly 0 with single bursts, net_quality has limits for them
+SKIP_KINDS = ("disk", "loss", "jitter", "app_up")          # disks have their own forecast (metrics.check_forecasts); loss / jitter: mostly 0 with single bursts, net_quality has limits for them
 RULE = "ml.anomaly"
 
 _profiles: Dict[str, Tuple[float, Optional[dict]]] = {}     # key -> (built at, profile or None while learning)
@@ -70,7 +70,7 @@ def host_key(key: str) -> str:
 
 
 def direction(kind: str, unit: str) -> str:
-    if kind in ("cpu", "mem", "temp", "ups_temp", "net", "sec", "rtt"):       # traffic and security events: more is the risk; a longer round trip too
+    if kind in ("cpu", "mem", "temp", "ups_temp", "net", "sec", "rtt", "resp"):       # traffic and security events: more is the risk; a longer round trip too
         return "up"
     if kind in ("ups_charge", "ups_runtime"):
         return "down"

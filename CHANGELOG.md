@@ -2,6 +2,34 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.83 — 2026-11-18
+- Application checks (services/app_checks.py): whether the application works, not only whether the server answers a ping. Checks of your own (up to 100), each every 1-60 minutes:
+  - `http`: a URL, http or https.
+    - It checks the status code (200-399 unless set), the response time, and optionally a phrase the page must contain ("the login form is there").
+    - For https it also reads the days until the certificate expires, by the name in the URL (SNI), once every 6 hours.
+    - The certificate is verified unless "insecure" is set for an internal page.
+  - `tcp`: host:port connects, and optionally the greeting contains a phrase ("220" of a mail server, "SSH-").
+  - `dns`: a name resolves, by the system resolver or by a DNS server given, optionally to an expected address. This uses a small A query of its own, no new library.
+- Readings go into the metric history as `app:<id>:resp` (kind `resp`: charts, thresholds, the anomaly detector's learned range) and `app:<id>:up` (kind `app_up`: availability of 24 h / 7 d).
+- Alerts:
+  - `app.down` (high) after two failures in a row;
+  - `app.slow` (medium) after two results above the check's own limit;
+  - `app.cert` 14 days before the certificate expires (high within 3 days or once expired). A failed try does not close it.
+  - Each closes after a good result.
+- Of the response the agent keeps only the code, the time and an error text cut to 200 characters. The page itself is not kept.
+- The Availability page has a new "Application checks" section: add, edit and remove checks, "test now" before saving, and per check the state, response, p95 over 24 h, availability over 24 h / 7 d and the certificate.
+- API: `GET/PUT /api/app-checks`, `POST /api/app-checks/test`, `POST /api/app-checks/run`.
+- Central: the availability summary carries `apps`: counts, failing / slow checks and expiring certificates, with names only and no URLs or addresses. The Central availability page lists them per client, and MCP `client_availability` returns them.
+- Tested: 6 new regression tests (backend/tests/test_app_checks.py):
+  - validation;
+  - status ranges;
+  - DNS answer parsing (A, CNAME skipped, NXDOMAIN, a wrong id);
+  - the alert rules;
+  - real HTTP and TCP checks against local test servers (phrase, 500, greeting);
+  - no addresses in the Central summary.
+  - Checked by hand: https://example.com with its certificate, a 404, TCP to 1.1.1.1:53, a TCP timeout, DNS through 1.1.1.1 and the system resolver, NXDOMAIN.
+  - tsc OK. The new section was not seen in a browser (the panel needs a login).
+
 ## 3.82 — 2026-11-18
 - Link quality: latency, jitter and packet loss (services/net_quality.py). Availability only says whether a device answers; a link can answer and still lose packets or have a high, jumping delay.
   - Every 5 minutes, a burst of 10 pings to each target. The agent records the average RTT, the jitter (the average difference between consecutive replies) and the loss.

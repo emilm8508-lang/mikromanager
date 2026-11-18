@@ -1701,6 +1701,66 @@
         "chart": "Diagramme und eigene Schwellen: Seite Metriken.",
         "note": "Latenz ist die mittlere Antwortzeit einer Serie, Jitter die mittlere Differenz zwischen aufeinanderfolgenden Antworten, Verlust der Anteil der Pings ohne Antwort. Ein Gerät, das gar nicht antwortet, meldet die Verfügbarkeitsüberwachung, nicht diese Messung."
     },
+    "appc": {
+        "title": "Anwendungsprüfungen",
+        "subtitle": "Ob die Anwendung wirklich funktioniert, nicht nur ob der Server auf Ping antwortet: eine Webseite (Code, Zeit, Text, Zertifikat), ein TCP-Port (mit Begrüßung des Dienstes) und DNS.",
+        "add": "Prüfung hinzufügen",
+        "edit": "Bearbeiten",
+        "remove": "Entfernen",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "test": "Jetzt testen (ohne Speichern)",
+        "runNow": "Alle ausführen",
+        "empty": "Noch keine Prüfungen. Füge eine Webseite, einen Dienst-Port oder einen DNS-Namen hinzu.",
+        "kind": {
+            "http": "Web (HTTP/HTTPS)",
+            "tcp": "TCP-Port",
+            "dns": "DNS"
+        },
+        "col": {
+            "check": "Prüfung",
+            "state": "Status",
+            "resp": "Antwort",
+            "p95": "p95 24 h",
+            "up24": "24 h",
+            "up7": "7 T",
+            "cert": "Zertifikat",
+            "detail": "Details"
+        },
+        "ok": "läuft",
+        "fail": "Fehler",
+        "pending": "wartet",
+        "disabled": "aus",
+        "days": "{{n}} Tage",
+        "expired": "abgelaufen",
+        "f": {
+            "name": "Name",
+            "kind": "Art",
+            "target": "Ziel",
+            "targetHttp": "https://server/seite",
+            "targetTcp": "host:port",
+            "targetDns": "name.domain.de",
+            "interval": "Alle (Minuten)",
+            "timeout": "Zeitlimit (s)",
+            "slow": "Langsam ab (ms)",
+            "status": "Erwarteter Code (z. B. 200-399)",
+            "contains": "Muss Text enthalten",
+            "containsTcp": "Begrüßung muss enthalten (z. B. 220, SSH-)",
+            "insecure": "Zertifikat nicht prüfen (interne Seite)",
+            "dnsServer": "DNS-Server (leer: System)",
+            "expectIp": "Erwartete Adresse",
+            "enabled": "Aktiv"
+        },
+        "testOk": "Läuft: {{ms}} ms",
+        "testFail": "Fehler: {{err}}",
+        "note": "Alarm nach zwei fehlgeschlagenen Versuchen in Folge (Fehler: hoch, langsame Antwort: mittel), Zertifikat ab 14 Tagen vor Ablauf. Von der Antwort speichert der Agent nur Code, Zeit und einen kurzen Fehlertext. Antwortzeiten auch auf der Seite Metriken.",
+        "central": {
+            "failing": "Fehler",
+            "slow": "Langsam",
+            "cert": "Zertifikat läuft ab",
+            "none": "Alle Anwendungsprüfungen laufen ({{n}})."
+        }
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",
@@ -2183,6 +2243,8 @@
             "rtt": "Latenz (RTT)",
             "jitter": "Jitter",
             "loss": "Paketverlust",
+            "resp": "Antwortzeit der Anwendung",
+            "app_up": "Anwendung läuft",
             "other": "andere"
         }
     },

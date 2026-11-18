@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, HeartPulse, Layers3, FileClock, Radio } from 'lucide-react'
+import { Activity, AppWindow, HeartPulse, Layers3, FileClock, Radio } from 'lucide-react'
 import { centralApi, centralConfig, type CentralSoc } from '../lib/api'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { SvcPill, modeText, MonthCell } from './Services'
@@ -118,6 +118,37 @@ function CentralQuality({ parts }: { parts: Array<{ tenant: string; q: NonNullab
   )
 }
 
+// 3.83: application checks per client - what fails, what is slow, certificates about to expire
+function CentralApps({ parts }: { parts: Array<{ tenant: string; a: NonNullable<NonNullable<CentralSoc['availability']>['apps']> | null }> }) {
+  const { t } = useTranslation()
+  const ago = useAgo()
+  const withApps = parts.filter(p => p.a && p.a.total > 0)
+  if (withApps.length === 0) return null
+  const rows = withApps.flatMap(({ tenant, a }) => [
+    ...a!.bad.map(b => ({ tenant, n: b.n, what: t('appc.central.failing'), extra: `${t(`appc.kind.${b.k}`)}${b.code ? ` · HTTP ${b.code}` : ''} · ${ago(b.since)}`, red: true })),
+    ...a!.slow.map(s => ({ tenant, n: s.n, what: t('appc.central.slow'), extra: s.ms != null ? `${Math.round(s.ms)} ms` : '', red: false })),
+    ...a!.cert.map(c => ({ tenant, n: c.n, what: t('appc.central.cert'), extra: c.days == null ? '' : c.days < 0 ? t('appc.expired') : t('appc.days', { n: Math.floor(c.days) }), red: (c.days ?? 99) <= 3 })),
+  ])
+  const total = withApps.reduce((n, p) => n + p.a!.total, 0)
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-medium text-slate-700 flex items-center gap-2"><AppWindow size={14} className="text-indigo-600" /> {t('appc.title')}</h2>
+      {rows.length === 0 ? <p className="text-sm text-slate-500">{t('appc.central.none', { n: total })}</p> : (
+        <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+          {rows.map((r, i) => (
+            <div key={i} className={cn('flex items-center gap-3 px-4 py-2', r.red ? 'bg-red-50/40' : '')}>
+              <span className="w-40 shrink-0"><TenantBadge tenant={r.tenant} /></span>
+              <span className="font-medium text-slate-900 flex-1 truncate">{r.n}</span>
+              <span className={cn('text-xs w-36', r.red ? 'text-red-700' : 'text-amber-700')}>{r.what}</span>
+              <span className="text-xs text-slate-500 w-56 truncate">{r.extra}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function CentralAvailabilityPage() {
   const { t } = useTranslation()
   const ago = useAgo()
@@ -150,6 +181,7 @@ export function CentralAvailabilityPage() {
             </div>
           )}
           <CentralQuality parts={withData.map(p => ({ tenant: p.tenant, q: p.soc.availability!.quality ?? null }))} />
+          <CentralApps parts={withData.map(p => ({ tenant: p.tenant, a: p.soc.availability!.apps ?? null }))} />
         </>
       )}
     </Shell>
