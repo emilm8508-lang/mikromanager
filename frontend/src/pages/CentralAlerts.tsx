@@ -541,7 +541,7 @@ function HistoryPanel() {
                     <td className="py-2 whitespace-nowrap text-xs">{formatDate(h.triggered_at)}</td>
                     <td>{h.tenant}</td>
                     <td>{h.event_type}</td>
-                    <td className="text-xs">{ev.device_name ?? ev.device_ip ?? '?'}</td>
+                    <td className="text-xs">{ev.device_name ?? ev.hostname ?? ev.device_ip ?? ev.ip ?? '?'}{ev.mount ? <span className="text-slate-400"> · {ev.mount}</span> : null}{ev.value_pct != null ? <span className="text-slate-400"> · {Math.round(Number(ev.value_pct))}%</span> : null}</td>
                     <td className="text-xs text-slate-600">
                       {ev.count !== undefined && <>× {ev.count}</>}
                       {ev.sources && ev.sources.length > 0 && (

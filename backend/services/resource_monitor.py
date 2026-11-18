@@ -637,7 +637,7 @@ def _collect_linux_events(state: dict) -> List[dict]:
             if crossed is True:
                 events.append({
                     "type": "memory_high", "host_type": "linux", "host_id": h.id, "ip": h.ip,
-                    "hostname": identity, "value_pct": h.mem_used_pct, "count": 1, "detected_at": now_iso,
+                    "hostname": identity, "device_name": identity, "device_ip": h.ip, "value_pct": h.mem_used_pct, "count": 1, "detected_at": now_iso,
                 })
                 try:
                     activity.record("memory_high", host_type="linux", ip=h.ip, hostname=identity,
@@ -652,7 +652,7 @@ def _collect_linux_events(state: dict) -> List[dict]:
                 if crossed is True:
                     events.append({
                         "type": "disk_space_low", "host_type": "linux", "host_id": h.id, "ip": h.ip,
-                        "hostname": identity, "mount": d.mount_point, "value_pct": d.pct,
+                        "hostname": identity, "device_name": identity, "device_ip": h.ip, "mount": d.mount_point, "value_pct": d.pct,
                         "count": 1, "detected_at": now_iso,
                     })
                     try:
@@ -675,7 +675,7 @@ def _collect_windows_events(state: dict) -> List[dict]:
             if crossed is True:
                 events.append({
                     "type": "memory_high", "host_type": "windows", "host_id": h.id, "ip": h.ip,
-                    "hostname": identity, "value_pct": h.mem_used_pct, "count": 1, "detected_at": now_iso,
+                    "hostname": identity, "device_name": identity, "device_ip": h.ip, "value_pct": h.mem_used_pct, "count": 1, "detected_at": now_iso,
                 })
                 try:
                     activity.record("memory_high", host_type="windows", ip=h.ip, hostname=identity,
@@ -690,7 +690,7 @@ def _collect_windows_events(state: dict) -> List[dict]:
                 if crossed is True:
                     events.append({
                         "type": "disk_space_low", "host_type": "windows", "host_id": h.id, "ip": h.ip,
-                        "hostname": identity, "mount": d.drive_letter, "value_pct": d.pct,
+                        "hostname": identity, "device_name": identity, "device_ip": h.ip, "mount": d.drive_letter, "value_pct": d.pct,
                         "count": 1, "detected_at": now_iso,
                     })
                     try:

@@ -162,7 +162,8 @@ def classify(e: dict) -> dict:
 
 
 def _device_of(e: dict) -> Optional[str]:
-    return (e.get("device_name") or e.get("server_name") or e.get("host_name") or e.get("agent_name") or None)
+    return (e.get("device_name") or e.get("server_name") or e.get("host_name") or e.get("hostname") or e.get("agent_name")
+            or e.get("device_ip") or e.get("ip") or None)
 
 
 def fingerprint(family: str, device: Optional[str], e: dict) -> str:
@@ -573,7 +574,7 @@ def public_summary() -> dict:
                                                                  # 3.69: a failed Windows logon's fields and the sources NetFlow saw
                                                                  "logon_types", "workstations", "reasons", "no_such_users", "sources_from_netflow")}
             alerts.append({"id": a.id, "rule": a.rule, "source": a.source, "category": a.category, "severity": a.severity, "title": a.title,
-                           "device": a.device_name, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
+                           "device": a.device_name or a.ip, "asset": a.asset_id, "status": a.status, "owner": a.owner, "count": a.count, "first": r["first_seen"], "last": r["last_seen"],
                            "mitre": a.mitre, "detail": d, "root": a.root_name})
         st.pop("top_devices", None)
         return {"at": _iso(now), "stats": st, "alerts": alerts}

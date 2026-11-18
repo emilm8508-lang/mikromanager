@@ -3123,6 +3123,10 @@ export interface AlertHistoryEntry {
     type?: string
     device_name?: string
     device_ip?: string
+    hostname?: string
+    ip?: string
+    mount?: string
+    value_pct?: number
     count?: number
     sources?: string[]
     users?: string[]

@@ -2,6 +2,14 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.81 — 2026-11-18
+- Alerts and the alert history showed "?" as the device for `memory_high` and `disk_space_low`. The host events named their host only as `hostname` (and the address as `ip`), and nothing read those fields.
+  - The agent: Linux and Windows host events also carry `device_name` and `device_ip`. `hostname` is kept for older readers.
+  - The SOC layer reads `hostname` / `device_ip` / `ip` when no device name is given. Alerts already open with no name are sent to Central with their address.
+  - Central: the alert history, the notifications ("Zasób:") and the digest fall back to `hostname` and `ip`, so events from agents before 3.81 are named too. The history also shows the mount / drive and the percentage.
+  - An open memory / disk alert without a device gets a new fingerprint once the host is named, so it shows once more under the host's name; the nameless one is closed by the 14-day stale rule (or by hand).
+- Tested: 2 new regression tests (backend/tests/test_alert_device_name.py), tsc, PHP lint. Not yet checked on Central with real events.
+
 ## 3.80 — 2026-11-17
 - The API first, kept longer. In 3.79 a router was read over the shared API login only after an API read had worked. On a router where REST always worked, that never happened. Seen at mcprojekt on 3.79: a REST login ("logged in from 192.168.2.21 via rest-api" + "logged in via api") about every 12.5 minutes, each logged out by RouterOS 10 minutes later.
   - The API is now tried first by default. When it does not answer (refused, filtered, timeout), that router goes REST-first for 30 minutes, with a single API try and no repeat.

@@ -123,7 +123,7 @@ function alerts_dispatch_channel(array $channel, string $tenant, array $event, a
 
 function alerts_format_message(string $tenant, array $event, array $rule): string {
     $type = $event['type'] ?? '?';
-    $device = $event['device_name'] ?? $event['device_ip'] ?? '?';
+    $device = $event['device_name'] ?? $event['hostname'] ?? $event['device_ip'] ?? $event['ip'] ?? '?';
     $ruleName = $rule['name'] ?? '';
     $prefix = $ruleName ? "[$ruleName] " : '';
 
@@ -193,7 +193,7 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
 "
                  . "Tenant: {$tenant}
 "
-                 . "Zasób: " . ($event['device_name'] ?? '?') . "
+                 . "Zasób: " . ($event['device_name'] ?? $event['hostname'] ?? $event['ip'] ?? '?') . "
 "
                  . "Stan: {$state}
 "
@@ -205,7 +205,7 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
 "
                  . "Tenant: {$tenant}
 "
-                 . "Zasób: " . ($event['device_name'] ?? '?') . "
+                 . "Zasób: " . ($event['device_name'] ?? $event['hostname'] ?? $event['ip'] ?? '?') . "
 "
                  . "Przerwa trwała: {$dur}";
         case 'vuln_review_due':
@@ -1590,7 +1590,7 @@ function activity_detect_agent_update(PDO $pdo, string $tenant, ?string $current
 
 
 function activity_format_message(string $type, array $e): string {
-    $name = $e['device_name'] ?? $e['device_ip'] ?? '?';
+    $name = $e['device_name'] ?? $e['hostname'] ?? $e['device_ip'] ?? $e['ip'] ?? '?';
     switch ($type) {
         case 'firmware_upgraded':
             $old = $e['old_version'] ?? '?';
