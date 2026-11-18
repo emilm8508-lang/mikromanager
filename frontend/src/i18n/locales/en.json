@@ -1899,6 +1899,33 @@
             "title": "What will run out within 30 days"
         }
     },
+    "escg": {
+        "title": "Escalation groups",
+        "intro": "Alerts of chosen equipment can escalate on other times and to other people. A group picks assets (every condition given must hold) and its escalations go to Central as an event type of their own. The first group that matches wins.",
+        "name": "Group name",
+        "route": "Route",
+        "eventType": "Event type in Central",
+        "remove": "Remove group",
+        "when": "Which alerts",
+        "assetGroups": "Asset groups (comma separated)",
+        "nameMatch": "Name contains",
+        "types": "Type",
+        "criticality": "Criticality",
+        "times": "Escalation times (empty: as general)",
+        "general": "as general",
+        "exclusive": "Only to this route (no general soc_escalated)",
+        "add": "Add group",
+        "how": "In Central add an alert rule with the type \"Group escalation\" and the same route. \"Minimum count\" N is the escalation level, so level 1 can go to the team and level 2 to the manager. Asset groups are: servers, workstations, network, printers, virtual, credentialed and your own tags from the inventory.",
+        "type": {
+            "windows": "Windows",
+            "linux": "Linux",
+            "network": "network",
+            "printer": "printers",
+            "virtual": "virtual",
+            "server": "servers",
+            "other": "other"
+        }
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",

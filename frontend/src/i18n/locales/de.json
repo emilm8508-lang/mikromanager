@@ -1899,6 +1899,33 @@
             "title": "Was in 30 Tagen knapp wird"
         }
     },
+    "escg": {
+        "title": "Eskalationsgruppen",
+        "intro": "Alarme ausgewählter Geräte können zu anderen Zeiten und an andere Personen eskalieren. Eine Gruppe wählt Assets aus (alle angegebenen Bedingungen müssen gelten), ihre Eskalationen gehen als eigener Ereignistyp an die Zentrale. Die erste passende Gruppe gewinnt.",
+        "name": "Gruppenname",
+        "route": "Route",
+        "eventType": "Ereignistyp in der Zentrale",
+        "remove": "Gruppe entfernen",
+        "when": "Welche Alarme",
+        "assetGroups": "Asset-Gruppen (kommagetrennt)",
+        "nameMatch": "Name enthält",
+        "types": "Typ",
+        "criticality": "Kritikalität",
+        "times": "Eskalationszeiten (leer: wie allgemein)",
+        "general": "wie allgemein",
+        "exclusive": "Nur an diese Route (ohne allgemeines soc_escalated)",
+        "add": "Gruppe hinzufügen",
+        "how": "In der Zentrale eine Alarmregel mit dem Typ „Gruppen-Eskalation“ und derselben Route anlegen. „Mindestanzahl“ N ist die Eskalationsstufe: Stufe 1 kann an das Team gehen, Stufe 2 an die Leitung. Asset-Gruppen sind: servers, workstations, network, printers, virtual, credentialed und eigene Tags aus dem Inventar.",
+        "type": {
+            "windows": "Windows",
+            "linux": "Linux",
+            "network": "Netzwerk",
+            "printer": "Drucker",
+            "virtual": "virtuell",
+            "server": "Server",
+            "other": "andere"
+        }
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",

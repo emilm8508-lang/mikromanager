@@ -1899,6 +1899,33 @@
             "title": "Ce qui va s'épuiser sous 30 jours"
         }
     },
+    "escg": {
+        "title": "Groupes d'escalade",
+        "intro": "Les alertes d'équipements choisis peuvent escalader à d'autres moments et vers d'autres personnes. Un groupe choisit des actifs (toutes les conditions données doivent être remplies) et ses escalades vont à la Centrale comme un type d'événement propre. Le premier groupe qui correspond l'emporte.",
+        "name": "Nom du groupe",
+        "route": "Route",
+        "eventType": "Type d'événement dans la Centrale",
+        "remove": "Supprimer le groupe",
+        "when": "Quelles alertes",
+        "assetGroups": "Groupes d'actif (séparés par des virgules)",
+        "nameMatch": "Le nom contient",
+        "types": "Type",
+        "criticality": "Criticité",
+        "times": "Délais d'escalade (vide : comme le général)",
+        "general": "comme le général",
+        "exclusive": "Uniquement vers cette route (sans le soc_escalated général)",
+        "add": "Ajouter un groupe",
+        "how": "Dans la Centrale, ajoutez une règle d'alerte de type « Escalade de groupe » avec la même route. Le « minimum » N est le niveau d'escalade : le niveau 1 peut aller à l'équipe, le niveau 2 au responsable. Groupes d'actif : servers, workstations, network, printers, virtual, credentialed et vos étiquettes de l'inventaire.",
+        "type": {
+            "windows": "Windows",
+            "linux": "Linux",
+            "network": "réseau",
+            "printer": "imprimantes",
+            "virtual": "virtuels",
+            "server": "serveurs",
+            "other": "autres"
+        }
+    },
     "svc": {
         "title": "Services métier et SLA",
         "subtitle": "Un service est ce que les gens utilisent (« messagerie », « comptabilité », « la boutique »), décrit comme l'équipement dont il a besoin. Son état découle de la disponibilité de cet équipement et le SLA est calculé à partir de l'historique.",

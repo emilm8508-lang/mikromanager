@@ -32,6 +32,7 @@ class QuickBody(BaseModel):
 class EscalationBody(BaseModel):
     enabled: Optional[bool] = None
     levels: Optional[Dict[str, List[int]]] = None
+    groups: Optional[List[dict]] = None            # 3.88: escalation groups (services/escalation.py)
 
 
 @router.get("")

@@ -229,6 +229,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
   const [name, setName] = useState('')
   const [tenant, setTenant] = useState('')
   const [eventType, setEventType] = useState('failed_logins')
+  const [route, setRoute] = useState('')               // 3.88: an escalation group's route - the event type soc_escalated.<route>
   // Default 1, not some higher number - most event types (anything that's
   // a one-off "it happened" transition: temperature_high, memory_high,
   // disk_space_low, tunnel_down, device_log_critical, ...) always report
@@ -258,13 +259,14 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
 
   const resetForm = () => {
     setShowForm(false); setEditingId(null)
-    setName(''); setTenant(''); setEventType('failed_logins')
+    setName(''); setTenant(''); setEventType('failed_logins'); setRoute('')
     setMinCount(1); setCooldownMin(60); setSelectedChannels([])
   }
 
   const beginEdit = (r: AlertRule) => {
     setEditingId(r.id)
-    setName(r.name ?? ''); setTenant(r.tenant ?? ''); setEventType(r.event_type)
+    setName(r.name ?? ''); setTenant(r.tenant ?? '')
+    if (r.event_type.startsWith('soc_escalated.')) { setEventType('__route'); setRoute(r.event_type.slice(14)) } else { setEventType(r.event_type); setRoute('') }
     setMinCount(r.min_count); setCooldownMin(Math.round(r.cooldown_sec / 60))
     setSelectedChannels(r.channel_ids)
     setShowForm(true)
@@ -272,12 +274,14 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
 
   const submit = async () => {
     if (selectedChannels.length === 0) { alert(t('alerts.selectChannel')); return }
+    const routeSlug = route.trim().toLowerCase()
+    if (eventType === '__route' && !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(routeSlug)) { alert(t('alerts.routeInvalid')); return }
     setSubmitting(true)
     try {
       const payload = {
         name: name.trim() || undefined,
         tenant: tenant || undefined,
-        event_type: eventType,
+        event_type: eventType === '__route' ? `soc_escalated.${routeSlug}` : eventType,
         min_count: minCount,
         cooldown_sec: cooldownMin * 60,
         channel_ids: selectedChannels,
@@ -371,6 +375,7 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="bizservice_ok">{t('alerts.eventBizserviceOk')}</option>
                 <option value="soc_alert">{t('alerts.eventSocAlert')}</option>
                 <option value="soc_escalated">{t('alerts.eventSocEscalated')}</option>
+                <option value="__route">{t('alerts.eventSocEscalatedRoute')}</option>
                 <option value="hostmon_host_down">{t('alerts.eventHostmonDown')}</option>
                 <option value="hostmon_host_up">{t('alerts.eventHostmonUp')}</option>
                 <option value="host_service_down">{t('alerts.eventHostServiceDown')}</option>
@@ -394,6 +399,10 @@ function RulesPanel({ channels, tenants }: { channels: AlertChannel[]; tenants: 
                 <option value="checkmk_host_up">{t('alerts.eventCheckmkHostUp')}</option>
                 <option value="wazuh_alert">{t('alerts.eventWazuhAlert')}</option>
               </select>
+              {eventType === '__route' && (
+                <input value={route} onChange={e => setRoute(e.target.value)} placeholder={t('alerts.routePlaceholder') as string}
+                  className="w-full mt-1 border border-slate-300 rounded px-2 py-1 font-mono text-sm" />
+              )}
             </label>
             <label className="text-sm">
               <span className="text-slate-600">{t('alerts.minCount')}</span>

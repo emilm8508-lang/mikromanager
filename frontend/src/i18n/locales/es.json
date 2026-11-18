@@ -1899,6 +1899,33 @@
             "title": "Qué se agotará en 30 días"
         }
     },
+    "escg": {
+        "title": "Grupos de escalado",
+        "intro": "Las alertas de equipos elegidos pueden escalar en otros tiempos y a otras personas. Un grupo elige activos (deben cumplirse todas las condiciones dadas) y sus escalados van a la Central como un tipo de evento propio. Gana el primer grupo que coincide.",
+        "name": "Nombre del grupo",
+        "route": "Ruta",
+        "eventType": "Tipo de evento en la Central",
+        "remove": "Quitar grupo",
+        "when": "Qué alertas",
+        "assetGroups": "Grupos de activo (separados por comas)",
+        "nameMatch": "El nombre contiene",
+        "types": "Tipo",
+        "criticality": "Criticidad",
+        "times": "Tiempos de escalado (vacío: como el general)",
+        "general": "como el general",
+        "exclusive": "Solo a esta ruta (sin el soc_escalated general)",
+        "add": "Añadir grupo",
+        "how": "En la Central añade una regla de alerta con el tipo «Escalado de grupo» y la misma ruta. El «mínimo» N es el nivel de escalado: el nivel 1 puede ir al equipo y el 2 al responsable. Grupos de activo: servers, workstations, network, printers, virtual, credentialed y tus etiquetas del inventario.",
+        "type": {
+            "windows": "Windows",
+            "linux": "Linux",
+            "network": "red",
+            "printer": "impresoras",
+            "virtual": "virtuales",
+            "server": "servidores",
+            "other": "otros"
+        }
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",

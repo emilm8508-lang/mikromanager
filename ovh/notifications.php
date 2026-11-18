@@ -126,6 +126,12 @@ function alerts_format_message(string $tenant, array $event, array $rule): strin
     $device = $event['device_name'] ?? $event['hostname'] ?? $event['device_ip'] ?? $event['ip'] ?? '?';
     $ruleName = $rule['name'] ?? '';
     $prefix = $ruleName ? "[$ruleName] " : '';
+    // 3.88: an escalation group's events are soc_escalated.<route> (backend/services/escalation.py) - the same message, with the group
+    $route = '';
+    if (strpos($type, 'soc_escalated.') === 0) {
+        $route = ' · ' . ($event['group'] ?? substr($type, 14));
+        $type = 'soc_escalated';
+    }
 
     switch ($type) {
         case 'failed_logins':
@@ -448,7 +454,7 @@ Problem trwał: " . ($dur >= 60 ? floor($dur / 60) . ' min' : $dur . ' s');
             return $msg;
         case 'soc_escalated':
             $min = (int)($event['minutes'] ?? 0);
-            return "⏫ {$prefix}Alert SOC bez reakcji od {$min} min (poziom eskalacji " . (int)($event['count'] ?? 0) . ")
+            return "⏫ {$prefix}Alert SOC bez reakcji od {$min} min (poziom eskalacji " . (int)($event['count'] ?? 0) . "{$route})
 "
                  . "Tenant: {$tenant}
 "

@@ -1711,6 +1711,10 @@ export const hostLogsApi = {
   run: () => api.post('/host-logs/run').then(r => r.data),
 }
 // maintenance windows and escalation (services/maintenance.py, services/escalation.py)
+export interface EscalationGroup {
+  name: string; route: string; exclusive: boolean; levels: Record<string, number[]>
+  match: { groups: string[]; types: string[]; criticality: string[]; name: string | null }
+}
 export interface MaintWindow {
   id: number; name: string; kind: 'once' | 'weekly'; scope_all: boolean; asset_ids: number[]; assets: string[]; starts_at: string | null; ends_at: string | null
   days: number[]; start_time: string | null; duration_min: number | null; enabled: boolean; active: boolean; suppressed: number; created_by: string | null
@@ -1719,12 +1723,12 @@ export interface MaintBody {
   name: string; kind: 'once' | 'weekly'; starts_at?: string; ends_at?: string; days?: number[]; start_time?: string; duration_min?: number; scope_all: boolean; asset_ids: number[]; enabled: boolean
 }
 export const maintApi = {
-  overview: () => api.get<{ windows: MaintWindow[]; escalation: { enabled: boolean; levels: Record<string, number[]> } }>('/maintenance').then(r => r.data),
+  overview: () => api.get<{ windows: MaintWindow[]; escalation: { enabled: boolean; levels: Record<string, number[]>; groups?: EscalationGroup[] } }>('/maintenance').then(r => r.data),
   create: (b: MaintBody) => api.post<{ id: number }>('/maintenance', b).then(r => r.data),
   update: (id: number, b: MaintBody) => api.put<{ id: number }>(`/maintenance/${id}`, b).then(r => r.data),
   remove: (id: number) => api.delete(`/maintenance/${id}`).then(r => r.data),
   quick: (b: { asset_ids: number[]; minutes: number; scope_all: boolean }) => api.post<{ id: number }>('/maintenance/quick', b).then(r => r.data),
-  escalation: (b: { enabled: boolean; levels: Record<string, number[]> }) => api.put('/maintenance/escalation', b).then(r => r.data),
+  escalation: (b: { enabled?: boolean; levels?: Record<string, number[]>; groups?: EscalationGroup[] }) => api.put('/maintenance/escalation', b).then(r => r.data),
 }
 // the AI assistant (services/ai_assistant.py)
 export type AiScope = 'alerts' | 'assets' | 'vulnerabilities' | 'availability' | 'configs' | 'syslog'

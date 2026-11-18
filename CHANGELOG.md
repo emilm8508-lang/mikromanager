@@ -2,6 +2,29 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.88 — 2026-11-18
+- Escalation groups (services/escalation.py): alerts of chosen equipment escalate on their own times to their own people.
+  - A group picks the alerts' assets by asset groups (servers, workstations, network, printers, virtual, credentialed and the operator's own tags), type, criticality, or a part of the name.
+    - Every condition given must hold, and the first group that matches wins. An alert without an asset matches by name only.
+  - A group has its own times per severity; a severity it leaves empty keeps the general times. It also has a route, a short name like `network-team`.
+  - Its escalations go to Central as the event type `soc_escalated.<route>`, with the level in `count` and the group's name in the event.
+    - A Central alert rule for that type with "minimum count" N sends level N of that group to its own channel. Central matches rules by event type, so no Central schema change was needed.
+    - "Exclusive" (the default) sends a group's escalations only there; off, the general `soc_escalated` goes too.
+  - Up to 20 groups, each with its own route. They are kept with the escalation settings in data/escalation.json. Without groups nothing changes.
+  - The Maintenance page has a new "Escalation groups" editor under the escalation settings. It shows the event type each group sends.
+  - Central:
+    - the alert rule form has the type "Group escalation (soc_escalated.route)" with a route field, and editing a rule of such a type shows its route;
+    - the escalation message names the group.
+  - API: `PUT /api/maintenance/escalation` also takes `groups` (backward compatible).
+- Tested: 6 new regression tests (backend/tests/test_escalation_groups.py):
+  - validation;
+  - a group's own times and exclusive route;
+  - not exclusive also sends the general event;
+  - all conditions must hold and the first group wins, and name-only matching without an asset;
+  - unique routes and saving;
+  - nothing changes without groups.
+  - tsc and PHP lint OK. Not seen in a browser, and the Central rule with a route has not been tried with a real notification.
+
 ## 3.87 — 2026-11-18
 - What will run out, and when (services/forecasts.py): one list of forecasts from what the agent already measures. Nothing new is read from any device.
   - Disks, memory and DHCP pools growing steadily to full use the same straight-line fit as the disk forecast.

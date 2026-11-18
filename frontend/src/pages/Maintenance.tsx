@@ -5,6 +5,7 @@ import { BellOff, Pencil, Plus, Trash2 } from 'lucide-react'
 import { assetsApi, maintApi, MaintWindow, MaintBody } from '../lib/api'
 import { Modal } from '../components/ui/Modal'
 import { cn } from '../lib/utils'
+import { EscalationGroups } from '../components/EscalationGroups'
 
 function errText(e: unknown): string {
   const x = e as { response?: { data?: { detail?: string } }; message?: string }
@@ -205,6 +206,7 @@ export function Maintenance() {
         )}
       </div>
       {d && <Escalation s={d.escalation} />}
+      {d && <EscalationGroups groups={d.escalation.groups ?? []} />}
       {editing && <WindowForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </div>
   )

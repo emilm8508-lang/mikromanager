@@ -648,6 +648,9 @@
                     "eventBizserviceOk":  "Usługa biznesowa działa ponownie",
                     "eventSocAlert":  "Nowy alert SOC (min. liczba = waga: 1 niska, 2 średnia, 3 wysoka, 4 krytyczna)",
                     "eventSocEscalated":  "Eskalacja alertu SOC bez reakcji (min. liczba = poziom eskalacji)",
+                    "eventSocEscalatedRoute": "Eskalacja grupy (soc_escalated.ścieżka)",
+                    "routePlaceholder": "ścieżka grupy, np. network-team",
+                    "routeInvalid": "Ścieżka: 1-32 małe litery, cyfry, - lub _ (taka jak w grupie eskalacji agenta).",
                     "eventHostmonDown":  "Monitoring hostów: host przestał odpowiadać",
                     "eventHostmonUp":  "Monitoring hostów: host odpowiada ponownie",
                     "eventHostServiceDown":  "Usługa na hoście niezgodna z oczekiwanym stanem",
@@ -2061,6 +2064,33 @@
         "note": "Prognoza to prosta dopasowana do ostatnich 7 dni: liczy się tylko stały wzrost (dopasowanie co najmniej 0,6, co najmniej 2 dni pomiarów), a nie wahania. Alerty: dysk w ciągu 14 dni, pamięć w ciągu 7 dni (często wyciek pamięci), pula DHCP w ciągu 7 dni, certyfikat 14 dni przed wygaśnięciem.",
         "central": {
             "title": "Co się wyczerpie w ciągu 30 dni"
+        }
+    },
+    "escg": {
+        "title": "Grupy eskalacji",
+        "intro": "Alerty wybranego sprzętu mogą eskalować w innym czasie i do innych osób. Grupa wybiera zasoby (wszystkie podane warunki muszą być spełnione), a jej eskalacje idą do Centrali jako osobny typ zdarzenia. Wygrywa pierwsza pasująca grupa.",
+        "name": "Nazwa grupy",
+        "route": "Ścieżka",
+        "eventType": "Typ zdarzenia w Centrali",
+        "remove": "Usuń grupę",
+        "when": "Których alertów dotyczy",
+        "assetGroups": "Grupy zasobu (po przecinku)",
+        "nameMatch": "Nazwa zawiera",
+        "types": "Typ",
+        "criticality": "Krytyczność",
+        "times": "Czasy eskalacji (puste: jak ogólne)",
+        "general": "jak ogólne",
+        "exclusive": "Tylko do tej ścieżki (bez ogólnej eskalacji soc_escalated)",
+        "add": "Dodaj grupę",
+        "how": "W Centrali dodaj regułę alertu z typem „Eskalacja grupy” i tą samą ścieżką. „Minimalna liczba” N to poziom eskalacji, więc poziom 1 może iść do zespołu, a poziom 2 do kierownika. Grupy zasobu to: servers, workstations, network, printers, virtual, credentialed oraz własne tagi z inwentarza.",
+        "type": {
+            "windows": "Windows",
+            "linux": "Linux",
+            "network": "sieciowe",
+            "printer": "drukarki",
+            "virtual": "wirtualne",
+            "server": "serwery",
+            "other": "inne"
         }
     },
     "svc": {
