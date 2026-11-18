@@ -37,6 +37,7 @@
                 "socRules": "Reglas de detección",
                 "socRisk": "Riesgo de activos",
                 "avail": "Disponibilidad",
+                "ipam": "Direcciones IP (IPAM)",
                 "svc": "Servicios de negocio",
                 "cfg": "Configuraciones de routers",
                 "ai": "Asistente de IA",
@@ -1835,6 +1836,45 @@
         "changed": "ruta distinta de la habitual ({{n}} saltos)",
         "ok": "sin problemas",
         "note": "Un salto se señala solo cuando la pérdida (o un salto de latencia de 50 ms) empieza en él y dura hasta el destino. Un router que responde lento al ping mientras los saltos siguientes van bien solo se protege (límite de ICMP) y no es una avería. «Distinta de la habitual» compara con la ruta más frecuente del último día."
+    },
+    "ipam": {
+        "title": "Direcciones IP (IPAM)",
+        "subtitle": "Uso de las subredes y pools DHCP, direcciones libres y conflictos, de las tablas de los routers MikroTik (direcciones, pools, concesiones DHCP, ARP) y del inventario. Lectura cada 30 minutos.",
+        "runNow": "Leer ahora",
+        "empty": "Aún no hay datos. Aparecerán tras la primera lectura de los routers con credenciales guardadas.",
+        "count": {
+            "subnets": "Subredes",
+            "pools": "Pools DHCP",
+            "conflicts": "Conflictos de direcciones",
+            "static": "Direcciones fijas en pools DHCP"
+        },
+        "readErrors": "No leído",
+        "conflicts": "Conflictos: una dirección, varias MAC a la vez",
+        "conflictHint": "Dos dispositivos usan la misma dirección (p. ej. una dirección fija que el DHCP también dio a otro). Ambos pierden conexión de vez en cuando.",
+        "pools": "Pools DHCP",
+        "leased": "{{bound}} de {{size}}",
+        "notServed": "ningún servidor DHCP lo usa",
+        "fullIn": "lleno en ~{{n}} días",
+        "col": {
+            "network": "Subred",
+            "router": "Router",
+            "size": "Direcciones",
+            "used": "Usadas",
+            "free": "Libres",
+            "usage": "Uso",
+            "pools": "Pools DHCP"
+        },
+        "freeFirst": "Primeras direcciones libres ({{n}})",
+        "noneFree": "ninguna libre",
+        "staticInPool": "Direcciones dentro de un rango DHCP sin concesión ({{n}})",
+        "staticHint": "Suelen ser direcciones fijas manuales. El DHCP puede darlas a otro equipo: sácalas del pool o añade una concesión estática.",
+        "staticShort": "{{n}} fijas en el pool",
+        "note": "Usada = dirección vista en ARP, con concesión DHCP activa o en el inventario. Las subredes mayores que /16 se listan sin contar direcciones. Una MAC que un router muestra para muchas direcciones (proxy ARP) no es conflicto. Alertas: conflicto de dirección y pool DHCP desde el 90 % (o lleno en 7 días), tras dos lecturas seguidas.",
+        "central": {
+            "counts": "{{subnets}} subredes, {{pools}} pools",
+            "conflicts": "{{n}} conflictos",
+            "ok": "sin pools ni subredes llenos"
+        }
     },
     "svc": {
         "title": "Servicios de negocio y SLA",

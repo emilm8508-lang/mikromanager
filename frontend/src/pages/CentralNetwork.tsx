@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, AppWindow, HeartPulse, Route, Layers3, FileClock, Radio } from 'lucide-react'
+import { Activity, AppWindow, Binary, HeartPulse, Route, Layers3, FileClock, Radio } from 'lucide-react'
 import { centralApi, centralConfig, type CentralSoc } from '../lib/api'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { SvcPill, modeText, MonthCell } from './Services'
@@ -118,6 +118,30 @@ function CentralQuality({ parts }: { parts: Array<{ tenant: string; q: NonNullab
   )
 }
 
+// 3.86: IP address management per client - conflicts, the fullest DHCP pools and subnets
+function CentralIpam({ parts }: { parts: Array<{ tenant: string; i: NonNullable<NonNullable<CentralSoc['availability']>['ipam']> | null }> }) {
+  const { t } = useTranslation()
+  const rows = parts.filter(p => p.i && p.i.subnets > 0)
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-medium text-slate-700 flex items-center gap-2"><Binary size={14} className="text-indigo-600" /> {t('ipam.title')}</h2>
+      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+        {rows.map(({ tenant, i }) => (
+          <div key={tenant} className={cn('flex items-start gap-3 px-4 py-2', i!.conflicts ? 'bg-red-50/40' : '')}>
+            <span className="w-40 shrink-0"><TenantBadge tenant={tenant} /></span>
+            <span className="text-xs text-slate-600 w-64">{t('ipam.central.counts', { subnets: i!.subnets, pools: i!.pools })}{i!.conflicts ? <span className="text-red-700 font-medium"> · {t('ipam.central.conflicts', { n: i!.conflicts })}</span> : null}{i!.static_in_pool ? <span className="text-amber-700"> · {t('ipam.staticShort', { n: i!.static_in_pool })}</span> : null}</span>
+            <span className="text-xs text-slate-600 flex-1">
+              {[...i!.full_pools.map(p => `DHCP ${p.n} (${p.r}) ${p.pct ?? '?'}%${p.days != null ? ` · ${t('ipam.fullIn', { n: Math.max(0, Math.round(p.days)) })}` : ''}`),
+                ...i!.full_subnets.map(s => `${s.net} ${s.pct ?? '?'}%`)].join(' · ') || t('ipam.central.ok')}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // 3.85: the paths to the own targets per client - where loss / delay starts, how often the path changed
 function CentralPaths({ parts }: { parts: Array<{ tenant: string; p: NonNullable<NonNullable<CentralSoc['availability']>['paths']> | null }> }) {
   const { t } = useTranslation()
@@ -210,6 +234,7 @@ export function CentralAvailabilityPage() {
           <CentralQuality parts={withData.map(p => ({ tenant: p.tenant, q: p.soc.availability!.quality ?? null }))} />
           <CentralApps parts={withData.map(p => ({ tenant: p.tenant, a: p.soc.availability!.apps ?? null }))} />
           <CentralPaths parts={withData.map(p => ({ tenant: p.tenant, p: p.soc.availability!.paths ?? null }))} />
+          <CentralIpam parts={withData.map(p => ({ tenant: p.tenant, i: p.soc.availability!.ipam ?? null }))} />
         </>
       )}
     </Shell>

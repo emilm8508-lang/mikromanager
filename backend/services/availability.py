@@ -396,7 +396,17 @@ def public_summary() -> dict:
     o = overview()
     return {"up": o["up"], "down": o["down"], "unreachable": o["unreachable"],
             "bad": [{"n": r["name"], "s": r["state"], "since": r["since"], "root": r["root"]} for r in o["items"] if r["state"] in ("down", "unreachable")][:40],
-            "at": _iso(_now()), "quality": _quality(), "apps": _apps(), "paths": _paths()}
+            "at": _iso(_now()), "quality": _quality(), "apps": _apps(), "paths": _paths(), "ipam": _ipam()}
+
+
+def _ipam() -> Optional[dict]:
+    """3.86: IP address management (services/ipam.py) - counts, the fullest subnets and DHCP pools, conflicts; for Central."""
+    try:
+        from services import ipam
+        return ipam.public_summary()
+    except Exception as e:
+        print(f"[availability] ipam summary error: {type(e).__name__}: {e}")
+        return None
 
 
 def _paths() -> Optional[dict]:

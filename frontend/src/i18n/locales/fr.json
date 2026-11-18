@@ -37,6 +37,7 @@
                 "socRules": "Règles de détection",
                 "socRisk": "Risque des équipements",
                 "avail": "Disponibilité",
+                "ipam": "Adresses IP (IPAM)",
                 "svc": "Services métier",
                 "cfg": "Configurations des routeurs",
                 "ai": "Assistant IA",
@@ -1835,6 +1836,45 @@
         "changed": "chemin différent de l'habituel ({{n}} sauts)",
         "ok": "aucun problème",
         "note": "Un saut n'est désigné que si la perte (ou un saut de latence de 50 ms) commence là et dure jusqu'à la cible. Un routeur qui répond lentement au ping alors que les sauts suivants vont bien ne fait que se protéger (limite ICMP) et n'est pas une panne. « Différent de l'habituel » compare avec le chemin le plus fréquent du dernier jour."
+    },
+    "ipam": {
+        "title": "Adresses IP (IPAM)",
+        "subtitle": "Occupation des sous-réseaux et des pools DHCP, adresses libres et conflits, à partir des tables des routeurs MikroTik (adresses, pools, baux DHCP, ARP) et de l’inventaire. Lecture toutes les 30 minutes.",
+        "runNow": "Lire maintenant",
+        "empty": "Pas encore de données. Elles apparaissent après la première lecture des routeurs avec identifiants enregistrés.",
+        "count": {
+            "subnets": "Sous-réseaux",
+            "pools": "Pools DHCP",
+            "conflicts": "Conflits d'adresses",
+            "static": "Adresses fixes dans les pools DHCP"
+        },
+        "readErrors": "Non lus",
+        "conflicts": "Conflits : une adresse, plusieurs MAC à la fois",
+        "conflictHint": "Deux appareils utilisent la même adresse (par ex. une adresse fixe que le DHCP a aussi donnée à un autre). Les deux perdent la connexion par moments.",
+        "pools": "Pools DHCP",
+        "leased": "{{bound}} sur {{size}}",
+        "notServed": "aucun serveur DHCP ne l'utilise",
+        "fullIn": "plein dans ~{{n}} jours",
+        "col": {
+            "network": "Sous-réseau",
+            "router": "Routeur",
+            "size": "Adresses",
+            "used": "Utilisées",
+            "free": "Libres",
+            "usage": "Occupation",
+            "pools": "Pools DHCP"
+        },
+        "freeFirst": "Premières adresses libres ({{n}})",
+        "noneFree": "aucune libre",
+        "staticInPool": "Adresses d'une plage DHCP utilisées sans bail ({{n}})",
+        "staticHint": "Souvent des adresses fixes manuelles. Le DHCP peut les donner à un autre appareil : sortez-les du pool ou ajoutez un bail statique.",
+        "staticShort": "{{n}} fixes dans le pool",
+        "note": "Utilisée = adresse vue dans l'ARP, avec un bail DHCP actif ou dans l'inventaire. Les sous-réseaux plus grands que /16 sont listés sans compter les adresses. Une MAC qu'un routeur montre pour beaucoup d'adresses (proxy ARP) n'est pas un conflit. Alertes : conflit d'adresse et pool DHCP dès 90 % (ou plein sous 7 jours), après deux lectures de suite.",
+        "central": {
+            "counts": "{{subnets}} sous-réseaux, {{pools}} pools",
+            "conflicts": "{{n}} conflits",
+            "ok": "aucun pool ni sous-réseau plein"
+        }
     },
     "svc": {
         "title": "Services métier et SLA",

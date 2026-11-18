@@ -11,6 +11,7 @@ import { Soc } from './pages/Soc'
 import { SocRules } from './pages/SocRules'
 import { SocRisk } from './pages/SocRisk'
 import { Availability } from './pages/Availability'
+import { Ipam } from './pages/Ipam'
 import { Services } from './pages/Services'
 import { SocSyslog } from './pages/SocSyslog'
 import { ConfigHistory } from './pages/ConfigHistory'
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/soc/rules" element={<SocRules />} />
             <Route path="/soc/risk" element={<SocRisk />} />
             <Route path="/availability" element={<Availability />} />
+            <Route path="/ipam" element={<Ipam />} />
             <Route path="/services" element={<Services />} />
             <Route path="/soc/syslog" element={<SocSyslog />} />
             <Route path="/config-history" element={<ConfigHistory />} />

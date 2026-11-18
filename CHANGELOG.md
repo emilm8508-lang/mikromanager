@@ -2,6 +2,32 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.86 — 2026-11-18
+- IP address management (services/ipam.py) from what the routers already know: how full each subnet and DHCP pool is, what is free, and which addresses are in conflict.
+  - Every 30 minutes, the MikroTik routers with a stored credential are read: `/ip/address`, `/ip/pool`, `/ip/dhcp-server`, `/ip/dhcp-server/lease` and `/ip/arp`.
+    - The reads go over the shared API login (3.73 / 3.80), so this adds no router log lines of its own. Read-only.
+    - The inventory's addresses also count as used.
+  - Subnets: every IPv4 network a router has an address in, with size, used, free, usage % and the first 40 free addresses. Networks larger than /16 are listed without counting.
+  - DHCP pools: size, bound leases, usage %, and the days until full when the usage grows steadily. The usage history is a metric series `ipam:pool:<router>:<pool>`, so it also charts on the Metrics page.
+  - Conflicts: an address answered by two or more MACs at once. That is either ARP of different routers, or an ARP entry against the bound lease of another MAC. A MAC that a router shows for 8+ addresses (proxy ARP, the router's own) is not counted.
+  - Fixed addresses in a pool: addresses inside a served DHCP range used without a lease, which DHCP may hand to another device.
+  - Alerts, after two passes in a row and closed when gone (also after an agent restart):
+    - `net.ip_conflict` (medium);
+    - `net.dhcp_pool` from 90% (high from 98%) or when the pool will be full within 7 days.
+  - A new page "IP addresses (IPAM)" in the Network menu shows the counts, conflicts, DHCP pools with usage bars and days to full, and subnets with usage. Expanding a subnet shows its free addresses and the fixed addresses in the pool.
+  - API: `GET /api/ipam`, `POST /api/ipam/run`.
+  - The last pass is kept in data/ipam_last.json, so the page is not empty after a restart.
+  - Central: the availability summary carries `ipam` (counts, the fullest pools and subnets, the number of conflicts; no host addresses or MACs). The Central availability page lists it per client, and MCP `client_availability` returns it.
+- Tested: 9 new regression tests (backend/tests/test_ipam.py):
+  - pool ranges;
+  - networks;
+  - pool and subnet usage, free addresses, fixed in pool, a /12 listed and not counted;
+  - conflicts between routers and against a lease, proxy ARP ignored;
+  - the alerts after two passes and closed, also after a restart;
+  - no host addresses in the Central summary.
+  - tsc OK.
+  - Not run against a real router (the field names follow RouterOS 7 REST and API), and the page was not seen in a browser.
+
 ## 3.85 — 2026-11-18
 - The path to a target hop by hop, and where a problem starts (services/net_path.py, the NetPath idea). Link quality says "the internet link loses 8%"; this says where.
   - Every 15 minutes, for each own link-quality target (by default 1.1.1.1, up to 10):

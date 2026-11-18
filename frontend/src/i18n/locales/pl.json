@@ -37,6 +37,7 @@
                 "socRules": "Reguły detekcji",
                 "socRisk": "Ryzyko zasobów",
                 "avail": "Dostępność",
+                "ipam": "Adresy IP (IPAM)",
                 "svc": "Usługi biznesowe",
                 "cfg": "Konfiguracje routerów",
                 "ai": "Asystent AI",
@@ -1999,6 +2000,45 @@
         "changed": "trasa inna niż zwykle ({{n}} przeskoków)",
         "ok": "bez problemów",
         "note": "Przeskok jest wskazany tylko wtedy, gdy utrata (lub skok opóźnienia o 50 ms) zaczyna się na nim i trwa aż do celu. Router, który sam wolno odpowiada na ping, a dalsze przeskoki są w porządku, tylko się chroni (limit ICMP) i nie jest awarią. „Trasa inna niż zwykle” to porównanie z najczęstszą trasą z ostatniej doby."
+    },
+    "ipam": {
+        "title": "Adresy IP (IPAM)",
+        "subtitle": "Zajętość podsieci i pul DHCP, wolne adresy i konflikty, z tablic routerów MikroTik (adresy, pule, dzierżawy DHCP, ARP) i z inwentarza. Odczyt co 30 minut.",
+        "runNow": "Odczytaj teraz",
+        "empty": "Brak danych. Pojawią się po pierwszym odczycie routerów z zapisanymi poświadczeniami.",
+        "count": {
+            "subnets": "Podsieci",
+            "pools": "Pule DHCP",
+            "conflicts": "Konflikty adresów",
+            "static": "Stałe adresy w pulach DHCP"
+        },
+        "readErrors": "Nie odczytano",
+        "conflicts": "Konflikty adresów: jeden adres, kilka adresów MAC naraz",
+        "conflictHint": "Dwa urządzenia używają tego samego adresu (np. ręcznie ustawiony adres, który DHCP dał też komuś innemu). Skutkiem są przerwy w łączności obu urządzeń.",
+        "pools": "Pule DHCP",
+        "leased": "{{bound}} z {{size}}",
+        "notServed": "żaden serwer DHCP jej nie używa",
+        "fullIn": "pełna za ~{{n}} dni",
+        "col": {
+            "network": "Podsieć",
+            "router": "Router",
+            "size": "Adresów",
+            "used": "Zajęte",
+            "free": "Wolne",
+            "usage": "Zajętość",
+            "pools": "Pule DHCP"
+        },
+        "freeFirst": "Pierwsze wolne adresy ({{n}})",
+        "noneFree": "brak wolnych",
+        "staticInPool": "Adresy w zakresie DHCP używane bez dzierżawy ({{n}})",
+        "staticHint": "To zwykle adresy ustawione ręcznie. DHCP może je wydać innemu urządzeniu: przenieś je poza pulę albo dodaj stałą dzierżawę.",
+        "staticShort": "{{n}} stałych w puli",
+        "note": "Zajęte = adres widoczny w ARP, z aktywną dzierżawą DHCP albo w inwentarzu. Podsieci większe niż /16 są tylko wyliczane, bez liczenia adresów. MAC, który router pokazuje dla wielu adresów (proxy ARP), nie jest liczony jako konflikt. Alerty: konflikt adresu i pula DHCP od 90% (albo pełna w ciągu 7 dni), po dwóch odczytach z rzędu.",
+        "central": {
+            "counts": "podsieci {{subnets}}, pule {{pools}}",
+            "conflicts": "konflikty: {{n}}",
+            "ok": "bez pełnych pul i podsieci"
+        }
     },
     "svc": {
         "title": "Usługi biznesowe i SLA",

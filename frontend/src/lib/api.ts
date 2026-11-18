@@ -1470,6 +1470,17 @@ export const netQualityApi = {
   save: (s: Partial<NetQualitySettings>) => api.put<NetQualitySettings>('/net-quality/settings', s).then(r => r.data),
   run: () => api.post('/net-quality/run').then(r => r.data),
 }
+// IP address management from the routers' tables (services/ipam.py)
+export interface IpamSubnet {
+  network: string; router: string; interface: string | null; gateway: string; size: number; used: number | null; free: number | null; pct: number | null
+  free_list: string[]; static_in_pool: Array<{ ip: string; pool: string; router: string }>; pools: string[]
+}
+export interface IpamPool { key: string; router: string; name: string; ranges: string; size: number; bound: number; pct: number | null; server: string | null; interface: string | null; served: boolean; days_to_full: number | null }
+export const ipamApi = {
+  overview: () => api.get<{ subnets: IpamSubnet[]; pools: IpamPool[]; conflicts: Array<{ ip: string; macs: string[]; routers: string[] }>; at: string | null
+    last: { at: string | null; routers: number; errors: Array<{ router: string; error: string }>; duration_sec: number | null }; interval_sec: number }>('/ipam').then(r => r.data),
+  run: () => api.post('/ipam/run').then(r => r.data),
+}
 // the path to the own link-quality targets hop by hop (services/net_path.py)
 export interface NetPathHop { n: number; ip: string | null; rtt?: number | null; jitter?: number | null; loss?: number | null }
 export interface NetPathTraceRow { at: string; hops: NetPathHop[]; reached: boolean; changed: boolean; culprit: number | null; culprit_kind: 'loss' | 'latency' | null }
@@ -1839,7 +1850,11 @@ export interface CentralSoc {
       slow: Array<{ n: string; ms: number | null }>; cert: Array<{ n: string; days: number | null }> } | null
     // 3.85: the paths to the own targets (services/net_path.py)
     paths?: { at: string | null; targets: Array<{ n: string; hops: number | null; reached: boolean | null; culprit: number | null; kind: 'loss' | 'latency' | null
-      changes24: number; degraded24: number; at: string | null }> } | null }
+      changes24: number; degraded24: number; at: string | null }> } | null
+    // 3.86: IP address management (services/ipam.py)
+    ipam?: { subnets: number; pools: number; conflicts: number; static_in_pool: number; at: string | null
+      full_subnets: Array<{ net: string; pct: number | null; free: number | null }>
+      full_pools: Array<{ n: string; r: string; pct: number | null; size: number; days: number | null }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

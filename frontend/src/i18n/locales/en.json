@@ -37,6 +37,7 @@
                 "socRules": "Detection rules",
                 "socRisk": "Asset risk",
                 "avail": "Availability",
+                "ipam": "IP addresses (IPAM)",
                 "svc": "Business services",
                 "cfg": "Router configurations",
                 "ai": "AI assistant",
@@ -1835,6 +1836,45 @@
         "changed": "path differs from the usual one ({{n}} hops)",
         "ok": "no problems",
         "note": "A hop is named only when loss (or a 50 ms latency jump) starts there and lasts up to the target. A router that answers pings slowly while the hops after it are fine only protects itself (ICMP rate limit) and is not a fault. \"Differs from the usual one\" compares with the most frequent path of the last day."
+    },
+    "ipam": {
+        "title": "IP addresses (IPAM)",
+        "subtitle": "Usage of the subnets and DHCP pools, free addresses and conflicts, from the MikroTik routers' tables (addresses, pools, DHCP leases, ARP) and the inventory. Read every 30 minutes.",
+        "runNow": "Read now",
+        "empty": "No data yet. It appears after the first read of the routers with stored credentials.",
+        "count": {
+            "subnets": "Subnets",
+            "pools": "DHCP pools",
+            "conflicts": "Address conflicts",
+            "static": "Fixed addresses in DHCP pools"
+        },
+        "readErrors": "Not read",
+        "conflicts": "Address conflicts: one address, several MACs at once",
+        "conflictHint": "Two devices use the same address (e.g. a manually set address DHCP also gave to someone else). Both lose connectivity now and then.",
+        "pools": "DHCP pools",
+        "leased": "{{bound}} of {{size}}",
+        "notServed": "no DHCP server uses it",
+        "fullIn": "full in ~{{n}} days",
+        "col": {
+            "network": "Subnet",
+            "router": "Router",
+            "size": "Addresses",
+            "used": "Used",
+            "free": "Free",
+            "usage": "Usage",
+            "pools": "DHCP pools"
+        },
+        "freeFirst": "First free addresses ({{n}})",
+        "noneFree": "none free",
+        "staticInPool": "Addresses inside a DHCP range used without a lease ({{n}})",
+        "staticHint": "Usually manually set addresses. DHCP may hand them out to another device: move them out of the pool or add a static lease.",
+        "staticShort": "{{n}} fixed in pool",
+        "note": "Used = an address seen in ARP, with a bound DHCP lease, or in the inventory. Subnets larger than /16 are listed without counting addresses. A MAC a router shows for many addresses (proxy ARP) is not a conflict. Alerts: an address conflict and a DHCP pool from 90% (or full within 7 days), after two reads in a row.",
+        "central": {
+            "counts": "{{subnets}} subnets, {{pools}} pools",
+            "conflicts": "{{n}} conflicts",
+            "ok": "no full pools or subnets"
+        }
     },
     "svc": {
         "title": "Business services and SLA",

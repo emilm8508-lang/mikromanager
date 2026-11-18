@@ -37,6 +37,7 @@
                 "socRules": "Erkennungsregeln",
                 "socRisk": "Asset-Risiko",
                 "avail": "Verfügbarkeit",
+                "ipam": "IP-Adressen (IPAM)",
                 "svc": "Geschäftsdienste",
                 "cfg": "Router-Konfigurationen",
                 "ai": "KI-Assistent",
@@ -1835,6 +1836,45 @@
         "changed": "Pfad anders als üblich ({{n}} Hops)",
         "ok": "keine Probleme",
         "note": "Ein Hop wird nur genannt, wenn Verlust (oder ein Latenzsprung von 50 ms) dort beginnt und bis zum Ziel anhält. Ein Router, der langsam auf Ping antwortet, während die Hops danach in Ordnung sind, schützt sich nur (ICMP-Limit) und ist kein Fehler. „Anders als üblich“ vergleicht mit dem häufigsten Pfad des letzten Tages."
+    },
+    "ipam": {
+        "title": "IP-Adressen (IPAM)",
+        "subtitle": "Belegung der Subnetze und DHCP-Pools, freie Adressen und Konflikte, aus den Tabellen der MikroTik-Router (Adressen, Pools, DHCP-Leases, ARP) und dem Inventar. Alle 30 Minuten gelesen.",
+        "runNow": "Jetzt lesen",
+        "empty": "Noch keine Daten. Sie erscheinen nach dem ersten Lesen der Router mit gespeicherten Zugangsdaten.",
+        "count": {
+            "subnets": "Subnetze",
+            "pools": "DHCP-Pools",
+            "conflicts": "Adresskonflikte",
+            "static": "Feste Adressen in DHCP-Pools"
+        },
+        "readErrors": "Nicht gelesen",
+        "conflicts": "Adresskonflikte: eine Adresse, mehrere MACs gleichzeitig",
+        "conflictHint": "Zwei Geräte nutzen dieselbe Adresse (z. B. eine manuell gesetzte Adresse, die DHCP auch einem anderen gab). Beide verlieren zeitweise die Verbindung.",
+        "pools": "DHCP-Pools",
+        "leased": "{{bound}} von {{size}}",
+        "notServed": "kein DHCP-Server nutzt ihn",
+        "fullIn": "voll in ~{{n}} Tagen",
+        "col": {
+            "network": "Subnetz",
+            "router": "Router",
+            "size": "Adressen",
+            "used": "Belegt",
+            "free": "Frei",
+            "usage": "Belegung",
+            "pools": "DHCP-Pools"
+        },
+        "freeFirst": "Erste freie Adressen ({{n}})",
+        "noneFree": "keine frei",
+        "staticInPool": "Adressen im DHCP-Bereich ohne Lease ({{n}})",
+        "staticHint": "Meist manuell gesetzte Adressen. DHCP kann sie an ein anderes Gerät vergeben: aus dem Pool nehmen oder ein statisches Lease anlegen.",
+        "staticShort": "{{n}} fest im Pool",
+        "note": "Belegt = Adresse in ARP, mit aktivem DHCP-Lease oder im Inventar. Subnetze größer als /16 werden ohne Adresszählung gelistet. Eine MAC, die ein Router für viele Adressen zeigt (Proxy-ARP), ist kein Konflikt. Alarme: Adresskonflikt und DHCP-Pool ab 90 % (oder voll binnen 7 Tagen), nach zwei Lesungen in Folge.",
+        "central": {
+            "counts": "{{subnets}} Subnetze, {{pools}} Pools",
+            "conflicts": "{{n}} Konflikte",
+            "ok": "keine vollen Pools oder Subnetze"
+        }
     },
     "svc": {
         "title": "Geschäftsdienste und SLA",

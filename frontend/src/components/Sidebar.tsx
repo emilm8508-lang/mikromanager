@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
+import { Binary, LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -285,6 +285,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
       item('/map', t('nav.map') as string, Network),
       item('/netmap', t('nav.netmap') as string, Waypoints),
       item('/availability', t('nav.avail') as string, HeartPulse),
+      item('/ipam', t('nav.ipam') as string, Binary),
       item('/services', t('nav.svc') as string, Layers3),
       item('/maintenance', t('nav.maint') as string, BellOff),
       item('/metrics', t('nav.metrics') as string, LineChart),
