@@ -2457,6 +2457,20 @@ export const hostServicesApi = {
   events: (platform: ServicePlatform, hostId: number, limit = 30) =>
     api.get<{ events: HostServiceEventOut[] }>(`/services/${platform}/hosts/${hostId}/events`, { params: { limit } }).then(r => r.data.events),
 }
+// processes of a managed host and actions on its services / processes (services/host_processes.py)
+export interface HostProcess { pid: number; name: string; cpu: number; mem_mb: number; services: string[] }
+export interface HostActionResult { id: number; status: 'ok' | 'error' | 'running'; state: string | null; output: string }
+export interface HostActionRow { id: number; at: string | null; kind: string; target: string; reason: string; by: string | null; status: 'ok' | 'error' | 'running'; state: string | null; output: string }
+export const hostProcessesApi = {
+  list: (platform: ServicePlatform, hostId: number) =>
+    api.get<{ host: string; error: string | null; processes: HostProcess[]; total?: number; at: string; can_act?: boolean }>(`/host-processes/${platform}/${hostId}`).then(r => r.data),
+  history: (platform: ServicePlatform, hostId: number) =>
+    api.get<{ actions: HostActionRow[] }>(`/host-processes/${platform}/${hostId}/history`).then(r => r.data),
+  service: (platform: ServicePlatform, hostId: number, name: string, action: 'start' | 'stop' | 'restart', reason: string) =>
+    api.post<HostActionResult>(`/host-processes/${platform}/${hostId}/service`, { name, action, reason }).then(r => r.data),
+  kill: (platform: ServicePlatform, hostId: number, pid: number, name: string, reason: string, force = false) =>
+    api.post<HostActionResult>(`/host-processes/${platform}/${hostId}/kill`, { pid, name, reason, force }).then(r => r.data),
+}
 // ── Mikrotik fleet view (services/fleet.py) ──────────────────────────────────
 
 export interface FleetAlertRow {

@@ -1925,6 +1925,54 @@
             "none": "Wszystkie sprawdzenia aplikacji działają ({{n}})."
         }
     },
+    "hproc": {
+        "toggle": "Procesy",
+        "title": "Procesy i akcje",
+        "readAt": "odczyt {{when}}",
+        "total": "procesów: {{n}}",
+        "refresh": "Odczytaj ponownie",
+        "svcPlaceholderWin": "nazwa usługi (np. Spooler)",
+        "svcPlaceholderLinux": "jednostka (np. nginx)",
+        "start": "Uruchom",
+        "restart": "Restart",
+        "stop": "Zatrzymaj",
+        "kill": "Zakończ proces",
+        "killForce": "Zakończ siłą (SIGKILL)",
+        "reason": "Powód (wymagany, trafia do dziennika)",
+        "do": "Wykonaj",
+        "cancel": "Anuluj",
+        "running": "Wykonuję...",
+        "done": "Wykonano. Stan po akcji: {{state}}",
+        "failed": "Nie powiodło się: {{out}}",
+        "readOnly": "Tylko odczyt: zarządzanie tym systemem jest wyłączone na agencie.",
+        "history": "Ostatnie akcje",
+        "note": "Lista pokazuje procesy, które teraz najbardziej obciążają procesor i pamięć (bez linii poleceń i nazw użytkowników). Każda akcja wymaga powodu i jest zapisywana w dzienniku hosta oraz w Centrali. Agent nie zakończy procesów systemowych ani nie zatrzyma usługi, przez którą się łączy (WinRM, sshd); restart jest dozwolony.",
+        "col": {
+            "name": "Proces",
+            "cpu": "CPU",
+            "mem": "Pamięć",
+            "services": "Usługi"
+        },
+        "confirm": {
+            "start": "Uruchomić usługę {{name}}?",
+            "stop": "Zatrzymać usługę {{name}}?",
+            "restart": "Zrestartować usługę {{name}}?",
+            "kill": "Zakończyć proces {{name}} (PID {{pid}})?",
+            "killForce": "Zakończyć siłą proces {{name}} (PID {{pid}})?"
+        },
+        "status": {
+            "ok": "wykonano",
+            "error": "błąd",
+            "running": "trwa"
+        },
+        "kind": {
+            "service_start": "start usługi",
+            "service_stop": "zatrzymanie usługi",
+            "service_restart": "restart usługi",
+            "process_kill": "zakończenie procesu",
+            "process_kill_force": "zakończenie siłą"
+        }
+    },
     "svc": {
         "title": "Usługi biznesowe i SLA",
         "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",

@@ -1646,6 +1646,12 @@ function activity_format_message(string $type, array $e): string {
             $path = $e['path'] ?? '?';
             $status = $e['status_code'] ?? '?';
             return "{$user} ({$e['role']}, {$e['source']}): {$method} {$path} → {$status}";
+        case 'host_action':
+            // 3.84: a service / process action on a managed host (backend/services/host_processes.py)
+            $what = ['service_start' => 'start usługi', 'service_stop' => 'zatrzymanie usługi', 'service_restart' => 'restart usługi',
+                     'process_kill' => 'zakończenie procesu', 'process_kill_force' => 'wymuszone zakończenie procesu'][$e['kind'] ?? ''] ?? (string)($e['kind'] ?? '?');
+            $ok = ($e['status'] ?? '') === 'ok' ? 'wykonano' : 'nie powiodło się';
+            return "{$name}: {$what} " . ($e['target'] ?? '?') . " ({$ok}, " . ($e['by'] ?? '?') . "): " . ($e['reason'] ?? '');
         default:
             return "{$type}: {$name}";
     }

@@ -1761,6 +1761,54 @@
             "none": "All application checks work ({{n}})."
         }
     },
+    "hproc": {
+        "toggle": "Processes",
+        "title": "Processes and actions",
+        "readAt": "read {{when}}",
+        "total": "{{n}} processes",
+        "refresh": "Read again",
+        "svcPlaceholderWin": "service name (e.g. Spooler)",
+        "svcPlaceholderLinux": "unit (e.g. nginx)",
+        "start": "Start",
+        "restart": "Restart",
+        "stop": "Stop",
+        "kill": "End process",
+        "killForce": "Force end (SIGKILL)",
+        "reason": "Reason (required, goes to the log)",
+        "do": "Run",
+        "cancel": "Cancel",
+        "running": "Running...",
+        "done": "Done. State after the action: {{state}}",
+        "failed": "Failed: {{out}}",
+        "readOnly": "Read only: management of this system is switched off on the agent.",
+        "history": "Recent actions",
+        "note": "The list shows the processes using the most CPU and memory now (no command lines or user names). Every action needs a reason and is logged on the host and in Central. The agent will not end system processes or stop the service it connects through (WinRM, sshd); restarting is allowed.",
+        "col": {
+            "name": "Process",
+            "cpu": "CPU",
+            "mem": "Memory",
+            "services": "Services"
+        },
+        "confirm": {
+            "start": "Start service {{name}}?",
+            "stop": "Stop service {{name}}?",
+            "restart": "Restart service {{name}}?",
+            "kill": "End process {{name}} (PID {{pid}})?",
+            "killForce": "Force end process {{name}} (PID {{pid}})?"
+        },
+        "status": {
+            "ok": "done",
+            "error": "error",
+            "running": "running"
+        },
+        "kind": {
+            "service_start": "service start",
+            "service_stop": "service stop",
+            "service_restart": "service restart",
+            "process_kill": "process end",
+            "process_kill_force": "forced end"
+        }
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",

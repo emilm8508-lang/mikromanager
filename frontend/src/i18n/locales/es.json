@@ -1761,6 +1761,54 @@
             "none": "Todas las comprobaciones funcionan ({{n}})."
         }
     },
+    "hproc": {
+        "toggle": "Procesos",
+        "title": "Procesos y acciones",
+        "readAt": "leído {{when}}",
+        "total": "{{n}} procesos",
+        "refresh": "Leer de nuevo",
+        "svcPlaceholderWin": "nombre del servicio (p. ej. Spooler)",
+        "svcPlaceholderLinux": "unidad (p. ej. nginx)",
+        "start": "Iniciar",
+        "restart": "Reiniciar",
+        "stop": "Detener",
+        "kill": "Terminar proceso",
+        "killForce": "Forzar fin (SIGKILL)",
+        "reason": "Motivo (obligatorio, queda en el registro)",
+        "do": "Ejecutar",
+        "cancel": "Cancelar",
+        "running": "Ejecutando...",
+        "done": "Hecho. Estado tras la acción: {{state}}",
+        "failed": "Falló: {{out}}",
+        "readOnly": "Solo lectura: la gestión de este sistema está desactivada en el agente.",
+        "history": "Últimas acciones",
+        "note": "La lista muestra los procesos que más CPU y memoria usan ahora (sin líneas de comando ni nombres de usuario). Cada acción requiere un motivo y queda registrada en el host y en la Central. El agente no termina procesos del sistema ni detiene el servicio por el que se conecta (WinRM, sshd); reiniciarlo sí.",
+        "col": {
+            "name": "Proceso",
+            "cpu": "CPU",
+            "mem": "Memoria",
+            "services": "Servicios"
+        },
+        "confirm": {
+            "start": "¿Iniciar el servicio {{name}}?",
+            "stop": "¿Detener el servicio {{name}}?",
+            "restart": "¿Reiniciar el servicio {{name}}?",
+            "kill": "¿Terminar el proceso {{name}} (PID {{pid}})?",
+            "killForce": "¿Forzar el fin del proceso {{name}} (PID {{pid}})?"
+        },
+        "status": {
+            "ok": "hecho",
+            "error": "error",
+            "running": "en curso"
+        },
+        "kind": {
+            "service_start": "inicio de servicio",
+            "service_stop": "parada de servicio",
+            "service_restart": "reinicio de servicio",
+            "process_kill": "fin de proceso",
+            "process_kill_force": "fin forzado"
+        }
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",

@@ -1761,6 +1761,54 @@
             "none": "Alle Anwendungsprüfungen laufen ({{n}})."
         }
     },
+    "hproc": {
+        "toggle": "Prozesse",
+        "title": "Prozesse und Aktionen",
+        "readAt": "gelesen {{when}}",
+        "total": "{{n}} Prozesse",
+        "refresh": "Neu lesen",
+        "svcPlaceholderWin": "Dienstname (z. B. Spooler)",
+        "svcPlaceholderLinux": "Unit (z. B. nginx)",
+        "start": "Starten",
+        "restart": "Neustart",
+        "stop": "Stoppen",
+        "kill": "Prozess beenden",
+        "killForce": "Erzwungen beenden (SIGKILL)",
+        "reason": "Grund (Pflicht, wird protokolliert)",
+        "do": "Ausführen",
+        "cancel": "Abbrechen",
+        "running": "Läuft...",
+        "done": "Erledigt. Zustand danach: {{state}}",
+        "failed": "Fehlgeschlagen: {{out}}",
+        "readOnly": "Nur lesen: die Verwaltung dieses Systems ist auf dem Agenten ausgeschaltet.",
+        "history": "Letzte Aktionen",
+        "note": "Die Liste zeigt die Prozesse mit der höchsten CPU- und Speicherlast (ohne Befehlszeilen und Benutzernamen). Jede Aktion braucht einen Grund und wird auf dem Host und in der Zentrale protokolliert. Der Agent beendet keine Systemprozesse und stoppt nicht den Dienst, über den er sich verbindet (WinRM, sshd); Neustart ist erlaubt.",
+        "col": {
+            "name": "Prozess",
+            "cpu": "CPU",
+            "mem": "Speicher",
+            "services": "Dienste"
+        },
+        "confirm": {
+            "start": "Dienst {{name}} starten?",
+            "stop": "Dienst {{name}} stoppen?",
+            "restart": "Dienst {{name}} neu starten?",
+            "kill": "Prozess {{name}} (PID {{pid}}) beenden?",
+            "killForce": "Prozess {{name}} (PID {{pid}}) erzwungen beenden?"
+        },
+        "status": {
+            "ok": "erledigt",
+            "error": "Fehler",
+            "running": "läuft"
+        },
+        "kind": {
+            "service_start": "Dienststart",
+            "service_stop": "Dienststopp",
+            "service_restart": "Dienstneustart",
+            "process_kill": "Prozessende",
+            "process_kill_force": "erzwungenes Ende"
+        }
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",

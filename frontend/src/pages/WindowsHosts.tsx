@@ -10,10 +10,11 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { RunScriptModal } from '../components/RunScriptModal'
 import { HostServices } from '../components/HostServices'
+import { HostProcesses } from '../components/HostProcesses'
 import { VulnScanStatusPanel } from '../components/VulnScanStatusPanel'
 import {
   MonitorSmartphone, RefreshCw, Download, Power, AlertTriangle, CheckCircle2, Terminal,
-  ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop, HardDrive, MemoryStick,
+  ChevronDown, ChevronUp, Trash2, Plus, ShieldAlert, Server, Laptop, HardDrive, MemoryStick, Cpu,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../lib/utils'
@@ -287,6 +288,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
   const qc = useQueryClient()
   const [polling, setPolling] = useState(false)
   const [showServices, setShowServices] = useState(false)
+  const [showProcs, setShowProcs] = useState(false)
   const [showDisks, setShowDisks] = useState(false)
 
   const { data: job } = useQuery({
@@ -455,6 +457,9 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
               <Button size="sm" variant="secondary" onClick={() => setShowServices(s => !s)}>
                 {showServices ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {t('windows.servicesToggle')}
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowProcs(s => !s)}>
+                {showProcs ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <Cpu size={12} /> {t('hproc.toggle')}
+              </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowDisks(s => !s)}>
                 {showDisks ? <ChevronUp size={12} /> : <ChevronDown size={12} />} <HardDrive size={12} /> {t('windows.disksToggle')}
               </Button>
@@ -464,6 +469,7 @@ function HostCard({ host, selected, onToggleSelect, onRunScript }: {
       </div>
 
       {host.managed && showServices && <HostServices platform="windows" hostId={host.id} />}
+      {host.managed && showProcs && <HostProcesses platform="windows" hostId={host.id} />}
       {host.managed && showDisks && <DisksSection host={host} />}
 
       {job && job.status !== 'no_job' && (

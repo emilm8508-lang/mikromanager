@@ -1435,6 +1435,26 @@ class HypervActionLog(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
+class HostActionLog(Base):
+    """3.84: the write actions on a managed host's services and processes (services/host_processes.py): who, what, why, the outcome.
+    Local only; Central's activity feed gets the action, the host, the target and the reason."""
+    __tablename__ = "host_action_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    platform = Column(String, nullable=False)                       # windows | linux
+    host_id = Column(Integer, nullable=False, index=True)
+    host_name = Column(String, nullable=True)
+    kind = Column(String, nullable=False)                           # service_start | service_stop | service_restart | process_kill[_force]
+    target = Column(String, nullable=False)                         # the service / unit name, or "name (PID n)"
+    reason = Column(Text, nullable=False)
+    created_by = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="running")      # running | ok | error
+    result_state = Column(String, nullable=True)                    # what the host reported after it: running / stopped / active / ended ...
+    output = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
+
+
 class WatchedHost(Base):
     """A host the operator asked to monitor more closely (services/
     host_monitor.py) — typically a device that intermittently loses

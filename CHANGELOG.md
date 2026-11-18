@@ -2,6 +2,32 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.84 — 2026-11-18
+- Processes and actions on managed hosts (services/host_processes.py): find what loads the server and stop it.
+  - A new "Processes" panel on the Windows and Linux host pages lists the processes using the most CPU and memory now, read on demand with nothing polled in the background.
+    - Windows: from the performance counters (CPU % of the moment, divided by the logical processors), with the services each process hosts.
+    - Linux: from two `top` samples a second apart (the CPU of that second), with the systemd unit of each process.
+    - No command lines or user names are read; they can carry passwords and personal data.
+  - Actions:
+    - start / stop / restart a service (Windows) or a systemd unit (Linux, through sudo);
+    - end a process (Linux also with SIGKILL). The process is ended only if its id still belongs to a process of the name shown, since an id can be reused.
+  - Guards:
+    - the same switches as the rest of host management ("Zarządzanie Windows", MIKROTIK_LINUX_MANAGE_ENABLED) and only managed hosts;
+    - a reason is required, and one action at a time per host;
+    - names are checked against a pattern and quoted, process ids are integers, nothing typed becomes code;
+    - system processes are refused (System, lsass, csrss, svchost ... / systemd, sshd ...), and so is stopping the service the agent comes in through (WinRM, sshd). Restarting it is allowed.
+  - The state after the action is read back (running / stopped / active / ended). An action whose state is not the expected one is marked as an error.
+  - Every action is logged in the new table `host_action_log` (who, what, why, the outcome, the state after) and listed under the panel. It also goes to the activity feed, and Central shows it as e.g. "web1: restart usługi nginx (wykonano, admin): 502 na sklepie".
+  - API: `GET /api/host-processes/{platform}/{id}`, `GET .../history`, `POST .../service`, `POST .../kill`.
+  - Local only, like the Hyper-V actions: no Central → agent path for these.
+- Tested: 9 new regression tests (backend/tests/test_host_processes.py):
+  - parsing of `top` (the second sample, RES with units, units from `ps`) and of the Windows JSON;
+  - the top list keeps memory-heavy processes;
+  - name checks and quoting, the refusals and the kill name check;
+  - logging with the reason, the switch and the reason required, an unexpected state as an error.
+  - The Windows process script was run on a real Windows machine and parsed (e.g. sqlservr with the service MSSQL$ELISOFT). tsc and PHP lint OK.
+  - Not run against a remote host over WinRM / SSH, and the panel was not seen in a browser.
+
 ## 3.83 — 2026-11-18
 - Application checks (services/app_checks.py): whether the application works, not only whether the server answers a ping. Checks of your own (up to 100), each every 1-60 minutes:
   - `http`: a URL, http or https.
