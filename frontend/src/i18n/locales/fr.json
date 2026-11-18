@@ -1809,6 +1809,33 @@
             "process_kill_force": "fin forcée"
         }
     },
+    "npath": {
+        "title": "Chemin vers la cible (NetPath)",
+        "subtitle": "Toutes les 15 minutes, le chemin vers vos cibles de qualité du lien, saut par saut, avec la latence et la perte de chaque routeur. Il montre où commence un problème : chez nous, chez le fournisseur ou plus loin.",
+        "runNow": "Tracer maintenant",
+        "tracing": "Traçage...",
+        "empty": "Aucune cible. Ajoutez une cible propre dans les réglages de qualité du lien (par ex. 1.1.1.1).",
+        "noTrace": "Pas encore de trace.",
+        "agent": "agent",
+        "notReached": "la cible n'a pas répondu",
+        "hops": "{{n}} sauts",
+        "changedNow": "chemin différent de l'habituel",
+        "starts": {
+            "loss": "perte à partir d’ici",
+            "latency": "délai à partir d’ici"
+        },
+        "problem": {
+            "loss": "perte à partir du saut {{n}}",
+            "latency": "délai à partir du saut {{n}}"
+        },
+        "day": "24 h : {{changes}} changements de chemin, {{degraded}} problèmes · {{traces}} traces",
+        "dayShort": "24 h : {{changes}} changements de chemin, {{degraded}} problèmes",
+        "events": "Changements et problèmes des dernières 24 h",
+        "eventsNone": "Aucun : le chemin est resté stable et sain.",
+        "changed": "chemin différent de l'habituel ({{n}} sauts)",
+        "ok": "aucun problème",
+        "note": "Un saut n'est désigné que si la perte (ou un saut de latence de 50 ms) commence là et dure jusqu'à la cible. Un routeur qui répond lentement au ping alors que les sauts suivants vont bien ne fait que se protéger (limite ICMP) et n'est pas une panne. « Différent de l'habituel » compare avec le chemin le plus fréquent du dernier jour."
+    },
     "svc": {
         "title": "Services métier et SLA",
         "subtitle": "Un service est ce que les gens utilisent (« messagerie », « comptabilité », « la boutique »), décrit comme l'équipement dont il a besoin. Son état découle de la disponibilité de cet équipement et le SLA est calculé à partir de l'historique.",

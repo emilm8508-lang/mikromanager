@@ -1973,6 +1973,33 @@
             "process_kill_force": "zakończenie siłą"
         }
     },
+    "npath": {
+        "title": "Ścieżka do celu (NetPath)",
+        "subtitle": "Co 15 minut trasa do Twoich celów z „Jakości łącza”, przeskok po przeskoku, z opóźnieniem i utratą na każdym routerze. Pokazuje, gdzie zaczyna się problem: u nas, u operatora czy dalej.",
+        "runNow": "Wyznacz teraz",
+        "tracing": "Wyznaczam...",
+        "empty": "Brak celów. Dodaj własny cel w ustawieniach „Jakości łącza” (np. 1.1.1.1).",
+        "noTrace": "Jeszcze nie wyznaczono trasy.",
+        "agent": "agent",
+        "notReached": "cel nie odpowiedział",
+        "hops": "{{n}} przeskoków",
+        "changedNow": "trasa inna niż zwykle",
+        "starts": {
+            "loss": "od tu utrata",
+            "latency": "od tu opóźnienie"
+        },
+        "problem": {
+            "loss": "utrata od przeskoku {{n}}",
+            "latency": "opóźnienie od przeskoku {{n}}"
+        },
+        "day": "24 h: zmian trasy {{changes}}, problemów {{degraded}} · pomiarów {{traces}}",
+        "dayShort": "24 h: zmian trasy {{changes}}, problemów {{degraded}}",
+        "events": "Zmiany i problemy z ostatnich 24 h",
+        "eventsNone": "Brak: trasa stała i bez problemów.",
+        "changed": "trasa inna niż zwykle ({{n}} przeskoków)",
+        "ok": "bez problemów",
+        "note": "Przeskok jest wskazany tylko wtedy, gdy utrata (lub skok opóźnienia o 50 ms) zaczyna się na nim i trwa aż do celu. Router, który sam wolno odpowiada na ping, a dalsze przeskoki są w porządku, tylko się chroni (limit ICMP) i nie jest awarią. „Trasa inna niż zwykle” to porównanie z najczęstszą trasą z ostatniej doby."
+    },
     "svc": {
         "title": "Usługi biznesowe i SLA",
         "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, AppWindow, HeartPulse, Layers3, FileClock, Radio } from 'lucide-react'
+import { Activity, AppWindow, HeartPulse, Route, Layers3, FileClock, Radio } from 'lucide-react'
 import { centralApi, centralConfig, type CentralSoc } from '../lib/api'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { SvcPill, modeText, MonthCell } from './Services'
@@ -118,6 +118,33 @@ function CentralQuality({ parts }: { parts: Array<{ tenant: string; q: NonNullab
   )
 }
 
+// 3.85: the paths to the own targets per client - where loss / delay starts, how often the path changed
+function CentralPaths({ parts }: { parts: Array<{ tenant: string; p: NonNullable<NonNullable<CentralSoc['availability']>['paths']> | null }> }) {
+  const { t } = useTranslation()
+  const ago = useAgo()
+  const rows = parts.flatMap(({ tenant, p }) => (p?.targets ?? []).filter(x => x.hops != null).map(x => ({ tenant, x })))
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-medium text-slate-700 flex items-center gap-2"><Route size={14} className="text-indigo-600" /> {t('npath.title')}</h2>
+      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+        {rows.map(({ tenant, x }, i) => (
+          <div key={i} className={cn('flex items-center gap-3 px-4 py-2', x.culprit != null ? 'bg-red-50/40' : '')}>
+            <span className="w-40 shrink-0"><TenantBadge tenant={tenant} /></span>
+            <span className="font-medium text-slate-900 flex-1 truncate">{x.n}</span>
+            <span className="text-xs text-slate-600 w-24">{t('npath.hops', { n: x.hops })}{x.reached === false ? ' ✕' : ''}</span>
+            <span className={cn('text-xs w-56', x.culprit != null ? (x.kind === 'loss' ? 'text-red-700' : 'text-amber-700') : 'text-slate-400')}>
+              {x.culprit != null ? t(`npath.problem.${x.kind}`, { n: x.culprit }) : t('npath.ok')}
+            </span>
+            <span className="text-xs text-slate-500 w-56">{t('npath.dayShort', { changes: x.changes24, degraded: x.degraded24 })}</span>
+            <span className="text-xs text-slate-400 w-24 text-right">{ago(x.at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // 3.83: application checks per client - what fails, what is slow, certificates about to expire
 function CentralApps({ parts }: { parts: Array<{ tenant: string; a: NonNullable<NonNullable<CentralSoc['availability']>['apps']> | null }> }) {
   const { t } = useTranslation()
@@ -182,6 +209,7 @@ export function CentralAvailabilityPage() {
           )}
           <CentralQuality parts={withData.map(p => ({ tenant: p.tenant, q: p.soc.availability!.quality ?? null }))} />
           <CentralApps parts={withData.map(p => ({ tenant: p.tenant, a: p.soc.availability!.apps ?? null }))} />
+          <CentralPaths parts={withData.map(p => ({ tenant: p.tenant, p: p.soc.availability!.paths ?? null }))} />
         </>
       )}
     </Shell>

@@ -1470,6 +1470,18 @@ export const netQualityApi = {
   save: (s: Partial<NetQualitySettings>) => api.put<NetQualitySettings>('/net-quality/settings', s).then(r => r.data),
   run: () => api.post('/net-quality/run').then(r => r.data),
 }
+// the path to the own link-quality targets hop by hop (services/net_path.py)
+export interface NetPathHop { n: number; ip: string | null; rtt?: number | null; jitter?: number | null; loss?: number | null }
+export interface NetPathTraceRow { at: string; hops: NetPathHop[]; reached: boolean; changed: boolean; culprit: number | null; culprit_kind: 'loss' | 'latency' | null }
+export interface NetPathItem {
+  ip: string; name: string; last: NetPathTraceRow | null; traces_24h: number; changes_24h: number; degraded_24h: number
+  events: Array<{ at: string; changed: boolean; culprit: number | null; culprit_kind: 'loss' | 'latency' | null; hop_count: number }>
+}
+export const netPathApi = {
+  overview: () => api.get<{ enabled: boolean; items: NetPathItem[]; last: { at: string | null; targets: number; duration_sec: number | null; error: string | null }; interval_sec: number }>('/net-path').then(r => r.data),
+  history: (ip: string, limit = 50) => api.get<{ traces: NetPathTraceRow[] }>('/net-path/history', { params: { ip, limit } }).then(r => r.data),
+  run: () => api.post('/net-path/run').then(r => r.data),
+}
 // application checks (services/app_checks.py): HTTP(S), TCP and DNS checks of your own
 export interface AppCheck {
   id?: string; name: string | null; kind: 'http' | 'tcp' | 'dns'; target: string; enabled: boolean; interval_min: number; timeout_s: number
@@ -1824,7 +1836,10 @@ export interface CentralSoc {
     // 3.83: application checks (services/app_checks.py)
     apps?: { total: number; ok: number; failing: number; at: string | null
       bad: Array<{ n: string; k: string; since: string | null; up24: number | null; code: number | null }>
-      slow: Array<{ n: string; ms: number | null }>; cert: Array<{ n: string; days: number | null }> } | null }
+      slow: Array<{ n: string; ms: number | null }>; cert: Array<{ n: string; days: number | null }> } | null
+    // 3.85: the paths to the own targets (services/net_path.py)
+    paths?: { at: string | null; targets: Array<{ n: string; hops: number | null; reached: boolean | null; culprit: number | null; kind: 'loss' | 'latency' | null
+      changes24: number; degraded24: number; at: string | null }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

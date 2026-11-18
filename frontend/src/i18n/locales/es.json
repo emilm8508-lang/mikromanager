@@ -1809,6 +1809,33 @@
             "process_kill_force": "fin forzado"
         }
     },
+    "npath": {
+        "title": "Ruta al destino (NetPath)",
+        "subtitle": "Cada 15 minutos la ruta a tus destinos de calidad del enlace, salto a salto, con la latencia y la pérdida de cada router. Muestra dónde empieza un problema: en nuestra red, en el proveedor o más lejos.",
+        "runNow": "Trazar ahora",
+        "tracing": "Trazando...",
+        "empty": "No hay destinos. Añade uno propio en los ajustes de calidad del enlace (p. ej. 1.1.1.1).",
+        "noTrace": "Aún no hay traza.",
+        "agent": "agente",
+        "notReached": "el destino no respondió",
+        "hops": "{{n}} saltos",
+        "changedNow": "ruta distinta de la habitual",
+        "starts": {
+            "loss": "pérdida desde aquí",
+            "latency": "retardo desde aquí"
+        },
+        "problem": {
+            "loss": "pérdida desde el salto {{n}}",
+            "latency": "retardo desde el salto {{n}}"
+        },
+        "day": "24 h: {{changes}} cambios de ruta, {{degraded}} problemas · {{traces}} trazas",
+        "dayShort": "24 h: {{changes}} cambios de ruta, {{degraded}} problemas",
+        "events": "Cambios y problemas de las últimas 24 h",
+        "eventsNone": "Ninguno: la ruta fue estable y correcta.",
+        "changed": "ruta distinta de la habitual ({{n}} saltos)",
+        "ok": "sin problemas",
+        "note": "Un salto se señala solo cuando la pérdida (o un salto de latencia de 50 ms) empieza en él y dura hasta el destino. Un router que responde lento al ping mientras los saltos siguientes van bien solo se protege (límite de ICMP) y no es una avería. «Distinta de la habitual» compara con la ruta más frecuente del último día."
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",

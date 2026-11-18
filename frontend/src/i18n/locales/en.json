@@ -1809,6 +1809,33 @@
             "process_kill_force": "forced end"
         }
     },
+    "npath": {
+        "title": "Path to the target (NetPath)",
+        "subtitle": "Every 15 minutes the path to your link-quality targets, hop by hop, with the latency and loss of each router. It shows where a problem starts: at us, at the ISP or further away.",
+        "runNow": "Trace now",
+        "tracing": "Tracing...",
+        "empty": "No targets. Add a target of your own in the link quality settings (e.g. 1.1.1.1).",
+        "noTrace": "No trace yet.",
+        "agent": "agent",
+        "notReached": "target did not answer",
+        "hops": "{{n}} hops",
+        "changedNow": "path differs from the usual one",
+        "starts": {
+            "loss": "loss from here",
+            "latency": "delay from here"
+        },
+        "problem": {
+            "loss": "loss from hop {{n}}",
+            "latency": "delay from hop {{n}}"
+        },
+        "day": "24 h: {{changes}} path changes, {{degraded}} problems · {{traces}} traces",
+        "dayShort": "24 h: {{changes}} path changes, {{degraded}} problems",
+        "events": "Changes and problems of the last 24 h",
+        "eventsNone": "None: the path was stable and fine.",
+        "changed": "path differs from the usual one ({{n}} hops)",
+        "ok": "no problems",
+        "note": "A hop is named only when loss (or a 50 ms latency jump) starts there and lasts up to the target. A router that answers pings slowly while the hops after it are fine only protects itself (ICMP rate limit) and is not a fault. \"Differs from the usual one\" compares with the most frequent path of the last day."
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",

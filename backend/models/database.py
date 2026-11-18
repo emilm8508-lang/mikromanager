@@ -1455,6 +1455,23 @@ class HostActionLog(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
+class NetPathTrace(Base):
+    """3.85: one trace of the path to a link-quality target (services/net_path.py): the hops with their latency and loss, and whether
+    the path differs from the usual one. Kept 14 days."""
+    __tablename__ = "net_path_trace"
+
+    id = Column(Integer, primary_key=True, index=True)
+    target_ip = Column(String, nullable=False, index=True)
+    target_name = Column(String, nullable=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    hops = Column(Text, nullable=False)                             # JSON: [{"n", "ip", "rtt", "jitter", "loss"}]
+    signature = Column(String, nullable=False)                      # the answering hops in order, "-" for a silent one
+    reached = Column(Boolean, nullable=False, default=False)
+    changed = Column(Boolean, nullable=False, default=False)        # differs from the usual path of the last day
+    culprit = Column(Integer, nullable=True)                        # the hop where loss / delay starts and lasts to the target
+    culprit_kind = Column(String, nullable=True)                    # loss | latency
+
+
 class WatchedHost(Base):
     """A host the operator asked to monitor more closely (services/
     host_monitor.py) — typically a device that intermittently loses

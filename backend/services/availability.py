@@ -396,7 +396,17 @@ def public_summary() -> dict:
     o = overview()
     return {"up": o["up"], "down": o["down"], "unreachable": o["unreachable"],
             "bad": [{"n": r["name"], "s": r["state"], "since": r["since"], "root": r["root"]} for r in o["items"] if r["state"] in ("down", "unreachable")][:40],
-            "at": _iso(_now()), "quality": _quality(), "apps": _apps()}
+            "at": _iso(_now()), "quality": _quality(), "apps": _apps(), "paths": _paths()}
+
+
+def _paths() -> Optional[dict]:
+    """3.85: the paths to the own link-quality targets (services/net_path.py) - hop counts, where a problem starts, changes; for Central."""
+    try:
+        from services import net_path
+        return net_path.public_summary()
+    except Exception as e:
+        print(f"[availability] net path summary error: {type(e).__name__}: {e}")
+        return None
 
 
 def _apps() -> Optional[dict]:

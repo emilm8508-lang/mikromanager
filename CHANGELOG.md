@@ -2,6 +2,29 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.85 — 2026-11-18
+- The path to a target hop by hop, and where a problem starts (services/net_path.py, the NetPath idea). Link quality says "the internet link loses 8%"; this says where.
+  - Every 15 minutes, for each own link-quality target (by default 1.1.1.1, up to 10):
+    - the path is traced with the system's tracert / traceroute (services/traceroute.py);
+    - every answering hop gets 5 pings, giving latency, jitter and loss per hop.
+  - The culprit hop: the first hop from which loss (at or above the link-quality loss limit), or a latency jump of 50 ms, lasts in every later answering hop up to the target. A router that answers its own pings slowly while the hops after it are fine is only rate-limiting ICMP, and is not named.
+  - The path is the sequence of answering hops. "Changed" means it differs from the most frequent path of the last day, so an ISP alternating two paths does not make every trace a change, and a hop silent in one trace is not a change either.
+  - Every trace is kept 14 days in the new table `net_path_trace`.
+  - Alerts, after two traces in a row and closed after a good one:
+    - `metric.path_degraded` (medium), with the hop and its address in the detail;
+    - `metric.path_changed` (low).
+  - The Availability page has a new "Path to the target" section. It shows the hops as a chain with latency and loss, the hop where loss / delay starts highlighted, the counts of 24 h, and the changes and problems of the last day.
+  - API: `GET /api/net-path`, `GET /api/net-path/history?ip=`, `PUT /api/net-path/settings`, `POST /api/net-path/run`.
+  - Central: the availability summary carries `paths` per target (hop count, reached, culprit hop number and kind, changes / problems of 24 h; no addresses). The Central availability page lists them per client, and MCP `client_availability` returns them.
+- Tested: 7 new regression tests (backend/tests/test_net_path.py):
+  - the culprit rules (lasting loss, a self-protecting router, a lasting / not lasting latency jump);
+  - signatures and silent hops;
+  - the usual path;
+  - change and degraded alerts after two traces, closed after a good one;
+  - the overview and a summary without addresses.
+  - A real trace to 1.1.1.1 from a Windows machine was run: 11 hops with per-hop latency and loss, no culprit. tsc OK.
+  - The new sections were not seen in a browser.
+
 ## 3.84 — 2026-11-18
 - Processes and actions on managed hosts (services/host_processes.py): find what loads the server and stop it.
   - A new "Processes" panel on the Windows and Linux host pages lists the processes using the most CPU and memory now, read on demand with nothing polled in the background.

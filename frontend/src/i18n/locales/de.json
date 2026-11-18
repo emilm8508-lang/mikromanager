@@ -1809,6 +1809,33 @@
             "process_kill_force": "erzwungenes Ende"
         }
     },
+    "npath": {
+        "title": "Pfad zum Ziel (NetPath)",
+        "subtitle": "Alle 15 Minuten der Pfad zu deinen Zielen der Verbindungsqualität, Hop für Hop, mit Latenz und Verlust jedes Routers. Zeigt, wo ein Problem beginnt: bei uns, beim Provider oder weiter weg.",
+        "runNow": "Jetzt ermitteln",
+        "tracing": "Ermittle...",
+        "empty": "Keine Ziele. Füge in den Einstellungen der Verbindungsqualität ein eigenes Ziel hinzu (z. B. 1.1.1.1).",
+        "noTrace": "Noch kein Pfad ermittelt.",
+        "agent": "Agent",
+        "notReached": "Ziel hat nicht geantwortet",
+        "hops": "{{n}} Hops",
+        "changedNow": "Pfad anders als üblich",
+        "starts": {
+            "loss": "Verlust ab hier",
+            "latency": "Verzögerung ab hier"
+        },
+        "problem": {
+            "loss": "Verlust ab Hop {{n}}",
+            "latency": "Verzögerung ab Hop {{n}}"
+        },
+        "day": "24 h: {{changes}} Pfadwechsel, {{degraded}} Probleme · {{traces}} Messungen",
+        "dayShort": "24 h: {{changes}} Pfadwechsel, {{degraded}} Probleme",
+        "events": "Änderungen und Probleme der letzten 24 h",
+        "eventsNone": "Keine: der Pfad war stabil und in Ordnung.",
+        "changed": "Pfad anders als üblich ({{n}} Hops)",
+        "ok": "keine Probleme",
+        "note": "Ein Hop wird nur genannt, wenn Verlust (oder ein Latenzsprung von 50 ms) dort beginnt und bis zum Ziel anhält. Ein Router, der langsam auf Ping antwortet, während die Hops danach in Ordnung sind, schützt sich nur (ICMP-Limit) und ist kein Fehler. „Anders als üblich“ vergleicht mit dem häufigsten Pfad des letzten Tages."
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",
