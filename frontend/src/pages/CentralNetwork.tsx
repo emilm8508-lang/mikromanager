@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { HeartPulse, Layers3, FileClock, Radio } from 'lucide-react'
+import { Activity, HeartPulse, Layers3, FileClock, Radio } from 'lucide-react'
 import { centralApi, centralConfig, type CentralSoc } from '../lib/api'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { SvcPill, modeText, MonthCell } from './Services'
@@ -86,6 +86,38 @@ export function CentralServicesPage() {
   )
 }
 
+function ms(v: number | null | undefined, unit: string) {
+  return v == null ? '—' : `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${unit}`
+}
+
+// 3.82: link quality per client - the own targets (the internet link) and whatever is out of its limits
+function CentralQuality({ parts }: { parts: Array<{ tenant: string; q: NonNullable<NonNullable<CentralSoc['availability']>['quality']> | null }> }) {
+  const { t } = useTranslation()
+  const rows = parts.filter(p => p.q && (p.q.own.length || p.q.bad.length))
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-medium text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-600" /> {t('nq.title')}</h2>
+      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+        {rows.flatMap(({ tenant, q }) => [
+          ...q!.own.map(o => ({ tenant, n: o.n, rtt: o.rtt, j: o.j, loss: o.loss, extra: `p95 24 h ${ms(o.p95, 'ms')} · ${t('nq.col.loss24')} ${ms(o.loss24, '%')}`, what: q!.bad.find(b => b.own && b.n === o.n)?.what ?? [] })),
+          ...q!.bad.filter(b => !b.own).map(b => ({ tenant, n: b.n, rtt: b.rtt, j: b.j, loss: b.loss, extra: '', what: b.what })),
+        ]).map((r, i) => (
+          <div key={i} className={cn('flex items-center gap-3 px-4 py-2', r.what.length ? 'bg-red-50/40' : '')}>
+            <span className="w-40 shrink-0"><TenantBadge tenant={r.tenant} /></span>
+            <span className="font-medium text-slate-900 flex-1 truncate">{r.n}</span>
+            <span className="text-xs tabular-nums text-slate-600 w-24 text-right" title={t('nq.col.rtt') as string}>{ms(r.rtt, 'ms')}</span>
+            <span className="text-xs tabular-nums text-slate-600 w-20 text-right" title={t('nq.col.jitter') as string}>{ms(r.j, 'ms')}</span>
+            <span className="text-xs tabular-nums text-slate-600 w-16 text-right" title={t('nq.col.loss') as string}>{ms(r.loss, '%')}</span>
+            <span className="text-xs text-slate-400 w-56 truncate">{r.extra}</span>
+            <span className="text-xs text-red-700 w-32 truncate">{r.what.map(w => t(`nq.bad.${w}`)).join(', ')}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CentralAvailabilityPage() {
   const { t } = useTranslation()
   const ago = useAgo()
@@ -117,6 +149,7 @@ export function CentralAvailabilityPage() {
               ))}
             </div>
           )}
+          <CentralQuality parts={withData.map(p => ({ tenant: p.tenant, q: p.soc.availability!.quality ?? null }))} />
         </>
       )}
     </Shell>

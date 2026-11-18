@@ -1661,6 +1661,46 @@
         "uptime": "Disponibilidad",
         "note": "Comprobación cada minuto: respuesta a ping o a uno de varios puertos TCP. La disponibilidad cuenta desde la primera comprobación; una interrupción es el tiempo caído o inalcanzable."
     },
+    "nq": {
+        "title": "Calidad del enlace: latencia, jitter, pérdida de paquetes",
+        "subtitle": "Cada 5 minutos una serie de pings a los equipos de red y a tus propios destinos (p. ej. internet). Un equipo puede responder y el enlace seguir siendo malo: perder paquetes o tener un retardo alto y variable.",
+        "col": {
+            "target": "Destino",
+            "rtt": "Latencia",
+            "jitter": "Jitter",
+            "loss": "Pérdida",
+            "p95": "p95 24 h",
+            "loss24": "Pérdida 24 h",
+            "jmax": "Jitter máx. 24 h"
+        },
+        "own": "propio",
+        "auto": "automático",
+        "bad": {
+            "loss": "pérdida",
+            "latency": "latencia",
+            "jitter": "jitter"
+        },
+        "empty": "Aún no hay mediciones. La primera aparecerá unos minutos después de iniciar el agente.",
+        "settings": "Ajustes de medición",
+        "targets": "Destinos propios (p. ej. internet, la puerta de enlace del proveedor, un servidor en otra sede)",
+        "name": "Nombre",
+        "ip": "Dirección IP",
+        "add": "Añadir destino",
+        "remove": "Quitar",
+        "autoLabel": "Medir también los equipos de red vigilados por disponibilidad",
+        "enabled": "Medición activada",
+        "count": "Pings por serie",
+        "limits": "Umbrales de alerta (tras dos mediciones malas seguidas)",
+        "lossLimit": "Pérdida desde (%)",
+        "rttLimit": "Latencia de equipos desde (ms)",
+        "rttLimitOwn": "Latencia de destinos propios desde (ms)",
+        "jitterLimit": "Jitter desde (ms)",
+        "save": "Guardar",
+        "saved": "Guardado",
+        "runNow": "Medir ahora",
+        "chart": "Gráficos y umbrales propios: página Métricas.",
+        "note": "La latencia es el tiempo medio de respuesta de una serie, el jitter la diferencia media entre respuestas consecutivas, la pérdida el porcentaje de pings sin respuesta. Un equipo que no responde en absoluto lo informa la monitorización de disponibilidad, no esta medición."
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",
@@ -2140,6 +2180,9 @@
             "ups_load": "carga del SAI (salida)",
             "ups_runtime": "autonomía del SAI",
             "ups_temp": "temperatura del SAI",
+            "rtt": "latencia (RTT)",
+            "jitter": "jitter",
+            "loss": "pérdida de paquetes",
             "other": "otras"
         }
     },

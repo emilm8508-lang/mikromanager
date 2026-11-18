@@ -396,4 +396,14 @@ def public_summary() -> dict:
     o = overview()
     return {"up": o["up"], "down": o["down"], "unreachable": o["unreachable"],
             "bad": [{"n": r["name"], "s": r["state"], "since": r["since"], "root": r["root"]} for r in o["items"] if r["state"] in ("down", "unreachable")][:40],
-            "at": _iso(_now())}
+            "at": _iso(_now()), "quality": _quality()}
+
+
+def _quality() -> Optional[dict]:
+    """3.82: latency, jitter and loss (services/net_quality.py) - the targets out of their limits and the own targets, for Central."""
+    try:
+        from services import net_quality
+        return net_quality.public_summary()
+    except Exception as e:
+        print(f"[availability] net quality summary error: {type(e).__name__}: {e}")
+        return None

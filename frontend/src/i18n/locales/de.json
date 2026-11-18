@@ -1661,6 +1661,46 @@
         "uptime": "Verfügbarkeit",
         "note": "Prüfung jede Minute: Antwort auf Ping oder auf einen von einigen TCP-Ports. Die Verfügbarkeit zählt ab der ersten Prüfung; ein Ausfall ist die Zeit ohne Antwort, auch als nicht erreichbar."
     },
+    "nq": {
+        "title": "Verbindungsqualität: Latenz, Jitter, Paketverlust",
+        "subtitle": "Alle 5 Minuten eine Ping-Serie an die Netzwerkgeräte und an eigene Ziele (z. B. das Internet). Ein Gerät kann antworten und die Verbindung trotzdem schlecht sein: Paketverlust oder hohe, springende Verzögerung.",
+        "col": {
+            "target": "Ziel",
+            "rtt": "Latenz",
+            "jitter": "Jitter",
+            "loss": "Verlust",
+            "p95": "p95 24 h",
+            "loss24": "Verlust 24 h",
+            "jmax": "Max. Jitter 24 h"
+        },
+        "own": "eigenes",
+        "auto": "automatisch",
+        "bad": {
+            "loss": "Verlust",
+            "latency": "Latenz",
+            "jitter": "Jitter"
+        },
+        "empty": "Noch keine Messungen. Die erste erscheint wenige Minuten nach dem Start des Agenten.",
+        "settings": "Messeinstellungen",
+        "targets": "Eigene Ziele (z. B. Internet, Gateway des Providers, Server an einem anderen Standort)",
+        "name": "Name",
+        "ip": "IP-Adresse",
+        "add": "Ziel hinzufügen",
+        "remove": "Entfernen",
+        "autoLabel": "Auch die Netzwerkgeräte aus der Verfügbarkeitsüberwachung messen",
+        "enabled": "Messung aktiv",
+        "count": "Pings pro Serie",
+        "limits": "Alarmgrenzen (nach zwei schlechten Messungen in Folge)",
+        "lossLimit": "Verlust ab (%)",
+        "rttLimit": "Latenz der Geräte ab (ms)",
+        "rttLimitOwn": "Latenz eigener Ziele ab (ms)",
+        "jitterLimit": "Jitter ab (ms)",
+        "save": "Speichern",
+        "saved": "Gespeichert",
+        "runNow": "Jetzt messen",
+        "chart": "Diagramme und eigene Schwellen: Seite Metriken.",
+        "note": "Latenz ist die mittlere Antwortzeit einer Serie, Jitter die mittlere Differenz zwischen aufeinanderfolgenden Antworten, Verlust der Anteil der Pings ohne Antwort. Ein Gerät, das gar nicht antwortet, meldet die Verfügbarkeitsüberwachung, nicht diese Messung."
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",
@@ -2140,6 +2180,9 @@
             "ups_load": "USV-Last",
             "ups_runtime": "USV-Laufzeit",
             "ups_temp": "USV-Temperatur",
+            "rtt": "Latenz (RTT)",
+            "jitter": "Jitter",
+            "loss": "Paketverlust",
             "other": "andere"
         }
     },

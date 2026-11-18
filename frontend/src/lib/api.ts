@@ -1453,6 +1453,23 @@ export const availApi = {
   outages: (id: number, days = 30) => api.get<AvailOutages>(`/availability/${id}`, { params: { days } }).then(r => r.data),
   setMonitor: (id: number, mode: number | null) => api.put<{ ok: boolean }>(`/availability/${id}/monitor`, { mode }).then(r => r.data),
 }
+// link quality (services/net_quality.py): latency, jitter and packet loss of the network equipment and the own targets
+export interface NetQualitySettings {
+  enabled: boolean; auto: boolean; count: number
+  targets: Array<{ name?: string; ip: string }>
+  limits: { loss_pct: number; rtt_ms: number; rtt_ms_own: number; jitter_ms: number }
+}
+export interface NetQualityItem {
+  ip: string; name: string; asset_id: number | null; own: boolean; at: string | null; error: string | null
+  rtt: number | null; jitter: number | null; loss: number | null; min: number | null; max: number | null
+  rtt_avg_24h: number | null; rtt_p95_24h: number | null; loss_avg_24h: number | null; jitter_max_24h: number | null
+  keys: Record<'rtt' | 'jitter' | 'loss', string>; bad: Array<'loss' | 'latency' | 'jitter'>
+}
+export const netQualityApi = {
+  overview: () => api.get<{ settings: NetQualitySettings; items: NetQualityItem[]; last: { at: string | null; targets: number; duration_sec: number | null; error: string | null } }>('/net-quality').then(r => r.data),
+  save: (s: Partial<NetQualitySettings>) => api.put<NetQualitySettings>('/net-quality/settings', s).then(r => r.data),
+  run: () => api.post('/net-quality/run').then(r => r.data),
+}
 // coverage: which sources of the agent report (services/coverage.py)
 export interface CoverageItem { id: string; group: string; name: string; state: 'ok' | 'stale' | 'error' | 'off'; last_ok: string | null; expected_s: number | null; error: string | null; detail: string | null; stale_items: string[]; total: number | null }
 export const coverageApi = { report: () => api.get<{ items: CoverageItem[]; summary: Record<'ok' | 'stale' | 'error' | 'off', number>; uptime_s: number; at: string }>('/coverage').then(r => r.data) }
@@ -1783,7 +1800,11 @@ export const socApi = {
 export interface CentralSoc {
   at: string | null; stats: SocStats | null
   risk?: { levels: Record<string, number>; scored: number; top: CentralRiskDevice[] }
-  availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string }
+  availability?: { up: number; down: number; unreachable: number; bad: Array<{ n: string; s: 'down' | 'unreachable'; since: string | null; root: string | null }>; at: string
+    // 3.82: latency, jitter and loss (services/net_quality.py) - the targets out of their limits and the own targets
+    quality?: { targets: number; at: string | null
+      bad: Array<{ n: string; rtt: number | null; j: number | null; loss: number | null; what: string[]; own: boolean }>
+      own: Array<{ n: string; rtt: number | null; j: number | null; loss: number | null; p95: number | null; loss24: number | null }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

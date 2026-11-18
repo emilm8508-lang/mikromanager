@@ -1661,6 +1661,46 @@
         "uptime": "Availability",
         "note": "Checked every minute: an answer to ping or to one of a few TCP ports. Availability counts from the first check; an outage is the time it was down or unreachable."
     },
+    "nq": {
+        "title": "Link quality: latency, jitter, packet loss",
+        "subtitle": "Every 5 minutes a burst of pings to the network equipment and to your own targets (e.g. the internet). A device can answer and the link still be bad: losing packets or with a high, jumping delay.",
+        "col": {
+            "target": "Target",
+            "rtt": "Latency",
+            "jitter": "Jitter",
+            "loss": "Loss",
+            "p95": "p95 24 h",
+            "loss24": "Loss 24 h",
+            "jmax": "Max jitter 24 h"
+        },
+        "own": "own",
+        "auto": "automatic",
+        "bad": {
+            "loss": "loss",
+            "latency": "latency",
+            "jitter": "jitter"
+        },
+        "empty": "No measurements yet. The first one appears a few minutes after the agent starts.",
+        "settings": "Measurement settings",
+        "targets": "Own targets (e.g. the internet, the ISP gateway, a server at another site)",
+        "name": "Name",
+        "ip": "IP address",
+        "add": "Add target",
+        "remove": "Remove",
+        "autoLabel": "Also measure the network equipment watched for availability",
+        "enabled": "Measurement on",
+        "count": "Pings per burst",
+        "limits": "Alert limits (after two bad measurements in a row)",
+        "lossLimit": "Loss from (%)",
+        "rttLimit": "Device latency from (ms)",
+        "rttLimitOwn": "Own target latency from (ms)",
+        "jitterLimit": "Jitter from (ms)",
+        "save": "Save",
+        "saved": "Saved",
+        "runNow": "Measure now",
+        "chart": "Charts and your own thresholds: the Metrics page.",
+        "note": "Latency is the average reply time of a burst, jitter the average difference between consecutive replies, loss the share of pings without a reply. A device that does not answer at all is reported by availability monitoring, not by this measurement."
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",
@@ -2140,6 +2180,9 @@
             "ups_load": "UPS load",
             "ups_runtime": "UPS runtime",
             "ups_temp": "UPS temperature",
+            "rtt": "latency (RTT)",
+            "jitter": "jitter",
+            "loss": "packet loss",
             "other": "other"
         }
     },

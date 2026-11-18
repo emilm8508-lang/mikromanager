@@ -6,6 +6,7 @@ import { availApi, AvailItem } from '../lib/api'
 import { useAgo } from '../components/SocBits'
 import { cn } from '../lib/utils'
 import { HostLink } from '../components/HostLink'
+import { NetQuality } from '../components/NetQuality'
 
 const STATE_STYLE: Record<string, string> = {
   up: 'bg-green-50 text-green-700 border-green-200',
@@ -150,6 +151,7 @@ export function Availability() {
         </div>
       )}
       <p className="text-xs text-slate-400">{t('avail.note')}{d?.last?.at ? ` ${t('avail.lastCheck', { when: ago(d.last.at) })}` : ''}</p>
+      <NetQuality />
     </div>
   )
 }

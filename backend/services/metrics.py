@@ -36,7 +36,7 @@ FORECAST_HORIZON_DAYS = 14
 MIN_SLOPE = 0.2                  # % of the disk per day: slower growth is not worth an alert
 MIN_R2 = 0.6                     # how well a straight line fits: below this the series is noise, not a trend
 MIN_CURRENT = 50.0
-KINDS = ("cpu", "mem", "disk", "temp", "ups_charge", "ups_load", "ups_runtime", "ups_temp", "net", "sec", "other")      # net: NetFlow per host, sec: Wazuh events per agent
+KINDS = ("cpu", "mem", "disk", "temp", "ups_charge", "ups_load", "ups_runtime", "ups_temp", "net", "sec", "rtt", "jitter", "loss", "other")      # net: NetFlow per host, sec: Wazuh events per agent; rtt / jitter / loss: services/net_quality.py
 SEVERITIES = ("low", "medium", "high", "critical")
 
 _task: Optional[asyncio.Task] = None

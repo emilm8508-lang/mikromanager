@@ -46,7 +46,7 @@ Z_OPEN = float(os.environ.get("MIKROTIK_ANOMALY_Z", "4.0"))
 Z_CLOSE = 2.5
 CYCLES_OPEN = 2
 CYCLES_CLOSE = 2
-SKIP_KINDS = ("disk",)          # disks have their own forecast (metrics.check_forecasts)
+SKIP_KINDS = ("disk", "loss", "jitter")          # disks have their own forecast (metrics.check_forecasts); loss / jitter: mostly 0 with single bursts, net_quality has limits for them
 RULE = "ml.anomaly"
 
 _profiles: Dict[str, Tuple[float, Optional[dict]]] = {}     # key -> (built at, profile or None while learning)
@@ -70,7 +70,7 @@ def host_key(key: str) -> str:
 
 
 def direction(kind: str, unit: str) -> str:
-    if kind in ("cpu", "mem", "temp", "ups_temp", "net", "sec"):       # traffic and security events: more is the risk
+    if kind in ("cpu", "mem", "temp", "ups_temp", "net", "sec", "rtt"):       # traffic and security events: more is the risk; a longer round trip too
         return "up"
     if kind in ("ups_charge", "ups_runtime"):
         return "down"
@@ -88,6 +88,8 @@ def floor(unit: str, median: float) -> float:
         return max(5.0, abs(median) * 0.05)
     if u.upper() == "RPM":
         return max(100.0, abs(median) * 0.03)
+    if u == "ms":                                   # round-trip time: a LAN's 1-2 ms jumps by itself, only a clear change counts
+        return max(5.0, abs(median) * 0.5)
     if u == "MB":                                   # NetFlow traffic of a host per 10 minutes: bursty by nature
         return max(5.0, abs(median) * 0.3)
     if u in ("hosts", "ports", "conn", "events", "IPs"):

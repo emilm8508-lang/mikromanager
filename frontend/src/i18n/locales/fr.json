@@ -1661,6 +1661,46 @@
         "uptime": "Disponibilité",
         "note": "Vérification chaque minute : réponse au ping ou à l'un de quelques ports TCP. La disponibilité compte depuis la première vérification ; une interruption est le temps hors service ou injoignable."
     },
+    "nq": {
+        "title": "Qualité du lien : latence, gigue, perte de paquets",
+        "subtitle": "Toutes les 5 minutes, une série de pings vers les équipements réseau et vos propres cibles (par ex. Internet). Un équipement peut répondre alors que le lien reste mauvais : paquets perdus ou délai élevé et instable.",
+        "col": {
+            "target": "Cible",
+            "rtt": "Latence",
+            "jitter": "Gigue",
+            "loss": "Perte",
+            "p95": "p95 24 h",
+            "loss24": "Perte 24 h",
+            "jmax": "Gigue max. 24 h"
+        },
+        "own": "propre",
+        "auto": "automatique",
+        "bad": {
+            "loss": "perte",
+            "latency": "latence",
+            "jitter": "gigue"
+        },
+        "empty": "Pas encore de mesure. La première apparaît quelques minutes après le démarrage de l'agent.",
+        "settings": "Réglages de la mesure",
+        "targets": "Cibles propres (par ex. Internet, la passerelle du fournisseur, un serveur d'un autre site)",
+        "name": "Nom",
+        "ip": "Adresse IP",
+        "add": "Ajouter une cible",
+        "remove": "Supprimer",
+        "autoLabel": "Mesurer aussi les équipements réseau surveillés pour la disponibilité",
+        "enabled": "Mesure activée",
+        "count": "Pings par série",
+        "limits": "Seuils d'alerte (après deux mauvaises mesures de suite)",
+        "lossLimit": "Perte à partir de (%)",
+        "rttLimit": "Latence des équipements à partir de (ms)",
+        "rttLimitOwn": "Latence des cibles propres à partir de (ms)",
+        "jitterLimit": "Gigue à partir de (ms)",
+        "save": "Enregistrer",
+        "saved": "Enregistré",
+        "runNow": "Mesurer maintenant",
+        "chart": "Graphiques et seuils personnalisés : page Métriques.",
+        "note": "La latence est le temps de réponse moyen d'une série, la gigue l'écart moyen entre réponses successives, la perte la part des pings sans réponse. Un équipement qui ne répond pas du tout est signalé par la surveillance de disponibilité, pas par cette mesure."
+    },
     "svc": {
         "title": "Services métier et SLA",
         "subtitle": "Un service est ce que les gens utilisent (« messagerie », « comptabilité », « la boutique »), décrit comme l'équipement dont il a besoin. Son état découle de la disponibilité de cet équipement et le SLA est calculé à partir de l'historique.",
@@ -2140,6 +2180,9 @@
             "ups_load": "charge de sortie de l'onduleur",
             "ups_runtime": "autonomie de l'onduleur",
             "ups_temp": "température de l'onduleur",
+            "rtt": "latence (RTT)",
+            "jitter": "gigue",
+            "loss": "perte de paquets",
             "other": "autres"
         }
     },

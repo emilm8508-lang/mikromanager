@@ -2,6 +2,30 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.82 — 2026-11-18
+- Link quality: latency, jitter and packet loss (services/net_quality.py). Availability only says whether a device answers; a link can answer and still lose packets or have a high, jumping delay.
+  - Every 5 minutes, a burst of 10 pings to each target. The agent records the average RTT, the jitter (the average difference between consecutive replies) and the loss.
+  - Targets:
+    - the network equipment availability watches (automatically, up to 40, not the ones that are down);
+    - targets of your own (by default 1.1.1.1 for the internet link, up to 20).
+  - No credentials and nothing but ICMP echo.
+  - The readings go into the metric history as new kinds `rtt` / `jitter` / `loss`. That gives charts, thresholds of your own on the Metrics page, and for RTT the anomaly detector's learned range (jitter and loss are left out of it: mostly 0 with single bursts).
+  - Alerts, each after two bad measurements in a row and closed after a good one:
+    - `metric.net_loss` from 5% (high from 20%). A network device at 100% is left to the availability alert; a target of your own at 100% is alerted here.
+    - `metric.net_latency` from 100 ms (devices) or 150 ms (own targets).
+    - `metric.net_jitter` from 30 ms.
+    - All limits can be changed.
+  - The Availability page has a new "Link quality" section: the last measurement, p95 and loss over 24 hours, the worst jitter, and settings (targets, limits, pings per burst, automatic targets on / off). API: `GET /api/net-quality`, `PUT /api/net-quality/settings`, `POST /api/net-quality/run`.
+  - Central: the availability summary carries `quality`: the targets out of their limits and the own targets, names and numbers, no addresses. The Central availability page shows them per client, and MCP `client_availability` returns them (no new tool, nothing removed).
+- Tested: 9 new regression tests (backend/tests/test_net_quality.py):
+  - parsing of Polish and English Windows and of Linux ping output, "<1ms", timeouts and "host unreachable";
+  - alerts after two bursts, the 100% rule and the limits;
+  - settings validation;
+  - the overview from history after a restart;
+  - no addresses in the Central summary.
+  - Real ping bursts on Windows were checked (local, internet, an address that does not answer). tsc OK.
+  - The new sections were not seen in a browser (the panel needs a login) and have not run on a client.
+
 ## 3.81 — 2026-11-18
 - Alerts and the alert history showed "?" as the device for `memory_high` and `disk_space_low`. The host events named their host only as `hostname` (and the address as `ip`), and nothing read those fields.
   - The agent: Linux and Windows host events also carry `device_name` and `device_ip`. `hostname` is kept for older readers.

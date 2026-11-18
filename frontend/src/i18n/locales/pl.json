@@ -1825,6 +1825,46 @@
         "uptime": "Dostępność",
         "note": "Sprawdzenie co minutę: odpowiedź na ping albo na jeden z portów TCP. Dostępność liczona od pierwszego sprawdzenia, przerwa to czas niedostępności, także nieosiągalności."
     },
+    "nq": {
+        "title": "Jakość łącza: opóźnienie, jitter, utrata pakietów",
+        "subtitle": "Co 5 minut seria pingów do urządzeń sieciowych i do Twoich celów (np. internet). Urządzenie może odpowiadać, a łącze i tak być złe: gubić pakiety albo mieć duże i skaczące opóźnienie.",
+        "col": {
+            "target": "Cel",
+            "rtt": "Opóźnienie",
+            "jitter": "Jitter",
+            "loss": "Utrata",
+            "p95": "p95 24 h",
+            "loss24": "Utrata 24 h",
+            "jmax": "Jitter maks. 24 h"
+        },
+        "own": "własny",
+        "auto": "automatycznie",
+        "bad": {
+            "loss": "utrata",
+            "latency": "opóźnienie",
+            "jitter": "jitter"
+        },
+        "empty": "Brak pomiarów. Pierwszy pojawi się kilka minut po starcie agenta.",
+        "settings": "Ustawienia pomiaru",
+        "targets": "Własne cele (np. internet, brama operatora, serwer w innym oddziale)",
+        "name": "Nazwa",
+        "ip": "Adres IP",
+        "add": "Dodaj cel",
+        "remove": "Usuń",
+        "autoLabel": "Mierz też urządzenia sieciowe z monitorowania dostępności",
+        "enabled": "Pomiar włączony",
+        "count": "Pingów w serii",
+        "limits": "Progi alertów (po dwóch złych pomiarach z rzędu)",
+        "lossLimit": "Utrata od (%)",
+        "rttLimit": "Opóźnienie urządzeń od (ms)",
+        "rttLimitOwn": "Opóźnienie własnych celów od (ms)",
+        "jitterLimit": "Jitter od (ms)",
+        "save": "Zapisz",
+        "saved": "Zapisano",
+        "runNow": "Zmierz teraz",
+        "chart": "Wykresy i progi własne: strona Metryki.",
+        "note": "Opóźnienie to średni czas odpowiedzi serii, jitter to średnia różnica między kolejnymi odpowiedziami, utrata to odsetek pingów bez odpowiedzi. Urządzenie, które nie odpowiada wcale, zgłasza monitorowanie dostępności, nie ten pomiar."
+    },
     "svc": {
         "title": "Usługi biznesowe i SLA",
         "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",
@@ -2304,6 +2344,9 @@
             "ups_load": "UPS: obciążenie",
             "ups_runtime": "UPS: czas pracy",
             "ups_temp": "UPS: temperatura",
+            "rtt": "opóźnienie (RTT)",
+            "jitter": "jitter",
+            "loss": "utrata pakietów",
             "other": "inne"
         }
     },
