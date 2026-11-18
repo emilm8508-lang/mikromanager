@@ -38,6 +38,7 @@
                 "socRisk": "Asset-Risiko",
                 "avail": "Verfügbarkeit",
                 "ipam": "IP-Adressen (IPAM)",
+                "forecasts": "Prognosen",
                 "svc": "Geschäftsdienste",
                 "cfg": "Router-Konfigurationen",
                 "ai": "KI-Assistent",
@@ -1874,6 +1875,28 @@
             "counts": "{{subnets}} Subnetze, {{pools}} Pools",
             "conflicts": "{{n}} Konflikte",
             "ok": "keine vollen Pools oder Subnetze"
+        }
+    },
+    "fc": {
+        "title": "Was knapp wird",
+        "subtitle": "Eine Liste von Prognosen aus dem, was der Agent ohnehin misst: Datenträger, Speicher und DHCP-Pools, die stetig volllaufen, und ablaufende Zertifikate. Das Nächste zuerst.",
+        "horizon": "{{n}} Tage",
+        "kind": {
+            "disk": "Datenträger",
+            "mem": "Speicher",
+            "dhcp_pool": "DHCP-Pools",
+            "certificate": "Zertifikate"
+        },
+        "empty": "Nichts wird in {{n}} Tagen knapp.",
+        "now": "jetzt",
+        "inDays": "in {{n}} Tagen",
+        "growth": "jetzt {{value}} %, +{{per}} Punkte pro Tag, voll etwa am {{date}}",
+        "certExpires": "läuft ab am {{date}}",
+        "certExpired": "abgelaufen",
+        "selfSigned": "selbstsigniert",
+        "note": "Eine Prognose ist eine Gerade durch die letzten 7 Tage: nur stetiges Wachstum zählt (Güte mindestens 0,6, mindestens 2 Tage Messwerte), keine Schwankungen. Alarme: Datenträger binnen 14 Tagen, Speicher binnen 7 Tagen (oft ein Speicherleck), DHCP-Pool binnen 7 Tagen, Zertifikat 14 Tage vor Ablauf.",
+        "central": {
+            "title": "Was in 30 Tagen knapp wird"
         }
     },
     "svc": {

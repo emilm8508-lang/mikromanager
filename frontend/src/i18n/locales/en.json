@@ -38,6 +38,7 @@
                 "socRisk": "Asset risk",
                 "avail": "Availability",
                 "ipam": "IP addresses (IPAM)",
+                "forecasts": "Forecasts",
                 "svc": "Business services",
                 "cfg": "Router configurations",
                 "ai": "AI assistant",
@@ -1874,6 +1875,28 @@
             "counts": "{{subnets}} subnets, {{pools}} pools",
             "conflicts": "{{n}} conflicts",
             "ok": "no full pools or subnets"
+        }
+    },
+    "fc": {
+        "title": "What will run out",
+        "subtitle": "One list of forecasts from what the agent already measures: disks, memory and DHCP pools growing steadily to full, and certificates expiring. Nearest first.",
+        "horizon": "{{n}} days",
+        "kind": {
+            "disk": "Disks",
+            "mem": "Memory",
+            "dhcp_pool": "DHCP pools",
+            "certificate": "Certificates"
+        },
+        "empty": "Nothing runs out within {{n}} days.",
+        "now": "now",
+        "inDays": "in {{n}} days",
+        "growth": "{{value}}% now, +{{per}} points a day, full around {{date}}",
+        "certExpires": "expires {{date}}",
+        "certExpired": "expired",
+        "selfSigned": "self-signed",
+        "note": "A forecast is a straight line fitted to the last 7 days: only steady growth counts (a fit of at least 0.6, at least 2 days of readings), not ups and downs. Alerts: a disk within 14 days, memory within 7 days (often a memory leak), a DHCP pool within 7 days, a certificate 14 days before it expires.",
+        "central": {
+            "title": "What will run out within 30 days"
         }
     },
     "svc": {

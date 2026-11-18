@@ -38,6 +38,7 @@
                 "socRisk": "Risque des équipements",
                 "avail": "Disponibilité",
                 "ipam": "Adresses IP (IPAM)",
+                "forecasts": "Prévisions",
                 "svc": "Services métier",
                 "cfg": "Configurations des routeurs",
                 "ai": "Assistant IA",
@@ -1874,6 +1875,28 @@
             "counts": "{{subnets}} sous-réseaux, {{pools}} pools",
             "conflicts": "{{n}} conflits",
             "ok": "aucun pool ni sous-réseau plein"
+        }
+    },
+    "fc": {
+        "title": "Ce qui va s'épuiser",
+        "subtitle": "Une liste de prévisions à partir de ce que l'agent mesure déjà : disques, mémoire et pools DHCP qui se remplissent régulièrement, et certificats qui expirent. Le plus proche en premier.",
+        "horizon": "{{n}} jours",
+        "kind": {
+            "disk": "Disques",
+            "mem": "Mémoire",
+            "dhcp_pool": "Pools DHCP",
+            "certificate": "Certificats"
+        },
+        "empty": "Rien ne s'épuise dans les {{n}} jours.",
+        "now": "maintenant",
+        "inDays": "dans {{n}} jours",
+        "growth": "{{value}} % maintenant, +{{per}} points par jour, plein vers le {{date}}",
+        "certExpires": "expire le {{date}}",
+        "certExpired": "expiré",
+        "selfSigned": "auto-signé",
+        "note": "Une prévision est une droite ajustée sur les 7 derniers jours : seule une croissance régulière compte (ajustement d'au moins 0,6, au moins 2 jours de mesures), pas les hauts et les bas. Alertes : disque sous 14 jours, mémoire sous 7 jours (souvent une fuite mémoire), pool DHCP sous 7 jours, certificat 14 jours avant expiration.",
+        "central": {
+            "title": "Ce qui va s'épuiser sous 30 jours"
         }
     },
     "svc": {

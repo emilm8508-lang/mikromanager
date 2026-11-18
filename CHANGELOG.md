@@ -2,6 +2,26 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.87 — 2026-11-18
+- What will run out, and when (services/forecasts.py): one list of forecasts from what the agent already measures. Nothing new is read from any device.
+  - Disks, memory and DHCP pools growing steadily to full use the same straight-line fit as the disk forecast.
+    - The fit is over the last 7 days, needs at least 2 days of readings and a fit of at least 0.6.
+    - It also needs a minimum growth per day (disk 0.2, memory 0.5, pool 0.5 points) and a minimum current value, with a horizon of 90 days.
+    - So a series that goes up and down every day is not a forecast, and a series no longer measured (12 h) gives none.
+  - Certificates expiring: from the TLS checks and from the https application checks.
+  - New alert `metric.mem_forecast`: memory that will be full within 7 days (medium; high within 2 days), usually a memory leak. It is checked every hour and closed when the trend breaks.
+    - Disks, DHCP pools and certificates keep their own alerts (`metric.disk_forecast`, `net.dhcp_pool`, `app.cert`).
+  - A new page "Forecasts" in the Network menu, next to Metrics. It shows the counts per kind (click to filter), a horizon of 7 / 30 / 90 days, and per item what and where, the value now, the growth per day, the date and the days left, nearest first.
+  - API: `GET /api/forecasts?horizon=`.
+  - Central: the availability summary carries `forecast` (what runs out within 30 days, the nearest 12; a bare address is not sent). The Central availability page lists it per client, nearest first, and MCP `client_availability` returns it.
+- Tested: 5 new regression tests (backend/tests/test_forecasts.py):
+  - steady growth with days and date;
+  - ups and downs, too slow, too low, past the horizon, too short;
+  - one list nearest first with all four kinds and the horizon filter, a CPU series and a flat memory series left out;
+  - the memory alert;
+  - a summary without addresses.
+  - tsc OK. The page was not seen in a browser.
+
 ## 3.86 — 2026-11-18
 - IP address management (services/ipam.py) from what the routers already know: how full each subnet and DHCP pool is, what is free, and which addresses are in conflict.
   - Every 30 minutes, the MikroTik routers with a stored credential are read: `/ip/address`, `/ip/pool`, `/ip/dhcp-server`, `/ip/dhcp-server/lease` and `/ip/arp`.

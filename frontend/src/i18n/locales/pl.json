@@ -38,6 +38,7 @@
                 "socRisk": "Ryzyko zasobów",
                 "avail": "Dostępność",
                 "ipam": "Adresy IP (IPAM)",
+                "forecasts": "Prognozy",
                 "svc": "Usługi biznesowe",
                 "cfg": "Konfiguracje routerów",
                 "ai": "Asystent AI",
@@ -2038,6 +2039,28 @@
             "counts": "podsieci {{subnets}}, pule {{pools}}",
             "conflicts": "konflikty: {{n}}",
             "ok": "bez pełnych pul i podsieci"
+        }
+    },
+    "fc": {
+        "title": "Co się wyczerpie",
+        "subtitle": "Jedna lista prognoz z tego, co agent już mierzy: dyski, pamięć i pule DHCP, które stale rosną do pełna, oraz certyfikaty, które wygasają. Najbliższe na górze.",
+        "horizon": "{{n}} dni",
+        "kind": {
+            "disk": "Dyski",
+            "mem": "Pamięć",
+            "dhcp_pool": "Pule DHCP",
+            "certificate": "Certyfikaty"
+        },
+        "empty": "Nic się nie wyczerpie w ciągu {{n}} dni.",
+        "now": "już",
+        "inDays": "za {{n}} dni",
+        "growth": "teraz {{value}}%, +{{per}} pkt dziennie, pełne ok. {{date}}",
+        "certExpires": "wygasa {{date}}",
+        "certExpired": "wygasł",
+        "selfSigned": "samopodpisany",
+        "note": "Prognoza to prosta dopasowana do ostatnich 7 dni: liczy się tylko stały wzrost (dopasowanie co najmniej 0,6, co najmniej 2 dni pomiarów), a nie wahania. Alerty: dysk w ciągu 14 dni, pamięć w ciągu 7 dni (często wyciek pamięci), pula DHCP w ciągu 7 dni, certyfikat 14 dni przed wygaśnięciem.",
+        "central": {
+            "title": "Co się wyczerpie w ciągu 30 dni"
         }
     },
     "svc": {

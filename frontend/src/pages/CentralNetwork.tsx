@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, AppWindow, Binary, HeartPulse, Route, Layers3, FileClock, Radio } from 'lucide-react'
+import { Activity, AppWindow, Binary, HeartPulse, Hourglass, Route, Layers3, FileClock, Radio } from 'lucide-react'
 import { centralApi, centralConfig, type CentralSoc } from '../lib/api'
 import { TenantBadge } from '../components/ui/TenantBadge'
 import { SvcPill, modeText, MonthCell } from './Services'
@@ -111,6 +111,28 @@ function CentralQuality({ parts }: { parts: Array<{ tenant: string; q: NonNullab
             <span className="text-xs tabular-nums text-slate-600 w-16 text-right" title={t('nq.col.loss') as string}>{ms(r.loss, '%')}</span>
             <span className="text-xs text-slate-400 w-56 truncate">{r.extra}</span>
             <span className="text-xs text-red-700 w-32 truncate">{r.what.map(w => t(`nq.bad.${w}`)).join(', ')}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 3.87: what will run out within 30 days, per client
+function CentralForecast({ parts }: { parts: Array<{ tenant: string; f: NonNullable<NonNullable<CentralSoc['availability']>['forecast']> | null }> }) {
+  const { t } = useTranslation()
+  const rows = parts.flatMap(({ tenant, f }) => (f?.next ?? []).map(x => ({ tenant, x }))).sort((a, b) => a.x.days - b.x.days)
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-medium text-slate-700 flex items-center gap-2"><Hourglass size={14} className="text-indigo-600" /> {t('fc.central.title')}</h2>
+      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+        {rows.slice(0, 40).map(({ tenant, x }, i) => (
+          <div key={i} className={cn('flex items-center gap-3 px-4 py-2', x.days <= 7 ? 'bg-red-50/40' : '')}>
+            <span className="w-40 shrink-0"><TenantBadge tenant={tenant} /></span>
+            <span className="font-medium text-slate-900 flex-1 truncate">{x.n ?? '—'}{x.w ? <span className="text-slate-500 font-normal"> · {x.w}</span> : null}</span>
+            <span className="text-xs text-slate-500 w-28">{t(`fc.kind.${x.k}`)}</span>
+            <span className={cn('text-xs tabular-nums w-24 text-right', x.days <= 7 ? 'text-red-700 font-medium' : 'text-slate-600')}>{x.days <= 0 ? t('fc.now') : t('fc.inDays', { n: Math.max(1, Math.round(x.days)) })}</span>
           </div>
         ))}
       </div>
@@ -235,6 +257,7 @@ export function CentralAvailabilityPage() {
           <CentralApps parts={withData.map(p => ({ tenant: p.tenant, a: p.soc.availability!.apps ?? null }))} />
           <CentralPaths parts={withData.map(p => ({ tenant: p.tenant, p: p.soc.availability!.paths ?? null }))} />
           <CentralIpam parts={withData.map(p => ({ tenant: p.tenant, i: p.soc.availability!.ipam ?? null }))} />
+          <CentralForecast parts={withData.map(p => ({ tenant: p.tenant, f: p.soc.availability!.forecast ?? null }))} />
         </>
       )}
     </Shell>

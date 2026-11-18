@@ -1470,6 +1470,14 @@ export const netQualityApi = {
   save: (s: Partial<NetQualitySettings>) => api.put<NetQualitySettings>('/net-quality/settings', s).then(r => r.data),
   run: () => api.post('/net-quality/run').then(r => r.data),
 }
+// what will run out and when (services/forecasts.py)
+export interface ForecastItem {
+  kind: 'disk' | 'mem' | 'dhcp_pool' | 'certificate'; key: string; name: string; where: string; what: string | null; asset_id: number | null; unit: string | null
+  value: number | null; per_day: number | null; days: number; date: string; self_signed?: boolean
+}
+export const forecastsApi = {
+  overview: (horizon = 90) => api.get<{ items: ForecastItem[]; counts: Record<'disk' | 'mem' | 'dhcp_pool' | 'certificate', number>; horizon: number; within_7: number; at: string }>('/forecasts', { params: { horizon } }).then(r => r.data),
+}
 // IP address management from the routers' tables (services/ipam.py)
 export interface IpamSubnet {
   network: string; router: string; interface: string | null; gateway: string; size: number; used: number | null; free: number | null; pct: number | null
@@ -1854,7 +1862,10 @@ export interface CentralSoc {
     // 3.86: IP address management (services/ipam.py)
     ipam?: { subnets: number; pools: number; conflicts: number; static_in_pool: number; at: string | null
       full_subnets: Array<{ net: string; pct: number | null; free: number | null }>
-      full_pools: Array<{ n: string; r: string; pct: number | null; size: number; days: number | null }> } | null }
+      full_pools: Array<{ n: string; r: string; pct: number | null; size: number; days: number | null }> } | null
+    // 3.87: what will run out within 30 days (services/forecasts.py)
+    forecast?: { within_30: number; within_7: number; counts: Record<string, number>; at: string
+      next: Array<{ k: 'disk' | 'mem' | 'dhcp_pool' | 'certificate'; n: string | null; w: string | null; days: number }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

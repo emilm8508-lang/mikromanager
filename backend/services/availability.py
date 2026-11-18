@@ -396,7 +396,17 @@ def public_summary() -> dict:
     o = overview()
     return {"up": o["up"], "down": o["down"], "unreachable": o["unreachable"],
             "bad": [{"n": r["name"], "s": r["state"], "since": r["since"], "root": r["root"]} for r in o["items"] if r["state"] in ("down", "unreachable")][:40],
-            "at": _iso(_now()), "quality": _quality(), "apps": _apps(), "paths": _paths(), "ipam": _ipam()}
+            "at": _iso(_now()), "quality": _quality(), "apps": _apps(), "paths": _paths(), "ipam": _ipam(), "forecast": _forecast()}
+
+
+def _forecast() -> Optional[dict]:
+    """3.87: what will run out within 30 days (services/forecasts.py), for Central."""
+    try:
+        from services import forecasts
+        return forecasts.public_summary()
+    except Exception as e:
+        print(f"[availability] forecast summary error: {type(e).__name__}: {e}")
+        return None
 
 
 def _ipam() -> Optional[dict]:

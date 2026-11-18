@@ -38,6 +38,7 @@
                 "socRisk": "Riesgo de activos",
                 "avail": "Disponibilidad",
                 "ipam": "Direcciones IP (IPAM)",
+                "forecasts": "Previsiones",
                 "svc": "Servicios de negocio",
                 "cfg": "Configuraciones de routers",
                 "ai": "Asistente de IA",
@@ -1874,6 +1875,28 @@
             "counts": "{{subnets}} subredes, {{pools}} pools",
             "conflicts": "{{n}} conflictos",
             "ok": "sin pools ni subredes llenos"
+        }
+    },
+    "fc": {
+        "title": "Qué se agotará",
+        "subtitle": "Una lista de previsiones a partir de lo que el agente ya mide: discos, memoria y pools DHCP que crecen de forma constante hasta llenarse, y certificados que caducan. Lo más próximo primero.",
+        "horizon": "{{n}} días",
+        "kind": {
+            "disk": "Discos",
+            "mem": "Memoria",
+            "dhcp_pool": "Pools DHCP",
+            "certificate": "Certificados"
+        },
+        "empty": "Nada se agota en {{n}} días.",
+        "now": "ya",
+        "inDays": "en {{n}} días",
+        "growth": "ahora {{value}} %, +{{per}} puntos al día, lleno hacia el {{date}}",
+        "certExpires": "caduca el {{date}}",
+        "certExpired": "caducado",
+        "selfSigned": "autofirmado",
+        "note": "Una previsión es una recta ajustada a los últimos 7 días: solo cuenta el crecimiento constante (ajuste de al menos 0,6, al menos 2 días de lecturas), no las subidas y bajadas. Alertas: disco en 14 días, memoria en 7 días (a menudo una fuga de memoria), pool DHCP en 7 días, certificado 14 días antes de caducar.",
+        "central": {
+            "title": "Qué se agotará en 30 días"
         }
     },
     "svc": {
