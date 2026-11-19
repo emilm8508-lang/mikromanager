@@ -72,6 +72,8 @@ class Groups(_Db):
 
     def test_not_exclusive_also_sends_the_general_event(self):
         esc.update_settings({"groups": [{"name": "Krytyczne", "route": "crit", "match": {"criticality": ["critical"]}, "exclusive": False}]})
+        self.assertEqual(esc.clean_group({"name": "x", "route": "x", "match": {"criticality": ["high", "important", "bogus"]}})["match"]["criticality"],
+                         ["important", "important"], "the asset levels, the old high read as important")
         self.alert(1, "SW-CORE", "critical", 20)               # general critical times 15, 60, 240 -> level 1
         ev = sorted(e["type"] for e in esc.collect_events(NOW))
         self.assertEqual(ev, ["soc_escalated", "soc_escalated.crit"])

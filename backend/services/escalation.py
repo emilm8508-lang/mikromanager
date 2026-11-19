@@ -32,7 +32,7 @@ SEVERITIES = ("critical", "high", "medium", "low", "info")
 MAX_GROUPS = 20
 _ROUTE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _ASSET_TYPES = ("windows", "linux", "network", "printer", "virtual", "server", "other")
-_CRIT = ("low", "medium", "high", "critical")
+_CRIT = ("critical", "important", "normal", "ignore")      # the asset criticality levels (services/asset_type.py)
 _settings: Dict = json.loads(json.dumps(DEFAULTS))
 
 
@@ -75,6 +75,12 @@ def _minutes(lst) -> List[int]:
     return mins
 
 
+def _crit(v) -> Optional[str]:
+    """An asset criticality level; the old low / medium / high are read as the inventory reads them (normal / normal / important)."""
+    from services import asset_type
+    return asset_type.normalize_level(str(v or "")) or None
+
+
 def clean_group(g: Dict) -> Dict:
     """One escalation group, validated. Raises ValueError with what is wrong."""
     name = " ".join(str(g.get("name") or "").split())[:60]
@@ -86,7 +92,7 @@ def clean_group(g: Dict) -> Dict:
     m = g.get("match") or {}
     match = {"groups": [str(x).strip()[:40] for x in (m.get("groups") or []) if str(x).strip()][:10],
              "types": [x for x in (m.get("types") or []) if x in _ASSET_TYPES],
-             "criticality": [x for x in (m.get("criticality") or []) if x in _CRIT],
+             "criticality": [x for x in (_crit(v) for v in (m.get("criticality") or [])) if x in _CRIT],
              "name": (str(m.get("name") or "").strip()[:60] or None)}
     if not (match["groups"] or match["types"] or match["criticality"] or match["name"]):
         raise ValueError("a group needs at least one condition (asset group, type, criticality or a part of the name)")
@@ -147,7 +153,7 @@ def group_for(asset: Optional[Dict], device_name: Optional[str]) -> Optional[Dic
             continue
         if m["types"] and asset.get("type") not in m["types"]:
             continue
-        if m["criticality"] and asset.get("criticality") not in m["criticality"]:
+        if m["criticality"] and _crit(asset.get("criticality")) not in m["criticality"]:
             continue
         if m["name"]:
             name = ((asset or {}).get("name") or device_name or "").lower()

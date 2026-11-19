@@ -2,6 +2,12 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.88.1 — 2026-11-19
+- Escalation groups: the criticality condition used the alert severities (low / medium / high / critical) instead of the asset criticality levels (critical / important / normal / ignore). An asset marked "important" could never match.
+  - The editor now offers the asset levels.
+  - A saved old value is read the way the inventory reads it (high → important, low / medium → normal).
+- Tested: the escalation group tests (one more check on the levels).
+
 ## 3.88 — 2026-11-18
 - Escalation groups (services/escalation.py): alerts of chosen equipment escalate on their own times to their own people.
   - A group picks the alerts' assets by asset groups (servers, workstations, network, printers, virtual, credentialed and the operator's own tags), type, criticality, or a part of the name.

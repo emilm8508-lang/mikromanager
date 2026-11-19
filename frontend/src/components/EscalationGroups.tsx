@@ -11,7 +11,7 @@ function errText(e: unknown): string {
 
 const SEVS = ['critical', 'high', 'medium', 'low', 'info'] as const
 const TYPES = ['windows', 'linux', 'network', 'printer', 'virtual', 'server', 'other'] as const
-const CRIT = ['critical', 'high', 'medium', 'low'] as const
+const CRIT = ['critical', 'important', 'normal', 'ignore'] as const      // the asset criticality levels
 
 type Draft = { name: string; route: string; groups: string; types: string[]; criticality: string[]; nameMatch: string; levels: Record<string, string>; exclusive: boolean }
 
@@ -70,7 +70,7 @@ export function EscalationGroups({ groups }: { groups: EscalationGroup[] }) {
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700">
             <span className="text-slate-500">{t('escg.criticality')}:</span>
-            {CRIT.map(k => <label key={k} className="flex items-center gap-1"><input type="checkbox" checked={d.criticality.includes(k)} onChange={() => set(i, { criticality: toggle(d.criticality, k) })} /> {t(`soc.severity.${k}`)}</label>)}
+            {CRIT.map(k => <label key={k} className="flex items-center gap-1"><input type="checkbox" checked={d.criticality.includes(k)} onChange={() => set(i, { criticality: toggle(d.criticality, k) })} /> {t(`assets.crit.${k}`)}</label>)}
           </div>
           <div className="text-xs font-medium text-slate-700">{t('escg.times')}</div>
           <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1">
