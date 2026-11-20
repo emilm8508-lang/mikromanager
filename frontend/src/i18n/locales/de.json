@@ -2374,6 +2374,31 @@
             "adminOnly": "Only an admin can change the SMTP settings (they hold a password)."
         }
     },
+    "mob": {
+        "title": "Assets",
+        "fullApp": "Volle App",
+        "scan": "Code scannen",
+        "codePlaceholder": "Code, Inventar- oder Seriennr.",
+        "open": "Öffnen",
+        "notFound": "Kein Asset mit diesem Code.",
+        "searchPlaceholder": "Suche: Name, IP, Nummer, Modell",
+        "noScanner": "Dieser Browser liest keine Codes. Code eintippen (Chrome auf Android kann es).",
+        "noCamera": "Kein Zugriff auf die Kamera.",
+        "pointAtCode": "Kamera auf den Code richten",
+        "back": "Zurück",
+        "photo": "Foto aufnehmen",
+        "openFull": "In der vollen App öffnen"
+    },
+    "lbl": {
+        "back": "Asset-Liste",
+        "count": "{{n}} Etiketten",
+        "a4": "A4-Bogen (3 Spalten)",
+        "single": "Einzeln 62 × 40 mm",
+        "print": "Drucken",
+        "printSelected": "QR-Etiketten",
+        "printOne": "Etikett drucken",
+        "hint": "Der QR-Code öffnet die Asset-Seite auf dem Telefon unter der Adresse, von der diese Seite geöffnet wurde."
+    },
     "svc": {
         "title": "Geschäftsdienste und SLA",
         "subtitle": "Ein Dienst ist das, was Menschen nutzen („Mail“, „Buchhaltung“, „der Shop“), beschrieben als die Ausstattung, die er braucht. Sein Zustand folgt aus deren Verfügbarkeit, das SLA wird aus der Historie berechnet.",

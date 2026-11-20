@@ -1103,6 +1103,14 @@ export interface AssetAttach {
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
 
+// 3.94: labels with a QR code and finding an asset from a phone (services/asset_labels.py)
+export const labelsApi = {
+  labels: (ids: string, base: string) => api.get<{ labels: Array<{ id: number; name: string; asset_tag: string | null; model: string | null; serial: string | null; manufacturer: string | null
+    location: string | null; url: string; qr: string }> }>('/assets/labels', { params: { ids, base } }).then(r => r.data),
+  find: (code: string) => api.get<{ id: number }>('/assets/find', { params: { code } }).then(r => r.data),
+  search: (q: string) => api.get<{ results: Array<{ id: number; name: string; ip: string | null; asset_tag: string | null; type: string; model: string | null }> }>('/assets/find', { params: { q } }).then(r => r.data),
+  uploadPhoto: (assetId: number, file: File) => procurementApi.upload('asset', assetId, file),
+}
 // 3.93: reports - ready-made, your own, files, scheduled e-mail (services/reports.py, services/mailer.py)
 export interface ReportData { columns: string[]; rows: Array<Record<string, string | number | boolean | null>>; total: number; builtin: string | null; scope?: string }
 export interface SavedReport {

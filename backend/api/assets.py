@@ -129,6 +129,28 @@ async def merge(body: MergeIn):
         raise HTTPException(400, str(e))
 
 
+@router.get("/labels")
+def asset_labels(ids: str, base: str):
+    """3.94: printable labels with a QR code of each asset's phone page (<base>/m/a/<id>); `ids` comma separated, `base` the address the page uses."""
+    from services import asset_labels
+    try:
+        return {"labels": asset_labels.labels([int(x) for x in ids.split(",") if x.strip().isdigit()], base)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/find")
+def find_asset(code: Optional[str] = None, q: Optional[str] = None):
+    """3.94: what a phone scanned (the label address, an asset tag or a serial) -> the asset id; or a text search for the phone page."""
+    from services import asset_labels
+    if code is not None:
+        aid = asset_labels.find(code)
+        if aid is None:
+            raise HTTPException(404, "no asset with that code")
+        return {"id": aid}
+    return {"results": asset_labels.search(q or "")}
+
+
 @router.get("/{asset_id}")
 async def get_asset(asset_id: int):
     a = await assets.get_asset(asset_id)

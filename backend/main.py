@@ -1,3 +1,4 @@
+import json
 import sys
 import os
 import asyncio
@@ -300,6 +301,21 @@ async def health():
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(FRONTEND_DIST):
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+
+    # 3.94: the phone page can be added to the home screen (a web app manifest; no offline mode)
+    _APP_ICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="20" fill="#4f46e5"/>'
+                 '<path d="M24 64V32l24 18 24-18v32" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def web_manifest():
+        return Response(content=json.dumps({"name": "MikroManager", "short_name": "MikroManager", "start_url": "/m", "scope": "/", "display": "standalone",
+                                            "background_color": "#f8fafc", "theme_color": "#4f46e5",
+                                            "icons": [{"src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}),
+                        media_type="application/manifest+json")
+
+    @app.get("/app-icon.svg", include_in_schema=False)
+    async def app_icon():
+        return Response(content=_APP_ICON, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):

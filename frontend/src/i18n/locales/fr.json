@@ -2374,6 +2374,31 @@
             "adminOnly": "Only an admin can change the SMTP settings (they hold a password)."
         }
     },
+    "mob": {
+        "title": "Actifs",
+        "fullApp": "Application complète",
+        "scan": "Scanner un code",
+        "codePlaceholder": "code, n° d'inventaire ou de série",
+        "open": "Ouvrir",
+        "notFound": "Aucun actif avec ce code.",
+        "searchPlaceholder": "Rechercher : nom, IP, numéro, modèle",
+        "noScanner": "Ce navigateur ne lit pas les codes. Saisissez le code (Chrome sur Android sait le faire).",
+        "noCamera": "Pas d'accès à l'appareil photo.",
+        "pointAtCode": "Visez le code avec l'appareil photo",
+        "back": "Retour",
+        "photo": "Prendre une photo",
+        "openFull": "Ouvrir dans l'application complète"
+    },
+    "lbl": {
+        "back": "Liste des actifs",
+        "count": "{{n}} étiquettes",
+        "a4": "Feuille A4 (3 colonnes)",
+        "single": "Unitaire 62 × 40 mm",
+        "print": "Imprimer",
+        "printSelected": "Étiquettes QR",
+        "printOne": "Imprimer l'étiquette",
+        "hint": "Le code QR ouvre la page de l'actif sur un téléphone à l'adresse depuis laquelle cette page a été ouverte."
+    },
     "svc": {
         "title": "Services métier et SLA",
         "subtitle": "Un service est ce que les gens utilisent (« messagerie », « comptabilité », « la boutique »), décrit comme l'équipement dont il a besoin. Son état découle de la disponibilité de cet équipement et le SLA est calculé à partir de l'historique.",

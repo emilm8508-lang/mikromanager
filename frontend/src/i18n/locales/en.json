@@ -2374,6 +2374,31 @@
             "adminOnly": "Only an admin can change the SMTP settings (they hold a password)."
         }
     },
+    "mob": {
+        "title": "Assets",
+        "fullApp": "Full app",
+        "scan": "Scan a code",
+        "codePlaceholder": "code, asset tag or serial",
+        "open": "Open",
+        "notFound": "No asset with that code.",
+        "searchPlaceholder": "Search: name, IP, tag, model",
+        "noScanner": "This browser cannot read codes. Type the code (Chrome on Android can).",
+        "noCamera": "No access to the camera.",
+        "pointAtCode": "Point the camera at the code",
+        "back": "Back",
+        "photo": "Take a photo",
+        "openFull": "Open in the full app"
+    },
+    "lbl": {
+        "back": "Asset list",
+        "count": "{{n}} labels",
+        "a4": "A4 sheet (3 columns)",
+        "single": "Single 62 × 40 mm",
+        "print": "Print",
+        "printSelected": "QR labels",
+        "printOne": "Print label",
+        "hint": "The QR code opens the asset page on a phone at the address this page was opened from."
+    },
     "svc": {
         "title": "Business services and SLA",
         "subtitle": "A service is what people use (\"mail\", \"accounting\", \"the shop\"), described as the equipment it needs. Its state follows from the availability of that equipment, and the SLA is counted from its history.",

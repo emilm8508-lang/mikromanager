@@ -98,6 +98,7 @@ export function AssetItamTab({ id, itam }: { id: number; itam: AssetItam }) {
           <Button size="sm" variant="primary" disabled={save.isPending} onClick={() => save.mutate()}><Save size={12} /> {t('common.save')}</Button>
           {save.isError && <span className="text-xs text-red-700">{errText(save.error)}</span>}
           {save.isSuccess && <span className="text-xs text-green-700">{t('itam.saved')}</span>}
+          <a href={`/labels?ids=${id}&size=single`} target="_blank" rel="noreferrer" className="ml-auto text-xs text-indigo-600 hover:underline">{t('lbl.printOne')}</a>
         </div>
         <p className="text-[11px] text-slate-400">{t('itam.note')}</p>
       </div>

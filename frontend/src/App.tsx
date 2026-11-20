@@ -38,6 +38,8 @@ import { VulnSla } from './pages/VulnSla'
 import { Evidence } from './pages/Evidence'
 import { CentralServicesPage, CentralAvailabilityPage, CentralConfigsPage, CentralSyslogPage } from './pages/CentralNetwork'
 import { OnSite } from './pages/OnSite'
+import { MobileAsset, MobileHome } from './pages/Mobile'
+import { Labels } from './pages/Labels'
 import { CentralSoc } from './pages/CentralSoc'
 import { CentralNetworkMap } from './pages/CentralNetworkMap'
 import { Scanner } from './pages/Scanner'
@@ -80,7 +82,18 @@ import { AuthGate } from './pages/Login'
 
 export default function App() {
   // the on-site view is standalone (no menu, no login screen of its own): a logged-in user or a visitor with the key of a shared link
-  if (useLocation().pathname === '/onsite') return <OnSite />
+  const path = useLocation().pathname
+  if (path === '/onsite') return <OnSite />
+  // 3.94: the phone page and the label sheet - behind the login, without the menu
+  if (path === '/m' || path.startsWith('/m/') || path === '/labels') return (
+    <AuthGate>
+      <Routes>
+        <Route path="/m" element={<MobileHome />} />
+        <Route path="/m/a/:id" element={<MobileAsset />} />
+        <Route path="/labels" element={<Labels />} />
+      </Routes>
+    </AuthGate>
+  )
   return (
     <AuthGate>
       <div className="flex h-screen overflow-hidden">

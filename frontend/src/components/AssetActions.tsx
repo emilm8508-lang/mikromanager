@@ -295,6 +295,7 @@ export function AssetBulkBar({ rows, onClear, total, onSelectAll }: { rows: Asse
         </label>
         <Btn busy={busy} k="install" disabled={p.linux.length + p.windows.length === 0} icon={<Download size={13} />} onClick={install}>{t('assets.act.install')}</Btn>
         <Btn busy={busy} k="restart" danger disabled={actionable === 0} icon={<RotateCcw size={13} />} onClick={restart}>{t('assets.act.restart')}</Btn>
+        <a className="text-xs text-indigo-700 hover:underline" href={`/labels?ids=${rows.map(r => r.id).slice(0, 200).join(',')}`} target="_blank" rel="noreferrer">{t('lbl.printSelected')}</a>
         <button className="text-xs text-indigo-700 hover:underline" onClick={onClear}>{t('assets.bulk.clear')}</button>
       </div>
       <div className="flex flex-wrap items-center gap-3 text-sm">

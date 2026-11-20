@@ -2541,6 +2541,31 @@
             "adminOnly": "Ustawienia SMTP może zmieniać tylko administrator (zawierają hasło)."
         }
     },
+    "mob": {
+        "title": "Zasoby",
+        "fullApp": "Pełna aplikacja",
+        "scan": "Skanuj kod",
+        "codePlaceholder": "kod, nr inwentarzowy lub seryjny",
+        "open": "Otwórz",
+        "notFound": "Nie znaleziono zasobu o tym kodzie.",
+        "searchPlaceholder": "Szukaj: nazwa, IP, numer, model",
+        "noScanner": "Ta przeglądarka nie odczytuje kodów. Wpisz kod ręcznie (Chrome na Androidzie odczytuje).",
+        "noCamera": "Brak dostępu do aparatu.",
+        "pointAtCode": "Skieruj aparat na kod",
+        "back": "Wróć",
+        "photo": "Zrób zdjęcie",
+        "openFull": "Otwórz w pełnej aplikacji"
+    },
+    "lbl": {
+        "back": "Lista zasobów",
+        "count": "Etykiet: {{n}}",
+        "a4": "Arkusz A4 (3 kolumny)",
+        "single": "Pojedyncze 62 × 40 mm",
+        "print": "Drukuj",
+        "printSelected": "Etykiety QR",
+        "printOne": "Drukuj etykietę",
+        "hint": "Kod QR prowadzi do strony zasobu na telefonie pod adresem, z którego otwarto tę stronę."
+    },
     "svc": {
         "title": "Usługi biznesowe i SLA",
         "subtitle": "Usługa to to, czego używają ludzie („poczta”, „księgowość”, „sklep”), opisana jako sprzęt, którego potrzebuje. Jej stan wynika z dostępności tego sprzętu, a z historii liczy się SLA.",

@@ -2,6 +2,29 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94 — 2026-11-20
+- ITAM stage F (docs/plan-itam.md): assets from a phone, with QR labels (services/asset_labels.py). This closes the ITAM program (stages A-F, 3.89-3.94).
+  - Labels to print:
+    - choose "QR labels" for the assets picked on the asset list (up to 200), or "Print label" on an asset's lifecycle tab;
+    - an A4 sheet in 3 columns or single 62 × 40 mm labels, printed from the browser;
+    - each label has the name, the asset tag in large type, the maker and model, the serial, the place, and a QR code of the asset's phone page at the address the label page was opened from (`<address>/m/a/<id>`, checked to be a plain http(s) address).
+  - The phone page `/m` (behind the login, without the menu):
+    - "Scan a code" uses the camera and the browser's own code reader (Chrome / Edge on Android, Safari 17+). It reads QR, Code 128, Code 39, EAN-13 and Data Matrix; a browser without it lets you type the code;
+    - a code is the label's address, an asset tag (any case) or a serial number;
+    - you can also search by name, IP, tag, serial or model.
+  - The asset on the phone (`/m/a/<id>`):
+    - what it is (maker, model, tag, serial, IP, stage, location, warranty);
+    - a quick change of the location, place, owner, stage (not disposal, which needs a date and a method) and note;
+    - a photo with the camera saved as an attachment, the attachments list, and a link to the full page.
+  - A web app manifest (`/manifest.webmanifest`, an icon, start at `/m`), so the phone page can be added to the home screen. There is no offline mode and no service worker; saving needs the agent.
+  - API: `GET /api/assets/labels?ids=&base=`, `GET /api/assets/find?code=` (label address / tag / serial → id) and `?q=` (search). Both are registered before `/api/assets/{id}`.
+- Tested: 4 new regression tests (backend/tests/test_asset_labels.py):
+  - labels with a real QR SVG, and bad base addresses refused;
+  - finding by address, tag (any case) and serial, a missing one, the search;
+  - the routes not taken by the asset-id route;
+  - the manifest and icon from the real application.
+  - tsc OK. The camera reading, the printing and the phone pages were not tried on a phone or in a browser.
+
 ## 3.93 — 2026-11-20
 - ITAM stage E (docs/plan-itam.md): reports of the assets, licenses and contracts, as files and by scheduled e-mail (services/reports.py, services/mailer.py, new tables `report_def`, `report_run`).
   - Ready-made reports:

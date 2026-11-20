@@ -2374,6 +2374,31 @@
             "adminOnly": "Only an admin can change the SMTP settings (they hold a password)."
         }
     },
+    "mob": {
+        "title": "Activos",
+        "fullApp": "App completa",
+        "scan": "Escanear código",
+        "codePlaceholder": "código, n.º de inventario o de serie",
+        "open": "Abrir",
+        "notFound": "No hay activo con ese código.",
+        "searchPlaceholder": "Buscar: nombre, IP, número, modelo",
+        "noScanner": "Este navegador no lee códigos. Escribe el código (Chrome en Android sí lee).",
+        "noCamera": "Sin acceso a la cámara.",
+        "pointAtCode": "Apunta la cámara al código",
+        "back": "Volver",
+        "photo": "Hacer una foto",
+        "openFull": "Abrir en la app completa"
+    },
+    "lbl": {
+        "back": "Lista de activos",
+        "count": "{{n}} etiquetas",
+        "a4": "Hoja A4 (3 columnas)",
+        "single": "Individual 62 × 40 mm",
+        "print": "Imprimir",
+        "printSelected": "Etiquetas QR",
+        "printOne": "Imprimir etiqueta",
+        "hint": "El código QR abre la página del activo en el móvil en la dirección desde la que se abrió esta página."
+    },
     "svc": {
         "title": "Servicios de negocio y SLA",
         "subtitle": "Un servicio es lo que usa la gente («correo», «contabilidad», «la tienda»), descrito como el equipo que necesita. Su estado se deduce de la disponibilidad de ese equipo y el SLA se calcula con su historial.",
