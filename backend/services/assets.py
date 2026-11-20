@@ -688,6 +688,20 @@ def _attach(asset_id: int) -> Optional[dict]:
         return None
 
 
+def _itam_summary() -> Optional[dict]:
+    try:
+        from services import asset_itam
+        return asset_itam.summary()
+    except Exception as e:
+        print(f"[assets] itam summary error: {type(e).__name__}: {e}")
+        return None
+
+
+def _itam(a: Asset) -> dict:
+    from services import asset_itam
+    return asset_itam.as_dict(a)
+
+
 def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Optional[dict] = None) -> dict:
     fnd = vulns.get(a.ip or "", [])
     lc = asset_lifecycle.lifecycle(a.os_name, a.os_version)
@@ -716,6 +730,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
         "first_seen_at": _iso(a.first_seen_at), "last_seen_at": _iso(last), "last_scan_at": _iso(a.last_scan_at),
         "active": bool(last and now - last < timedelta(days=STALE_DAYS)),
         "refs": {k: v for k, v in _jload(a.refs, {}).items() if isinstance(v, int)},       # which managed objects this asset is (host ids, device id, VM id)
+        "itam": _itam(a),                                                                    # 3.89: stage, dates, cost (services/asset_itam.py)
         **extra,
     }
 
@@ -901,6 +916,11 @@ async def public_summary() -> dict:
             row["dq"] = r["dq"]
         if r.get("state"):
             row["st"] = r["state"]                                     # probably_removed / decommissioned / replaced_by / ignore (3.76)
+        it = r.get("itam") or {}
+        if it.get("stage_set") or it.get("warranty_until") or it.get("asset_tag") or it.get("cost") is not None or it.get("purchased_at"):
+            row["it"] = {k: v for k, v in (("s", it.get("lifecycle_stage")), ("p", it.get("purchased_at")), ("w", it.get("warranty_until")),
+                                           ("r", it.get("replace_at")), ("c", it.get("cost")), ("cu", it.get("currency")), ("sp", it.get("supplier")),
+                                           ("cc", it.get("cost_center")), ("tag", it.get("asset_tag"))) if v not in (None, "")}       # 3.89
         if ra.get(r["ip"] or ""):
             row["ra"] = [{"t": "anydesk", **ra[r["ip"]]}]               # AnyDesk on it (3.78)
         elif r["type"] in ("windows", "linux", "server", "virtual"):
@@ -943,6 +963,7 @@ async def public_summary() -> dict:
         "mndp_mismatches": _mndp_mismatches(),                 # 3.75: what the routers' neighbor tables say differently
         "remote_access": _remote_report(rows),                 # 3.78: AnyDesk on the hosts (servers / workstations, portable, unattended)
         "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
+        "itam": _itam_summary(),                               # 3.89: stages, warranties, replacements due, cost per currency
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 
@@ -1048,7 +1069,7 @@ async def get_asset(asset_id: int) -> Optional[dict]:
             "version_seen_at": _version_seen(a.refs),                                               # 3.75
             "remote_access_tools": _remote_tools(a),                                               # 3.78
             "installed_on": installed_on, "override": _jload(a.details, {}).get("_over", {}), "notes": a.notes, "owner": a.owner, "criticality": a.criticality, "manual_groups": _jload(a.manual_groups, []), "location_override": a.location_override,
-            "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs,
+            "lifecycle_detail": asset_lifecycle.lifecycle(a.os_name, a.os_version), "refs": refs, "itam": _itam(a),
             "parent": _jload(a.details, {}).get("host"), "hardware": _hardware(db, a), "peripherals": periph, "services": services, "software_count": software,
             "scan": {"level": a.scan_level, "last_scan_at": _iso(a.last_scan_at), "status": a.last_scan_status, "error": a.last_scan_error,
                      "running": a.id in asset_scan.running_ids(), "available": bool(a.ip)},
@@ -1124,6 +1145,9 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             db.commit()
             asset_state.set_state(asset_id, fields.get("state") or None, fields.get("replaced_by"), fields.get("_who") or "operator")
             a = db.get(Asset, asset_id)
+        if fields.get("itam"):                                   # 3.89: lifecycle stage, dates, cost (services/asset_itam.py)
+            from services import asset_itam
+            asset_itam.apply(db, a, fields["itam"], fields.get("_who") or "operator")
         if "manual_groups" in fields:
             tags = []
             for t in fields["manual_groups"] or []:
@@ -1252,6 +1276,11 @@ def apply_central_op(op: dict, who: str = "Centrala") -> dict:
                     fields["role"] = v
                 if "criticality" in op:
                     fields["criticality"] = str(op.get("criticality") or "")
+                if isinstance(op.get("itam"), dict):                 # 3.89: lifecycle stage, dates, cost - validated by asset_itam.clean
+                    from services import asset_itam
+                    asset_itam.clean(op["itam"])
+                    fields["itam"] = {k: v for k, v in op["itam"].items() if k in asset_itam.FIELDS}
+                    fields["_who"] = who
                 if "state" in op:                                    # 3.76: decommissioned / replaced_by / ignore / "" (in use)
                     fields["state"] = str(op.get("state") or "")
                     fields["replaced_by"] = int(op["replaced_by"]) if str(op.get("replaced_by") or "").isdigit() else None

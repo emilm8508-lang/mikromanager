@@ -23,6 +23,49 @@ const ago = (epoch: number | null) => {
 
 const LEVELS = ['critical', 'important', 'normal', 'ignore'] as const
 
+// 3.89: the lifecycle stage, warranty, asset tag and cost of one asset from Central - only the fields filled in are sent
+function CentralItam({ row, busy, send }: { row: Row; busy: boolean; send: (op: CentralAssetOp) => void }) {
+  const { t } = useTranslation()
+  const it = row.it ?? {}
+  const [stage, setStage] = useState<string>('')
+  const [w, setW] = useState('')
+  const [tag, setTag] = useState('')
+  const [cost, setCost] = useState('')
+  const [cur, setCur] = useState('')
+  const itam: Record<string, string | null> = {}
+  if (stage) itam.lifecycle_stage = stage
+  if (w) itam.warranty_until = w
+  if (tag.trim()) itam.asset_tag = tag.trim()
+  if (cost.trim()) itam.cost = cost.trim()
+  if (cur.trim()) itam.currency = cur.trim().toUpperCase()
+  const inp = 'mt-0.5 w-full border border-slate-300 rounded-lg px-2 py-1 bg-white text-sm'
+  return (
+    <div className="border-t border-slate-100 pt-3 space-y-2">
+      <p className="text-xs font-semibold text-slate-700">{t('itam.title')}</p>
+      <p className="text-[11px] text-slate-500">
+        {t('itam.stageLabel')}: {t(`itam.stage.${it.s ?? 'deployed'}`)}
+        {it.tag ? ` · ${t('itam.f.asset_tag')}: ${it.tag}` : ''}{it.w ? ` · ${t('itam.f.warranty_until')}: ${it.w}` : ''}
+        {it.c != null ? ` · ${t('itam.f.cost')}: ${it.c} ${it.cu ?? ''}` : ''}{it.sp ? ` · ${it.sp}` : ''}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block"><span className="text-xs text-slate-500">{t('itam.stageLabel')}</span>
+          <select value={stage} onChange={e => setStage(e.target.value)} className={inp}>
+            <option value="">{t('assetsCentral.edit.keep')}</option>
+            {(['ordered', 'in_stock', 'deployed', 'in_repair', 'retired'] as const).map(k => <option key={k} value={k}>{t(`itam.stage.${k}`)}</option>)}
+          </select></label>
+        <label className="block"><span className="text-xs text-slate-500">{t('itam.f.warranty_until')}</span><input type="date" value={w} onChange={e => setW(e.target.value)} className={inp} /></label>
+        <label className="block"><span className="text-xs text-slate-500">{t('itam.f.asset_tag')}</span><input value={tag} maxLength={40} onChange={e => setTag(e.target.value)} className={inp} /></label>
+        <div className="flex gap-2">
+          <label className="block flex-1"><span className="text-xs text-slate-500">{t('itam.f.cost')}</span><input inputMode="decimal" value={cost} onChange={e => setCost(e.target.value)} className={inp} /></label>
+          <label className="block w-16"><span className="text-xs text-slate-500">{t('itam.f.currency')}</span><input value={cur} maxLength={3} onChange={e => setCur(e.target.value)} className={inp} /></label>
+        </div>
+      </div>
+      <Button size="sm" disabled={busy || Object.keys(itam).length === 0} onClick={() => send({ op: 'set', ids: [row.id!], itam })}>{t('assetsCentral.edit.save')}</Button>
+      <p className="text-[11px] text-slate-400">{t('itam.centralNote')}</p>
+    </div>
+  )
+}
+
 // Correcting the inventory from Central (3.70): the type, the criticality, deleting a wrong entry, joining duplicates - queued at Central,
 // carried out by the agent on its next synchronisation (it checks the operation itself).
 function AssetEdit({ row, dups }: { row: Row; dups: AssetsDupGroup[] }) {
@@ -78,6 +121,7 @@ function AssetEdit({ row, dups }: { row: Row; dups: AssetsDupGroup[] }) {
             </Button>
           ))}
         </div>
+        <CentralItam row={row} busy={busy} send={send} />
         {row.x && <p className="text-[11px] text-slate-400">{t('assetsCentral.edit.managedNote')}</p>}
         {mine.length > 0 && (
           <div className="border-t border-slate-100 pt-3 space-y-2">

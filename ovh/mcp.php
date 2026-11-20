@@ -424,7 +424,7 @@ function t_assets(McpContext $c, array $a): array {
     $q = $a['q'] ?? null;
     foreach ($c->tenants($a['tenant'] ?? null) as $r) {
         $ap = $r['meta']['assets_status'] ?? [];
-        $sums[] = ['tenant' => $r['tenant'], 'summary' => $ap['summary'] ?? null];
+        $sums[] = ['tenant' => $r['tenant'], 'summary' => $ap['summary'] ?? null, 'itam' => $ap['itam'] ?? null];      // 3.89: stages, warranties, cost
         foreach ((array)($ap['rows'] ?? []) as $x) {
             if (!is_array($x) || !mcp_match($x, $q)) continue;
             $rows[] = ['tenant' => $r['tenant'], 'name' => $x['n'] ?? null, 'ip' => $x['ip'] ?? null, 'type' => $x['t'] ?? null, 'role' => $x['r'] ?? null,
@@ -438,7 +438,10 @@ function t_assets(McpContext $c, array $a): array {
                        'other_addresses' => $x['al'] ?? null, 'personal_device' => !empty($x['pv']), 'personal_signal' => $x['pw'] ?? null,
                        'previously' => isset($x['was']) ? ['names' => $x['was']['n'] ?? [], 'addresses' => $x['was']['ip'] ?? []] : null,
                        'remote_access_tools' => mcp_remote_tools($c, $x['ra'] ?? null),
-                       'state' => $x['st'] ?? 'in_use', 'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null]
+                       'state' => $x['st'] ?? 'in_use', 'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null,
+                       'lifecycle_and_cost' => isset($x['it']) ? ['stage' => $x['it']['s'] ?? 'deployed', 'purchased' => $x['it']['p'] ?? null, 'warranty_until' => $x['it']['w'] ?? null,
+                           'replace_at' => $x['it']['r'] ?? null, 'cost' => $x['it']['c'] ?? null, 'currency' => $x['it']['cu'] ?? null, 'supplier' => $x['it']['sp'] ?? null,
+                           'cost_center' => $x['it']['cc'] ?? null, 'asset_tag' => $x['it']['tag'] ?? null] : null]
                      + mcp_logon_fields($c, $x);
         }
     }

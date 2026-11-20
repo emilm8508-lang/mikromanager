@@ -1878,10 +1878,14 @@
         }
     },
     "fc": {
+        "warrantyOn": "Garantie bis {{date}}",
+        "replacementOn": "geplanter Austausch {{date}}",
         "title": "Was knapp wird",
         "subtitle": "Eine Liste von Prognosen aus dem, was der Agent ohnehin misst: Datenträger, Speicher und DHCP-Pools, die stetig volllaufen, und ablaufende Zertifikate. Das Nächste zuerst.",
         "horizon": "{{n}} Tage",
         "kind": {
+            "warranty": "Garantien",
+            "replacement": "Austausch",
             "disk": "Datenträger",
             "mem": "Speicher",
             "dhcp_pool": "DHCP-Pools",
@@ -1923,6 +1927,48 @@
             "printer": "Drucker",
             "virtual": "virtuell",
             "server": "Server",
+            "other": "andere"
+        }
+    },
+    "itam": {
+        "centralNote": "Die vollständige Bearbeitung (Daten, Lieferant, Rechnung, Entsorgung) ist auf der Asset-Seite im Agenten. Die Entsorgung braucht Datum und Art und erfolgt daher im Agenten.",
+        "title": "Lebenszyklus und Kosten",
+        "stageLabel": "Phase",
+        "saved": "Gespeichert",
+        "ended": "abgelaufen",
+        "daysLeft": "in {{n}} Tagen",
+        "age": "Alter: {{n}} Jahre",
+        "history": "Änderungsverlauf",
+        "note": "Diese Daten werden von Menschen eingetragen: nichts wird vom Gerät gelesen. Die Phase „ausgemustert“ entspricht auch dem Inventarstatus „außer Betrieb“ (und umgekehrt). Ein entsorgtes Asset braucht Datum und Art der Entsorgung. Alarme: Garantie endet binnen 30 Tagen, geplanter Austausch überfällig.",
+        "stage": {
+            "ordered": "bestellt",
+            "in_stock": "im Lager",
+            "deployed": "im Einsatz",
+            "in_repair": "in Reparatur",
+            "retired": "ausgemustert",
+            "disposed": "entsorgt"
+        },
+        "f": {
+            "lifecycle_stage": "Phase",
+            "purchased_at": "Kaufdatum",
+            "warranty_until": "Garantie bis",
+            "replace_at": "Geplanter Austausch",
+            "disposed_at": "Entsorgungsdatum",
+            "disposal_method": "Art der Entsorgung",
+            "cost": "Anschaffungskosten",
+            "currency": "Währung",
+            "supplier": "Lieferant",
+            "invoice_no": "Rechnungs- / Bestellnr.",
+            "cost_center": "Kostenstelle",
+            "asset_tag": "Inventarnummer"
+        },
+        "disposal": {
+            "recycled": "recycelt",
+            "sold": "verkauft",
+            "donated": "gespendet",
+            "returned": "zurückgegeben",
+            "destroyed": "vernichtet",
+            "lost": "verloren",
             "other": "andere"
         }
     },
@@ -3544,6 +3590,7 @@
         "addTag": "Tag hinzufügen + Enter",
         "notes": "Notizen",
         "tab": {
+            "itam": "Lebenszyklus und Kosten",
             "actions": "Aktionen",
             "overview": "Übersicht",
             "hardware": "Hardware",

@@ -1878,10 +1878,14 @@
         }
     },
     "fc": {
+        "warrantyOn": "warranty until {{date}}",
+        "replacementOn": "planned replacement {{date}}",
         "title": "What will run out",
         "subtitle": "One list of forecasts from what the agent already measures: disks, memory and DHCP pools growing steadily to full, and certificates expiring. Nearest first.",
         "horizon": "{{n}} days",
         "kind": {
+            "warranty": "Warranties",
+            "replacement": "Replacements",
             "disk": "Disks",
             "mem": "Memory",
             "dhcp_pool": "DHCP pools",
@@ -1923,6 +1927,48 @@
             "printer": "printers",
             "virtual": "virtual",
             "server": "servers",
+            "other": "other"
+        }
+    },
+    "itam": {
+        "centralNote": "The full edit (dates, supplier, invoice, disposal) is on the asset page in the agent. Disposal needs a date and a method, so it is done in the agent.",
+        "title": "Lifecycle and costs",
+        "stageLabel": "Stage",
+        "saved": "Saved",
+        "ended": "ended",
+        "daysLeft": "in {{n}} days",
+        "age": "age: {{n}} years",
+        "history": "History of changes",
+        "note": "People enter these data: nothing is read from the device. The stage \"retired\" also means the inventory state \"decommissioned\" (and the other way round). A disposed asset needs the date and the way of disposal. Alerts: the warranty ends within 30 days, the planned replacement date has passed.",
+        "stage": {
+            "ordered": "ordered",
+            "in_stock": "in stock",
+            "deployed": "in use",
+            "in_repair": "in repair",
+            "retired": "retired",
+            "disposed": "disposed"
+        },
+        "f": {
+            "lifecycle_stage": "Stage",
+            "purchased_at": "Purchase date",
+            "warranty_until": "Warranty until",
+            "replace_at": "Planned replacement",
+            "disposed_at": "Disposal date",
+            "disposal_method": "Disposal method",
+            "cost": "Purchase cost",
+            "currency": "Currency",
+            "supplier": "Supplier",
+            "invoice_no": "Invoice / PO number",
+            "cost_center": "Cost center",
+            "asset_tag": "Asset tag"
+        },
+        "disposal": {
+            "recycled": "recycled",
+            "sold": "sold",
+            "donated": "donated",
+            "returned": "returned",
+            "destroyed": "destroyed",
+            "lost": "lost",
             "other": "other"
         }
     },
@@ -3544,6 +3590,7 @@
         "addTag": "Add a tag + Enter",
         "notes": "Notes",
         "tab": {
+            "itam": "Lifecycle and costs",
             "actions": "Actions",
             "overview": "Overview",
             "hardware": "Hardware",

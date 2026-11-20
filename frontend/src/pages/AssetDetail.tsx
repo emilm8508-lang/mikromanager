@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState, useEffect } from 'react'
+import { AssetItamTab, StagePill, WarrantyText } from '../components/AssetItam'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -13,10 +14,11 @@ import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
 
-type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions' | 'tools'
+type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions' | 'tools' | 'itam'
 
 function tabsFor(a: Detail): TabKey[] {
-  const tabs = baseTabs(a)
+  const base = baseTabs(a)
+  const tabs = [base[0], 'itam' as TabKey, ...base.slice(1)]                    // 3.89: lifecycle and costs, for every asset
   const withTools = a.ip && a.type !== 'monitor' ? [...tabs, 'tools' as TabKey] : tabs
   return hasActions(a) ? [...withTools, 'actions'] : withTools
 }
@@ -592,6 +594,9 @@ export function AssetDetail() {
             {fact(t('assets.colLastSeen') as string, ago(a.last_seen_at))}
             {a.version_seen_at && fact(t('assets.versionRead') as string, ago(a.version_seen_at))}
             {fact(t('assets.state.label') as string, <StateEdit a={a} />)}
+            {a.itam && fact(t('itam.stageLabel') as string, <StagePill stage={a.itam.lifecycle_stage} />)}
+            {a.itam?.asset_tag && fact(t('itam.f.asset_tag') as string, <span className="font-mono">{a.itam.asset_tag}</span>)}
+            {a.itam?.warranty_until && fact(t('itam.f.warranty_until') as string, <WarrantyText days={a.itam.warranty_days} until={a.itam.warranty_until} />)}
             {(a.remote_access_tools ?? []).map(r => fact(r.tool === 'anydesk' ? 'AnyDesk' : r.tool,
               r.present === 'yes' ? [r.version, r.install_type, r.running ? t('assets.ra.running') : null, r.unattended_access === 'yes' ? t('assets.ra.unattended') : null,
                                      r.outdated ? t('assets.ra.outdated') : null, r.seen_at ? ago(r.seen_at) : null].filter(Boolean).join(' · ')
@@ -611,6 +616,7 @@ export function AssetDetail() {
           </div>
           {active === 'overview' && <Overview key={a.id} a={a} />}
           {active === 'overview' && <Logons id={a.id} />}
+          {active === 'itam' && a.itam && <AssetItamTab id={a.id} itam={a.itam} />}
           {(active === 'hardware' || active === 'config') && <Hardware a={a} />}
           {active === 'software' && <Software id={a.id} hostId={a.refs.vuln_host_id} />}
           {active === 'vulns' && <RiskInsights a={a} />}

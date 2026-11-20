@@ -1878,10 +1878,14 @@
         }
     },
     "fc": {
+        "warrantyOn": "garantía hasta el {{date}}",
+        "replacementOn": "sustitución prevista el {{date}}",
         "title": "Qué se agotará",
         "subtitle": "Una lista de previsiones a partir de lo que el agente ya mide: discos, memoria y pools DHCP que crecen de forma constante hasta llenarse, y certificados que caducan. Lo más próximo primero.",
         "horizon": "{{n}} días",
         "kind": {
+            "warranty": "Garantías",
+            "replacement": "Sustituciones",
             "disk": "Discos",
             "mem": "Memoria",
             "dhcp_pool": "Pools DHCP",
@@ -1924,6 +1928,48 @@
             "virtual": "virtuales",
             "server": "servidores",
             "other": "otros"
+        }
+    },
+    "itam": {
+        "centralNote": "La edición completa (fechas, proveedor, factura, eliminación) está en la página del activo en el agente. La eliminación necesita fecha y forma, así que se hace en el agente.",
+        "title": "Ciclo de vida y costes",
+        "stageLabel": "Etapa",
+        "saved": "Guardado",
+        "ended": "vencida",
+        "daysLeft": "en {{n}} días",
+        "age": "antigüedad: {{n}} años",
+        "history": "Historial de cambios",
+        "note": "Estos datos los introducen personas: nada se lee del dispositivo. La etapa «retirado» equivale también al estado de inventario «fuera de servicio» (y al revés). Un activo eliminado necesita la fecha y la forma de eliminación. Alertas: la garantía termina en 30 días, la sustitución prevista ya pasó.",
+        "stage": {
+            "ordered": "pedido",
+            "in_stock": "en almacén",
+            "deployed": "en uso",
+            "in_repair": "en reparación",
+            "retired": "retirado",
+            "disposed": "eliminado"
+        },
+        "f": {
+            "lifecycle_stage": "Etapa",
+            "purchased_at": "Fecha de compra",
+            "warranty_until": "Garantía hasta",
+            "replace_at": "Sustitución prevista",
+            "disposed_at": "Fecha de eliminación",
+            "disposal_method": "Forma de eliminación",
+            "cost": "Coste de compra",
+            "currency": "Moneda",
+            "supplier": "Proveedor",
+            "invoice_no": "N.º de factura / pedido",
+            "cost_center": "Centro de coste",
+            "asset_tag": "N.º de inventario"
+        },
+        "disposal": {
+            "recycled": "reciclado",
+            "sold": "vendido",
+            "donated": "donado",
+            "returned": "devuelto",
+            "destroyed": "destruido",
+            "lost": "perdido",
+            "other": "otro"
         }
     },
     "svc": {
@@ -3544,6 +3590,7 @@
         "addTag": "Añadir etiqueta + Intro",
         "notes": "Notas",
         "tab": {
+            "itam": "Ciclo de vida y costes",
             "actions": "Acciones",
             "overview": "Resumen",
             "hardware": "Hardware",

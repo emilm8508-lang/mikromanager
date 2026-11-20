@@ -2045,10 +2045,14 @@
         }
     },
     "fc": {
+        "warrantyOn": "gwarancja do {{date}}",
+        "replacementOn": "planowana wymiana {{date}}",
         "title": "Co się wyczerpie",
         "subtitle": "Jedna lista prognoz z tego, co agent już mierzy: dyski, pamięć i pule DHCP, które stale rosną do pełna, oraz certyfikaty, które wygasają. Najbliższe na górze.",
         "horizon": "{{n}} dni",
         "kind": {
+            "warranty": "Gwarancje",
+            "replacement": "Wymiany",
             "disk": "Dyski",
             "mem": "Pamięć",
             "dhcp_pool": "Pule DHCP",
@@ -2091,6 +2095,48 @@
             "virtual": "wirtualne",
             "server": "serwery",
             "other": "inne"
+        }
+    },
+    "itam": {
+        "centralNote": "Pełna edycja (daty, dostawca, faktura, utylizacja) jest na stronie zasobu w agencie. Zutylizowanie wymaga daty i sposobu, więc robi się je w agencie.",
+        "title": "Cykl życia i koszty",
+        "stageLabel": "Etap",
+        "saved": "Zapisano",
+        "ended": "minęła",
+        "daysLeft": "za {{n}} dni",
+        "age": "wiek: {{n}} lat",
+        "history": "Historia zmian",
+        "note": "Te dane wpisują ludzie: nic nie jest odczytywane z urządzenia. Etap „wycofany” oznacza też stan „wycofany z użycia” w inwentarzu (i odwrotnie). Zutylizowany zasób wymaga daty i sposobu utylizacji. Alerty: gwarancja kończy się w ciągu 30 dni, minęła planowana data wymiany.",
+        "stage": {
+            "ordered": "zamówiony",
+            "in_stock": "w magazynie",
+            "deployed": "w użyciu",
+            "in_repair": "w naprawie",
+            "retired": "wycofany",
+            "disposed": "zutylizowany"
+        },
+        "f": {
+            "lifecycle_stage": "Etap",
+            "purchased_at": "Data zakupu",
+            "warranty_until": "Gwarancja do",
+            "replace_at": "Planowana wymiana",
+            "disposed_at": "Data utylizacji",
+            "disposal_method": "Sposób utylizacji",
+            "cost": "Koszt zakupu",
+            "currency": "Waluta",
+            "supplier": "Dostawca",
+            "invoice_no": "Nr faktury / zamówienia",
+            "cost_center": "Miejsce powstawania kosztów",
+            "asset_tag": "Numer inwentarzowy"
+        },
+        "disposal": {
+            "recycled": "recykling",
+            "sold": "sprzedany",
+            "donated": "przekazany",
+            "returned": "zwrócony",
+            "destroyed": "zniszczony",
+            "lost": "zgubiony",
+            "other": "inny"
         }
     },
     "svc": {
@@ -3711,6 +3757,7 @@
         "addTag": "Dodaj tag + Enter",
         "notes": "Notatki",
         "tab": {
+            "itam": "Cykl życia i koszty",
             "actions": "Akcje",
             "overview": "Przegląd",
             "hardware": "Sprzęt",

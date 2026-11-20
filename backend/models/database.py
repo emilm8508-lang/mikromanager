@@ -513,6 +513,19 @@ class Asset(Base):
     state = Column(String, nullable=True)                          # None (in use) / probably_removed / decommissioned / replaced_by / ignore
     state_since = Column(DateTime, nullable=True)
     replaced_by = Column(Integer, nullable=True)                   # the asset that replaced it (state replaced_by)
+    # 3.89: the hardware life and what it cost (services/asset_itam.py) - entered by people, never read from devices
+    lifecycle_stage = Column(String, nullable=True)                # ordered | in_stock | deployed | in_repair | retired | disposed (empty = deployed)
+    purchased_at = Column(DateTime, nullable=True)
+    warranty_until = Column(DateTime, nullable=True)
+    replace_at = Column(DateTime, nullable=True)                   # planned replacement
+    disposed_at = Column(DateTime, nullable=True)
+    disposal_method = Column(String, nullable=True)                # recycled | sold | donated | returned | destroyed | lost | other
+    cost = Column(Float, nullable=True)
+    currency = Column(String, nullable=True)
+    supplier = Column(String, nullable=True)
+    invoice_no = Column(String, nullable=True)                     # invoice / purchase order number
+    cost_center = Column(String, nullable=True)
+    asset_tag = Column(String, nullable=True, index=True)          # the inventory number on the label
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
     scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
@@ -1779,6 +1792,12 @@ def _migrate_add_columns():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE assets ADD COLUMN monitor INTEGER"))
         for name, ddl in (("owner", "VARCHAR"), ("criticality", "VARCHAR")):
+            if name not in as_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
+        for name, ddl in (("lifecycle_stage", "VARCHAR"), ("purchased_at", "DATETIME"), ("warranty_until", "DATETIME"), ("replace_at", "DATETIME"),
+                          ("disposed_at", "DATETIME"), ("disposal_method", "VARCHAR"), ("cost", "FLOAT"), ("currency", "VARCHAR"), ("supplier", "VARCHAR"),
+                          ("invoice_no", "VARCHAR"), ("cost_center", "VARCHAR"), ("asset_tag", "VARCHAR")):          # 3.89 (services/asset_itam.py)
             if name not in as_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))

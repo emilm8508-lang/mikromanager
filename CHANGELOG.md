@@ -2,6 +2,39 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.89 — 2026-11-20
+- ITAM stage A (docs/plan-itam.md): the hardware life of an asset and what it cost (services/asset_itam.py). Everything here is entered by people; nothing is read from devices.
+  - New asset fields (migration, 12 columns):
+    - lifecycle stage `ordered → in_stock → deployed → in_repair → retired → disposed` (empty reads as deployed);
+    - purchase date, warranty until, planned replacement, disposal date and method;
+    - purchase cost and currency, supplier, invoice / order number, cost centre, asset tag.
+  - Rules:
+    - every change goes to the asset history (who, when, from what to what);
+    - "retired" and the inventory state "decommissioned" (3.76) follow each other;
+    - a disposed asset needs the disposal date and method;
+    - the warranty cannot end before the purchase;
+    - an asset tag is unique.
+  - Alerts, checked hourly and closed when gone; neither for retired or disposed assets:
+    - `itam.warranty_ending` when the warranty ends within 30 days (low);
+    - `itam.replace_due` when the planned replacement date has passed (low).
+  - Forecasts (3.87) list warranties and planned replacements too.
+  - Asset page:
+    - a new tab "Lifecycle and costs" with the stage buttons, all fields and the history of changes;
+    - the stage, asset tag and warranty in the facts column.
+  - API: `PUT /api/assets/{id}` takes `itam`, and `GET /api/assets/{id}/itam-history` is new.
+  - Central:
+    - the asset edit panel sets the stage, warranty, asset tag and cost through `asset_op set` (validated on the agent). Disposal stays in the agent, since it needs a date and a method;
+    - asset rows carry `it`, the asset summary carries `itam` (counts per stage, warranties ending / ended, replacements due, cost per currency);
+    - MCP `client_assets` returns `lifecycle_and_cost` per asset and `itam` per client.
+- Fixed along the way (3.88.1): escalation groups matched criticality against the alert severities instead of the asset levels.
+- Tested: 6 new regression tests (backend/tests/test_asset_itam.py):
+  - validation, and disposal needing date and method;
+  - history and the state kept in step, a unique asset tag;
+  - the Central set operation;
+  - the alerts, summary and forecast items.
+  - The migration was run on a copy of a real agent database (28 assets).
+  - tsc and PHP lint OK. Not seen in a browser.
+
 ## 3.88.1 — 2026-11-19
 - Escalation groups: the criticality condition used the alert severities (low / medium / high / critical) instead of the asset criticality levels (critical / important / normal / ignore). An asset marked "important" could never match.
   - The editor now offers the asset levels.

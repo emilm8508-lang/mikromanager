@@ -175,6 +175,15 @@ class AssetEdit(BaseModel):
     manual_groups: Optional[List[str]] = None
     state: Optional[str] = None                  # 3.76: decommissioned | replaced_by | ignore | "" (in use)
     replaced_by: Optional[int] = None
+    itam: Optional[dict] = None                  # 3.89: lifecycle_stage, purchased_at, warranty_until, replace_at, disposed_at, disposal_method, cost, currency,
+                                                 #       supplier, invoice_no, cost_center, asset_tag (services/asset_itam.py)
+
+
+@router.get("/{asset_id}/itam-history")
+def itam_history(asset_id: int):
+    """3.89: the changes of the lifecycle / cost fields of one asset (who, when, from what to what)."""
+    from services import asset_itam, identity
+    return [h for h in identity.asset_history(asset_id, 200) if h["field"] in asset_itam.FIELDS][:100]
 
 
 @router.put("/{asset_id}")
