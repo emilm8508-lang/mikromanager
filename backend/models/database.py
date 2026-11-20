@@ -261,6 +261,38 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ReportDef(Base):
+    """3.93: a saved report - a ready-made one or one of your own - with an optional e-mail schedule (services/reports.py)."""
+    __tablename__ = "report_def"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    builtin = Column(String, nullable=True)                        # a ready-made report id, or empty for one of your own
+    params = Column(Text, nullable=True)                           # JSON {scope, columns, filters, sort, desc} of one of your own
+    schedule = Column(String, nullable=False, default="none")      # none | daily | weekly | monthly
+    format = Column(String, nullable=False, default="xlsx")        # csv | xlsx | docx
+    hour = Column(Integer, nullable=True)
+    weekday = Column(Integer, nullable=True)                       # 0 = Monday
+    day = Column(Integer, nullable=True)                           # day of the month, 1-28
+    recipients = Column(Text, nullable=True)                       # JSON list of e-mail addresses
+    last_sent_at = Column(DateTime, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class ReportRun(Base):
+    """3.93: one sending of a saved report (when, to whom, how many rows, ok / the error)."""
+    __tablename__ = "report_run"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, nullable=False, index=True)
+    at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    status = Column(String, nullable=False)
+    error = Column(Text, nullable=True)
+    rows = Column(Integer, nullable=True)
+    recipients = Column(Text, nullable=True)
+
+
 class Vendor(Base):
     """3.92: a vendor / supplier (services/procurement.py)."""
     __tablename__ = "vendor"

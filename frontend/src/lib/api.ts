@@ -1103,6 +1103,28 @@ export interface AssetAttach {
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
 
+// 3.93: reports - ready-made, your own, files, scheduled e-mail (services/reports.py, services/mailer.py)
+export interface ReportData { columns: string[]; rows: Array<Record<string, string | number | boolean | null>>; total: number; builtin: string | null; scope?: string }
+export interface SavedReport {
+  id: number; name: string; builtin: string | null; params: { scope: string; columns: string[]; filters: Record<string, unknown> } | null; schedule: string; format: string
+  hour: number | null; weekday: number | null; day: number | null; recipients: string[]; created_by: string | null; last_sent_at: string | null
+  runs: Array<{ at: string; status: string; error: string | null; rows: number | null; to: string[] }>
+}
+export const reportsApi = {
+  overview: () => api.get<{ builtin: string[]; columns: Record<string, string[]>; saved: SavedReport[]; smtp_configured: boolean }>('/reports').then(r => r.data),
+  preview: (b: { builtin?: string | null; params?: Record<string, unknown> | null }) => api.post<ReportData>('/reports/preview', b).then(r => r.data),
+  download: async (b: Record<string, unknown>) => {
+    const r = await api.post('/reports/download', b, { responseType: 'blob' })
+    const m = /filename="([^"]+)"/.exec(String(r.headers['content-disposition'] ?? ''))
+    return { blob: r.data as Blob, name: m ? m[1] : `report.${String(b.format ?? 'xlsx')}` }
+  },
+  save: (b: Record<string, unknown>) => api.post<{ id: number }>('/reports/saved', b).then(r => r.data),
+  remove: (id: number) => api.delete(`/reports/saved/${id}`).then(r => r.data),
+  sendNow: (id: number) => api.post<{ status: string; error: string | null; rows: number }>(`/reports/saved/${id}/send`).then(r => r.data),
+  smtp: () => api.get<{ host: string | null; port: number | null; security: string; username: string | null; password_set: boolean; from_addr: string | null; from_name: string | null; configured: boolean }>('/reports/smtp').then(r => r.data),
+  saveSmtp: (b: Record<string, unknown>) => api.put('/reports/smtp', b).then(r => r.data),
+  testSmtp: (to: string) => api.post<{ ok: boolean; error: string | null }>('/reports/smtp/test', { to }).then(r => r.data),
+}
 // 3.92: vendors, contracts, purchase orders, attachments (services/procurement.py)
 export interface VendorRow { id: number; name: string; contact: string | null; email: string | null; phone: string | null; website: string | null; notes: string | null; contracts: number; orders: number }
 export interface AttachmentRow { id: number; filename: string; size: number; at: string; by: string | null }

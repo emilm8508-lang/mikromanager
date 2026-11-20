@@ -15,6 +15,7 @@ import { Ipam } from './pages/Ipam'
 import { Cmdb } from './pages/Cmdb'
 import { Licenses } from './pages/Licenses'
 import { Procurement } from './pages/Procurement'
+import { Reports } from './pages/Reports'
 import { Forecasts } from './pages/Forecasts'
 import { Services } from './pages/Services'
 import { SocSyslog } from './pages/SocSyslog'
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/cmdb" element={<Cmdb />} />
             <Route path="/licenses" element={<Licenses />} />
             <Route path="/procurement" element={<Procurement />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/inventory/:id" element={<AssetDetail />} />
             <Route path="/racks" element={<Racks />} />
             <Route path="/netmap" element={<NetworkMapAll />} />

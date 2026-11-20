@@ -2,6 +2,46 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.93 — 2026-11-20
+- ITAM stage E (docs/plan-itam.md): reports of the assets, licenses and contracts, as files and by scheduled e-mail (services/reports.py, services/mailer.py, new tables `report_def`, `report_run`).
+  - Ready-made reports:
+    - asset register;
+    - warranties ending within 90 days;
+    - assets to replace;
+    - costs per cost centre and year;
+    - license compliance;
+    - contracts ending within 60 days;
+    - open purchase orders;
+    - disposed assets;
+    - software by product.
+  - A report of your own: scope (assets / licenses / contracts), columns, filters (stage, type, status, location / owner / cost centre / supplier contains, purchase dates, warranty before, end before, any text), with a preview (500 rows) and download.
+  - Files:
+    - CSV with semicolons and a UTF-8 mark (opens right in a Polish Excel);
+    - XLSX written by the agent itself, so no new dependency (header in bold and frozen, numbers as numbers);
+    - Word (landscape table).
+    - Values starting with =, + , - or @ are written as text, so device data cannot become a spreadsheet formula. Column headings follow the page's language.
+  - Saved reports:
+    - a name and a schedule: none / daily / weekly on a day / monthly on a day (1-28), at an hour (UTC);
+    - format and recipients;
+    - sent as an attachment through the agent's own SMTP settings;
+    - every sending is kept (when, to whom, rows, ok / the error). A failed one is not retried in the same period, so there is no mail storm;
+    - "send now" and download from the list.
+  - SMTP settings on the Reports page: server, port, STARTTLS / SSL / none, user, password (stored encrypted, never sent back), sender address and name, a test message.
+    - Only an admin can change them, and the change goes to the audit log.
+    - Sending runs in a worker thread with a timeout. A subject cannot carry extra headers.
+  - A new page "Reports" in the Assets menu. In German, Spanish, French, Russian and Ukrainian the report hints, filter and column labels are in English for now; the page and report names are translated.
+  - API: `GET /api/reports`, `POST /api/reports/preview`, `POST /api/reports/download`, `/api/reports/saved` (CRUD, `/send`), `GET/PUT /api/reports/smtp`, `POST /api/reports/smtp/test`.
+- Tested: 6 new regression tests (backend/tests/test_reports.py):
+  - every ready-made report builds; register / warranty / disposed / costs contents;
+  - your own filters and validation;
+  - CSV with BOM and formula guard, XLSX read back with openpyxl, Word;
+  - the daily / weekly / monthly schedule;
+  - saved reports: recipients checked, nothing sent before SMTP is set, sent once a day with the history, an error recorded;
+  - the SMTP password encrypted and not returned;
+  - a subject without header injection.
+  - The migration was run on a copy of a real agent database.
+  - tsc OK. Not sent through a real SMTP server and not seen in a browser.
+
 ## 3.92 — 2026-11-20
 - ITAM stage D (docs/plan-itam.md): vendors, contracts, purchase orders and attachments (services/procurement.py, new tables `vendor`, `contract`, `purchase_order`, `attachment`).
   - Vendors: name (unique), contact person, e-mail, phone, web site, notes. A vendor with contracts or orders is not deleted.

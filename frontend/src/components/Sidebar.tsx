@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Binary, Hourglass, Workflow, KeySquare, FileSignature, LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
+import { Binary, Hourglass, Workflow, KeySquare, FileSignature, FileBarChart, LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -315,6 +315,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
       item('/software', t('nav.software') as string, Package),
       item('/licenses', t('nav.licenses') as string, KeySquare),
       item('/procurement', t('nav.procurement') as string, FileSignature),
+      item('/reports', t('nav.reports') as string, FileBarChart),
     ] },
     { key: 'admin', label: t('nav.groupAdmin') as string, icon: Settings, items: [
       item('/credentials', t('nav.credentials') as string, Key),
