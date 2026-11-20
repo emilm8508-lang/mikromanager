@@ -260,6 +260,8 @@ function mcp_tools(): array {
             'description' => 'The configuration items of each client by class (hypervisor, domain controller, switch, access point, UPS ...) and the relations between them: runs on, depends on, connected to, backs up, member of a business service - automatic ones (from the network map and the business services) and ones entered by people. Use it for impact (what stops when X fails) and root cause (what X needs).'],
         'client_licenses' => ['title' => 'Software licenses', 'fn' => 't_licenses', 'schema' => $s($tenant + ['status' => ['type' => 'string', 'enum' => ['compliant', 'over', 'unused', 'expired', 'expiring', 'no_installs', 'site']], 'q' => ['type' => 'string', 'description' => 'part of a product or vendor']] + $limit),
             'description' => 'Software licenses of the clients against the installed software: kind, seats, installations in use, installations to reclaim (on retired or inactive assets), over the seats, the end date, cost and status (compliant / over / under-used / expired / expiring). Never the keys.'],
+        'client_contracts' => ['title' => 'Contracts and purchase orders', 'fn' => 't_contracts', 'schema' => $s($tenant + $limit),
+            'description' => 'Per client: contracts that end within 60 days or have ended (support, maintenance, warranty, lease, license, SLA - vendor, end date, days left, value, automatic renewal, how many assets they cover) and the open purchase orders (draft, approved, ordered). No notes, files or persons.'],
         'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
             'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
         'client_logons' => ['title' => 'Logons on assets', 'fn' => 't_logons', 'schema' => $s($tenant + [
@@ -441,6 +443,29 @@ function t_licenses(McpContext $c, array $a): array {
     usort($rows, function ($x, $y) use ($order) { return ($order[$x['status']] ?? 9) <=> ($order[$y['status']] ?? 9); });
     $pg = mcp_page($rows, $a, 50, 200);
     return ['licenses' => $pg['items']] + $pg;
+}
+
+function t_contracts(McpContext $c, array $a): array {
+    $cs = []; $os = []; $counts = [];
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $p = $r['meta']['assets_status']['procurement'] ?? null;
+        if (!is_array($p)) continue;
+        $counts[] = ['tenant' => $r['tenant']] + (array)($p['counts'] ?? []);
+        foreach ((array)($p['contracts'] ?? []) as $x) {
+            if (!is_array($x)) continue;
+            $cs[] = ['tenant' => $r['tenant'], 'title' => $x['t'] ?? null, 'kind' => $x['k'] ?? null, 'vendor' => $x['v'] ?? null, 'end' => $x['end'] ?? null,
+                     'days_left' => $x['d'] ?? null, 'status' => $x['st'] ?? null, 'value' => $x['val'] ?? null, 'currency' => $x['cu'] ?? null,
+                     'auto_renew' => !empty($x['ar']), 'assets_covered' => $x['n'] ?? 0];
+        }
+        foreach ((array)($p['orders'] ?? []) as $x) {
+            if (!is_array($x)) continue;
+            $os[] = ['tenant' => $r['tenant'], 'number' => $x['no'] ?? null, 'vendor' => $x['v'] ?? null, 'status' => $x['st'] ?? null, 'total' => $x['tot'] ?? null,
+                     'currency' => $x['cu'] ?? null, 'items' => $x['items'] ?? 0];
+        }
+    }
+    usort($cs, function ($x, $y) { return ($x['days_left'] ?? 99999) <=> ($y['days_left'] ?? 99999); });
+    $pg = mcp_page($cs, $a, 50, 200);
+    return ['counts' => $counts, 'contracts' => $pg['items'], 'open_orders' => array_slice($os, 0, 100)] + $pg;
 }
 
 function t_cmdb(McpContext $c, array $a): array {

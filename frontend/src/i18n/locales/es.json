@@ -72,6 +72,7 @@
                 "assetsList": "Lista de activos",
                 "cmdb": "CMDB",
                 "licenses": "Licencias",
+                "procurement": "Contratos y pedidos",
                 "groupSystems": "Sistemas",
                 "groupNetwork": "Red",
                 "groupCompliance": "Cumplimiento y seguridad",
@@ -1880,6 +1881,7 @@
         }
     },
     "fc": {
+        "contractOn": "contrato hasta el {{date}}",
         "licenseOn": "licencia hasta el {{date}}",
         "warrantyOn": "garantía hasta el {{date}}",
         "replacementOn": "sustitución prevista el {{date}}",
@@ -1887,6 +1889,7 @@
         "subtitle": "Una lista de previsiones a partir de lo que el agente ya mide: discos, memoria y pools DHCP que crecen de forma constante hasta llenarse, y certificados que caducan. Lo más próximo primero.",
         "horizon": "{{n}} días",
         "kind": {
+            "contract": "Contratos",
             "license": "Licencias",
             "warranty": "Garantías",
             "replacement": "Sustituciones",
@@ -2142,6 +2145,113 @@
             "program": "Programa",
             "version": "Versión",
             "counts": "Uso"
+        }
+    },
+    "proc": {
+        "title": "Contratos y pedidos",
+        "subtitle": "Proveedores, contratos (soporte, mantenimiento, garantía, leasing, licencia, SLA) con aviso antes del fin, y pedidos con un flujo sencillo. Un pedido recibido añade su hardware al inventario como «en almacén».",
+        "tab": {
+            "contracts": "Contratos",
+            "orders": "Pedidos",
+            "vendors": "Proveedores"
+        },
+        "addContract": "Añadir contrato",
+        "addOrder": "Nuevo pedido",
+        "addVendor": "Añadir proveedor",
+        "edit": "Editar",
+        "remove": "Quitar",
+        "cancel": "Cancelar",
+        "noContracts": "Sin contratos.",
+        "noOrders": "Sin pedidos.",
+        "noVendors": "Sin proveedores.",
+        "autoRenew": "se renueva solo",
+        "daysLeft": "en {{n}} días",
+        "endedAgo": "hace {{n}} días",
+        "noticeDays": "Aviso {{n}} días antes del fin.",
+        "addAsset": "+ añadir activo",
+        "itemsCount": "{{n}} líneas",
+        "vendorCounts": "{{c}} contratos, {{o}} pedidos",
+        "received": "Recibido: {{assets}} activos en almacén, {{seats}} puestos de licencia.",
+        "receiveConfirm": "¿Recibir el pedido? Las líneas de hardware se añadirán al inventario como «en almacén» y las licencias recibirán sus puestos.",
+        "ordersNote": "Flujo: borrador → aprobado → pedido → recibido (o cancelado). Cada cambio registra quién y cuándo. Se puede editar un borrador o uno aprobado; borrar un borrador o uno cancelado.",
+        "openOrders": "Pedidos abiertos",
+        "attachments": "Adjuntos",
+        "addFile": "Añadir archivo (PDF, imagen, documento; hasta 10 MB)",
+        "uploading": "Subiendo…",
+        "removeFile": "Quitar archivo",
+        "onAsset": "Contratos que cubren este activo",
+        "noneOnAsset": "Ningún contrato lo cubre.",
+        "cf": {
+            "title": "Título",
+            "kind": "Tipo",
+            "number": "Número",
+            "vendor": "Proveedor",
+            "start_at": "Desde",
+            "end_at": "Hasta",
+            "notice_days": "Avisar días antes del fin",
+            "value": "Importe",
+            "currency": "Moneda",
+            "auto_renew": "Renovación automática",
+            "owner": "Responsable",
+            "notes": "Notas",
+            "assets": "Cubre activos",
+            "licenses": "Cubre licencias"
+        },
+        "of": {
+            "number": "N.º de pedido",
+            "description": "Descripción",
+            "kind": "Tipo",
+            "assetType": "Tipo de activo",
+            "model": "Modelo",
+            "license": "Licencia",
+            "qty": "Cant.",
+            "unitPrice": "Precio unit.",
+            "addItem": "Añadir línea",
+            "total": "Total"
+        },
+        "vf": {
+            "name": "Nombre",
+            "contact": "Persona de contacto",
+            "email": "Correo",
+            "phone": "Teléfono",
+            "website": "Web",
+            "notes": "Notas"
+        },
+        "ckind": {
+            "support": "soporte",
+            "maintenance": "mantenimiento",
+            "warranty": "garantía",
+            "lease": "leasing",
+            "license": "licencia",
+            "sla": "SLA",
+            "other": "otro"
+        },
+        "cstatus": {
+            "future": "futuro",
+            "active": "activo",
+            "expiring": "por terminar",
+            "expired": "vencido",
+            "renewing": "en renovación"
+        },
+        "ostatus": {
+            "draft": "borrador",
+            "approved": "aprobado",
+            "ordered": "pedido",
+            "received": "recibido",
+            "cancelled": "cancelado"
+        },
+        "to": {
+            "draft": "a borrador",
+            "approved": "aprobar",
+            "ordered": "pedido",
+            "received": "recibir",
+            "cancelled": "cancelar"
+        },
+        "ikind": {
+            "asset": "hardware",
+            "license": "licencia",
+            "service": "servicio",
+            "other": "otro"
         }
     },
     "svc": {

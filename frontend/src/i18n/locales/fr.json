@@ -72,6 +72,7 @@
                 "assetsList": "Liste du parc",
                 "cmdb": "CMDB",
                 "licenses": "Licences",
+                "procurement": "Contrats et commandes",
                 "groupSystems": "Systèmes",
                 "groupNetwork": "Réseau",
                 "groupCompliance": "Conformité et sécurité",
@@ -1880,6 +1881,7 @@
         }
     },
     "fc": {
+        "contractOn": "contrat jusqu'au {{date}}",
         "licenseOn": "licence jusqu'au {{date}}",
         "warrantyOn": "garantie jusqu'au {{date}}",
         "replacementOn": "remplacement prévu le {{date}}",
@@ -1887,6 +1889,7 @@
         "subtitle": "Une liste de prévisions à partir de ce que l'agent mesure déjà : disques, mémoire et pools DHCP qui se remplissent régulièrement, et certificats qui expirent. Le plus proche en premier.",
         "horizon": "{{n}} jours",
         "kind": {
+            "contract": "Contrats",
             "license": "Licences",
             "warranty": "Garanties",
             "replacement": "Remplacements",
@@ -2142,6 +2145,113 @@
             "program": "Programme",
             "version": "Version",
             "counts": "Utilisation"
+        }
+    },
+    "proc": {
+        "title": "Contrats et commandes",
+        "subtitle": "Fournisseurs, contrats (support, maintenance, garantie, location, licence, SLA) avec un avis avant la fin, et bons de commande avec un circuit simple. Une commande reçue ajoute son matériel à l'inventaire « en stock ».",
+        "tab": {
+            "contracts": "Contrats",
+            "orders": "Commandes",
+            "vendors": "Fournisseurs"
+        },
+        "addContract": "Ajouter un contrat",
+        "addOrder": "Nouvelle commande",
+        "addVendor": "Ajouter un fournisseur",
+        "edit": "Modifier",
+        "remove": "Supprimer",
+        "cancel": "Annuler",
+        "noContracts": "Aucun contrat.",
+        "noOrders": "Aucune commande.",
+        "noVendors": "Aucun fournisseur.",
+        "autoRenew": "se renouvelle seul",
+        "daysLeft": "dans {{n}} jours",
+        "endedAgo": "il y a {{n}} jours",
+        "noticeDays": "Avis {{n}} jours avant la fin.",
+        "addAsset": "+ ajouter un actif",
+        "itemsCount": "{{n}} lignes",
+        "vendorCounts": "{{c}} contrats, {{o}} commandes",
+        "received": "Reçu : {{assets}} actifs en stock, {{seats}} postes de licence.",
+        "receiveConfirm": "Réceptionner la commande ? Le matériel sera ajouté à l'inventaire « en stock » et les licences recevront leurs postes.",
+        "ordersNote": "Circuit : brouillon → approuvée → commandée → reçue (ou annulée). Chaque changement enregistre qui et quand. Un brouillon ou une commande approuvée se modifie ; un brouillon ou une commande annulée se supprime.",
+        "openOrders": "Commandes ouvertes",
+        "attachments": "Pièces jointes",
+        "addFile": "Ajouter un fichier (PDF, image, document ; 10 Mo max.)",
+        "uploading": "Envoi…",
+        "removeFile": "Supprimer le fichier",
+        "onAsset": "Contrats couvrant cet actif",
+        "noneOnAsset": "Aucun contrat ne le couvre.",
+        "cf": {
+            "title": "Titre",
+            "kind": "Type",
+            "number": "Numéro",
+            "vendor": "Fournisseur",
+            "start_at": "Du",
+            "end_at": "Au",
+            "notice_days": "Avertir jours avant la fin",
+            "value": "Valeur",
+            "currency": "Devise",
+            "auto_renew": "Renouvellement automatique",
+            "owner": "Responsable",
+            "notes": "Notes",
+            "assets": "Couvre les actifs",
+            "licenses": "Couvre les licences"
+        },
+        "of": {
+            "number": "N° de commande",
+            "description": "Description",
+            "kind": "Type",
+            "assetType": "Type d'actif",
+            "model": "Modèle",
+            "license": "Licence",
+            "qty": "Qté",
+            "unitPrice": "Prix unit.",
+            "addItem": "Ajouter une ligne",
+            "total": "Total"
+        },
+        "vf": {
+            "name": "Nom",
+            "contact": "Contact",
+            "email": "E-mail",
+            "phone": "Téléphone",
+            "website": "Site web",
+            "notes": "Notes"
+        },
+        "ckind": {
+            "support": "support",
+            "maintenance": "maintenance",
+            "warranty": "garantie",
+            "lease": "location",
+            "license": "licence",
+            "sla": "SLA",
+            "other": "autre"
+        },
+        "cstatus": {
+            "future": "futur",
+            "active": "actif",
+            "expiring": "se termine",
+            "expired": "expiré",
+            "renewing": "se renouvelle"
+        },
+        "ostatus": {
+            "draft": "brouillon",
+            "approved": "approuvée",
+            "ordered": "commandée",
+            "received": "reçue",
+            "cancelled": "annulée"
+        },
+        "to": {
+            "draft": "en brouillon",
+            "approved": "approuver",
+            "ordered": "commandée",
+            "received": "réceptionner",
+            "cancelled": "annuler"
+        },
+        "ikind": {
+            "asset": "matériel",
+            "license": "licence",
+            "service": "service",
+            "other": "autre"
         }
     },
     "svc": {

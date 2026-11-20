@@ -72,6 +72,7 @@
                 "assetsList": "Lista zasobów",
                 "cmdb": "CMDB",
                 "licenses": "Licencje",
+                "procurement": "Umowy i zamówienia",
                 "groupSystems": "Systemy",
                 "groupNetwork": "Sieć",
                 "groupCompliance": "Zgodność i bezpieczeństwo",
@@ -2047,6 +2048,7 @@
         }
     },
     "fc": {
+        "contractOn": "umowa do {{date}}",
         "licenseOn": "licencja do {{date}}",
         "warrantyOn": "gwarancja do {{date}}",
         "replacementOn": "planowana wymiana {{date}}",
@@ -2054,6 +2056,7 @@
         "subtitle": "Jedna lista prognoz z tego, co agent już mierzy: dyski, pamięć i pule DHCP, które stale rosną do pełna, oraz certyfikaty, które wygasają. Najbliższe na górze.",
         "horizon": "{{n}} dni",
         "kind": {
+            "contract": "Umowy",
             "license": "Licencje",
             "warranty": "Gwarancje",
             "replacement": "Wymiany",
@@ -2309,6 +2312,113 @@
             "program": "Program",
             "version": "Wersja",
             "counts": "Wykorzystanie"
+        }
+    },
+    "proc": {
+        "title": "Umowy i zamówienia",
+        "subtitle": "Dostawcy, umowy (wsparcie, serwis, gwarancja, leasing, licencja, SLA) z powiadomieniem przed końcem oraz zamówienia z prostym obiegiem. Przyjęte zamówienie dodaje sprzęt do inwentarza jako „w magazynie”.",
+        "tab": {
+            "contracts": "Umowy",
+            "orders": "Zamówienia",
+            "vendors": "Dostawcy"
+        },
+        "addContract": "Dodaj umowę",
+        "addOrder": "Nowe zamówienie",
+        "addVendor": "Dodaj dostawcę",
+        "edit": "Edytuj",
+        "remove": "Usuń",
+        "cancel": "Anuluj",
+        "noContracts": "Brak umów.",
+        "noOrders": "Brak zamówień.",
+        "noVendors": "Brak dostawców.",
+        "autoRenew": "odnawia się sama",
+        "daysLeft": "za {{n}} dni",
+        "endedAgo": "{{n}} dni temu",
+        "noticeDays": "Powiadomienie {{n}} dni przed końcem.",
+        "addAsset": "+ dodaj zasób",
+        "itemsCount": "pozycji: {{n}}",
+        "vendorCounts": "umów {{c}}, zamówień {{o}}",
+        "received": "Przyjęto: zasobów w magazynie {{assets}}, stanowisk licencji {{seats}}.",
+        "receiveConfirm": "Przyjąć zamówienie? Pozycje sprzętowe zostaną dodane do inwentarza jako „w magazynie”, a licencje dostaną stanowiska.",
+        "ordersNote": "Obieg: szkic → zatwierdzone → zamówione → przyjęte (lub anulowane). Każda zmiana zapisuje kto i kiedy. Edytować można szkic i zatwierdzone; usunąć szkic i anulowane.",
+        "openOrders": "Otwarte zamówienia",
+        "attachments": "Załączniki",
+        "addFile": "Dodaj plik (PDF, obraz, dokument; do 10 MB)",
+        "uploading": "Wysyłanie…",
+        "removeFile": "Usuń plik",
+        "onAsset": "Umowy obejmujące ten zasób",
+        "noneOnAsset": "Żadna umowa go nie obejmuje.",
+        "cf": {
+            "title": "Tytuł",
+            "kind": "Rodzaj",
+            "number": "Numer",
+            "vendor": "Dostawca",
+            "start_at": "Od",
+            "end_at": "Do",
+            "notice_days": "Powiadom dni przed końcem",
+            "value": "Wartość",
+            "currency": "Waluta",
+            "auto_renew": "Odnawia się automatycznie",
+            "owner": "Osoba odpowiedzialna",
+            "notes": "Uwagi",
+            "assets": "Obejmuje zasoby",
+            "licenses": "Obejmuje licencje"
+        },
+        "of": {
+            "number": "Numer zamówienia",
+            "description": "Opis",
+            "kind": "Rodzaj",
+            "assetType": "Typ zasobu",
+            "model": "Model",
+            "license": "Licencja",
+            "qty": "Ilość",
+            "unitPrice": "Cena jedn.",
+            "addItem": "Dodaj pozycję",
+            "total": "Razem"
+        },
+        "vf": {
+            "name": "Nazwa",
+            "contact": "Osoba kontaktowa",
+            "email": "E-mail",
+            "phone": "Telefon",
+            "website": "Strona WWW",
+            "notes": "Uwagi"
+        },
+        "ckind": {
+            "support": "wsparcie",
+            "maintenance": "serwis",
+            "warranty": "gwarancja",
+            "lease": "leasing",
+            "license": "licencja",
+            "sla": "SLA",
+            "other": "inna"
+        },
+        "cstatus": {
+            "future": "przyszła",
+            "active": "aktywna",
+            "expiring": "kończy się",
+            "expired": "wygasła",
+            "renewing": "odnawia się"
+        },
+        "ostatus": {
+            "draft": "szkic",
+            "approved": "zatwierdzone",
+            "ordered": "zamówione",
+            "received": "przyjęte",
+            "cancelled": "anulowane"
+        },
+        "to": {
+            "draft": "do szkicu",
+            "approved": "zatwierdź",
+            "ordered": "zamówione",
+            "received": "przyjmij",
+            "cancelled": "anuluj"
+        },
+        "ikind": {
+            "asset": "sprzęt",
+            "license": "licencja",
+            "service": "usługa",
+            "other": "inne"
         }
     },
     "svc": {

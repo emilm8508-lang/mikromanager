@@ -43,12 +43,12 @@ class _Db(unittest.TestCase):
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
         import models.database as mdb
-        from services import soc, metrics, app_checks, asset_itam, licenses
+        from services import soc, metrics, app_checks, asset_itam, licenses, procurement
         tmp = tempfile.mkdtemp()
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 'f.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
-        mods = (fc, soc, metrics, app_checks, asset_itam, licenses)
+        mods = (fc, soc, metrics, app_checks, asset_itam, licenses, procurement)
         saved = [(m, m.SessionLocal) for m in mods]
         path = app_checks._PATH
         self.addCleanup(lambda: ([setattr(m, "SessionLocal", s) for m, s in saved], setattr(app_checks, "_PATH", path)))
@@ -74,7 +74,7 @@ class Overview(_Db):
         got = [(x["kind"], x["where"]) for x in o["items"]]
         self.assertEqual(got[0], ("mem", "FS1"), "memory: 85% now + 2.5 a day -> about 6 days (the disk: 82% + 2 -> 9)")
         self.assertEqual(set(got), {("mem", "FS1"), ("disk", "FS1"), ("dhcp_pool", "DHCP lan (R1)"), ("certificate", "192.168.1.10")})
-        self.assertEqual(o["counts"], {"disk": 1, "mem": 1, "dhcp_pool": 1, "certificate": 1, "warranty": 0, "replacement": 0, "license": 0})
+        self.assertEqual({k: v for k, v in o["counts"].items() if v}, {"disk": 1, "mem": 1, "dhcp_pool": 1, "certificate": 1}, "the other kinds are 0")
         self.assertEqual([x["days"] for x in o["items"]], sorted(x["days"] for x in o["items"]))
         self.assertEqual(len(fc.overview(7, NOW)["items"]), 1, "the horizon filters")
 

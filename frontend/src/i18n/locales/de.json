@@ -72,6 +72,7 @@
                 "assetsList": "Bestandsliste",
                 "cmdb": "CMDB",
                 "licenses": "Lizenzen",
+                "procurement": "Verträge und Bestellungen",
                 "groupSystems": "Systeme",
                 "groupNetwork": "Netzwerk",
                 "groupCompliance": "Compliance & Sicherheit",
@@ -1880,6 +1881,7 @@
         }
     },
     "fc": {
+        "contractOn": "Vertrag bis {{date}}",
         "licenseOn": "Lizenz bis {{date}}",
         "warrantyOn": "Garantie bis {{date}}",
         "replacementOn": "geplanter Austausch {{date}}",
@@ -1887,6 +1889,7 @@
         "subtitle": "Eine Liste von Prognosen aus dem, was der Agent ohnehin misst: Datenträger, Speicher und DHCP-Pools, die stetig volllaufen, und ablaufende Zertifikate. Das Nächste zuerst.",
         "horizon": "{{n}} Tage",
         "kind": {
+            "contract": "Verträge",
             "license": "Lizenzen",
             "warranty": "Garantien",
             "replacement": "Austausch",
@@ -2142,6 +2145,113 @@
             "program": "Programm",
             "version": "Version",
             "counts": "Nutzung"
+        }
+    },
+    "proc": {
+        "title": "Verträge und Bestellungen",
+        "subtitle": "Lieferanten, Verträge (Support, Wartung, Garantie, Leasing, Lizenz, SLA) mit Hinweis vor dem Ende und Bestellungen mit einfachem Ablauf. Eine empfangene Bestellung fügt ihre Hardware als „im Lager“ dem Inventar hinzu.",
+        "tab": {
+            "contracts": "Verträge",
+            "orders": "Bestellungen",
+            "vendors": "Lieferanten"
+        },
+        "addContract": "Vertrag hinzufügen",
+        "addOrder": "Neue Bestellung",
+        "addVendor": "Lieferant hinzufügen",
+        "edit": "Bearbeiten",
+        "remove": "Entfernen",
+        "cancel": "Abbrechen",
+        "noContracts": "Keine Verträge.",
+        "noOrders": "Keine Bestellungen.",
+        "noVendors": "Keine Lieferanten.",
+        "autoRenew": "verlängert sich selbst",
+        "daysLeft": "in {{n}} Tagen",
+        "endedAgo": "vor {{n}} Tagen",
+        "noticeDays": "Hinweis {{n}} Tage vor dem Ende.",
+        "addAsset": "+ Asset hinzufügen",
+        "itemsCount": "{{n}} Positionen",
+        "vendorCounts": "{{c}} Verträge, {{o}} Bestellungen",
+        "received": "Empfangen: {{assets}} Assets im Lager, {{seats}} Lizenzplätze.",
+        "receiveConfirm": "Bestellung empfangen? Hardware-Positionen werden als „im Lager“ ins Inventar übernommen und Lizenzen erhalten ihre Plätze.",
+        "ordersNote": "Ablauf: Entwurf → genehmigt → bestellt → empfangen (oder storniert). Jede Änderung speichert wer und wann. Entwurf und genehmigte Bestellung sind bearbeitbar; Entwurf und stornierte löschbar.",
+        "openOrders": "Offene Bestellungen",
+        "attachments": "Anhänge",
+        "addFile": "Datei hinzufügen (PDF, Bild, Dokument; bis 10 MB)",
+        "uploading": "Hochladen…",
+        "removeFile": "Datei entfernen",
+        "onAsset": "Verträge für dieses Asset",
+        "noneOnAsset": "Kein Vertrag deckt es ab.",
+        "cf": {
+            "title": "Titel",
+            "kind": "Art",
+            "number": "Nummer",
+            "vendor": "Lieferant",
+            "start_at": "Von",
+            "end_at": "Bis",
+            "notice_days": "Tage vor Ende benachrichtigen",
+            "value": "Wert",
+            "currency": "Währung",
+            "auto_renew": "Automatische Verlängerung",
+            "owner": "Verantwortlich",
+            "notes": "Notizen",
+            "assets": "Umfasst Assets",
+            "licenses": "Umfasst Lizenzen"
+        },
+        "of": {
+            "number": "Bestellnummer",
+            "description": "Beschreibung",
+            "kind": "Art",
+            "assetType": "Asset-Typ",
+            "model": "Modell",
+            "license": "Lizenz",
+            "qty": "Menge",
+            "unitPrice": "Stückpreis",
+            "addItem": "Position hinzufügen",
+            "total": "Summe"
+        },
+        "vf": {
+            "name": "Name",
+            "contact": "Ansprechpartner",
+            "email": "E-Mail",
+            "phone": "Telefon",
+            "website": "Website",
+            "notes": "Notizen"
+        },
+        "ckind": {
+            "support": "Support",
+            "maintenance": "Wartung",
+            "warranty": "Garantie",
+            "lease": "Leasing",
+            "license": "Lizenz",
+            "sla": "SLA",
+            "other": "andere"
+        },
+        "cstatus": {
+            "future": "künftig",
+            "active": "aktiv",
+            "expiring": "endet",
+            "expired": "abgelaufen",
+            "renewing": "verlängert sich"
+        },
+        "ostatus": {
+            "draft": "Entwurf",
+            "approved": "genehmigt",
+            "ordered": "bestellt",
+            "received": "empfangen",
+            "cancelled": "storniert"
+        },
+        "to": {
+            "draft": "zum Entwurf",
+            "approved": "genehmigen",
+            "ordered": "bestellt",
+            "received": "empfangen",
+            "cancelled": "stornieren"
+        },
+        "ikind": {
+            "asset": "Hardware",
+            "license": "Lizenz",
+            "service": "Dienstleistung",
+            "other": "andere"
         }
     },
     "svc": {

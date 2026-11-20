@@ -313,6 +313,8 @@ async def _build_snapshot() -> dict:
         alert_events += business_services.collect_alert_events()     # business services that are down or degraded
         from services import comm_watch
         alert_events += comm_watch.collect_alert_events()            # assets whose expected data stopped / came back (services/comm_watch.py)
+        from services import procurement
+        alert_events += procurement.collect_alert_events()           # 3.92: contracts ending (contract_expiring)
     except Exception as e:
         print(f"[uplink] availability alert events error: {e}")
 

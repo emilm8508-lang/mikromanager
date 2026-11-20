@@ -72,6 +72,7 @@
                 "assetsList": "Asset list",
                 "cmdb": "CMDB",
                 "licenses": "Licenses",
+                "procurement": "Contracts and orders",
                 "groupSystems": "Systems",
                 "groupNetwork": "Network",
                 "groupCompliance": "Compliance & security",
@@ -1880,6 +1881,7 @@
         }
     },
     "fc": {
+        "contractOn": "contract until {{date}}",
         "licenseOn": "license until {{date}}",
         "warrantyOn": "warranty until {{date}}",
         "replacementOn": "planned replacement {{date}}",
@@ -1887,6 +1889,7 @@
         "subtitle": "One list of forecasts from what the agent already measures: disks, memory and DHCP pools growing steadily to full, and certificates expiring. Nearest first.",
         "horizon": "{{n}} days",
         "kind": {
+            "contract": "Contracts",
             "license": "Licenses",
             "warranty": "Warranties",
             "replacement": "Replacements",
@@ -2142,6 +2145,113 @@
             "program": "Program",
             "version": "Version",
             "counts": "Usage"
+        }
+    },
+    "proc": {
+        "title": "Contracts and orders",
+        "subtitle": "Vendors, contracts (support, maintenance, warranty, lease, license, SLA) with a notice before the end, and purchase orders with a simple flow. A received order adds its hardware to the inventory as \"in stock\".",
+        "tab": {
+            "contracts": "Contracts",
+            "orders": "Orders",
+            "vendors": "Vendors"
+        },
+        "addContract": "Add contract",
+        "addOrder": "New order",
+        "addVendor": "Add vendor",
+        "edit": "Edit",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "noContracts": "No contracts.",
+        "noOrders": "No orders.",
+        "noVendors": "No vendors.",
+        "autoRenew": "renews by itself",
+        "daysLeft": "in {{n}} days",
+        "endedAgo": "{{n}} days ago",
+        "noticeDays": "Notice {{n}} days before the end.",
+        "addAsset": "+ add asset",
+        "itemsCount": "{{n}} items",
+        "vendorCounts": "{{c}} contracts, {{o}} orders",
+        "received": "Received: {{assets}} assets in stock, {{seats}} license seats.",
+        "receiveConfirm": "Receive the order? Hardware items will be added to the inventory as \"in stock\" and licenses will get their seats.",
+        "ordersNote": "Flow: draft → approved → ordered → received (or cancelled). Every change records who and when. A draft or an approved order can be edited; a draft or a cancelled one deleted.",
+        "openOrders": "Open orders",
+        "attachments": "Attachments",
+        "addFile": "Add file (PDF, image, document; up to 10 MB)",
+        "uploading": "Uploading…",
+        "removeFile": "Remove file",
+        "onAsset": "Contracts covering this asset",
+        "noneOnAsset": "No contract covers it.",
+        "cf": {
+            "title": "Title",
+            "kind": "Kind",
+            "number": "Number",
+            "vendor": "Vendor",
+            "start_at": "From",
+            "end_at": "Until",
+            "notice_days": "Notify days before the end",
+            "value": "Value",
+            "currency": "Currency",
+            "auto_renew": "Renews automatically",
+            "owner": "Person responsible",
+            "notes": "Notes",
+            "assets": "Covers assets",
+            "licenses": "Covers licenses"
+        },
+        "of": {
+            "number": "Order number",
+            "description": "Description",
+            "kind": "Kind",
+            "assetType": "Asset type",
+            "model": "Model",
+            "license": "License",
+            "qty": "Qty",
+            "unitPrice": "Unit price",
+            "addItem": "Add item",
+            "total": "Total"
+        },
+        "vf": {
+            "name": "Name",
+            "contact": "Contact person",
+            "email": "E-mail",
+            "phone": "Phone",
+            "website": "Web site",
+            "notes": "Notes"
+        },
+        "ckind": {
+            "support": "support",
+            "maintenance": "maintenance",
+            "warranty": "warranty",
+            "lease": "lease",
+            "license": "license",
+            "sla": "SLA",
+            "other": "other"
+        },
+        "cstatus": {
+            "future": "future",
+            "active": "active",
+            "expiring": "ending",
+            "expired": "expired",
+            "renewing": "renewing"
+        },
+        "ostatus": {
+            "draft": "draft",
+            "approved": "approved",
+            "ordered": "ordered",
+            "received": "received",
+            "cancelled": "cancelled"
+        },
+        "to": {
+            "draft": "back to draft",
+            "approved": "approve",
+            "ordered": "ordered",
+            "received": "receive",
+            "cancelled": "cancel"
+        },
+        "ikind": {
+            "asset": "hardware",
+            "license": "license",
+            "service": "service",
+            "other": "other"
         }
     },
     "svc": {

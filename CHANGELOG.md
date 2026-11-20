@@ -2,6 +2,37 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.92 — 2026-11-20
+- ITAM stage D (docs/plan-itam.md): vendors, contracts, purchase orders and attachments (services/procurement.py, new tables `vendor`, `contract`, `purchase_order`, `attachment`).
+  - Vendors: name (unique), contact person, e-mail, phone, web site, notes. A vendor with contracts or orders is not deleted.
+  - Contracts:
+    - fields: support / maintenance / warranty / lease / license / SLA / other, number, vendor, dates, value and currency, automatic renewal, notice days, person responsible, notes, the assets and licenses covered, attachments;
+    - status: future / active / ending (within the notice days) / expired / renewing (automatic renewal);
+    - alert `contract.expiring` (low; medium within 7 days), closed when no longer due;
+    - an event `contract_expiring` to Central once per contract and end date, so a Central alert rule can send it to a channel;
+    - contracts that do not renew themselves appear in Forecasts.
+  - Purchase orders:
+    - number (unique), vendor, items (hardware with type and model / license / service / other, quantity, unit price), total;
+    - flow draft → approved → ordered → received, or cancelled, with every change recorded (who, when, from, to);
+    - receiving creates each hardware item as an asset "in stock" (with cost, supplier, order number and the date) and adds license items to the seats of the license they name.
+  - Attachments on contracts, orders and assets:
+    - PDF, images, office documents, text, e-mail, up to 10 MB; a PDF is checked by its header;
+    - stored in data/attachments/ under a random name, the original name cleaned;
+    - always sent back as a download (`Content-Disposition: attachment`, `nosniff`, a sandbox CSP);
+    - removed with their contract or order.
+  - The inventory refresh no longer drops assets that people entered data on (lifecycle / cost / warranty / asset tag / supplier / CI class) or that came from a purchase order. Before, an old passive entry with only those data could be pruned.
+  - A new page "Contracts and orders" in the Assets menu has tabs for contracts, orders and vendors, each with forms, details, attachments and the order buttons. The lifecycle tab of an asset shows the contracts covering it and the asset's attachments.
+  - API: `/api/procurement/vendors`, `/contracts` (also `?asset_id=`), `/orders`, `/orders/{id}/status`, `/attachments` (upload, download, delete).
+  - Central: the asset summary carries `procurement` (contracts ending within 60 days or ended, open orders, counts; no notes, files or persons). The Central assets page lists them per client, and there is a new MCP tool `client_contracts` (read-only).
+- Tested: 5 new regression tests (backend/tests/test_procurement.py):
+  - vendor rules;
+  - contract status, alert and a single notice to Central;
+  - the order flow with receiving (assets in stock, seats added) and the forbidden steps;
+  - received / entered assets surviving the inventory prune;
+  - attachments (allowed types, size, PDF check, a cleaned name, a random stored name, removal with the contract).
+  - The migration was run on a copy of a real agent database.
+  - tsc and PHP lint OK. Not seen in a browser.
+
 ## 3.91 — 2026-11-20
 - ITAM stage C (docs/plan-itam.md): software licenses and their compliance (services/licenses.py, new table `software_license`).
   - A license is entered by a person:

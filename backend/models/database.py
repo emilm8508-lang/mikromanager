@@ -261,6 +261,79 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Vendor(Base):
+    """3.92: a vendor / supplier (services/procurement.py)."""
+    __tablename__ = "vendor"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    contact = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class Contract(Base):
+    """3.92: a support / maintenance / warranty / lease / license / SLA contract (services/procurement.py)."""
+    __tablename__ = "contract"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    kind = Column(String, nullable=False, default="support")
+    number = Column(String, nullable=True)
+    vendor_id = Column(Integer, nullable=True, index=True)
+    start_at = Column(DateTime, nullable=True)
+    end_at = Column(DateTime, nullable=True, index=True)
+    notice_days = Column(Integer, nullable=True)                   # how many days before the end to be told
+    value = Column(Float, nullable=True)
+    currency = Column(String, nullable=True)
+    auto_renew = Column(Boolean, nullable=False, default=False)
+    owner = Column(String, nullable=True)                          # the person responsible (personal data: not sent to Central)
+    notes = Column(Text, nullable=True)
+    asset_ids = Column(Text, nullable=True)                        # JSON list of the assets it covers
+    license_ids = Column(Text, nullable=True)                      # JSON list of the licenses it covers
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True)
+
+
+class PurchaseOrder(Base):
+    """3.92: a purchase order with its items and a simple flow draft -> approved -> ordered -> received | cancelled (services/procurement.py)."""
+    __tablename__ = "purchase_order"
+
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(String, nullable=False, unique=True)
+    vendor_id = Column(Integer, nullable=True, index=True)
+    status = Column(String, nullable=False, default="draft")
+    items = Column(Text, nullable=False)                           # JSON [{description, kind, qty, unit_price, asset_type?, model?, license_id?}]
+    total = Column(Float, nullable=True)
+    currency = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    history = Column(Text, nullable=True)                          # JSON [{at, who, from, to}]
+    ordered_at = Column(DateTime, nullable=True)
+    received_at = Column(DateTime, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True)
+
+
+class Attachment(Base):
+    """3.92: a file on a contract, an order or an asset, stored in data/attachments/ under a random name (services/procurement.py)."""
+    __tablename__ = "attachment"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_kind = Column(String, nullable=False)                    # contract | po | asset
+    owner_id = Column(Integer, nullable=False, index=True)
+    filename = Column(String, nullable=False)
+    stored = Column(String, nullable=False)
+    content_type = Column(String, nullable=True)
+    size = Column(Integer, nullable=False, default=0)
+    uploaded_by = Column(String, nullable=True)
+    uploaded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class SoftwareLicense(Base):
     """3.91: a software license entered by a person (services/licenses.py); compliance is computed from the software inventory."""
     __tablename__ = "software_license"

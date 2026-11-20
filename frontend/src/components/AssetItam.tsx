@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Save } from 'lucide-react'
-import { assetsApi, AssetItam, ItamStage, licensesApi } from '../lib/api'
+import { assetsApi, AssetItam, ItamStage, licensesApi, procurementApi } from '../lib/api'
+import { Attachments } from './Attachments'
 import { Link } from 'react-router-dom'
 import { Button } from './ui/Button'
 import { cn } from '../lib/utils'
@@ -42,6 +43,7 @@ export function AssetItamTab({ id, itam }: { id: number; itam: AssetItam }) {
   useEffect(() => setD(init(itam)), [itam])
   const hist = useQuery({ queryKey: ['asset-itam-history', id], queryFn: () => assetsApi.itamHistory(id) })
   const lic = useQuery({ queryKey: ['asset-licenses', id], queryFn: () => licensesApi.forAsset(id) })
+  const con = useQuery({ queryKey: ['procurement', 'asset', id], queryFn: () => procurementApi.contractsFor(id) })
   const save = useMutation({
     mutationFn: () => assetsApi.update(id, { itam: {
       lifecycle_stage: d.lifecycle_stage || null, purchased_at: d.purchased_at || null, warranty_until: d.warranty_until || null, replace_at: d.replace_at || null,
@@ -98,6 +100,23 @@ export function AssetItamTab({ id, itam }: { id: number; itam: AssetItam }) {
           {save.isSuccess && <span className="text-xs text-green-700">{t('itam.saved')}</span>}
         </div>
         <p className="text-[11px] text-slate-400">{t('itam.note')}</p>
+      </div>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm grid md:grid-cols-2 gap-4">
+        <div>
+          <h3 className="font-semibold text-slate-900 mb-2">{t('proc.onAsset')}</h3>
+          {(con.data?.contracts.length ?? 0) === 0 ? <p className="text-xs text-slate-500">{t('proc.noneOnAsset')} <Link to="/procurement" className="text-indigo-600 hover:underline">{t('proc.title')}</Link></p> : (
+            <div className="space-y-0.5 text-xs">
+              {con.data!.contracts.map(c => (
+                <div key={c.id} className="flex gap-3">
+                  <Link to="/procurement" className="text-indigo-600 hover:underline flex-1 truncate">{c.title}</Link>
+                  <span className="text-slate-500">{c.end_at ?? ''}</span>
+                  <span className={cn(c.status === 'expiring' || c.status === 'expired' ? 'text-amber-700' : 'text-slate-500')}>{t(`proc.cstatus.${c.status}`)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <Attachments kind="asset" id={id} />
       </div>
       {(lic.data?.licenses.length ?? 0) > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm">

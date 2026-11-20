@@ -410,7 +410,10 @@ def _prune(db, recs: Dict[str, _Rec], now: datetime) -> int:
     cutoff = now - timedelta(days=PRUNE_AFTER_DAYS)
     doomed = []
     for a in db.execute(select(Asset)).scalars().all():
-        if a.key in recs or a.key.startswith("vm:"):
+        if a.key in recs or a.key.startswith(("vm:", "po:")):
+            continue
+        if (a.lifecycle_stage or a.purchased_at or a.warranty_until or a.replace_at or a.cost is not None or a.asset_tag or a.supplier
+                or a.invoice_no or a.ci_class):                              # 3.89 / 3.90 / 3.92: entered by people, kept
             continue
         refs = _jload(a.refs, {})
         if a.key.startswith(("mon:", "prt:")) and not (a.notes or _jload(a.manual_groups, []) or a.location_override):
@@ -685,6 +688,15 @@ def _attach(asset_id: int) -> Optional[dict]:
         from services import topology_map
         return topology_map.attach_of(asset_id)
     except Exception:
+        return None
+
+
+def _procurement_summary() -> Optional[dict]:
+    try:
+        from services import procurement
+        return procurement.public_summary()
+    except Exception as e:
+        print(f"[assets] procurement summary error: {type(e).__name__}: {e}")
         return None
 
 
@@ -995,6 +1007,7 @@ async def public_summary() -> dict:
         "itam": _itam_summary(),                               # 3.89: stages, warranties, replacements due, cost per currency
         "cmdb": _cmdb_summary(),                               # 3.90: CI classes and relations by name
         "licenses": _licenses_summary(),                       # 3.91: license compliance (no keys)
+        "procurement": _procurement_summary(),                 # 3.92: contracts ending, open orders
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 

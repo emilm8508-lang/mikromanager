@@ -1103,6 +1103,48 @@ export interface AssetAttach {
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
 
+// 3.92: vendors, contracts, purchase orders, attachments (services/procurement.py)
+export interface VendorRow { id: number; name: string; contact: string | null; email: string | null; phone: string | null; website: string | null; notes: string | null; contracts: number; orders: number }
+export interface AttachmentRow { id: number; filename: string; size: number; at: string; by: string | null }
+export interface ContractRow {
+  id: number; title: string; kind: string; number: string | null; vendor_id: number | null; vendor: string | null; start_at: string | null; end_at: string | null
+  days_left: number | null; notice_days: number | null; value: number | null; currency: string | null; auto_renew: boolean; owner: string | null; notes: string | null
+  assets: Array<{ id: number; name: string }>; licenses: Array<{ id: number; name: string }>; status: 'future' | 'active' | 'expiring' | 'expired' | 'renewing'; attachments: AttachmentRow[]
+}
+export interface OrderItem { description: string; kind: string; qty: number; unit_price: number | null; asset_type?: string; model?: string | null; license_id?: number; license?: string | null }
+export interface OrderRow {
+  id: number; number: string; vendor_id: number | null; vendor: string | null; status: 'draft' | 'approved' | 'ordered' | 'received' | 'cancelled'; items: OrderItem[]
+  total: number | null; currency: string | null; notes: string | null; created_by: string | null; created_at: string; ordered_at: string | null; received_at: string | null
+  history: Array<{ at: string; who: string; from: string; to: string }>; next: string[]; attachments: AttachmentRow[]
+}
+export const procurementApi = {
+  vendors: () => api.get<{ vendors: VendorRow[] }>('/procurement/vendors').then(r => r.data),
+  createVendor: (b: Record<string, unknown>) => api.post<{ id: number }>('/procurement/vendors', b).then(r => r.data),
+  updateVendor: (id: number, b: Record<string, unknown>) => api.put<{ id: number }>(`/procurement/vendors/${id}`, b).then(r => r.data),
+  removeVendor: (id: number) => api.delete(`/procurement/vendors/${id}`).then(r => r.data),
+  contracts: () => api.get<{ contracts: ContractRow[] }>('/procurement/contracts').then(r => r.data),
+  contractsFor: (assetId: number) => api.get<{ contracts: ContractRow[] }>('/procurement/contracts', { params: { asset_id: assetId } }).then(r => r.data),
+  createContract: (b: Record<string, unknown>) => api.post<{ id: number }>('/procurement/contracts', b).then(r => r.data),
+  updateContract: (id: number, b: Record<string, unknown>) => api.put<{ id: number }>(`/procurement/contracts/${id}`, b).then(r => r.data),
+  removeContract: (id: number) => api.delete(`/procurement/contracts/${id}`).then(r => r.data),
+  orders: () => api.get<{ orders: OrderRow[] }>('/procurement/orders').then(r => r.data),
+  createOrder: (b: Record<string, unknown>) => api.post<{ id: number }>('/procurement/orders', b).then(r => r.data),
+  updateOrder: (id: number, b: Record<string, unknown>) => api.put<{ id: number }>(`/procurement/orders/${id}`, b).then(r => r.data),
+  orderStatus: (id: number, status: string) => api.post<{ assets: number[]; licenses: Array<{ id: number; added: number }> }>(`/procurement/orders/${id}/status`, { status }).then(r => r.data),
+  removeOrder: (id: number) => api.delete(`/procurement/orders/${id}`).then(r => r.data),
+  attachments: (kind: string, id: number) => api.get<{ attachments: AttachmentRow[] }>('/procurement/attachments', { params: { owner_kind: kind, owner_id: id } }).then(r => r.data.attachments),
+  upload: (kind: string, id: number, file: File) => {
+    const fd = new FormData(); fd.append('owner_kind', kind); fd.append('owner_id', String(id)); fd.append('file', file)
+    return api.post<{ id: number }>('/procurement/attachments', fd).then(r => r.data)
+  },
+  downloadUrl: (id: number) => `/api/procurement/attachments/${id}`,
+  removeAttachment: (id: number) => api.delete(`/procurement/attachments/${id}`).then(r => r.data),
+}
+export interface ProcurementPublic {
+  contracts: Array<{ t: string; k: string; v: string | null; end: string | null; d: number | null; st: string; val: number | null; cu: string | null; ar: boolean; n: number }>
+  orders: Array<{ no: string; v: string | null; st: string; tot: number | null; cu: string | null; items: number }>
+  counts: { contracts: number; expiring: number; vendors: number; orders_open: number }
+}
 // 3.91: software licenses and compliance (services/licenses.py)
 export type LicenseStatus = 'compliant' | 'over' | 'unused' | 'expired' | 'expiring' | 'no_installs' | 'site'
 export interface LicenseRow {
@@ -1229,6 +1271,7 @@ export interface AssetsPublic {
   truncated: boolean
   dups?: AssetsDupGroup[]
   licenses?: LicensesPublic | null                 // 3.91
+  procurement?: ProcurementPublic | null           // 3.92
 }
 // an inventory edit asked for in Central (3.70) - the agent checks and applies it (services/assets.apply_central_op)
 export type CentralAssetOp =
@@ -1521,11 +1564,11 @@ export const netQualityApi = {
 }
 // what will run out and when (services/forecasts.py)
 export interface ForecastItem {
-  kind: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license'; key: string; name: string; where: string; what: string | null; asset_id: number | null; unit: string | null
+  kind: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license' | 'contract'; key: string; name: string; where: string; what: string | null; asset_id: number | null; unit: string | null
   value: number | null; per_day: number | null; days: number; date: string; self_signed?: boolean
 }
 export const forecastsApi = {
-  overview: (horizon = 90) => api.get<{ items: ForecastItem[]; counts: Record<'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license', number>; horizon: number; within_7: number; at: string }>('/forecasts', { params: { horizon } }).then(r => r.data),
+  overview: (horizon = 90) => api.get<{ items: ForecastItem[]; counts: Record<'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license' | 'contract', number>; horizon: number; within_7: number; at: string }>('/forecasts', { params: { horizon } }).then(r => r.data),
 }
 // IP address management from the routers' tables (services/ipam.py)
 export interface IpamSubnet {
@@ -1918,7 +1961,7 @@ export interface CentralSoc {
       full_pools: Array<{ n: string; r: string; pct: number | null; size: number; days: number | null }> } | null
     // 3.87: what will run out within 30 days (services/forecasts.py)
     forecast?: { within_30: number; within_7: number; counts: Record<string, number>; at: string
-      next: Array<{ k: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license'; n: string | null; w: string | null; days: number }> } | null }
+      next: Array<{ k: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license' | 'contract'; n: string | null; w: string | null; days: number }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

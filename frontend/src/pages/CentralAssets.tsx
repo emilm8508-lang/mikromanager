@@ -448,6 +448,37 @@ function CentralBulkBar({ rows, onClear }: { rows: Row[]; onClear: () => void })
 
 // The asset inventory of every client at once. Central only ever gets numbers and compact rows (no serial numbers, MAC addresses
 // or hardware details), so this page has no device cards - those are on the agent.
+// 3.92: contracts ending within 60 days and open purchase orders per client
+function CentralProcurement({ parts }: { parts: Part[] }) {
+  const { t } = useTranslation()
+  const cs = parts.flatMap(p => (p.assets.procurement?.contracts ?? []).map(c => ({ tenant: p.tenant, c }))).sort((a, b) => (a.c.d ?? 9999) - (b.c.d ?? 9999))
+  const os = parts.flatMap(p => (p.assets.procurement?.orders ?? []).map(o => ({ tenant: p.tenant, o })))
+  if (cs.length === 0 && os.length === 0) return null
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
+      <h3 className="px-4 pt-3 pb-2 text-sm font-semibold text-slate-800">{t('proc.title')}</h3>
+      {cs.length > 0 && (
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-slate-400 border-y border-slate-200 bg-slate-50">
+            <th className="px-4 py-2 font-normal">{t('assetsCentral.client')}</th><th className="font-normal">{t('proc.tab.contracts')}</th><th className="font-normal">{t('proc.cf.vendor')}</th>
+            <th className="font-normal">{t('proc.cf.end_at')}</th><th className="font-normal pr-4">{t('lic.statusLabel')}</th></tr></thead>
+          <tbody>{cs.slice(0, 100).map(({ tenant, c }, i) => (
+            <tr key={i} className={cn('border-b border-slate-100', c.st === 'expired' && 'bg-red-50/40')}>
+              <td className="px-4 py-1.5 text-slate-700">{tenant}</td><td className="font-medium text-slate-800">{c.t} <span className="text-xs text-slate-400 font-normal">{t(`proc.ckind.${c.k}`)}</span></td>
+              <td className="text-xs text-slate-500">{c.v ?? '—'}</td><td className="text-xs text-slate-500">{c.end ?? '—'}{c.d != null ? ` (${c.d < 0 ? t('proc.endedAgo', { n: -c.d }) : t('proc.daysLeft', { n: c.d })})` : ''}</td>
+              <td className={cn('text-xs pr-4', c.st === 'expired' ? 'text-red-700' : c.st === 'expiring' ? 'text-amber-700' : 'text-slate-600')}>{t(`proc.cstatus.${c.st}`)}</td>
+            </tr>))}</tbody>
+        </table>
+      )}
+      {os.length > 0 && (
+        <div className="px-4 py-2 text-xs text-slate-600 border-t border-slate-100">
+          {t('proc.openOrders')}: {os.slice(0, 30).map(({ tenant, o }) => `${tenant}: ${o.no}${o.v ? ` (${o.v})` : ''} · ${t(`proc.ostatus.${o.st}`)}`).join(' · ')}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // 3.91: license compliance per client (no keys)
 function CentralLicenses({ parts }: { parts: Part[] }) {
   const { t } = useTranslation()
@@ -628,6 +659,7 @@ export function CentralAssets() {
           )}
 
           <CentralLicenses parts={vis} />
+          <CentralProcurement parts={vis} />
           {pickedRows.length > 0 && <CentralBulkBar rows={pickedRows} onClear={() => setPicked(new Set())} />}
           <section ref={tableRef} className="bg-white border border-slate-200 rounded-xl shadow-sm scroll-mt-4">
             <div className="px-4 pt-3 pb-3 flex flex-wrap gap-2 items-center">
