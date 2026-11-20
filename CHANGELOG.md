@@ -2,6 +2,10 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.1 — 2026-11-20
+- Reports page: the report descriptions, filter labels, column headings and SMTP fields are now translated into German, Spanish, French, Russian and Ukrainian. In 3.93 they were English in those languages.
+- Tested: tsc. Every other key of the five locale files was compared and is unchanged.
+
 ## 3.94 — 2026-11-20
 - ITAM stage F (docs/plan-itam.md): assets from a phone, with QR labels (services/asset_labels.py). This closes the ITAM program (stages A-F, 3.89-3.94).
   - Labels to print:
