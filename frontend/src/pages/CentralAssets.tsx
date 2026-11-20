@@ -1,3 +1,4 @@
+import { CI_CLASSES } from '../components/Cmdb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { centralApi, centralConfig, type AssetsPublicRow, type AssetType, type AssetsDupGroup, type CentralAssetOp, type CentralRiskDevice, type CentralVulnFinding, type HypervActionKind } from '../lib/api'
@@ -22,6 +23,24 @@ const ago = (epoch: number | null) => {
 }
 
 const LEVELS = ['critical', 'important', 'normal', 'ignore'] as const
+
+// 3.90: the CMDB class of one asset from Central ("" = back to the suggestion)
+function CentralCiClass({ row, busy, send }: { row: Row; busy: boolean; send: (op: CentralAssetOp) => void }) {
+  const { t } = useTranslation()
+  const [v, setV] = useState<string>('keep')
+  const cur = row.ci ? row.ci.replace(/\?$/, '') : null
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="block"><span className="text-xs text-slate-500">{t('cmdb.classLabel')}{cur ? `: ${t(`cmdb.class.${cur}`)}${row.ci?.endsWith('?') ? ` (${t('assetsCentral.edit.suggested')})` : ''}` : ''}</span>
+        <select value={v} onChange={e => setV(e.target.value)} className="mt-0.5 block border border-slate-300 rounded-lg px-2 py-1 bg-white text-sm max-w-[16rem]">
+          <option value="keep">{t('assetsCentral.edit.keep')}</option>
+          <option value="">{t('assetsCentral.edit.auto')}</option>
+          {Object.entries(CI_CLASSES).map(([g, cs]) => <optgroup key={g} label={t(`cmdb.group.${g}`) as string}>{cs.map(c => <option key={c} value={c}>{t(`cmdb.class.${c}`)}</option>)}</optgroup>)}
+        </select></label>
+      <Button size="sm" disabled={busy || v === 'keep'} onClick={() => send({ op: 'set', ids: [row.id!], ci_class: v })}>{t('assetsCentral.edit.save')}</Button>
+    </div>
+  )
+}
 
 // 3.89: the lifecycle stage, warranty, asset tag and cost of one asset from Central - only the fields filled in are sent
 function CentralItam({ row, busy, send }: { row: Row; busy: boolean; send: (op: CentralAssetOp) => void }) {
@@ -121,6 +140,7 @@ function AssetEdit({ row, dups }: { row: Row; dups: AssetsDupGroup[] }) {
             </Button>
           ))}
         </div>
+        <CentralCiClass row={row} busy={busy} send={send} />
         <CentralItam row={row} busy={busy} send={send} />
         {row.x && <p className="text-[11px] text-slate-400">{t('assetsCentral.edit.managedNote')}</p>}
         {mine.length > 0 && (

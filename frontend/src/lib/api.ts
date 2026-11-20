@@ -1103,6 +1103,21 @@ export interface AssetAttach {
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
 
+// 3.90: CMDB - configuration item classes and relations (services/cmdb.py)
+export interface CiInfo { class: string; set: boolean; suggested: string; why: string; group: string }
+export interface CiRelation {
+  id?: number; src: number; dst: number | null; kind: string; auto: boolean; how: string | null; note?: string | null; service?: string; service_id?: number
+  src_name: string | null; dst_name: string | null; by?: string | null; at?: string | null
+}
+export interface CiImpact { assets: Array<{ id: number; name: string | null; depth: number; kind: string; via: string | null }>; services: Array<{ name: string; id: number | null }> }
+export const cmdbApi = {
+  overview: () => api.get<{ classes: Record<string, string[]>; counts: Record<string, number>; relations: { manual: number; auto: number }
+    items: Array<CiInfo & { id: number; name: string; ip: string | null; type: string; state: string | null; relations: number }> }>('/cmdb').then(r => r.data),
+  forAsset: (id: number) => api.get<{ relations: CiRelation[]; impact: CiImpact; dependencies: Array<{ id: number; name: string | null; depth: number; kind: string; from: string | null }> }>(`/cmdb/asset/${id}`).then(r => r.data),
+  add: (b: { src: number; dst: number; kind: string; note?: string }) => api.post<{ id: number }>('/cmdb/relations', b).then(r => r.data),
+  remove: (id: number) => api.delete(`/cmdb/relations/${id}`).then(r => r.data),
+  hide: (b: { src: number; dst: number | null; kind: string; service_id: number | null }) => api.post('/cmdb/relations/hide', b).then(r => r.data),
+}
 // 3.89: the hardware life and cost of an asset (services/asset_itam.py)
 export type ItamStage = 'ordered' | 'in_stock' | 'deployed' | 'in_repair' | 'retired' | 'disposed'
 export interface AssetItam {
@@ -1151,6 +1166,7 @@ export interface AssetRow {
   active: boolean
   refs?: Record<string, number>
   itam?: AssetItam
+  ci?: CiInfo
 }
 
 export interface AssetSummary {
@@ -1180,6 +1196,7 @@ export interface AssetsPublicRow {
   lg?: { u?: string; at?: string; t?: string | null; f?: string | null; p?: 0 | 1; s?: string; ses?: number; why?: string }   // last logon (3.70)
   was?: { n?: string[]; ip?: string[] }                       // earlier names / addresses (3.74)
   st?: string                                                  // probably_removed / decommissioned / replaced_by / ignore (3.76)
+  ci?: string                                                  // 3.90: the CMDB class, ending in "?" when suggested
   it?: { s?: ItamStage; p?: string; w?: string; r?: string; c?: number; cu?: string; sp?: string; cc?: string; tag?: string }   // 3.89: lifecycle and costs
   ra?: Array<{ t: string; p: string; why?: string; likely?: string; it?: string | null; v?: string | null; r?: number; u?: string | null; o?: number; at?: string | null }>   // 3.78
 }
@@ -1193,7 +1210,7 @@ export interface AssetsPublic {
 }
 // an inventory edit asked for in Central (3.70) - the agent checks and applies it (services/assets.apply_central_op)
 export type CentralAssetOp =
-  | { op: 'set'; ids: number[]; asset_type?: AssetType | 'auto'; role?: 'server' | 'workstation' | 'auto'; criticality?: string; state?: string; replaced_by?: number; itam?: Record<string, string | number | null> }
+  | { op: 'set'; ids: number[]; asset_type?: AssetType | 'auto'; role?: 'server' | 'workstation' | 'auto'; criticality?: string; state?: string; replaced_by?: number; itam?: Record<string, string | number | null>; ci_class?: string }
   | { op: 'delete'; ids: number[] }
   | { op: 'merge'; keep_id: number; drop_ids: number[] }
   | { op: 'not_duplicate'; ids: number[] }
@@ -1275,7 +1292,7 @@ export const assetsApi = {
   scan: (id: number) => api.post<{ started: boolean }>(`/assets/${id}/scan`).then(r => r.data),
   scanAll: () => api.post<{ started: number }>('/assets/scan-all').then(r => r.data),
   itamHistory: (id: number) => api.get<Array<{ field: string; old: string | null; new: string | null; at: string; source: string }>>(`/assets/${id}/itam-history`).then(r => r.data),
-  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; place?: string | null; notes?: string | null; owner?: string | null; criticality?: string | null; manual_groups?: string[]; itam?: Record<string, string | number | null> }) =>
+  update: (id: number, body: { asset_type?: string; role?: string; name?: string; location_override?: string | null; place?: string | null; notes?: string | null; owner?: string | null; criticality?: string | null; manual_groups?: string[]; itam?: Record<string, string | number | null>; ci_class?: string }) =>
     api.put(`/assets/${id}`, body).then(r => r.data),
   remove: (id: number) => api.delete(`/assets/${id}`).then(r => r.data),
   tool: (id: number, tool: 'ping' | 'traceroute' | 'portscan', ports?: string) => api.post<{ job: string }>(`/assets/${id}/tools`, { tool, ports }).then(r => r.data),

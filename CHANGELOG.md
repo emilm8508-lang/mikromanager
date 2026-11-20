@@ -2,6 +2,35 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.90 — 2026-11-20
+- ITAM stage B (docs/plan-itam.md): CMDB, with configuration item classes and the relations between them (services/cmdb.py).
+  - 46 CI classes in four groups:
+    - hardware: physical / virtual server, hypervisor, workstation, laptop, UPS, NAS, BMC, IP camera, IP phone ...;
+    - network: router, switch, access point, firewall, VPN gateway ...;
+    - server roles: domain controller, database, web, mail, file, backup, DNS/DHCP ...;
+    - logical: application, business service, cluster.
+  - The class is suggested from what the inventory knows (type, role, the scan's device class, the open ports, the Hyper-V hosts, the model and name) with the reason shown. The operator can set another one (new column `ci_class`, with history).
+  - Relations:
+    - runs on, depends on, connected to, backs up, member of (business service);
+    - automatic ones are computed from the network map (switch port / Wi-Fi / router segment → connected to; VM → runs on) and the business services → member of. They cannot be deleted, since the next map brings them back, but can be hidden; removing the hidden row shows them again;
+    - manual ones are rows of the new table `ci_relation`, with a note, who and when.
+  - Impact: what is affected when an asset fails, transitively up to 4 steps, plus the business services they belong to. Dependencies: what an asset needs. Both are on the new "Relations" tab of every asset and in the SOC alert detail ("Impact and possible cause").
+  - A new page "CMDB" in the Assets menu shows the classes with counts (click to filter), search, the class of each CI with a select, and the relation counts.
+  - API: `GET /api/cmdb`, `GET /api/cmdb/asset/{id}`, `POST /api/cmdb/relations`, `DELETE /api/cmdb/relations/{id}`, `POST /api/cmdb/relations/hide`. `PUT /api/assets/{id}` takes `ci_class`.
+  - Central:
+    - the asset edit panel sets the class through `asset_op set` (`ci_class`, "" = the suggestion);
+    - asset rows carry `ci`, and the asset summary carries `cmdb` (counts per class, relations by name, no addresses);
+    - new MCP tool `client_cmdb` (read-only), and `client_assets` returns `ci_class`.
+- Tested: 5 new regression tests (backend/tests/test_cmdb.py):
+  - class suggestions (11 cases);
+  - automatic and manual relations, impact and dependencies through two steps, business services;
+  - hiding and showing again;
+  - bad relations;
+  - the class set from the asset page and from Central;
+  - a summary without addresses.
+  - The migration was run on a copy of a real agent database.
+  - tsc and PHP lint OK. The pages were not seen in a browser, and the MCP harness was not rerun.
+
 ## 3.89 — 2026-11-20
 - ITAM stage A (docs/plan-itam.md): the hardware life of an asset and what it cost (services/asset_itam.py). Everything here is entered by people; nothing is read from devices.
   - New asset fields (migration, 12 columns):

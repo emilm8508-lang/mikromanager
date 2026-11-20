@@ -1,10 +1,11 @@
 import { Fragment, useMemo, useState, useEffect } from 'react'
+import { AssetRelations, CiClassSelect } from '../components/Cmdb'
 import { AssetItamTab, StagePill, WarrantyText } from '../components/AssetItam'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from './Login'
-import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut, logonsApi, type LogonBrief } from '../lib/api'
+import { assetsApi, vulnApi, type AssetDetail as Detail, type AssetType, type VulnFindingOut, logonsApi, type LogonBrief, cmdbApi } from '../lib/api'
 import { TypeIcon, Pill, TypePill, VulnPill, LifecyclePill, ScanLevelPill, AttachDetail, ago } from '../components/AssetBits'
 import { Button } from '../components/ui/Button'
 import { ScorePill, SeverityPill, RemediationPanel } from '../components/VulnViews'
@@ -14,11 +15,11 @@ import { cn, formatBytes } from '../lib/utils'
 
 const COMPUTER: AssetType[] = ['windows', 'linux', 'virtual', 'server']
 
-type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions' | 'tools' | 'itam'
+type TabKey = 'overview' | 'hardware' | 'config' | 'software' | 'vulns' | 'services' | 'lifecycle' | 'peripherals' | 'supplies' | 'actions' | 'tools' | 'itam' | 'relations'
 
 function tabsFor(a: Detail): TabKey[] {
   const base = baseTabs(a)
-  const tabs = [base[0], 'itam' as TabKey, ...base.slice(1)]                    // 3.89: lifecycle and costs, for every asset
+  const tabs = [base[0], 'itam' as TabKey, 'relations' as TabKey, ...base.slice(1)]          // 3.89: lifecycle and costs, 3.90: relations - for every asset
   const withTools = a.ip && a.type !== 'monitor' ? [...tabs, 'tools' as TabKey] : tabs
   return hasActions(a) ? [...withTools, 'actions'] : withTools
 }
@@ -541,6 +542,7 @@ export function AssetDetail() {
   const [tab, setTab] = useState<TabKey>('overview')
   const scan = useMutation({ mutationFn: () => assetsApi.scan(assetId), onSuccess: () => qc.invalidateQueries({ queryKey: ['asset', assetId] }) })
   const remove = useMutation({ mutationFn: () => assetsApi.remove(assetId), onSuccess: () => { qc.invalidateQueries({ queryKey: ['assets'] }); nav('/inventory/list') } })
+  const cmdbClasses = useQuery({ queryKey: ['cmdb'], queryFn: cmdbApi.overview, staleTime: 300000 })
 
   if (isLoading) return <div className="p-6"><p className="text-sm text-slate-500">{t('common.loading')}</p></div>
   if (isError || !a) return <div className="p-6 space-y-2"><p className="text-sm text-red-600">{t('assets.notFound')}</p><Link to="/inventory/list" className="text-sm text-indigo-600 hover:underline">{t('assets.openList')}</Link></div>
@@ -594,6 +596,7 @@ export function AssetDetail() {
             {fact(t('assets.colLastSeen') as string, ago(a.last_seen_at))}
             {a.version_seen_at && fact(t('assets.versionRead') as string, ago(a.version_seen_at))}
             {fact(t('assets.state.label') as string, <StateEdit a={a} />)}
+            {a.ci && cmdbClasses.data && fact(t('cmdb.classLabel') as string, <CiClassSelect id={a.id} ci={a.ci} classes={cmdbClasses.data.classes} />)}
             {a.itam && fact(t('itam.stageLabel') as string, <StagePill stage={a.itam.lifecycle_stage} />)}
             {a.itam?.asset_tag && fact(t('itam.f.asset_tag') as string, <span className="font-mono">{a.itam.asset_tag}</span>)}
             {a.itam?.warranty_until && fact(t('itam.f.warranty_until') as string, <WarrantyText days={a.itam.warranty_days} until={a.itam.warranty_until} />)}
@@ -617,6 +620,7 @@ export function AssetDetail() {
           {active === 'overview' && <Overview key={a.id} a={a} />}
           {active === 'overview' && <Logons id={a.id} />}
           {active === 'itam' && a.itam && <AssetItamTab id={a.id} itam={a.itam} />}
+          {active === 'relations' && <AssetRelations id={a.id} />}
           {(active === 'hardware' || active === 'config') && <Hardware a={a} />}
           {active === 'software' && <Software id={a.id} hostId={a.refs.vuln_host_id} />}
           {active === 'vulns' && <RiskInsights a={a} />}

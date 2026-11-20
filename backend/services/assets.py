@@ -688,6 +688,15 @@ def _attach(asset_id: int) -> Optional[dict]:
         return None
 
 
+def _cmdb_summary() -> Optional[dict]:
+    try:
+        from services import cmdb
+        return cmdb.public_summary()
+    except Exception as e:
+        print(f"[assets] cmdb summary error: {type(e).__name__}: {e}")
+        return None
+
+
 def _itam_summary() -> Optional[dict]:
     try:
         from services import asset_itam
@@ -695,6 +704,14 @@ def _itam_summary() -> Optional[dict]:
     except Exception as e:
         print(f"[assets] itam summary error: {type(e).__name__}: {e}")
         return None
+
+
+def _ci(a: Asset, det: dict, refs: dict, ctx: dict) -> dict:
+    from services import cmdb
+    sug, why = cmdb.suggest(a.asset_type, a.role, det.get("_class"), set((ctx.get("ports") or {}).get(a.ip or "", ())),
+                            refs.get("windows_host_id") in (ctx.get("hyperv_hosts") or set()), a.model, a.name, a.manufacturer)
+    cls = a.ci_class if a.ci_class in cmdb.ALL_CLASSES else sug
+    return {"class": cls, "set": a.ci_class in cmdb.ALL_CLASSES, "suggested": sug, "why": why, "group": cmdb.GROUP_OF.get(cls, "logical")}
 
 
 def _itam(a: Asset) -> dict:
@@ -731,6 +748,7 @@ def _row(a: Asset, locate, vulns: Dict[str, List[dict]], now: datetime, ctx: Opt
         "active": bool(last and now - last < timedelta(days=STALE_DAYS)),
         "refs": {k: v for k, v in _jload(a.refs, {}).items() if isinstance(v, int)},       # which managed objects this asset is (host ids, device id, VM id)
         "itam": _itam(a),                                                                    # 3.89: stage, dates, cost (services/asset_itam.py)
+        "ci": _ci(a, det, refs, ctx),                                                        # 3.90: the CMDB class (services/cmdb.py)
         **extra,
     }
 
@@ -916,6 +934,8 @@ async def public_summary() -> dict:
             row["dq"] = r["dq"]
         if r.get("state"):
             row["st"] = r["state"]                                     # probably_removed / decommissioned / replaced_by / ignore (3.76)
+        if r.get("ci"):
+            row["ci"] = r["ci"]["class"] + ("" if r["ci"]["set"] else "?")         # 3.90: the CMDB class ("?" = suggested)
         it = r.get("itam") or {}
         if it.get("stage_set") or it.get("warranty_until") or it.get("asset_tag") or it.get("cost") is not None or it.get("purchased_at"):
             row["it"] = {k: v for k, v in (("s", it.get("lifecycle_stage")), ("p", it.get("purchased_at")), ("w", it.get("warranty_until")),
@@ -964,6 +984,7 @@ async def public_summary() -> dict:
         "remote_access": _remote_report(rows),                 # 3.78: AnyDesk on the hosts (servers / workstations, portable, unattended)
         "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
         "itam": _itam_summary(),                               # 3.89: stages, warranties, replacements due, cost per currency
+        "cmdb": _cmdb_summary(),                               # 3.90: CI classes and relations by name
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 
@@ -1145,6 +1166,14 @@ def update_asset(asset_id: int, fields: dict) -> Optional[dict]:
             db.commit()
             asset_state.set_state(asset_id, fields.get("state") or None, fields.get("replaced_by"), fields.get("_who") or "operator")
             a = db.get(Asset, asset_id)
+        if "ci_class" in fields:                                 # 3.90: the CMDB class ("" = back to the suggestion)
+            from services import cmdb, identity
+            v = (fields["ci_class"] or "").strip() or None
+            if v and v not in cmdb.ALL_CLASSES:
+                raise ValueError("unknown CI class")
+            if v != a.ci_class:
+                identity.history(db, a.id, "ci_class", a.ci_class, v, f"cmdb: {fields.get('_who') or 'operator'}"[:80])
+                a.ci_class = v
         if fields.get("itam"):                                   # 3.89: lifecycle stage, dates, cost (services/asset_itam.py)
             from services import asset_itam
             asset_itam.apply(db, a, fields["itam"], fields.get("_who") or "operator")
@@ -1276,6 +1305,13 @@ def apply_central_op(op: dict, who: str = "Centrala") -> dict:
                     fields["role"] = v
                 if "criticality" in op:
                     fields["criticality"] = str(op.get("criticality") or "")
+                if "ci_class" in op:                                 # 3.90: the CMDB class, "" = the suggestion
+                    from services import cmdb
+                    v = str(op.get("ci_class") or "")
+                    if v and v not in cmdb.ALL_CLASSES:
+                        raise ValueError("unknown CI class")
+                    fields["ci_class"] = v
+                    fields["_who"] = who
                 if isinstance(op.get("itam"), dict):                 # 3.89: lifecycle stage, dates, cost - validated by asset_itam.clean
                     from services import asset_itam
                     asset_itam.clean(op["itam"])

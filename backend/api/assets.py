@@ -175,6 +175,7 @@ class AssetEdit(BaseModel):
     manual_groups: Optional[List[str]] = None
     state: Optional[str] = None                  # 3.76: decommissioned | replaced_by | ignore | "" (in use)
     replaced_by: Optional[int] = None
+    ci_class: Optional[str] = None               # 3.90: the CMDB class (services/cmdb.py), "" = suggested
     itam: Optional[dict] = None                  # 3.89: lifecycle_stage, purchased_at, warranty_until, replace_at, disposed_at, disposal_method, cost, currency,
                                                  #       supplier, invoice_no, cost_center, asset_tag (services/asset_itam.py)
 

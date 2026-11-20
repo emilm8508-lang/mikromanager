@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Binary, Hourglass, LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
+import { Binary, Hourglass, Workflow, LayoutDashboard, Server, Key, Search, ScrollText, Network, Globe, RefreshCw, Cloud, GitCommit, Download, LogOut, KeyRound, ShieldAlert, ClipboardList, ShieldCheck, TerminalSquare, Boxes, MonitorSmartphone, Package, ListChecks, History, ServerCog, Activity, Router, Layers, ShieldQuestion, Radar, PieChart, ChevronDown, Settings, Rows3, Waypoints, Sun, Moon, MonitorCog, Siren, Gauge, MapPin, HeartPulse, Layers3, Radio, FileClock, Sparkles, BellOff, LineChart, BatteryCharging, ShieldBan, LockKeyhole, Wrench, Cable, Timer, FileCheck2, BrainCircuit, Waves } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
@@ -309,6 +309,7 @@ export function buildNav(t: (k: string) => unknown, admin: boolean): { agentNav:
     { key: 'assets', label: t('nav.groupAssets') as string, icon: Boxes, items: [
       item('/inventory', t('nav.assetsOverview') as string, PieChart),
       item('/inventory/list', t('nav.assetsList') as string, Boxes),
+      item('/cmdb', t('nav.cmdb') as string, Workflow),
       item('/racks', t('nav.racks') as string, Rows3),
       item('/onsite', t('nav.onsite') as string, MapPin),
       item('/software', t('nav.software') as string, Package),

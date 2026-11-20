@@ -256,6 +256,8 @@ function mcp_tools(): array {
             'description' => 'Vulnerability findings of the clients\' hosts (product, version, CVE, CVSS, exploited in the wild), exploited and most severe first. Use it to say what to patch first and how.'],
         'client_assets' => ['title' => 'Asset inventory', 'fn' => 't_assets', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of a name, IP, OS, maker or model']] + $limit),
             'description' => 'The clients\' inventories: devices with type, maker / model, OS, support status (lifecycle), vulnerability counts, place; and a summary per client.'],
+        'client_cmdb' => ['title' => 'CMDB: classes and relations', 'fn' => 't_cmdb', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of an asset name: only its relations']] + $limit),
+            'description' => 'The configuration items of each client by class (hypervisor, domain controller, switch, access point, UPS ...) and the relations between them: runs on, depends on, connected to, backs up, member of a business service - automatic ones (from the network map and the business services) and ones entered by people. Use it for impact (what stops when X fails) and root cause (what X needs).'],
         'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
             'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
         'client_logons' => ['title' => 'Logons on assets', 'fn' => 't_logons', 'schema' => $s($tenant + [
@@ -419,6 +421,23 @@ function t_vulnerabilities(McpContext $c, array $a): array {
     return ['findings' => $pg['items']] + $pg;
 }
 
+function t_cmdb(McpContext $c, array $a): array {
+    $out = []; $rels = [];
+    $q = mb_strtolower(trim((string)($a['q'] ?? '')));
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        $cm = $r['meta']['assets_status']['cmdb'] ?? null;
+        if (!is_array($cm)) continue;
+        $out[] = ['tenant' => $r['tenant'], 'classes' => $cm['counts'] ?? [], 'relations_manual' => $cm['manual'] ?? 0, 'relations_automatic' => $cm['auto'] ?? 0];
+        foreach ((array)($cm['relations'] ?? []) as $x) {
+            if (!is_array($x)) continue;
+            if ($q !== '' && strpos(mb_strtolower((string)($x[0] ?? '') . ' ' . (string)($x[2] ?? '')), $q) === false) continue;
+            $rels[] = ['tenant' => $r['tenant'], 'from' => $x[0] ?? null, 'relation' => $x[1] ?? null, 'to' => $x[2] ?? null, 'entered_by_person' => !empty($x[3])];
+        }
+    }
+    $pg = mcp_page($rels, $a, 100, 800);
+    return ['clients' => $out, 'relations' => $pg['items']] + $pg;
+}
+
 function t_assets(McpContext $c, array $a): array {
     $rows = []; $sums = [];
     $q = $a['q'] ?? null;
@@ -439,6 +458,7 @@ function t_assets(McpContext $c, array $a): array {
                        'previously' => isset($x['was']) ? ['names' => $x['was']['n'] ?? [], 'addresses' => $x['was']['ip'] ?? []] : null,
                        'remote_access_tools' => mcp_remote_tools($c, $x['ra'] ?? null),
                        'state' => $x['st'] ?? 'in_use', 'os_version' => $x['ov'] ?? null, 'os_version_read_at' => $x['ovs'] ?? null, 'update_channel' => $x['ch'] ?? null,
+                       'ci_class' => isset($x['ci']) ? rtrim((string)$x['ci'], '?') : null, 'ci_class_suggested' => isset($x['ci']) ? substr((string)$x['ci'], -1) === '?' : null,
                        'lifecycle_and_cost' => isset($x['it']) ? ['stage' => $x['it']['s'] ?? 'deployed', 'purchased' => $x['it']['p'] ?? null, 'warranty_until' => $x['it']['w'] ?? null,
                            'replace_at' => $x['it']['r'] ?? null, 'cost' => $x['it']['c'] ?? null, 'currency' => $x['it']['cu'] ?? null, 'supplier' => $x['it']['sp'] ?? null,
                            'cost_center' => $x['it']['cc'] ?? null, 'asset_tag' => $x['it']['tag'] ?? null] : null]

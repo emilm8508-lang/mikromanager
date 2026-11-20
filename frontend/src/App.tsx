@@ -12,6 +12,7 @@ import { SocRules } from './pages/SocRules'
 import { SocRisk } from './pages/SocRisk'
 import { Availability } from './pages/Availability'
 import { Ipam } from './pages/Ipam'
+import { Cmdb } from './pages/Cmdb'
 import { Forecasts } from './pages/Forecasts'
 import { Services } from './pages/Services'
 import { SocSyslog } from './pages/SocSyslog'
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="/dell-servers" element={<DellServers />} />
             <Route path="/inventory" element={<AssetsOverview />} />
             <Route path="/inventory/list" element={<AssetList />} />
+            <Route path="/cmdb" element={<Cmdb />} />
             <Route path="/inventory/:id" element={<AssetDetail />} />
             <Route path="/racks" element={<Racks />} />
             <Route path="/netmap" element={<NetworkMapAll />} />

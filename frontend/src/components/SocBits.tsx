@@ -1,3 +1,4 @@
+import { AlertImpact } from './Cmdb'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -174,6 +175,7 @@ function AlertDetail({ a, readOnly, onUpdate }: { a: SocAlert; readOnly: boolean
           </div>
         )}
         {!readOnly && <BlockBox alert={cur} />}
+        {!readOnly && cur.asset_id ? <AlertImpact assetId={cur.asset_id} /> : null}
         {readOnly && (cur.owner || cur.note) && <p className="text-slate-600">{cur.owner ? `${t('soc.detail.owner')}: ${cur.owner}` : ''}{cur.note ? ` · ${cur.note}` : ''}</p>}
         {!readOnly && (
           <div>

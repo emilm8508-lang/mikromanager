@@ -261,6 +261,21 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class CiRelation(Base):
+    """3.90: a relation between two configuration items entered by a person (services/cmdb.py), or an automatic one the operator hid
+    (hidden=True; a business service membership is keyed by the negative service id in dst_id)."""
+    __tablename__ = "ci_relation"
+
+    id = Column(Integer, primary_key=True, index=True)
+    src_id = Column(Integer, nullable=False, index=True)
+    dst_id = Column(Integer, nullable=False, index=True)
+    kind = Column(String, nullable=False)                   # runs_on | depends_on | connected_to | backs_up | member_of | uses_license | covered_by_contract
+    note = Column(String, nullable=True)
+    hidden = Column(Boolean, nullable=False, default=False)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class AssetHistory(Base):
     """What an asset was before (3.74): a field's old and new value, when, and what said so - its other names and addresses ("R2-AP1,
     earlier: wAP / R2-ĄP1, 192.168.2.94"), its RouterOS updates, the entries joined into it. Kept as long as the asset."""
@@ -526,6 +541,7 @@ class Asset(Base):
     invoice_no = Column(String, nullable=True)                     # invoice / purchase order number
     cost_center = Column(String, nullable=True)
     asset_tag = Column(String, nullable=True, index=True)          # the inventory number on the label
+    ci_class = Column(String, nullable=True)                       # 3.90: the CMDB class set by the operator (services/cmdb.py); empty = suggested
     manual_groups = Column(Text, nullable=True)                    # JSON list of tags added by the operator
     notes = Column(Text, nullable=True)
     scan_level = Column(String, nullable=False, default="passive")  # credentialed | snmp | passive
@@ -1797,7 +1813,8 @@ def _migrate_add_columns():
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
         for name, ddl in (("lifecycle_stage", "VARCHAR"), ("purchased_at", "DATETIME"), ("warranty_until", "DATETIME"), ("replace_at", "DATETIME"),
                           ("disposed_at", "DATETIME"), ("disposal_method", "VARCHAR"), ("cost", "FLOAT"), ("currency", "VARCHAR"), ("supplier", "VARCHAR"),
-                          ("invoice_no", "VARCHAR"), ("cost_center", "VARCHAR"), ("asset_tag", "VARCHAR")):          # 3.89 (services/asset_itam.py)
+                          ("invoice_no", "VARCHAR"), ("cost_center", "VARCHAR"), ("asset_tag", "VARCHAR"),          # 3.89 (services/asset_itam.py)
+                          ("ci_class", "VARCHAR")):                                                                # 3.90 (services/cmdb.py)
             if name not in as_cols:
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE assets ADD COLUMN {name} {ddl}"))
