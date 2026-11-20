@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { HardDrive, Hourglass, KeyRound, MemoryStick, Binary, ShieldCheck, RefreshCcw } from 'lucide-react'
+import { HardDrive, Hourglass, KeyRound, MemoryStick, Binary, ShieldCheck, RefreshCcw, KeySquare } from 'lucide-react'
 import { forecastsApi, ForecastItem } from '../lib/api'
 import { HostLink } from '../components/HostLink'
 import { cn } from '../lib/utils'
 
-const ICON = { disk: HardDrive, mem: MemoryStick, dhcp_pool: Binary, certificate: KeyRound, warranty: ShieldCheck, replacement: RefreshCcw } as const
+const ICON = { disk: HardDrive, mem: MemoryStick, dhcp_pool: Binary, certificate: KeyRound, warranty: ShieldCheck, replacement: RefreshCcw, license: KeySquare } as const
 
 function Days({ d }: { d: number }) {
   const { t } = useTranslation()
@@ -37,7 +37,7 @@ export function Forecasts() {
       </div>
       {d && (
         <div className="flex gap-2 flex-wrap">
-          {(['disk', 'mem', 'dhcp_pool', 'certificate', 'warranty', 'replacement'] as const).map(k => {
+          {(['disk', 'mem', 'dhcp_pool', 'certificate', 'warranty', 'replacement', 'license'] as const).map(k => {
             const Icon = ICON[k]
             return (
               <button key={k} onClick={() => setKind(kind === k ? '' : k)}
@@ -62,7 +62,7 @@ export function Forecasts() {
                     {x.what ? <span className="text-slate-500"> · {x.what}</span> : null}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {x.kind === 'warranty' || x.kind === 'replacement'
+                    {x.kind === 'warranty' || x.kind === 'replacement' || x.kind === 'license'
                       ? t(`fc.${x.kind}On`, { date: new Date(x.date).toLocaleDateString() })
                       : x.kind === 'certificate'
                       ? (x.days <= 0 ? t('fc.certExpired') : t('fc.certExpires', { date: new Date(x.date).toLocaleDateString() })) + (x.self_signed ? ` · ${t('fc.selfSigned')}` : '')

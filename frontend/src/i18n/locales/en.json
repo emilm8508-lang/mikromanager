@@ -71,6 +71,7 @@
                 },
                 "assetsList": "Asset list",
                 "cmdb": "CMDB",
+                "licenses": "Licenses",
                 "groupSystems": "Systems",
                 "groupNetwork": "Network",
                 "groupCompliance": "Compliance & security",
@@ -1879,12 +1880,14 @@
         }
     },
     "fc": {
+        "licenseOn": "license until {{date}}",
         "warrantyOn": "warranty until {{date}}",
         "replacementOn": "planned replacement {{date}}",
         "title": "What will run out",
         "subtitle": "One list of forecasts from what the agent already measures: disks, memory and DHCP pools growing steadily to full, and certificates expiring. Nearest first.",
         "horizon": "{{n}} days",
         "kind": {
+            "license": "Licenses",
             "warranty": "Warranties",
             "replacement": "Replacements",
             "disk": "Disks",
@@ -2071,6 +2074,74 @@
             "member_of": "contains",
             "uses_license": "license of",
             "covered_by_contract": "contract covers"
+        }
+    },
+    "lic": {
+        "title": "Software licenses",
+        "subtitle": "Licenses bought set against the software installed on the hosts: compliance, unused seats and installations to reclaim.",
+        "add": "Add license",
+        "edit": "Edit",
+        "remove": "Remove license",
+        "cancel": "Cancel",
+        "empty": "No licenses yet. Add the first one or pick a program from the list below.",
+        "chartStatus": "License compliance",
+        "chartSeats": "Seat usage",
+        "seatsUse": "{{used}} of {{total}} seats in use ({{pct}}%)",
+        "usedOf": "{{used}} of {{seats}}",
+        "usedSite": "in use: {{used}} (site)",
+        "reclaim": "to reclaim: {{n}}",
+        "until": "until {{date}}",
+        "matching": "Covers programs containing",
+        "excluding": "leaving out",
+        "showKey": "Show key",
+        "keyAudit": "(the reading goes to the audit log)",
+        "keyKeep": "leave empty to keep it",
+        "noInstalls": "No host has this program.",
+        "inUse": "in use",
+        "reclaimable": "to reclaim (asset retired or inactive)",
+        "suggestTitle": "Programs without a license",
+        "suggestHint": "The most installed programs no license covers (updates and libraries left out). Click to add a license.",
+        "onAsset": "Licenses covering software on this asset",
+        "statusLabel": "Status",
+        "note": "Compliance is counted from the software the scans found. A per-user license is counted by devices (the agent does not know who uses a program). The key is encrypted, only an admin sees it, and it never goes to Central. Alerts: more installations than seats, a license ending within 30 days.",
+        "f": {
+            "product": "Product",
+            "vendor": "Vendor",
+            "kind": "Kind",
+            "seats": "Seats",
+            "match": "Covers programs (parts of names, separate with ;)",
+            "exclude": "Leave out programs (parts of names, separate with ;)",
+            "valid_from": "Valid from",
+            "valid_until": "Valid until",
+            "cost": "Cost",
+            "currency": "Currency",
+            "supplier": "Supplier",
+            "reference": "Invoice / agreement no.",
+            "key": "License key",
+            "notes": "Notes"
+        },
+        "kind": {
+            "per_device": "per device",
+            "per_user": "per user",
+            "per_server": "per server",
+            "per_core": "per core",
+            "site": "site (no limit)",
+            "subscription": "subscription"
+        },
+        "status": {
+            "compliant": "compliant",
+            "over": "over",
+            "unused": "under-used",
+            "expired": "expired",
+            "expiring": "expiring",
+            "no_installs": "no installs",
+            "site": "site"
+        },
+        "col": {
+            "asset": "Asset",
+            "program": "Program",
+            "version": "Version",
+            "counts": "Usage"
         }
     },
     "svc": {

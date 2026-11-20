@@ -71,6 +71,7 @@
                 },
                 "assetsList": "Lista de activos",
                 "cmdb": "CMDB",
+                "licenses": "Licencias",
                 "groupSystems": "Sistemas",
                 "groupNetwork": "Red",
                 "groupCompliance": "Cumplimiento y seguridad",
@@ -1879,12 +1880,14 @@
         }
     },
     "fc": {
+        "licenseOn": "licencia hasta el {{date}}",
         "warrantyOn": "garantía hasta el {{date}}",
         "replacementOn": "sustitución prevista el {{date}}",
         "title": "Qué se agotará",
         "subtitle": "Una lista de previsiones a partir de lo que el agente ya mide: discos, memoria y pools DHCP que crecen de forma constante hasta llenarse, y certificados que caducan. Lo más próximo primero.",
         "horizon": "{{n}} días",
         "kind": {
+            "license": "Licencias",
             "warranty": "Garantías",
             "replacement": "Sustituciones",
             "disk": "Discos",
@@ -2071,6 +2074,74 @@
             "member_of": "contiene",
             "uses_license": "licencia de",
             "covered_by_contract": "el contrato cubre"
+        }
+    },
+    "lic": {
+        "title": "Licencias de software",
+        "subtitle": "Las licencias compradas frente al software instalado en los equipos: cumplimiento, puestos sin usar e instalaciones a recuperar.",
+        "add": "Añadir licencia",
+        "edit": "Editar",
+        "remove": "Quitar licencia",
+        "cancel": "Cancelar",
+        "empty": "Aún no hay licencias. Añade la primera o elige un programa de la lista de abajo.",
+        "chartStatus": "Cumplimiento de licencias",
+        "chartSeats": "Uso de puestos",
+        "seatsUse": "{{used}} de {{total}} puestos en uso ({{pct}} %)",
+        "usedOf": "{{used}} de {{seats}}",
+        "usedSite": "en uso: {{used}} (sitio)",
+        "reclaim": "a recuperar: {{n}}",
+        "until": "hasta {{date}}",
+        "matching": "Cubre programas que contienen",
+        "excluding": "excepto",
+        "showKey": "Ver clave",
+        "keyAudit": "(la lectura queda en el registro de auditoría)",
+        "keyKeep": "déjalo vacío para mantenerla",
+        "noInstalls": "Ningún equipo tiene este programa.",
+        "inUse": "en uso",
+        "reclaimable": "a recuperar (activo retirado o inactivo)",
+        "suggestTitle": "Programas sin licencia",
+        "suggestHint": "Los programas más instalados que ninguna licencia cubre (sin actualizaciones ni bibliotecas). Haz clic para añadir una licencia.",
+        "onAsset": "Licencias del software de este activo",
+        "statusLabel": "Estado",
+        "note": "El cumplimiento se calcula con el software que encontraron los escaneos. Una licencia por usuario se cuenta por dispositivos (el agente no sabe quién usa un programa). La clave está cifrada, solo la ve un administrador y nunca va a la Central. Alertas: más instalaciones que puestos, licencia que termina en 30 días.",
+        "f": {
+            "product": "Producto",
+            "vendor": "Fabricante",
+            "kind": "Tipo",
+            "seats": "Puestos",
+            "match": "Cubre programas (partes del nombre, separa con ;)",
+            "exclude": "Excluir programas (partes del nombre, separa con ;)",
+            "valid_from": "Válida desde",
+            "valid_until": "Válida hasta",
+            "cost": "Coste",
+            "currency": "Moneda",
+            "supplier": "Proveedor",
+            "reference": "N.º de factura / contrato",
+            "key": "Clave de licencia",
+            "notes": "Notas"
+        },
+        "kind": {
+            "per_device": "por dispositivo",
+            "per_user": "por usuario",
+            "per_server": "por servidor",
+            "per_core": "por núcleo",
+            "site": "sitio (sin límite)",
+            "subscription": "suscripción"
+        },
+        "status": {
+            "compliant": "conforme",
+            "over": "excedida",
+            "unused": "infrautilizada",
+            "expired": "caducada",
+            "expiring": "por caducar",
+            "no_installs": "sin instalaciones",
+            "site": "sitio"
+        },
+        "col": {
+            "asset": "Activo",
+            "program": "Programa",
+            "version": "Versión",
+            "counts": "Uso"
         }
     },
     "svc": {

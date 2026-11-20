@@ -1103,6 +1103,27 @@ export interface AssetAttach {
   how: string | null                 // for "l3": ARP/DHCP | traceroute | subnet
 }
 
+// 3.91: software licenses and compliance (services/licenses.py)
+export type LicenseStatus = 'compliant' | 'over' | 'unused' | 'expired' | 'expiring' | 'no_installs' | 'site'
+export interface LicenseRow {
+  id: number; product: string; vendor: string | null; kind: string; seats: number | null; match: string[]; exclude: string[]; valid_from: string | null; valid_until: string | null
+  days_left: number | null; cost: number | null; currency: string | null; supplier: string | null; reference: string | null; notes: string | null; has_key: boolean
+  installs: number; used: number; reclaimable: number; over: number; unused: number | null; status: LicenseStatus
+  install_list?: Array<{ asset_id: number; asset: string; name: string; version: string; seen: string | null; live: boolean }>
+}
+export const licensesApi = {
+  overview: () => api.get<{ licenses: LicenseRow[]; suggestions: Array<{ name: string; assets: number }> }>('/licenses').then(r => r.data),
+  detail: (id: number) => api.get<LicenseRow>(`/licenses/${id}`).then(r => r.data),
+  forAsset: (id: number) => api.get<{ licenses: Array<{ id: number; product: string; kind: string; program: string; version: string; status: LicenseStatus }> }>(`/licenses/asset/${id}`).then(r => r.data),
+  create: (b: Record<string, unknown>) => api.post<{ id: number }>('/licenses', b).then(r => r.data),
+  update: (id: number, b: Record<string, unknown>) => api.put<{ id: number }>(`/licenses/${id}`, b).then(r => r.data),
+  remove: (id: number) => api.delete(`/licenses/${id}`).then(r => r.data),
+  key: (id: number) => api.get<{ key: string | null }>(`/licenses/${id}/key`).then(r => r.data),
+}
+export interface LicensesPublic {
+  licenses: Array<{ p: string; v: string | null; k: string; s: number | null; u: number; r: number; o: number; until: string | null; st: LicenseStatus; c: number | null; cu: string | null }>
+  counts: Record<string, number>
+}
 // 3.90: CMDB - configuration item classes and relations (services/cmdb.py)
 export interface CiInfo { class: string; set: boolean; suggested: string; why: string; group: string }
 export interface CiRelation {
@@ -1207,6 +1228,7 @@ export interface AssetsPublic {
   rows: AssetsPublicRow[]
   truncated: boolean
   dups?: AssetsDupGroup[]
+  licenses?: LicensesPublic | null                 // 3.91
 }
 // an inventory edit asked for in Central (3.70) - the agent checks and applies it (services/assets.apply_central_op)
 export type CentralAssetOp =
@@ -1499,11 +1521,11 @@ export const netQualityApi = {
 }
 // what will run out and when (services/forecasts.py)
 export interface ForecastItem {
-  kind: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement'; key: string; name: string; where: string; what: string | null; asset_id: number | null; unit: string | null
+  kind: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license'; key: string; name: string; where: string; what: string | null; asset_id: number | null; unit: string | null
   value: number | null; per_day: number | null; days: number; date: string; self_signed?: boolean
 }
 export const forecastsApi = {
-  overview: (horizon = 90) => api.get<{ items: ForecastItem[]; counts: Record<'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement', number>; horizon: number; within_7: number; at: string }>('/forecasts', { params: { horizon } }).then(r => r.data),
+  overview: (horizon = 90) => api.get<{ items: ForecastItem[]; counts: Record<'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license', number>; horizon: number; within_7: number; at: string }>('/forecasts', { params: { horizon } }).then(r => r.data),
 }
 // IP address management from the routers' tables (services/ipam.py)
 export interface IpamSubnet {
@@ -1896,7 +1918,7 @@ export interface CentralSoc {
       full_pools: Array<{ n: string; r: string; pct: number | null; size: number; days: number | null }> } | null
     // 3.87: what will run out within 30 days (services/forecasts.py)
     forecast?: { within_30: number; within_7: number; counts: Record<string, number>; at: string
-      next: Array<{ k: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement'; n: string | null; w: string | null; days: number }> } | null }
+      next: Array<{ k: 'disk' | 'mem' | 'dhcp_pool' | 'certificate' | 'warranty' | 'replacement' | 'license'; n: string | null; w: string | null; days: number }> } | null }
   coverage?: { summary: Record<string, number>; silent: Array<{ n: string; s: string; items: string[] }> }
   tls?: { total: number; expired: number; expiring: number; weak: number; intercepted: number; worst: Array<{ n: string; p: number; d: number | null; f: string[] }> }
   anomalies?: { series: number; learning: number; events_30d: number; labelled: number; true: number; false: number; precision: number | null; at: string | null

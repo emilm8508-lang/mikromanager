@@ -107,15 +107,20 @@ def cert_forecasts(now: Optional[datetime] = None, horizon: int = HORIZON_DAYS) 
 def overview(horizon: int = HORIZON_DAYS, now: Optional[datetime] = None) -> dict:
     now = now or _now()
     horizon = max(1, min(int(horizon), 365))
+    itam_items = []
     try:
         from services import asset_itam
-        itam_items = asset_itam.forecast_items(now, horizon)          # 3.89: warranties, planned replacements
+        itam_items += asset_itam.forecast_items(now, horizon)        # 3.89: warranties, planned replacements
     except Exception as e:
         print(f"[forecasts] warranties: {type(e).__name__}: {e}")
-        itam_items = []
+    try:
+        from services import licenses
+        itam_items += licenses.forecast_items(now, horizon)          # 3.91: licenses ending
+    except Exception as e:
+        print(f"[forecasts] licenses: {type(e).__name__}: {e}")
     items = [x for x in series_forecasts(now) + cert_forecasts(now, horizon) + itam_items if x["days"] is not None and x["days"] <= horizon]
     items.sort(key=lambda x: (x["days"], x["kind"], (x["name"] or "").lower()))
-    counts = {k: sum(1 for x in items if x["kind"] == k) for k in ("disk", "mem", "dhcp_pool", "certificate", "warranty", "replacement")}
+    counts = {k: sum(1 for x in items if x["kind"] == k) for k in ("disk", "mem", "dhcp_pool", "certificate", "warranty", "replacement", "license")}
     return {"items": items, "counts": counts, "horizon": horizon, "within_7": sum(1 for x in items if x["days"] <= 7), "at": _iso(now)}
 
 
@@ -167,6 +172,8 @@ async def _loop():
         try:
             from services import asset_itam
             asset_itam.check()                           # 3.89: warranties ending, planned replacements due
+            from services import licenses
+            licenses.check()                             # 3.91: licenses over their seats, licenses ending
         except Exception as e:
             print(f"[forecasts] warranty check error: {e}")
         await asyncio.sleep(INTERVAL_SEC)

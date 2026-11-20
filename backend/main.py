@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, Response
 from contextlib import asynccontextmanager
 
 from models.database import init_db
-from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api, assistant as assistant_api, maintenance as maintenance_api, host_logs as host_logs_api, metrics as metrics_api, anomalies as anomalies_api, netflow as netflow_api, ups as ups_api, coverage as coverage_api, soar as soar_api, tls as tls_api, netkit as netkit_api, onboarding as onboarding_api, card as card_api, hostcard as hostcard_api, evidence as evidence_api, logons as logons_api, net_quality as net_quality_api, app_checks as app_checks_api, host_processes as host_processes_api, net_path as net_path_api, ipam as ipam_api, forecasts as forecasts_api, cmdb as cmdb_api
+from api import devices, credentials, logs, scanner, system, auth, audit as audit_api, vuln_scan as vuln_api, linux_manage as linux_api, windows_manage as windows_api, inventory as inventory_api, compliance as compliance_api, anydesk_history as anydesk_api, dell_servers as dell_api, hyperv as hyperv_api, host_monitor as hostmon_api, host_services as hostsvc_api, fleet as fleet_api, security_summary as secsum_api, assets as assets_api, racks as racks_api, netmap as netmap_api, traffic as traffic_api, soc as soc_api, onsite as onsite_api, availability as availability_api, services as services_api, syslog as syslog_api, config_history as config_history_api, assistant as assistant_api, maintenance as maintenance_api, host_logs as host_logs_api, metrics as metrics_api, anomalies as anomalies_api, netflow as netflow_api, ups as ups_api, coverage as coverage_api, soar as soar_api, tls as tls_api, netkit as netkit_api, onboarding as onboarding_api, card as card_api, hostcard as hostcard_api, evidence as evidence_api, logons as logons_api, net_quality as net_quality_api, app_checks as app_checks_api, host_processes as host_processes_api, net_path as net_path_api, ipam as ipam_api, forecasts as forecasts_api, cmdb as cmdb_api, licenses as licenses_api
 from api.auth import require_login
 from services import refresher
 from services import uplink
@@ -204,6 +204,7 @@ app.include_router(net_path_api.router, dependencies=_protected)
 app.include_router(ipam_api.router, dependencies=_protected)
 app.include_router(forecasts_api.router, dependencies=_protected)
 app.include_router(cmdb_api.router, dependencies=_protected)
+app.include_router(licenses_api.router, dependencies=_protected)
 app.include_router(services_api.router, dependencies=_protected)
 app.include_router(syslog_api.router, dependencies=_protected)
 app.include_router(config_history_api.router, dependencies=_protected)

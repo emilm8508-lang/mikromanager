@@ -448,6 +448,33 @@ function CentralBulkBar({ rows, onClear }: { rows: Row[]; onClear: () => void })
 
 // The asset inventory of every client at once. Central only ever gets numbers and compact rows (no serial numbers, MAC addresses
 // or hardware details), so this page has no device cards - those are on the agent.
+// 3.91: license compliance per client (no keys)
+function CentralLicenses({ parts }: { parts: Part[] }) {
+  const { t } = useTranslation()
+  const rows = parts.flatMap(p => (p.assets.licenses?.licenses ?? []).map(l => ({ tenant: p.tenant, l })))
+  if (rows.length === 0) return null
+  const order: Record<string, number> = { over: 0, expired: 1, expiring: 2, unused: 3, no_installs: 4, compliant: 5, site: 6 }
+  rows.sort((a, b) => (order[a.l.st] ?? 9) - (order[b.l.st] ?? 9) || a.l.p.localeCompare(b.l.p))
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
+      <h3 className="px-4 pt-3 pb-2 text-sm font-semibold text-slate-800">{t('lic.title')}</h3>
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-xs text-slate-400 border-y border-slate-200 bg-slate-50">
+          <th className="px-4 py-2 font-normal">{t('assetsCentral.client')}</th><th className="font-normal">{t('lic.f.product')}</th><th className="font-normal">{t('lic.f.kind')}</th>
+          <th className="font-normal">{t('lic.col.counts')}</th><th className="font-normal">{t('lic.f.valid_until')}</th><th className="font-normal pr-4">{t('lic.statusLabel')}</th></tr></thead>
+        <tbody>{rows.slice(0, 200).map(({ tenant, l }, i) => (
+          <tr key={i} className={cn('border-b border-slate-100', l.st === 'over' && 'bg-red-50/40')}>
+            <td className="px-4 py-1.5 text-slate-700">{tenant}</td><td className="font-medium text-slate-800">{l.p}{l.v ? <span className="text-slate-400 font-normal"> · {l.v}</span> : null}</td>
+            <td className="text-xs text-slate-500">{t(`lic.kind.${l.k}`)}</td>
+            <td className="text-xs tabular-nums">{l.s != null ? t('lic.usedOf', { used: l.u, seats: l.s }) : t('lic.usedSite', { used: l.u })}{l.r ? ` · ${t('lic.reclaim', { n: l.r })}` : ''}</td>
+            <td className="text-xs text-slate-500">{l.until ?? '—'}</td>
+            <td className={cn('text-xs pr-4', l.st === 'over' ? 'text-red-700 font-medium' : l.st === 'expiring' || l.st === 'expired' ? 'text-amber-700' : 'text-slate-600')}>{t(`lic.status.${l.st}`)}</td>
+          </tr>))}</tbody>
+      </table>
+    </section>
+  )
+}
+
 export function CentralAssets() {
   const { t } = useTranslation()
   const cfg = centralConfig.load()
@@ -600,6 +627,7 @@ export function CentralAssets() {
             </section>
           )}
 
+          <CentralLicenses parts={vis} />
           {pickedRows.length > 0 && <CentralBulkBar rows={pickedRows} onClear={() => setPicked(new Set())} />}
           <section ref={tableRef} className="bg-white border border-slate-200 rounded-xl shadow-sm scroll-mt-4">
             <div className="px-4 pt-3 pb-3 flex flex-wrap gap-2 items-center">

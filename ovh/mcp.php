@@ -258,6 +258,8 @@ function mcp_tools(): array {
             'description' => 'The clients\' inventories: devices with type, maker / model, OS, support status (lifecycle), vulnerability counts, place; and a summary per client.'],
         'client_cmdb' => ['title' => 'CMDB: classes and relations', 'fn' => 't_cmdb', 'schema' => $s($tenant + ['q' => ['type' => 'string', 'description' => 'part of an asset name: only its relations']] + $limit),
             'description' => 'The configuration items of each client by class (hypervisor, domain controller, switch, access point, UPS ...) and the relations between them: runs on, depends on, connected to, backs up, member of a business service - automatic ones (from the network map and the business services) and ones entered by people. Use it for impact (what stops when X fails) and root cause (what X needs).'],
+        'client_licenses' => ['title' => 'Software licenses', 'fn' => 't_licenses', 'schema' => $s($tenant + ['status' => ['type' => 'string', 'enum' => ['compliant', 'over', 'unused', 'expired', 'expiring', 'no_installs', 'site']], 'q' => ['type' => 'string', 'description' => 'part of a product or vendor']] + $limit),
+            'description' => 'Software licenses of the clients against the installed software: kind, seats, installations in use, installations to reclaim (on retired or inactive assets), over the seats, the end date, cost and status (compliant / over / under-used / expired / expiring). Never the keys.'],
         'client_coverage' => ['title' => 'Data sources and communication', 'fn' => 't_coverage', 'schema' => $s($tenant + ['state' => ['type' => 'string', 'enum' => ['down', 'silent', 'degraded', 'stale', 'gaps']]]),
             'description' => 'Per client, the important and critical assets whose data stopped or never came: state (down / silent / degraded / stale), since when, the cause it is grouped under, which sources are late or failing, which recommended sources were never seen, and when each source last delivered.'],
         'client_logons' => ['title' => 'Logons on assets', 'fn' => 't_logons', 'schema' => $s($tenant + [
@@ -419,6 +421,26 @@ function t_vulnerabilities(McpContext $c, array $a): array {
     });
     $pg = mcp_page($rows, $a, 40, 150);
     return ['findings' => $pg['items']] + $pg;
+}
+
+function t_licenses(McpContext $c, array $a): array {
+    $rows = [];
+    $q = mb_strtolower(trim((string)($a['q'] ?? '')));
+    $st = (string)($a['status'] ?? '');
+    foreach ($c->tenants($a['tenant'] ?? null) as $r) {
+        foreach ((array)($r['meta']['assets_status']['licenses']['licenses'] ?? []) as $l) {
+            if (!is_array($l)) continue;
+            if ($st !== '' && ($l['st'] ?? '') !== $st) continue;
+            if ($q !== '' && strpos(mb_strtolower((string)($l['p'] ?? '') . ' ' . (string)($l['v'] ?? '')), $q) === false) continue;
+            $rows[] = ['tenant' => $r['tenant'], 'product' => $l['p'] ?? null, 'vendor' => $l['v'] ?? null, 'kind' => $l['k'] ?? null, 'seats' => $l['s'] ?? null,
+                       'in_use' => $l['u'] ?? 0, 'to_reclaim' => $l['r'] ?? 0, 'over_seats' => $l['o'] ?? 0, 'valid_until' => $l['until'] ?? null, 'status' => $l['st'] ?? null,
+                       'cost' => $l['c'] ?? null, 'currency' => $l['cu'] ?? null];
+        }
+    }
+    $order = ['over' => 0, 'expired' => 1, 'expiring' => 2, 'unused' => 3, 'no_installs' => 4, 'compliant' => 5, 'site' => 6];
+    usort($rows, function ($x, $y) use ($order) { return ($order[$x['status']] ?? 9) <=> ($order[$y['status']] ?? 9); });
+    $pg = mcp_page($rows, $a, 50, 200);
+    return ['licenses' => $pg['items']] + $pg;
 }
 
 function t_cmdb(McpContext $c, array $a): array {

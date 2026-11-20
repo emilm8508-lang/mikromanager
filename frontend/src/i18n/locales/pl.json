@@ -71,6 +71,7 @@
                 },
                 "assetsList": "Lista zasobów",
                 "cmdb": "CMDB",
+                "licenses": "Licencje",
                 "groupSystems": "Systemy",
                 "groupNetwork": "Sieć",
                 "groupCompliance": "Zgodność i bezpieczeństwo",
@@ -2046,12 +2047,14 @@
         }
     },
     "fc": {
+        "licenseOn": "licencja do {{date}}",
         "warrantyOn": "gwarancja do {{date}}",
         "replacementOn": "planowana wymiana {{date}}",
         "title": "Co się wyczerpie",
         "subtitle": "Jedna lista prognoz z tego, co agent już mierzy: dyski, pamięć i pule DHCP, które stale rosną do pełna, oraz certyfikaty, które wygasają. Najbliższe na górze.",
         "horizon": "{{n}} dni",
         "kind": {
+            "license": "Licencje",
             "warranty": "Gwarancje",
             "replacement": "Wymiany",
             "disk": "Dyski",
@@ -2238,6 +2241,74 @@
             "member_of": "zawiera",
             "uses_license": "licencja dla",
             "covered_by_contract": "umowa obejmuje"
+        }
+    },
+    "lic": {
+        "title": "Licencje oprogramowania",
+        "subtitle": "Kupione licencje zestawione z oprogramowaniem zainstalowanym na hostach: zgodność, niewykorzystane stanowiska i instalacje do odzyskania.",
+        "add": "Dodaj licencję",
+        "edit": "Edytuj",
+        "remove": "Usuń licencję",
+        "cancel": "Anuluj",
+        "empty": "Brak licencji. Dodaj pierwszą albo wybierz program z listy poniżej.",
+        "chartStatus": "Zgodność licencji",
+        "chartSeats": "Wykorzystanie stanowisk",
+        "seatsUse": "w użyciu {{used}} z {{total}} stanowisk ({{pct}}%)",
+        "usedOf": "{{used}} z {{seats}}",
+        "usedSite": "w użyciu: {{used}} (witryna)",
+        "reclaim": "do odzyskania: {{n}}",
+        "until": "do {{date}}",
+        "matching": "Obejmuje programy zawierające",
+        "excluding": "z pominięciem",
+        "showKey": "Pokaż klucz",
+        "keyAudit": "(odczyt trafia do dziennika audytu)",
+        "keyKeep": "pozostaw puste, aby nie zmieniać",
+        "noInstalls": "Żaden host nie ma tego programu.",
+        "inUse": "w użyciu",
+        "reclaimable": "do odzyskania (zasób wycofany lub nieaktywny)",
+        "suggestTitle": "Programy bez licencji",
+        "suggestHint": "Najczęściej instalowane programy, których nie obejmuje żadna licencja (bez aktualizacji i bibliotek). Kliknij, aby dodać licencję.",
+        "onAsset": "Licencje obejmujące oprogramowanie tego zasobu",
+        "statusLabel": "Stan",
+        "note": "Zgodność liczy się z oprogramowania znalezionego przez skany. Licencja „na użytkownika” jest liczona po urządzeniach (agent nie wie, kto używa programu). Klucz jest szyfrowany, widzi go tylko administrator i nigdy nie trafia do Centrali. Alerty: więcej instalacji niż stanowisk, licencja kończy się w ciągu 30 dni.",
+        "f": {
+            "product": "Produkt",
+            "vendor": "Producent",
+            "kind": "Rodzaj",
+            "seats": "Stanowiska",
+            "match": "Obejmuje programy (części nazw, rozdziel ;)",
+            "exclude": "Pomiń programy (części nazw, rozdziel ;)",
+            "valid_from": "Ważna od",
+            "valid_until": "Ważna do",
+            "cost": "Koszt",
+            "currency": "Waluta",
+            "supplier": "Dostawca",
+            "reference": "Nr faktury / umowy",
+            "key": "Klucz licencyjny",
+            "notes": "Uwagi"
+        },
+        "kind": {
+            "per_device": "na urządzenie",
+            "per_user": "na użytkownika",
+            "per_server": "na serwer",
+            "per_core": "na rdzeń",
+            "site": "witryna (bez limitu)",
+            "subscription": "subskrypcja"
+        },
+        "status": {
+            "compliant": "zgodna",
+            "over": "przekroczona",
+            "unused": "niewykorzystana",
+            "expired": "wygasła",
+            "expiring": "wygasa",
+            "no_installs": "brak instalacji",
+            "site": "witryna"
+        },
+        "col": {
+            "asset": "Zasób",
+            "program": "Program",
+            "version": "Wersja",
+            "counts": "Wykorzystanie"
         }
     },
     "svc": {

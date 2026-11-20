@@ -688,6 +688,15 @@ def _attach(asset_id: int) -> Optional[dict]:
         return None
 
 
+def _licenses_summary() -> Optional[dict]:
+    try:
+        from services import licenses
+        return licenses.public_summary()
+    except Exception as e:
+        print(f"[assets] licenses summary error: {type(e).__name__}: {e}")
+        return None
+
+
 def _cmdb_summary() -> Optional[dict]:
     try:
         from services import cmdb
@@ -985,6 +994,7 @@ async def public_summary() -> dict:
         "identity": _identity_stats(),                         # 3.74: the one-off pass - device rows joined by key, counts before / after
         "itam": _itam_summary(),                               # 3.89: stages, warranties, replacements due, cost per currency
         "cmdb": _cmdb_summary(),                               # 3.90: CI classes and relations by name
+        "licenses": _licenses_summary(),                       # 3.91: license compliance (no keys)
         "rows": out, "truncated": len(rows) > MAX_PUBLIC_ROWS,
     }
 

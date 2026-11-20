@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Save } from 'lucide-react'
-import { assetsApi, AssetItam, ItamStage } from '../lib/api'
+import { assetsApi, AssetItam, ItamStage, licensesApi } from '../lib/api'
+import { Link } from 'react-router-dom'
 import { Button } from './ui/Button'
 import { cn } from '../lib/utils'
 
@@ -40,6 +41,7 @@ export function AssetItamTab({ id, itam }: { id: number; itam: AssetItam }) {
   const [d, setD] = useState(init(itam))
   useEffect(() => setD(init(itam)), [itam])
   const hist = useQuery({ queryKey: ['asset-itam-history', id], queryFn: () => assetsApi.itamHistory(id) })
+  const lic = useQuery({ queryKey: ['asset-licenses', id], queryFn: () => licensesApi.forAsset(id) })
   const save = useMutation({
     mutationFn: () => assetsApi.update(id, { itam: {
       lifecycle_stage: d.lifecycle_stage || null, purchased_at: d.purchased_at || null, warranty_until: d.warranty_until || null, replace_at: d.replace_at || null,
@@ -97,6 +99,20 @@ export function AssetItamTab({ id, itam }: { id: number; itam: AssetItam }) {
         </div>
         <p className="text-[11px] text-slate-400">{t('itam.note')}</p>
       </div>
+      {(lic.data?.licenses.length ?? 0) > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm">
+          <h3 className="font-semibold text-slate-900 mb-2">{t('lic.onAsset')}</h3>
+          <div className="space-y-0.5 text-xs">
+            {lic.data!.licenses.map(l => (
+              <div key={l.id} className="flex gap-3">
+                <Link to="/licenses" className="text-indigo-600 hover:underline w-56 truncate">{l.product}</Link>
+                <span className="text-slate-600 flex-1 truncate">{l.program} {l.version}</span>
+                <span className="text-slate-500">{t(`lic.status.${l.status}`)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {(hist.data?.length ?? 0) > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm">
           <h3 className="font-semibold text-slate-900 mb-2">{t('itam.history')}</h3>

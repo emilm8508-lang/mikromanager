@@ -261,6 +261,30 @@ class AppAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class SoftwareLicense(Base):
+    """3.91: a software license entered by a person (services/licenses.py); compliance is computed from the software inventory."""
+    __tablename__ = "software_license"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product = Column(String, nullable=False)
+    vendor = Column(String, nullable=True)
+    kind = Column(String, nullable=False, default="per_device")    # per_device | per_user | per_server | per_core | site | subscription
+    seats = Column(Integer, nullable=True)                         # empty for a site license
+    match = Column(Text, nullable=False)                           # JSON list of parts of program names it covers
+    exclude = Column(Text, nullable=True)                          # JSON list of parts to leave out
+    valid_from = Column(DateTime, nullable=True)
+    valid_until = Column(DateTime, nullable=True)
+    cost = Column(Float, nullable=True)
+    currency = Column(String, nullable=True)
+    supplier = Column(String, nullable=True)
+    reference = Column(String, nullable=True)                      # invoice / order / agreement number (stage D links contracts)
+    key_enc = Column(Text, nullable=True)                          # the license key, encrypted; shown to an admin only
+    notes = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True)
+
+
 class CiRelation(Base):
     """3.90: a relation between two configuration items entered by a person (services/cmdb.py), or an automatic one the operator hid
     (hidden=True; a business service membership is keyed by the negative service id in dst_id)."""

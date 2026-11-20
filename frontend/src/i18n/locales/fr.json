@@ -71,6 +71,7 @@
                 },
                 "assetsList": "Liste du parc",
                 "cmdb": "CMDB",
+                "licenses": "Licences",
                 "groupSystems": "Systèmes",
                 "groupNetwork": "Réseau",
                 "groupCompliance": "Conformité et sécurité",
@@ -1879,12 +1880,14 @@
         }
     },
     "fc": {
+        "licenseOn": "licence jusqu'au {{date}}",
         "warrantyOn": "garantie jusqu'au {{date}}",
         "replacementOn": "remplacement prévu le {{date}}",
         "title": "Ce qui va s'épuiser",
         "subtitle": "Une liste de prévisions à partir de ce que l'agent mesure déjà : disques, mémoire et pools DHCP qui se remplissent régulièrement, et certificats qui expirent. Le plus proche en premier.",
         "horizon": "{{n}} jours",
         "kind": {
+            "license": "Licences",
             "warranty": "Garanties",
             "replacement": "Remplacements",
             "disk": "Disques",
@@ -2071,6 +2074,74 @@
             "member_of": "contient",
             "uses_license": "licence de",
             "covered_by_contract": "le contrat couvre"
+        }
+    },
+    "lic": {
+        "title": "Licences logicielles",
+        "subtitle": "Les licences achetées face aux logiciels installés sur les hôtes : conformité, postes inutilisés et installations à récupérer.",
+        "add": "Ajouter une licence",
+        "edit": "Modifier",
+        "remove": "Supprimer la licence",
+        "cancel": "Annuler",
+        "empty": "Aucune licence. Ajoutez la première ou choisissez un programme dans la liste ci-dessous.",
+        "chartStatus": "Conformité des licences",
+        "chartSeats": "Utilisation des postes",
+        "seatsUse": "{{used}} postes utilisés sur {{total}} ({{pct}} %)",
+        "usedOf": "{{used}} sur {{seats}}",
+        "usedSite": "utilisée : {{used}} (site)",
+        "reclaim": "à récupérer : {{n}}",
+        "until": "jusqu'au {{date}}",
+        "matching": "Couvre les programmes contenant",
+        "excluding": "sauf",
+        "showKey": "Afficher la clé",
+        "keyAudit": "(la lecture est inscrite au journal d'audit)",
+        "keyKeep": "laisser vide pour la conserver",
+        "noInstalls": "Aucun hôte n'a ce programme.",
+        "inUse": "utilisée",
+        "reclaimable": "à récupérer (actif retiré ou inactif)",
+        "suggestTitle": "Programmes sans licence",
+        "suggestHint": "Les programmes les plus installés qu’aucune licence ne couvre (hors mises à jour et bibliothèques). Cliquez pour ajouter une licence.",
+        "onAsset": "Licences couvrant les logiciels de cet actif",
+        "statusLabel": "État",
+        "note": "La conformité est calculée à partir des logiciels trouvés par les analyses. Une licence par utilisateur est comptée par appareil (l'agent ne sait pas qui utilise un programme). La clé est chiffrée, seul un administrateur la voit, et elle ne va jamais à la Centrale. Alertes : plus d'installations que de postes, licence qui se termine sous 30 jours.",
+        "f": {
+            "product": "Produit",
+            "vendor": "Éditeur",
+            "kind": "Type",
+            "seats": "Postes",
+            "match": "Couvre les programmes (parties de noms, séparées par ;)",
+            "exclude": "Exclure des programmes (parties de noms, séparées par ;)",
+            "valid_from": "Valide du",
+            "valid_until": "Valide jusqu'au",
+            "cost": "Coût",
+            "currency": "Devise",
+            "supplier": "Fournisseur",
+            "reference": "N° de facture / contrat",
+            "key": "Clé de licence",
+            "notes": "Notes"
+        },
+        "kind": {
+            "per_device": "par appareil",
+            "per_user": "par utilisateur",
+            "per_server": "par serveur",
+            "per_core": "par cœur",
+            "site": "site (sans limite)",
+            "subscription": "abonnement"
+        },
+        "status": {
+            "compliant": "conforme",
+            "over": "dépassée",
+            "unused": "sous-utilisée",
+            "expired": "expirée",
+            "expiring": "expire bientôt",
+            "no_installs": "aucune installation",
+            "site": "site"
+        },
+        "col": {
+            "asset": "Actif",
+            "program": "Programme",
+            "version": "Version",
+            "counts": "Utilisation"
         }
     },
     "svc": {

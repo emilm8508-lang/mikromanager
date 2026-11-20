@@ -2,6 +2,40 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.91 — 2026-11-20
+- ITAM stage C (docs/plan-itam.md): software licenses and their compliance (services/licenses.py, new table `software_license`).
+  - A license is entered by a person:
+    - product, vendor, the parts of program names it covers and the parts to leave out;
+    - kind (per device / per user / per server / per core / site / subscription), seats, valid from / until, cost and currency, supplier, invoice or agreement number, notes;
+    - the key, stored encrypted. Only an admin can read it, each reading goes to the audit log, and it never goes to Central.
+  - Compliance, from the software the scans found on the hosts:
+    - installations, in use, reclaimable (on retired / decommissioned / probably removed assets or ones not seen for 30 days), over the seats, unused seats;
+    - status: compliant / over / under-used / expired / expiring / no installs / site;
+    - per-server licenses count servers only;
+    - per-user licenses are counted by devices (the agent does not know who uses a program), and the page says so.
+  - Suggestions: the programs installed on the most assets that no license covers, without updates, runtimes and libraries. One click opens the form filled in.
+  - Alerts, checked hourly and closed when gone:
+    - `license.over` when more installations are in use than seats (medium);
+    - `license.expiring` within 30 days of the end (low).
+  - Licenses ending also appear in Forecasts.
+  - A new page "Licenses" in the Assets menu shows:
+    - a compliance bar per status and the seat usage;
+    - the list with seat bars and status, add / edit / remove;
+    - a detail with the installations per asset (in use / to reclaim);
+    - the key for an admin;
+    - the suggestions.
+  - The lifecycle tab of an asset lists the licenses covering its software.
+  - API: `GET/POST /api/licenses`, `GET/PUT/DELETE /api/licenses/{id}`, `GET /api/licenses/asset/{id}`, `GET /api/licenses/{id}/key` (admin, audited).
+  - Central: the asset summary carries `licenses` (per license the counts and status; no keys, no notes). The Central assets page lists license compliance per client, worst first, and there is a new MCP tool `client_licenses` (read-only).
+- Tested: 3 new regression tests (backend/tests/test_licenses.py):
+  - validation and name matching;
+  - counts and status with a retired asset, per-server counting, an excluded program;
+  - the alerts, the suggestions;
+  - the key encrypted, kept on edit and absent from the summary;
+  - status changing with more seats.
+  - The migration was run on a copy of a real agent database.
+  - tsc and PHP lint OK. Not seen in a browser.
+
 ## 3.90 — 2026-11-20
 - ITAM stage B (docs/plan-itam.md): CMDB, with configuration item classes and the relations between them (services/cmdb.py).
   - 46 CI classes in four groups:

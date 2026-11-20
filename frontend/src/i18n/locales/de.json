@@ -71,6 +71,7 @@
                 },
                 "assetsList": "Bestandsliste",
                 "cmdb": "CMDB",
+                "licenses": "Lizenzen",
                 "groupSystems": "Systeme",
                 "groupNetwork": "Netzwerk",
                 "groupCompliance": "Compliance & Sicherheit",
@@ -1879,12 +1880,14 @@
         }
     },
     "fc": {
+        "licenseOn": "Lizenz bis {{date}}",
         "warrantyOn": "Garantie bis {{date}}",
         "replacementOn": "geplanter Austausch {{date}}",
         "title": "Was knapp wird",
         "subtitle": "Eine Liste von Prognosen aus dem, was der Agent ohnehin misst: Datenträger, Speicher und DHCP-Pools, die stetig volllaufen, und ablaufende Zertifikate. Das Nächste zuerst.",
         "horizon": "{{n}} Tage",
         "kind": {
+            "license": "Lizenzen",
             "warranty": "Garantien",
             "replacement": "Austausch",
             "disk": "Datenträger",
@@ -2071,6 +2074,74 @@
             "member_of": "enthält",
             "uses_license": "Lizenz von",
             "covered_by_contract": "Vertrag deckt"
+        }
+    },
+    "lic": {
+        "title": "Softwarelizenzen",
+        "subtitle": "Gekaufte Lizenzen gegenüber der auf den Hosts installierten Software: Konformität, ungenutzte Plätze und zurückzugewinnende Installationen.",
+        "add": "Lizenz hinzufügen",
+        "edit": "Bearbeiten",
+        "remove": "Lizenz entfernen",
+        "cancel": "Abbrechen",
+        "empty": "Noch keine Lizenzen. Füge die erste hinzu oder wähle ein Programm aus der Liste unten.",
+        "chartStatus": "Lizenzkonformität",
+        "chartSeats": "Platznutzung",
+        "seatsUse": "{{used}} von {{total}} Plätzen genutzt ({{pct}} %)",
+        "usedOf": "{{used}} von {{seats}}",
+        "usedSite": "genutzt: {{used}} (Standort)",
+        "reclaim": "zurückzugewinnen: {{n}}",
+        "until": "bis {{date}}",
+        "matching": "Umfasst Programme mit",
+        "excluding": "ohne",
+        "showKey": "Schlüssel anzeigen",
+        "keyAudit": "(das Lesen wird im Audit-Log erfasst)",
+        "keyKeep": "leer lassen, um ihn zu behalten",
+        "noInstalls": "Kein Host hat dieses Programm.",
+        "inUse": "genutzt",
+        "reclaimable": "zurückzugewinnen (Asset ausgemustert oder inaktiv)",
+        "suggestTitle": "Programme ohne Lizenz",
+        "suggestHint": "Die am häufigsten installierten Programme, die keine Lizenz abdeckt (ohne Updates und Bibliotheken). Klicken, um eine Lizenz anzulegen.",
+        "onAsset": "Lizenzen für Software dieses Assets",
+        "statusLabel": "Status",
+        "note": "Die Konformität wird aus der von den Scans gefundenen Software berechnet. Eine Benutzerlizenz wird nach Geräten gezählt (der Agent weiß nicht, wer ein Programm nutzt). Der Schlüssel ist verschlüsselt, nur ein Admin sieht ihn, und er geht nie an die Zentrale. Alarme: mehr Installationen als Plätze, Lizenz endet binnen 30 Tagen.",
+        "f": {
+            "product": "Produkt",
+            "vendor": "Hersteller",
+            "kind": "Art",
+            "seats": "Plätze",
+            "match": "Umfasst Programme (Namensteile, mit ; trennen)",
+            "exclude": "Programme auslassen (Namensteile, mit ; trennen)",
+            "valid_from": "Gültig ab",
+            "valid_until": "Gültig bis",
+            "cost": "Kosten",
+            "currency": "Währung",
+            "supplier": "Lieferant",
+            "reference": "Rechnungs- / Vertragsnr.",
+            "key": "Lizenzschlüssel",
+            "notes": "Notizen"
+        },
+        "kind": {
+            "per_device": "pro Gerät",
+            "per_user": "pro Benutzer",
+            "per_server": "pro Server",
+            "per_core": "pro Kern",
+            "site": "Standort (ohne Limit)",
+            "subscription": "Abonnement"
+        },
+        "status": {
+            "compliant": "konform",
+            "over": "überschritten",
+            "unused": "ungenutzt",
+            "expired": "abgelaufen",
+            "expiring": "läuft ab",
+            "no_installs": "keine Installationen",
+            "site": "Standort"
+        },
+        "col": {
+            "asset": "Asset",
+            "program": "Programm",
+            "version": "Version",
+            "counts": "Nutzung"
         }
     },
     "svc": {
