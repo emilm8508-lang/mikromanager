@@ -2,6 +2,19 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.2 — 2026-11-20
+- Two fixes from aluplasti's data in Central.
+  - Forecasts: certificates that ended more than 30 days ago are left out. They are TLS findings, not forecasts. Cameras with a 1970 certificate had filled "within 7 days" with items 19 683 days late.
+  - NetPath: a path counts as changed only when a router answers that no trace of the last day saw.
+    - Before, every trace that differed from the most frequent path counted, so an ISP balancing over several paths gave 85 "changes" in 96 traces a day, and the low alert `metric.path_changed` could stay open.
+    - The newest 45 minutes are left out of what counts as seen, so a real move to new routers is still alerted after two traces and closes once the new path is known.
+    - The alert names the new routers.
+    - The change counts already stored fall out within a day.
+- Tested: the forecast and NetPath tests, plus:
+  - an ISP alternating three known paths (no change in 40 traces);
+  - a move to new routers (changed for three traces, alerted once, closed);
+  - a 1970 certificate left out.
+
 ## 3.94.1 — 2026-11-20
 - Reports page: the report descriptions, filter labels, column headings and SMTP fields are now translated into German, Spanish, French, Russian and Ukrainian. In 3.93 they were English in those languages.
 - Tested: tsc. Every other key of the five locale files was compared and is unchanged.

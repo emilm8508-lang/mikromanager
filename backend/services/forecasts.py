@@ -24,6 +24,8 @@ HORIZON_DAYS = 90
 MIN_SLOPE = {"disk": 0.2, "mem": 0.5, "dhcp_pool": 0.5}
 MIN_CURRENT = {"disk": 30.0, "mem": 50.0, "dhcp_pool": 20.0}
 MEM_ALERT_DAYS = 7
+EXPIRED_KEEP_DAYS = 30           # a certificate that ended longer ago is not a forecast any more (the TLS findings list it); seen at aluplasti:
+                                 # cameras with a 1970 certificate filled "within 7 days" with items 19 683 days late
 INTERVAL_SEC = 3600
 
 _task: Optional[asyncio.Task] = None
@@ -84,7 +86,8 @@ def cert_forecasts(now: Optional[datetime] = None, horizon: int = HORIZON_DAYS) 
     out = []
     with SessionLocal() as db:
         from services import tls_scan
-        for c in db.execute(select(TlsCheck).where(TlsCheck.not_after.is_not(None), TlsCheck.not_after <= now + timedelta(days=horizon))).scalars().all():
+        for c in db.execute(select(TlsCheck).where(TlsCheck.not_after.is_not(None), TlsCheck.not_after <= now + timedelta(days=horizon),
+                                                   TlsCheck.not_after >= now - timedelta(days=EXPIRED_KEEP_DAYS))).scalars().all():
             try:
                 where = tls_scan._device_name(db, c.ip)
             except Exception:
@@ -96,7 +99,7 @@ def cert_forecasts(now: Optional[datetime] = None, horizon: int = HORIZON_DAYS) 
     try:
         from services import app_checks
         for x in app_checks.overview(now)["items"]:
-            if x.get("cert_days") is not None and x["cert_days"] <= horizon:
+            if x.get("cert_days") is not None and -EXPIRED_KEEP_DAYS <= x["cert_days"] <= horizon:
                 out.append({"kind": "certificate", "key": f"app:{x['id']}", "name": x["name"], "where": x["name"], "what": x["target"], "asset_id": None,
                             "unit": None, "value": None, "per_day": None, "days": x["cert_days"], "date": _iso(now + timedelta(days=x["cert_days"]))})
     except Exception as e:

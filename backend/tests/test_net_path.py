@@ -86,6 +86,24 @@ class Record(unittest.TestCase):
         open_now = [k for k in self.alerts() if k[1] == "new"]
         self.assertEqual(open_now, [], "both closed once the path is back and fine")
 
+    def test_isp_balancing_over_known_routers_is_not_a_change(self):
+        """3.94.2: aluplasti counted 85 changes in 96 traces a day - an ISP alternating its paths."""
+        t = {"ip": "1.1.1.1", "name": "Internet"}
+        now = datetime(2026, 11, 20, 0, 0)
+        paths = [[hop(1, "192.168.1.1"), hop(2, "80.1.1.1"), hop(3, "80.2.2.1"), hop(4, "1.1.1.1")],
+                 [hop(1, "192.168.1.1"), hop(2, "80.1.1.2"), hop(3, "80.2.2.2"), hop(4, "1.1.1.1")],
+                 [hop(1, "192.168.1.1"), hop(2, "80.1.1.1"), hop(3, None), hop(4, "80.2.2.2"), hop(5, "1.1.1.1")]]
+        changes = [npth.record(t, paths[i % 3], True, now + timedelta(minutes=15 * i), 5.0)["changed"] for i in range(40)]
+        self.assertEqual(sum(changes), 0)
+        self.assertNotIn(("metric.path_changed", "new"), self.alerts())
+        moved = [hop(1, "192.168.1.1"), hop(2, "95.5.5.5"), hop(3, "95.6.6.6"), hop(4, "1.1.1.1")]
+        r = [npth.record(t, moved, True, now + timedelta(minutes=15 * (40 + i)), 5.0) for i in range(6)]
+        self.assertEqual([x["changed"] for x in r], [True, True, True, False, False, False], "new routers count until a trace of them is 45 minutes old")
+        self.assertEqual(r[0]["new_routers"], ["95.5.5.5", "95.6.6.6"])
+        self.assertNotIn(("metric.path_changed", "new"), self.alerts(), "alerted after two traces, closed once the new path is known")
+        with self.Session() as db:
+            self.assertEqual(db.query(self.mdb.SocAlert).filter_by(rule="metric.path_changed").count(), 1)
+
     def test_overview_and_summary_without_addresses(self):
         from services import net_quality
         net_quality.save_settings({"targets": [{"name": "Internet", "ip": "1.1.1.1"}]})

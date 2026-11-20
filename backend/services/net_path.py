@@ -12,8 +12,10 @@ starts there and lasts in every answering hop after it, up to the target:
   loss      the first hop from which every later answering hop loses at least the loss limit, the target included;
   latency   the first hop where the latency jumps by at least LAT_JUMP_MS over the hop before, and every later hop stays that high.
 
-The path is the sequence of answering hops. "Changed" means it differs from the usual path - the most frequent one of the last day -
-so the load balancing of an ISP that alternates two paths does not make every trace a change.
+The path is the sequence of answering hops. "Changed" means a router answered that no trace of the last day saw (3.94.2): an ISP balancing
+its traffic over several paths alternates between routers already seen, which is not a change. Before, a trace that differed from the most
+frequent path counted - at aluplasti that was 85 of 96 traces a day. The newest BASELINE_GAP of traces is left out of what counts as seen, so
+a real move to new routers stays "changed" for a while (and is alerted after two traces) before it becomes the known path.
 
 Kept: every trace for 14 days (NetPathTrace). Alerts, each after two traces in a row, closed after a good one:
   metric.path_degraded  loss / latency starts at hop N (medium) - the hop's address is in the detail;
@@ -40,6 +42,7 @@ HOP_PINGS = 5
 PARALLEL = 4
 LAT_JUMP_MS = 50.0
 STREAK = 2
+BASELINE_GAP_MIN = 45
 
 _task: Optional[asyncio.Task] = None
 _last: Dict[str, object] = {"at": None, "targets": 0, "duration_sec": None, "error": None}
@@ -105,6 +108,12 @@ def usual(signatures: List[str]) -> Optional[str]:
     return None
 
 
+def new_routers(sig: str, known: List[str], target: Optional[str] = None) -> List[str]:
+    """The answering hops of a path that none of the known paths had (the target itself does not count)."""
+    seen = {ip for s in known for ip in s.split(">") if ip and ip != "-"}
+    return [ip for ip in sig.split(">") if ip and ip != "-" and ip != target and ip not in seen]
+
+
 def culprit(hops: List[dict], loss_limit: float) -> Tuple[Optional[int], Optional[str]]:
     """(hop number, "loss" | "latency") where a problem starts and lasts to the end, or (None, None)."""
     measured = [h for h in hops if h.get("ip") and h.get("loss") is not None]
@@ -162,7 +171,7 @@ def _judge(t: dict, rec: dict, now: datetime) -> List[str]:
         ("metric.path_degraded", rec["culprit"] is not None, "medium", "Path degraded",
          f"{t['name']} ({t['ip']}): {rec['culprit_kind']} starts at hop {rec['culprit']} ({rec.get('culprit_ip') or '?'}) and lasts to the target"),
         ("metric.path_changed", rec["changed"], "low", "Path changed",
-         f"{t['name']} ({t['ip']}): the path differs from the usual one of the last day ({rec['hop_count']} hops)"),
+         f"{t['name']} ({t['ip']}): routers not seen in the last day answer on the path: {', '.join(rec.get('new_routers') or [])} ({rec['hop_count']} hops)"),
     )
     for rule, bad, sev, title, msg in checks:
         k = (t["ip"], rule)
@@ -208,15 +217,16 @@ async def run_cycle(now: Optional[datetime] = None) -> dict:
 def record(t: dict, hops: List[dict], reached: bool, now: datetime, loss_limit: float) -> dict:
     sig = signature(hops)
     with SessionLocal() as db:
-        recent = db.execute(select(NetPathTrace.signature).where(NetPathTrace.target_ip == t["ip"], NetPathTrace.at >= now - timedelta(days=1))
-                            .order_by(NetPathTrace.at)).scalars().all()
-        base = usual(list(recent))
-        changed = bool(base and not _same_path(sig, base))
+        known = db.execute(select(NetPathTrace.signature).where(NetPathTrace.target_ip == t["ip"], NetPathTrace.at >= now - timedelta(days=1),
+                                                                NetPathTrace.at <= now - timedelta(minutes=BASELINE_GAP_MIN))).scalars().all()
+        fresh = new_routers(sig, list(known), t["ip"])
+        changed = bool(known and fresh)
         n, kind = culprit(hops, loss_limit)
         db.add(NetPathTrace(target_ip=t["ip"], target_name=t["name"], at=now, hops=json.dumps(hops), signature=sig[:2000], reached=reached,
                             changed=changed, culprit=n, culprit_kind=kind))
         db.commit()
-    rec = {"changed": changed, "culprit": n, "culprit_kind": kind, "culprit_ip": next((h["ip"] for h in hops if h["n"] == n), None), "hop_count": len(hops)}
+    rec = {"changed": changed, "culprit": n, "culprit_kind": kind, "culprit_ip": next((h["ip"] for h in hops if h["n"] == n), None), "hop_count": len(hops),
+           "new_routers": fresh[:6]}
     _judge(t, rec, now)
     return rec
 

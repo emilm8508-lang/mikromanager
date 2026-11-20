@@ -65,6 +65,7 @@ class _Db(unittest.TestCase):
                     mt.record(key, v, name=name, kind=kind, unit="%", now=at, db=db, asset_id=1 if key.startswith("win:1") else None)
             db.add(mdb.TlsCheck(ip="192.168.1.10", port=443, subject="intranet.local", not_after=NOW + timedelta(days=12), self_signed=True))
             db.add(mdb.TlsCheck(ip="192.168.1.11", port=443, subject="far.local", not_after=NOW + timedelta(days=300)))
+            db.add(mdb.TlsCheck(ip="192.168.1.12", port=443, subject="camera-1970", not_after=datetime(1970, 1, 1)))      # 3.94.2: long expired, no forecast
             db.commit()
 
 
