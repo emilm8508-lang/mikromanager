@@ -17,16 +17,25 @@ class Feeds(unittest.TestCase):
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
         import models.database as mdb
-        from services import soc, syslog_receiver, router_logs
+        from services import soc, syslog_receiver, router_logs, logons
         tmp = tempfile.mkdtemp()
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 'f.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
-        mdb.SessionLocal = soc.SessionLocal = syslog_receiver.SessionLocal = self.Session
+        # everything swapped here is put back after the test: a line read over the API goes through router_logs into logons, which wrote
+        # to the real data/mikrotik.db before (seen as "no such column" on an old schema), and the swapped sessions leaked into later tests
+        saved = [(m, "SessionLocal", m.SessionLocal) for m in (mdb, soc, syslog_receiver, logons)]
+        saved += [(router_logs, k, getattr(router_logs, k)) for k in ("_LOGINS_PATH", "_OWNER_PATH", "_SETTINGS_PATH")]
+        saved += [(logons, k, getattr(logons, k)) for k in ("_SESSIONS_PATH", "_SETTINGS_PATH")]
+        cache = dict(logons._agent_users_cache)
+        self.addCleanup(lambda: ([setattr(m, k, v) for m, k, v in saved], logons._agent_users_cache.update(cache)))
+        mdb.SessionLocal = soc.SessionLocal = syslog_receiver.SessionLocal = logons.SessionLocal = self.Session
         syslog_receiver._known_cache.update(at=0, ips={})
         router_logs._LOGINS_PATH = os.path.join(tmp, "l.json")
         router_logs._OWNER_PATH = os.path.join(tmp, "o.json")
         router_logs._SETTINGS_PATH = os.path.join(tmp, "s.json")
+        logons._SESSIONS_PATH, logons._SETTINGS_PATH = os.path.join(tmp, "ls.json"), os.path.join(tmp, "lset.json")
+        logons._agent_users_cache.update(at=0.0, names=set())
         for x in (router_logs._windows, router_logs._agg, router_logs._seen_lines):
             x.clear()
         self.mdb, self.soc, self.sr = mdb, soc, syslog_receiver
