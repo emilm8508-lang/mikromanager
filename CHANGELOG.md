@@ -2,6 +2,12 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.4 — 2026-11-25
+- Traceroute on Linux agents without `traceroute`: the hops of `tracepath` ("1:  192.168.0.1  0.5ms", "1?: [LOCALHOST]", "3:  no reply") were not read at all, because the parser wanted a space right after the hop number.
+  - Seen at psb (Ubuntu 22.04): NetPath (3.85) showed 0 hops and "not reached" for 1.1.1.1, while the link quality to it was fine. Hosts of routed ranges were not grouped under their gateway either.
+  - Now "N:" and "N?:" hops are read, and "no reply" counts as a silent hop.
+- Tested: 2 new tests (backend/tests/test_traceroute_parse.py: tracepath, and tracert / traceroute unchanged), the NetPath tests.
+
 ## 3.94.3 — 2026-11-25
 - Agent update: `npm run build` no longer runs the TypeScript type check (`tsc -b`), only `vite build`. The type check stays as `npm run typecheck` / `npm run build:check` and is run before every commit.
   - Seen at psb: the update to 0e9abb0 failed with "npm build failed". Node stopped with "JavaScript heap out of memory" at a 510 MB heap.

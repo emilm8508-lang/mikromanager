@@ -10,7 +10,7 @@ import sys
 from typing import List, Optional
 
 MAX_HOPS = 15
-_WIN_HOP = re.compile(r"^\s*(\d+)\s+(.*)$")
+_WIN_HOP = re.compile(r"^\s*(\d+)\??:?\s+(.*)$")          # tracert / traceroute "1  ...", tracepath "1:  ..." and "1?: [LOCALHOST]" (3.94.4)
 _IP = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])")
 _MS = re.compile(r"(<?\d+(?:\.\d+)?)\s*ms")
 
@@ -30,7 +30,7 @@ def parse(text: str) -> List[dict]:
         # tracepath prints "1?: [LOCALHOST]" lines and "1:  host  0.5ms"; only an IPv4 address (or a "*") makes a hop
         ips = _IP.findall(rest)
         ms = _MS.search(rest)
-        if ips or re.search(r"\*", rest) or "timed out" in rest.lower():
+        if ips or re.search(r"\*", rest) or "timed out" in rest.lower() or "no reply" in rest.lower():
             hops.append({"n": n, "ip": ips[-1] if ips else None, "ms": float(ms.group(1).lstrip("<")) if ms else None})
     return hops
 
