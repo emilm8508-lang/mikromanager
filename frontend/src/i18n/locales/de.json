@@ -4903,6 +4903,7 @@
         "noAgentData": "der Agent sendet noch keine Anomaliedaten (älter als 3.43)"
     },
     "netflow": {
+        "blind": "Der Router zeigt die Antworten nicht: {{pct}} % der TCP-Verbindungen ins Internet enthalten in NetFlow nur ihr erstes Paket (SYN). Das bedeutet fast immer FastTrack auf dem MikroTik, das Traffic Flow nach dem Verbindungsaufbau umgeht. „Unbeantwortet“ sagt dann nichts, daher zählt die Scan-Erkennung nur interne Adressen und die Reihe „unbeantwortete Versuche“ wird nicht aufgezeichnet. Für den vollen Verkehr: die Regel fasttrack-connection deaktivieren (IP → Firewall → Filter) oder den sichtbar zu machenden Verkehr von FastTrack ausnehmen.",
         "title": "Netzwerkflüsse (NetFlow)",
         "subtitle": "Flow-Datensätze der Router (NetFlow v5 / v9 / IPFIX): der Verkehr jedes Hosts als Reihen, die Stufe 1 bewerten lernt, und Detektoren für Netzwerkangriffe.",
         "listening": "Empfängt auf UDP {{port}}",

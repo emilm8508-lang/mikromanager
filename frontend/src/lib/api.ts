@@ -1814,6 +1814,7 @@ export interface NetflowStatus {
   window: { start: string; hosts: number; bytes: number; top: NetflowTop[]; conv: Array<{ src: string; dst: string; dport: number; proto: number; bytes: number; src_name: string | null; dst_name: string | null }> } | null
   detections: NetflowDetection[]; detections_24h: number
   wazuh: { configured: boolean; at: string | null; agents: number; error: string | null }
+  handshake?: { visible: boolean | null; syn_share: number | null; samples: number; at: string | null }     // 3.94.5: whether the flows show the answers
 }
 export const netflowApi = {
   status: () => api.get<NetflowStatus>('/netflow/status').then(r => r.data),

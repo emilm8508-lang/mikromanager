@@ -322,14 +322,36 @@ def parse(data: bytes, exporter: str) -> Tuple[int, List[dict]]:
 # ── Aggregation ──────────────────────────────────────────────────────────────
 
 def _new_window(start: float) -> dict:
-    return {"start": start, "hosts": {}, "conv": defaultdict(int), "scan_in": {}}
+    return {"start": start, "hosts": {}, "conv": defaultdict(int), "scan_in": {}, "tcp_out": 0, "tcp_out_syn": 0}
+
+
+# 3.94.5: whether the flows show the answers. A connection whose record carries only the SYN counts as unanswered - true when the router sees
+# the whole connection, but a MikroTik with FastTrack (or an exporter that sees one direction) shows only the first packet of EVERY connection,
+# so ordinary web browsing turned into "network sweeps" (psb: 25 high net.portscan alerts on ordinary workstations, every working afternoon).
+# Measured on the connections to the outside, which practically always answer: when nearly all of them look unanswered, the answers are not
+# visible, "unanswered" means nothing, and the sweep rule counts internal targets only.
+HANDSHAKE_MIN = 100              # outside TCP connections in a window before it says anything
+HANDSHAKE_BLIND = 0.8            # this share of them with only a SYN: the answers are not visible
+_handshake: Dict[str, object] = {"visible": None, "syn_share": None, "samples": 0, "at": None}
+
+
+def _update_handshake(w: dict, now: float) -> None:
+    n = int(w.get("tcp_out") or 0)
+    if n < HANDSHAKE_MIN:
+        return                                      # too little to say: the last verdict stays
+    share = round((w.get("tcp_out_syn") or 0) / n, 3)
+    _handshake.update(visible=share < HANDSHAKE_BLIND, syn_share=share, samples=n, at=datetime.utcfromtimestamp(now).isoformat() + "Z")
+
+
+def answers_visible() -> bool:
+    return _handshake["visible"] is not False
 
 
 def _host(w: dict, ip: str) -> dict:
     h = w["hosts"].get(ip)
     if h is None:
         h = w["hosts"][ip] = {"out": 0, "in": 0, "flows": 0, "peers": set(), "peers_n": 0, "ports": set(), "ports_n": 0, "unanswered": 0,
-                              "attempts": 0, "per_dst_ports": defaultdict(set), "admin_dsts": set(), "syn_dsts": set()}
+                              "attempts": 0, "per_dst_ports": defaultdict(set), "admin_dsts": set(), "syn_dsts": set(), "int_dsts": set()}
     return h
 
 
@@ -432,6 +454,12 @@ def ingest(flows: List[dict], now: Optional[float] = None) -> None:
                 h["unanswered"] += 1
                 if len(h["syn_dsts"]) < SET_CAP:
                     h["syn_dsts"].add(dst)
+            if dst_l and len(h["int_dsts"]) < SET_CAP:
+                h["int_dsts"].add(dst)
+            if proto == 6 and not dst_l:
+                w["tcp_out"] += 1
+                if syn_only:
+                    w["tcp_out_syn"] += 1
             if dst_l and dport in ADMIN_PORTS and len(h["admin_dsts"]) < SET_CAP:
                 h["admin_dsts"].add(dst)
             if (not dst_l and _settings.get("beacon", True) and dport not in QUIET_PORTS and dport not in _beacon_ignore and f["bytes"] <= BEACON_BYTES
@@ -520,6 +548,8 @@ def detect(w: dict, now: float) -> List[dict]:
     """The rule detectors over a closed window. Returns what was raised."""
     names = _names()
     before = len(_detections)
+    _update_handshake(w, now)
+    blind = not answers_visible()
     sp, sh, lh = int(_settings.get("scan_ports", 100)), int(_settings.get("scan_hosts", 50)), int(_settings.get("lateral_hosts", 15))
     for ip, h in w["hosts"].items():
         if ip in wan_ips(now):
@@ -530,7 +560,14 @@ def detect(w: dict, now: float) -> List[dict]:
                 continue
             _raise("net.portscan", ip, "Port scan from an internal host", "high", "T1046",
                    f"{_label(ip, names)} tried {wide[1]} ports on {_label(wide[0], names)} in 10 minutes" + _beyond_text(ip), f"ports|{wide[0]}", names, now)
-        elif len(h["syn_dsts"]) >= sh and h["attempts"] and h["unanswered"] / h["attempts"] >= 0.5:
+        elif blind and len(h["int_dsts"]) >= sh:
+            # the answers are not visible (FastTrack?): only the number of internal hosts it reached for says anything
+            if _scan_allowed("net.portscan", ip, h["ports"], len(h["int_dsts"]), now, names):
+                continue
+            _raise("net.portscan", ip, "Network sweep from an internal host", "high", "T1046",
+                   f"{_label(ip, names)} tried {len(h['int_dsts'])} internal hosts in 10 minutes (the flows do not show answers)" + _beyond_text(ip),
+                   "sweep", names, now)
+        elif not blind and len(h["syn_dsts"]) >= sh and h["attempts"] and h["unanswered"] / h["attempts"] >= 0.5:
             if _scan_allowed("net.portscan", ip, h["ports"], len(h["syn_dsts"]), now, names):
                 continue
             _raise("net.portscan", ip, "Network sweep from an internal host", "high", "T1046",
@@ -728,9 +765,9 @@ def _record(w: dict, names: Dict[str, dict], now: float) -> None:
             nm = (names.get(ip) or {}).get("name") or ip
             vals = (("out_mb", "traffic out", "MB", (h["out"] if h else 0) / 1e6), ("in_mb", "traffic in", "MB", (h["in"] if h else 0) / 1e6),
                     ("peers", "peers", "hosts", h["peers_n"] if h else 0), ("ports", "ports tried", "ports", h["ports_n"] if h else 0),
-                    ("unanswered", "unanswered attempts", "conn", h["unanswered"] if h else 0))
+                    ("unanswered", "unanswered attempts", "conn", (h["unanswered"] if h else 0) if answers_visible() else None))   # None: not recorded while answers are not visible
             for suffix, label, unit, v in vals:
-                metrics.record(f"net:{ip}:{suffix}", round(v, 3), name=f"{nm} · {label}", kind="net", unit=unit, now=at, db=db)
+                metrics.record(f"net:{ip}:{suffix}", round(v, 3) if v is not None else None, name=f"{nm} · {label}", kind="net", unit=unit, now=at, db=db)
         db.commit()
 
 
@@ -838,6 +875,7 @@ def status() -> dict:
         "tracked": len(_tracked), "window": last, "windows": list(_history),
         "detections": list(reversed(_detections))[:100], "detections_24h": len(recent),
         "excepted": list(reversed(_excepted))[:50], "suggested_exceptions": suggested_exceptions(), "wan_ips": sorted(wan_ips()),
+        "handshake": dict(_handshake),                 # 3.94.5: whether the flows show the answers (FastTrack hides them)
     }
 
 
@@ -872,4 +910,5 @@ def public_summary() -> dict:
                                                                                               if datetime.fromisoformat(x["at"].rstrip("Z")).timestamp() >= time.time() - 86400),
         "suggested_exceptions": [{"n": x["name"] or x["source"], "every_h": x["every_h"], "ip": x["source"], "ports": (x.get("proposal") or {}).get("ports"),
                                   "count": x.get("count"), "span_h": x.get("span_h")} for x in st["suggested_exceptions"][:10]],
+        "answers_visible": _handshake["visible"], "syn_only_share": _handshake["syn_share"],          # 3.94.5
     }

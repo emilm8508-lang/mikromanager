@@ -4903,6 +4903,7 @@
         "noAgentData": "l'agent n'envoie pas encore de données d'anomalies (antérieur à 3.43)"
     },
     "netflow": {
+        "blind": "Le routeur ne montre pas les réponses : {{pct}} % des connexions TCP vers Internet ne portent dans NetFlow que leur premier paquet (SYN). Cela signifie presque toujours FastTrack sur le MikroTik, qui contourne Traffic Flow une fois la connexion établie. « Sans réponse » ne dit alors rien : la détection des balayages ne compte que les adresses internes et la série « tentatives sans réponse » n'est pas enregistrée. Pour voir tout le trafic : désactivez la règle fasttrack-connection (IP → Firewall → Filter) ou excluez de FastTrack le trafic à observer.",
         "title": "Flux réseau (NetFlow)",
         "subtitle": "Enregistrements de flux des routeurs (NetFlow v5 / v9 / IPFIX) : le trafic de chaque hôte sous forme de séries que l'étape 1 apprend à juger, et des détecteurs d'attaques réseau.",
         "listening": "Réception sur UDP {{port}}",

@@ -2,6 +2,19 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.5 — 2026-11-25
+- NetFlow: ordinary browsing is no longer a "network sweep" when the router's flows do not show the answers.
+  - A connection whose flow record carries only the SYN counted as unanswered. With FastTrack on a MikroTik (or an exporter that sees one direction), every connection looks like that. Seen at psb: 25 high `net.portscan` "network sweeps" from ordinary workstations every working afternoon (60-150 "unanswered" connections to 30-100 hosts in 10 minutes), plus the `net.combined` and ML correlations built on them.
+  - The agent now measures, per 10-minute window, the share of TCP connections to the internet that carry only a SYN (at least 100 such connections). From 80% the answers count as not visible:
+    - a sweep is then counted only over internal destinations (50 internal hosts in 10 minutes), without the unanswered ratio;
+    - the anomaly series "unanswered attempts" is not recorded;
+    - the NetFlow page says so, with how to fix it (the fasttrack-connection rule);
+    - the summary for Central carries `answers_visible` and `syn_only_share`.
+  - With the answers visible nothing changes.
+  - FastTrack at psb was not confirmed on the router. The flows' pattern (every outside TCP connection SYN-only during working hours) points to it.
+- Tests: the NetFlow collector test put back its swapped sessions now (it left them to later tests).
+- Tested: 3 new NetFlow tests (browsing through FastTrack is not a sweep, a sweep of the internal network is still seen with the answers hidden, nothing changes with the answers visible), all NetFlow tests, tsc, the production build.
+
 ## 3.94.4 — 2026-11-25
 - Traceroute on Linux agents without `traceroute`: the hops of `tracepath` ("1:  192.168.0.1  0.5ms", "1?: [LOCALHOST]", "3:  no reply") were not read at all, because the parser wanted a space right after the hop number.
   - Seen at psb (Ubuntu 22.04): NetPath (3.85) showed 0 hops and "not reached" for 1.1.1.1, while the link quality to it was fine. Hosts of routed ranges were not grouped under their gateway either.

@@ -106,6 +106,11 @@ export function NetFlow() {
         </span>
         {d.error && <span className="text-xs text-red-600">{d.error}</span>}
         {d.listening && <span className="text-xs text-slate-500">{t('netflow.counts', { flows: d.stats.flows.toLocaleString(), packets: d.stats.packets.toLocaleString(), hosts: d.tracked })}</span>}
+        {d.handshake?.visible === false && (
+          <div className="basis-full text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+            {t('netflow.blind', { pct: Math.round((d.handshake.syn_share ?? 0) * 100) })}
+          </div>
+        )}
         <button onClick={() => enable.mutate(!d.settings.enabled)} disabled={enable.isPending}
           className={cn('ml-auto text-xs px-3 py-1.5 rounded-lg', d.settings.enabled ? 'border border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-indigo-600 text-white hover:bg-indigo-700')}>
           {d.settings.enabled ? t('netflow.disable') : t('netflow.enable')}

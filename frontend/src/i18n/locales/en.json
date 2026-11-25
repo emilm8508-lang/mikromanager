@@ -4903,6 +4903,7 @@
         "noAgentData": "the agent does not send anomaly data yet (older than 3.43)"
     },
     "netflow": {
+        "blind": "The router does not show the answers: {{pct}}% of the TCP connections to the internet carry only their first packet (SYN) in NetFlow. That almost always means FastTrack on the MikroTik, which bypasses Traffic Flow once a connection is up. \"Unanswered\" then says nothing, so scan detection counts internal addresses only and the \"unanswered attempts\" series is not recorded. To see the whole traffic: disable the fasttrack-connection rule (IP → Firewall → Filter) or exclude the traffic that should be seen from FastTrack.",
         "title": "Network flows (NetFlow)",
         "subtitle": "Flow records from the routers (NetFlow v5 / v9 / IPFIX): every host's traffic as series that stage 1 learns to judge, and network attack detectors.",
         "listening": "Receiving on UDP {{port}}",

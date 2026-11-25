@@ -12,6 +12,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services import flow_rules as fr  # noqa: E402
+from _isolate import swap  # noqa: E402
 
 SYN, ACK, RST, PSH = 0x02, 0x10, 0x04, 0x08
 
@@ -78,8 +79,10 @@ class Collector(unittest.TestCase):
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 'n.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
-        mdb.SessionLocal = soc.SessionLocal = self.Session
+        swap(self, mdb, "SessionLocal", self.Session)
+        swap(self, soc, "SessionLocal", self.Session)
         nf = netflow
+        nf._handshake.update(visible=None, syn_share=None, samples=0, at=None)
         nf._settings.clear()
         nf._settings.update(dict(nf.DEFAULTS))
         nf._set_nets(nf.DEFAULTS["local_nets"])
@@ -126,6 +129,37 @@ class Collector(unittest.TestCase):
         self.nf.ingest(flows, self.t0 + 10)
         self.nf.close_window(self.t0 + self.nf.WINDOW_SEC + 1)
         self.assertEqual(len(self.alerts("net.portscan")), 1)
+
+    def _browsing(self, flags):
+        """Four workstations on the web: 150 connections each to 60 outside addresses (ordinary pages, CDNs, cloud)."""
+        out = []
+        for ws in range(4):
+            for i in range(150):
+                out.append(self.flow(f"192.168.0.{120 + ws}", f"104.{ws}.{i % 60}.{i % 7 + 1}", 50000 + i, 443, flags))
+        return out
+
+    def test_browsing_through_fasttrack_is_not_a_network_sweep(self):
+        """3.94.5, psb: with FastTrack the flows carry only the SYN of every connection - ordinary browsing was 25 high 'network sweeps'."""
+        self.nf.ingest(self._browsing(SYN), self.t0 + 10)
+        self.nf.close_window(self.t0 + self.nf.WINDOW_SEC + 1)
+        self.assertEqual(self.alerts("net.portscan"), [])
+        self.assertEqual((self.nf._handshake["visible"], self.nf._handshake["syn_share"]), (False, 1.0))
+        self.assertFalse(self.nf.public_summary()["answers_visible"])
+
+    def test_with_answers_hidden_a_sweep_of_the_internal_network_is_still_seen(self):
+        flows = self._browsing(SYN) + [self.flow("192.168.0.140", f"192.168.1.{i}", 50000 + i, 445, SYN) for i in range(1, 61)]
+        self.nf.ingest(flows, self.t0 + 10)
+        self.nf.close_window(self.t0 + self.nf.WINDOW_SEC + 1)
+        a = self.alerts("net.portscan")
+        self.assertEqual([x.ip for x in a], ["192.168.0.140"])
+        self.assertIn("60 internal hosts", json.loads(a[0].detail)["message"])
+
+    def test_with_answers_visible_nothing_changes(self):
+        flows = self._browsing(SYN | ACK | PSH) + [self.flow("192.168.0.141", f"203.0.113.{i}", 50000 + i, 23, SYN) for i in range(1, 61)]
+        self.nf.ingest(flows, self.t0 + 10)
+        self.nf.close_window(self.t0 + self.nf.WINDOW_SEC + 1)
+        self.assertTrue(self.nf._handshake["visible"])
+        self.assertEqual([x.ip for x in self.alerts("net.portscan")], ["192.168.0.141"], "an unanswered sweep to the outside, answers visible")
 
     def test_scanner_exception_inside_and_beyond(self):
         self.nf._settings["scanner_exceptions"] = fr.clean_exceptions([{"source": "192.168.2.21", "ports": "1-1024"}])

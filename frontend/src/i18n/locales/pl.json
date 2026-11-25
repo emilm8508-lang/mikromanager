@@ -5323,6 +5323,7 @@
         "noAgentData": "agent jeszcze nie wysyła danych o anomaliach (wersja starsza niż 3.43)"
     },
     "netflow": {
+        "blind": "Router nie pokazuje odpowiedzi: {{pct}}% połączeń TCP do internetu ma w NetFlow tylko pierwszy pakiet (SYN). Prawie zawsze oznacza to FastTrack na MikroTiku, który omija Traffic Flow po nawiązaniu połączenia. „Bez odpowiedzi” niczego wtedy nie mówi, więc wykrywanie skanowania liczy tylko adresy wewnętrzne, a szereg „próby bez odpowiedzi” nie jest zapisywany. Aby widzieć pełny ruch: wyłącz regułę fasttrack-connection (IP → Firewall → Filter) albo wyłącz FastTrack dla ruchu, który ma być widoczny.",
         "title": "Ruch sieciowy (NetFlow)",
         "subtitle": "Rekordy przepływów z routerów (NetFlow v5 / v9 / IPFIX): ruch każdego hosta jako serie, które etap 1 uczy się oceniać, i detektory ataków sieciowych.",
         "listening": "Odbiera na UDP {{port}}",
