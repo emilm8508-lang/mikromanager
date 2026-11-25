@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from _isolate import swap, swap_class  # noqa: E402
+
 NOW = datetime(2026, 11, 14, 12, 0)
 
 
@@ -29,7 +31,8 @@ class Tls(unittest.TestCase):
     def setUp(self):
         from services import tls_scan, soc
         self.mdb, self.Session = _db()
-        tls_scan.SessionLocal = soc.SessionLocal = self.Session
+        swap(self, tls_scan, "SessionLocal", self.Session)
+        swap(self, soc, "SessionLocal", self.Session)
         self.tls, self.soc = tls_scan, soc
 
     def test_case12_factory_certificate_is_one_low_finding(self):
@@ -104,7 +107,8 @@ class Quality(unittest.TestCase):
     def test_report_and_closing_gone_findings(self):
         from services import soc_quality, soc, vuln_scan
         mdb, Session = _db()
-        soc_quality.SessionLocal = soc.SessionLocal = Session
+        swap(self, soc_quality, "SessionLocal", Session)
+        swap(self, soc, "SessionLocal", Session)
         old = NOW - timedelta(days=10)
 
         def a(rule, status, sev="medium", closed_by=None, first=old, cat="network", detail=None):

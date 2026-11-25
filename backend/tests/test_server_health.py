@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from _isolate import swap, swap_class  # noqa: E402
+
 from services import server_health as sh  # noqa: E402
 
 NOW = datetime(2026, 11, 14, 12, 0)
@@ -119,7 +121,8 @@ class Cycle(unittest.TestCase):
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 's.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine, expire_on_commit=False)
-        mdb.SessionLocal = soc.SessionLocal = metrics.SessionLocal = Session
+        for m in (mdb, soc, metrics):
+            swap(self, m, "SessionLocal", Session)
         gb = 1024 ** 3
         with Session() as db:
             db.add(mdb.WindowsHost(id=1, ip="10.0.0.3", hostname="DC2", managed=True, license_name="ServerStandardEval", license_eval=True,

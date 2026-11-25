@@ -13,6 +13,8 @@ from types import SimpleNamespace as NS
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from _isolate import swap, swap_class  # noqa: E402
+
 from services import vuln_match as vm  # noqa: E402
 
 ROS = "cpe:2.3:o:mikrotik:routeros:*:*:*:*:*:*:*:*"
@@ -129,13 +131,13 @@ class EndToEnd(unittest.TestCase):
         import models.database as mdb
         cls.tmp = tempfile.mkdtemp()
         engine = create_engine(f"sqlite:///{os.path.join(cls.tmp, 't.db')}", connect_args={"check_same_thread": False})
-        mdb.engine = engine
-        mdb.SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+        swap_class(cls, mdb, "engine", engine)
+        swap_class(cls, mdb, "SessionLocal", sessionmaker(bind=engine, expire_on_commit=False))
         mdb.Base.metadata.create_all(engine)
         from services import vuln_scan, exploit_intel
-        vuln_scan.SessionLocal = mdb.SessionLocal
+        swap_class(cls, vuln_scan, "SessionLocal", mdb.SessionLocal)
         cls.mdb, cls.vs = mdb, vuln_scan
-        exploit_intel.info = lambda cve: {"kev": cve in ("CVE-2018-14847", "CVE-2018-7445", "CVE-2026-86060"), "epss": None}
+        swap_class(cls, exploit_intel, "info", lambda cve: {"kev": cve in ("CVE-2018-14847", "CVE-2018-7445", "CVE-2026-86060"), "epss": None})
 
     def _cve(self, cve_id, matches, score=9.8):
         return NS(id=cve_id, v31score=score, v31severity="CRITICAL", descriptions=[NS(lang="en", value=cve_id)], published="2018",
@@ -224,10 +226,11 @@ class Reevaluation(unittest.TestCase):
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 'r.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine, expire_on_commit=False)
-        vs.SessionLocal = vuln_reeval.SessionLocal = Session
-        vuln_reeval._PATH = os.path.join(tmp, "reeval.json")
-        vuln_reeval.PAUSE_SEC = 0
-        exploit_intel.info = lambda cve: {"kev": cve.startswith("CVE-2018"), "epss": None}
+        swap(self, vs, "SessionLocal", Session)
+        swap(self, vuln_reeval, "SessionLocal", Session)
+        swap(self, vuln_reeval, "_PATH", os.path.join(tmp, "reeval.json"))
+        swap(self, vuln_reeval, "PAUSE_SEC", 0)
+        swap(self, exploit_intel, "info", lambda cve: {"kev": cve.startswith("CVE-2018"), "epss": None})
 
         class FakeNvd:
             def searchCPE(self, **kw):
@@ -273,10 +276,11 @@ class Reevaluation(unittest.TestCase):
         engine = create_engine(f"sqlite:///{os.path.join(tmp, 'r.db')}", connect_args={"check_same_thread": False})
         mdb.Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine, expire_on_commit=False)
-        vs.SessionLocal = vuln_reeval.SessionLocal = Session
-        vuln_reeval._PATH = os.path.join(tmp, "reeval.json")
-        vuln_reeval.PAUSE_SEC = 0
-        exploit_intel.info = lambda cve: {"kev": cve.startswith("CVE-2018"), "epss": None}
+        swap(self, vs, "SessionLocal", Session)
+        swap(self, vuln_reeval, "SessionLocal", Session)
+        swap(self, vuln_reeval, "_PATH", os.path.join(tmp, "reeval.json"))
+        swap(self, vuln_reeval, "PAUSE_SEC", 0)
+        swap(self, exploit_intel, "info", lambda cve: {"kev": cve.startswith("CVE-2018"), "epss": None})
         state = {"up": False}
 
         class FakeNvd:

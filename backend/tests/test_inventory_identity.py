@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from _isolate import swap, swap_class  # noqa: E402
+
 from services import directory_merge as dm, asset_type as at, iface_roles as ir  # noqa: E402
 
 R2_MAC = "4C:5E:0C:11:22:33"          # MikroTik: the peer router behind proxy-ARP / EoIP
@@ -116,7 +118,8 @@ class _Db(unittest.TestCase):
         mdb.Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
         from services import assets, asset_merge, vuln_scan
-        assets.SessionLocal = asset_merge.SessionLocal = vuln_scan.SessionLocal = self.Session
+        for m in (assets, asset_merge, vuln_scan):
+            swap(self, m, "SessionLocal", self.Session)
         self.mdb, self.assets, self.am = mdb, assets, asset_merge
 
 
