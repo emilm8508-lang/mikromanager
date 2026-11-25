@@ -2,6 +2,14 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.3 — 2026-11-25
+- Agent update: `npm run build` no longer runs the TypeScript type check (`tsc -b`), only `vite build`. The type check stays as `npm run typecheck` / `npm run build:check` and is run before every commit.
+  - Seen at psb: the update to 0e9abb0 failed with "npm build failed". Node stopped with "JavaScript heap out of memory" at a 510 MB heap.
+  - The VM (checkmk) has 8 GB but Hyper-V dynamic memory with a 512 MB minimum, and Node sizes its heap from the memory the guest sees when it starts.
+  - With a 510 MB limit, `tsc -b` runs out of memory while `vite build` finishes in a few seconds.
+  - The agent's own updater calls `npm run build`, so the next update attempt on such a machine succeeds with the updater it already runs.
+- Tested: `npm run build -- --outDir …` exactly as the updater runs it, with `--max-old-space-size=510` (built in 3.4 s); `tsc -b` on its own (OK).
+
 ## 3.94.2 — 2026-11-20
 - Two fixes from aluplasti's data in Central.
   - Forecasts: certificates that ended more than 30 days ago are left out. They are TLS findings, not forecasts. Cameras with a 1970 certificate had filled "within 7 days" with items 19 683 days late.
