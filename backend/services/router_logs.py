@@ -4,6 +4,7 @@ log read over the RouterOS API by services/resource_monitor.py), plus whether ea
 
 Rules (each an alert of the router, merged while it repeats - one alert with a count, the latest line as a sample, the sources and users):
   login_failed      5 failed logins within 10 min (any service); 20+ or any from outside the management networks: high      T1110
+  login_failed_outside  fewer than that, but from outside the management networks: one alert per router, counting     medium T1110
   login_outside     a successful login from outside the management networks (a public address)                        high   T1078
   login_new_source  a successful login of a user from an address it has not used on this router in 90 days           medium T1078
   config_change     "added / changed / removed by" - who, from where, what (one alert per router, counting)           low
@@ -270,13 +271,14 @@ REPLACES = {"login_failed": "auth_failure", "config_change": "config_change", "r
             "ipsec_fail": "ipsec_probe", "ipsec_respond": "ipsec_probe", "winbox_denied": "winbox_denied"}
 
 
-def _is_agent_account(user: Optional[str]) -> bool:
-    """The user name of one of the agent's own credentials (services/logons.is_technical knows them)."""
+def _is_agent_logon(user: Optional[str], src_ip: Optional[str]) -> bool:
+    """The agent's own login (services/logons.is_agent_logon): its account, not from the internet. 3.94.6: the account name alone is not
+    enough - the agent's credentials are often "admin", and a login as admin from the internet is anything but the agent's."""
     if not user:
         return False
     try:
         from services import logons
-        return user.split("\\")[-1].split("@")[0].strip().lower() in logons._agent_users()
+        return logons.is_agent_logon(user, src_ip)
     except Exception:
         return False
 
@@ -307,7 +309,7 @@ def handle(*, device: str, device_ip: str, message: str, app: Optional[str] = No
         for k in [k for k, v in _seen_lines.items() if not any(v.values())][:10000]:
             _seen_lines.pop(k, None)
     _stats[p["kind"]] += 1
-    if p["kind"] in ("login_ok", "logout") and _is_agent_account(p.get("user")):
+    if p["kind"] in ("login_ok", "logout") and _is_agent_logon(p.get("user"), p.get("src_ip")):
         out["self"] = True                                    # the agent's own API / REST login (3.73): not a person's, no rule, no logon
         return out
     if p["kind"] in ("login_ok", "login_failed") and p.get("user"):
@@ -334,6 +336,14 @@ def handle(*, device: str, device_ip: str, message: str, app: Optional[str] = No
             outside = any(not in_mgmt(ip, nets) for ip in a["sources"])
             raise_("login_failed", f"Failed logins ({', '.join(sorted(a['services'])) or 'router'})", "high" if (n >= 20 or outside) else "medium",
                    "auth", "", a, "T1110", {"in_10_min": n, "from_outside": outside})
+        elif p.get("src_ip") and not in_mgmt(p["src_ip"], nets):
+            # 3.94.6: a single failed login from outside the management networks. A slow guesser stays under 5 in 10 min for ever - seen
+            # in production: admin via winbox from several internet addresses, one every day or two, not one alert. Each attempt counts
+            # into one alert per router; that the service answers the internet at all is the finding.
+            b = _bump("login_failed_outside", device, "", p, message, at)
+            svc = ", ".join(sorted(b["services"])) or "router"
+            raise_("login_failed_outside", f"Failed login from outside the management network ({svc})", "medium", "auth", "", b, "T1110",
+                   {"from_outside": True, "exposed_services": sorted(b["services"])})
     elif k == "login_ok" and p.get("user"):
         logins = _loaded_logins()
         key = f"{device_ip}|{p['user']}"

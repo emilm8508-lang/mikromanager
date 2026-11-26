@@ -2,6 +2,14 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.6 — 2026-11-26
+- Router logs: slow password guessing from the internet now raises an alert, and failed logins on the agent's account name are stored as logons.
+  - Seen in production on an edge router: `login failure for user admin from ... via winbox` from several internet addresses, one every day or two over about 10 days. There was no alert and no logon.
+  - Missing alert: `routerlog.login_failed` needed 5 failures in 10 minutes. New rule `routerlog.login_failed_outside` (medium, T1110): a failed login from outside the management networks, below that threshold, goes into one alert per router. The alert counts the attempts and lists the sources, users and services (`exposed_services`).
+  - Missing logon (the most likely cause; that client's credentials not checked): any user name equal to one of the agent's credentials counted as the agent's own and was thrown away. The agent's credentials are often `admin`, so internet attempts on `admin` disappeared. Now such a name counts as the agent's only from inside the network (or with no address). From a public address that is not the agent's, it is stored as a logon. A successful router login like that is `routerlog.login_outside` again, no longer skipped as `self`.
+  - Not changed: a line read over the API gets the time it was read, not the router's own time (seen: the router said 04:29:34, Central 03:52:20 UTC).
+- Tests: 3 new in `test_router_logs.py` (slow failures from 4 addresses, one alert counting 4; one failure from the management network, no alert; the agent's `admin` from inside skipped, from the internet a logon and alerts). All 290 pass (`python -m unittest discover -s tests`, in backend/). Not run on a client's agent yet.
+
 ## 3.94.5 — 2026-11-25
 - NetFlow: ordinary browsing is no longer a "network sweep" when the router's flows do not show the answers.
   - A connection whose flow record carries only the SYN counted as unanswered. With FastTrack on a MikroTik (or an exporter that sees one direction), every connection looks like that. Seen at psb: 25 high `net.portscan` "network sweeps" from ordinary workstations every working afternoon (60-150 "unanswered" connections to 30-100 hosts in 10 minutes), plus the `net.combined` and ML correlations built on them.

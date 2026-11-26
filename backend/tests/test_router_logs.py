@@ -106,6 +106,40 @@ class Rules(unittest.TestCase):
         a = self.alerts("routerlog.login_outside")
         self.assertEqual((len(a), a[0].severity, a[0].mitre), (1, "high", "T1078"))
 
+    def test_slow_failed_logins_from_the_internet_are_alerted(self):
+        """admin via winbox from 4 internet addresses, one every day or two - never 5 in 10 min, never an alert (3.94.6)."""
+        srcs = ["203.0.113.10", "198.51.100.20", "192.0.2.30", "203.0.113.40"]          # documentation ranges (RFC 5737)
+        for i, ip in enumerate(srcs):
+            self.line(f"login failure for user admin from {ip} via winbox", device="R2", ip="192.168.2.1", dt=i * 86400)
+        self.assertEqual(self.alerts("routerlog.login_failed"), [])
+        a = self.alerts("routerlog.login_failed_outside")
+        self.assertEqual((len(a), a[0].severity, a[0].mitre, a[0].count), (1, "medium", "T1110", 4))
+        d = json.loads(a[0].detail)
+        self.assertEqual((len(d["sources"]), d["users"], d["exposed_services"]), (4, ["admin"], ["winbox"]))
+
+    def test_a_failed_login_from_the_management_network_alone_is_no_alert(self):
+        self.line("login failure for user admin from 192.168.1.50 via winbox")
+        self.assertEqual(self.alerts(), [])
+
+    def agent_account(self, name):
+        from services import logons
+        saved = dict(logons._agent_users_cache)
+        self.addCleanup(lambda: logons._agent_users_cache.update(saved))
+        logons._agent_users_cache.update(at=time.time() + 3600, names={name})
+
+    def test_the_agents_account_name_from_the_internet_is_not_the_agent(self):
+        """The agent's credential is "admin": its own logins are skipped, the same name from the internet is a logon and an alert (3.94.6)."""
+        self.agent_account("admin")
+        self.assertTrue(self.line("user admin logged in from 192.168.1.38 via api").get("self"))
+        self.line("login failure for user admin from 192.168.1.38 via api", dt=2)
+        self.line("login failure for user admin from 45.88.1.40 via winbox", dt=5)
+        self.line("user admin logged in from 45.88.1.41 via winbox", dt=10)
+        with self.Session() as db:
+            rows = [(r.user, r.source_ip, r.result) for r in db.query(self.mdb.AssetLogon).order_by(self.mdb.AssetLogon.id).all()]
+        self.assertEqual(rows, [("admin", "45.88.1.40", "failure"), ("admin", "45.88.1.41", "success")])
+        self.assertEqual(len(self.alerts("routerlog.login_failed_outside")), 1)
+        self.assertEqual(len(self.alerts("routerlog.login_outside")), 1)
+
     def test_config_change_who_and_from_where(self):
         self.line("address changed by winbox-3.41/tcp-msg(winbox):admin@192.168.1.10 (/ip address set *1)")
         self.line("filter rule added by admin", dt=5)

@@ -10,8 +10,10 @@ Sources (each row says which):
   ad             a domain controller's lastLogonTimestamp (replicated about every 14 days: an "accuracy_days" of 14 goes with it)
 Active sessions: quser on Windows, who on Linux, /user/active on RouterOS, the Redfish sessions - kept in data/logon_sessions.json.
 
-Never stored: machine accounts (DC1$), SYSTEM, LOCAL / NETWORK SERVICE, ANONYMOUS LOGON, DWM-* / UMFD-*, the agent's own accounts (the user
-names of its credentials). Privileged: Administrator / admin / root, a Windows logon with an elevated token, an AD account with adminCount=1,
+Never stored: machine accounts (DC1$), SYSTEM, LOCAL / NETWORK SERVICE, ANONYMOUS LOGON, DWM-* / UMFD-*, the agent's own logons (the user
+names of its credentials, from inside the network or with no address). 3.94.6: the same name from an internet address is stored -
+the agent's credentials are often "admin", and "login failure for user admin from <internet address> via winbox" on an edge router
+was thrown away as the agent's own. Privileged: Administrator / admin / root, a Windows logon with an elevated token, an AD account with adminCount=1,
 RouterOS group full.
 
 Personal data (GDPR): only the fields above; details are kept `retention_days` (90 by default, per client in data/logons.json), the daily
@@ -119,12 +121,37 @@ def _agent_users() -> set:
     return _agent_users_cache["names"]
 
 
+def _base(user: Optional[str]) -> str:
+    return (user or "").strip().split("\\")[-1].split("@")[0].strip()
+
+
+def is_system(user: Optional[str]) -> bool:
+    """A machine or built-in system account (DC1$, SYSTEM, DWM-1 ...) or no name: never a person's logon."""
+    base = _base(user)
+    return not base or base.endswith("$") or bool(_TECH.match(base))
+
+
 def is_technical(user: Optional[str]) -> bool:
-    u = (user or "").strip()
-    if not u:
-        return True
-    base = u.split("\\")[-1].split("@")[0].strip()
-    return base.endswith("$") or bool(_TECH.match(base)) or base.lower() in _agent_users()
+    return is_system(user) or _base(user).lower() in _agent_users()
+
+
+def is_agent_logon(user: Optional[str], source_ip: Optional[str]) -> bool:
+    """The agent's own logon: one of its credentials' user names, unless it comes from a public (internet) address that is not one of the
+    agent's - the agent reaches the devices from inside, so that is someone else using (or guessing) the account."""
+    if _base(user).lower() not in _agent_users():
+        return False
+    src = (source_ip or "").strip()
+    try:
+        import ipaddress
+        if not ipaddress.ip_address(src).is_global:
+            return True
+    except ValueError:
+        return True                                        # no address (or a name): as before, the agent's
+    try:
+        from services import agent_self
+        return src in agent_self.addresses()
+    except Exception:
+        return False
 
 
 def _ad_privileged() -> set:
@@ -177,7 +204,7 @@ def record(rows: Iterable[dict], now: Optional[datetime] = None) -> dict:
         asset_by_ip = {a.ip: a.id for a in db.execute(select(Asset).where(Asset.ip.is_not(None))).scalars().all()}
         for r in rows:
             user = clean(r.get("user"))
-            if is_technical(user):
+            if is_system(user) or is_agent_logon(user, r.get("source_ip")):
                 skipped += 1
                 continue
             at = r.get("at") or now
