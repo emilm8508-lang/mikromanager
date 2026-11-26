@@ -140,8 +140,7 @@ Port można zmienić przez zmienną środowiskową `MIKROMANAGER_PORT` (np. `MIK
 - **Bezpieczeństwo agenta** — logowanie z MFA (TOTP, kody jednorazowe), dziennik
   audytu akcji, automatyczna aktualizacja agenta z git (opcjonalna), szyfrowane
   poświadczenia (Fernet), ciasteczko sesji `HttpOnly` + `SameSite=Strict`,
-  limit prób logowania per źródło, nagłówki bezpieczeństwa (CSP). Wynik
-  audytu: [`docs/SECURITY-AUDIT-2026-10-13.md`](docs/SECURITY-AUDIT-2026-10-13.md);
+  limit prób logowania per źródło, nagłówki bezpieczeństwa (CSP).
   HTTPS przed agentem: [`docs/https-za-reverse-proxy.md`](docs/https-za-reverse-proxy.md).
 
 ## Skaner podatności (CVE)
