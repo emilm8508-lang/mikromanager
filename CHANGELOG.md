@@ -2,6 +2,15 @@
 
 Numer wersji agenta (`agent_version`) i krótki opis co zostało dodane, poprawione lub zmienione w każdym wydaniu. Wersja bieżąca to najwyższy numer na górze listy.
 
+## 3.94.7 — 2026-11-26
+- Hardening: the check "management from the WAN restricted" (`mikrotik.wan_management_restricted`) now notices a router whose input chain never drops.
+  - Seen in production: the check passed on an edge router whose Winbox answered the internet (failed logins for `admin` from several public addresses). It only looked for an explicit "accept from WAN" rule, and a chain with no drop accepts everything by RouterOS's default.
+  - Now the check walks the input chain the way RouterOS does (first matching rule wins, no match = accept), for a new TCP connection from an arbitrary internet address on a WAN interface to each enabled service in `/ip service` (winbox, ssh, telnet, ftp, www, www-ssl, api, api-ssl). A service limited by its own `address=` counts as restricted.
+  - Modelled: connection-state, connection-nat-state, protocol, dst-port (lists, ranges, `!`), in-interface, in-interface-list (`!LAN` matches the WAN), src-address / src-address-list (`!` included), dst-address-type. A rule with any other matcher, or a jump, makes the result "to be confirmed by hand" and never decides it.
+  - The detail names each reachable service, its port and why: no rule drops it, or which accept rule lets it in.
+  - Without `/ip service` read, the old reading stays. `/ip/service` is now read once per run instead of three times.
+- Tests: `test_wan_management.py`, 15 cases (a chain that never drops, the default configuration, explicit accept before the drop, source lists, `!MGMT`, port ranges, disabled rules and services, unmodelled matchers and jumps, API field types, the check with a fake client). All 305 pass. Not run on a client's router yet.
+
 ## 3.94.6 — 2026-11-26
 - Router logs: slow password guessing from the internet now raises an alert, and failed logins on the agent's account name are stored as logons.
   - Seen in production on an edge router: `login failure for user admin from ... via winbox` from several internet addresses, one every day or two over about 10 days. There was no alert and no logon.

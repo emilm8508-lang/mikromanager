@@ -210,11 +210,124 @@ def _check_input_chain_default_drop(filter_rows: list) -> tuple:
     )
 
 
-async def _check_wan_management_exposed(client, filter_rows: list) -> tuple:
+# 3.94.7: the WAN check walks the input chain the way RouterOS does (first matching rule wins, no match = accept) for a new TCP
+# connection from an arbitrary internet address to each enabled management service. Before, it only looked for an explicit "accept from
+# WAN" rule - a chain that never drops let everything in and still passed. Seen in production: an edge router passed while its Winbox
+# answered the internet (failed logins for admin from several public addresses). Best-effort like the rest: matchers it does not model make a rule "unsure",
+# and it never counts as the one that decided.
+_SERVICE_LABELS = {"winbox": "Winbox", "ssh": "SSH", "telnet": "Telnet", "ftp": "FTP", "www": "WWW", "www-ssl": "WWW-SSL",
+                   "api": "API", "api-ssl": "API-SSL"}
+_KNOWN_MATCHERS = {".id", "chain", "action", "comment", "disabled", "log", "log-prefix", "dynamic", "invalid", "bytes", "packets",
+                   "connection-state", "connection-nat-state", "protocol", "dst-port", "in-interface", "in-interface-list",
+                   "src-address", "src-address-list", "dst-address-type", "place-before", "jump-target"}
+_TERMINAL = {"accept", "drop", "reject", "tarpit", "fasttrack-connection"}
+
+
+def _neg(v: str) -> tuple:
+    v = str(v or "").strip()
+    return (True, v[1:].strip()) if v.startswith("!") else (False, v)
+
+
+def _port_in(spec: str, port: int) -> bool:
+    for part in str(spec).split(","):
+        part = part.strip()
+        if "-" in part:
+            a, _, b = part.partition("-")
+            if a.strip().isdigit() and b.strip().isdigit() and int(a) <= port <= int(b):
+                return True
+        elif part.isdigit() and int(part) == port:
+            return True
+    return False
+
+
+def _input_verdict(rule: dict, port: int, wan_ifaces: set) -> Optional[bool]:
+    """Whether this input rule matches a new TCP connection from an arbitrary internet address, arriving on a WAN interface, to `port`:
+    True / False, or None when it uses a matcher not modelled here."""
+    st = rule.get("connection-state")
+    if st:
+        neg, v = _neg(st)
+        has_new = "new" in {s.strip() for s in v.split(",")}
+        if has_new == neg:
+            return False
+    if rule.get("connection-nat-state"):
+        return False                                               # dstnat / srcnat: not a connection to the router itself
+    if rule.get("protocol"):
+        neg, v = _neg(rule["protocol"])
+        if (v.lower() in ("tcp", "6")) == neg:
+            return False
+    if rule.get("dst-port"):
+        neg, v = _neg(rule["dst-port"])
+        if _port_in(v, port) == neg:
+            return False
+    if rule.get("in-interface"):
+        neg, v = _neg(rule["in-interface"])
+        if (v in wan_ifaces) == neg:
+            return False
+    if rule.get("in-interface-list"):
+        neg, v = _neg(rule["in-interface-list"])
+        if (v.lower() == "wan") == neg:                            # "!LAN" matches the WAN (the default configuration's last drop)
+            return False
+    for k in ("src-address", "src-address-list"):
+        if rule.get(k):
+            neg, _ = _neg(rule[k])
+            if not neg:
+                return False                                       # a named source: not an arbitrary internet address
+    if rule.get("dst-address-type"):
+        neg, v = _neg(rule["dst-address-type"])
+        if ("local" in v.lower()) == neg:
+            return False
+    if any(k not in _KNOWN_MATCHERS and str(v).strip().lower() not in ("", "none", "false", "no") for k, v in rule.items()):
+        return None
+    return True
+
+
+def _service_restricted(svc: dict) -> bool:
+    """A service limited by its own address= (to anything short of the whole internet)."""
+    addrs = [a.strip() for a in str(svc.get("address") or "").split(",") if a.strip()]
+    return bool(addrs) and not any(a in ("0.0.0.0/0", "::/0") for a in addrs)
+
+
+def wan_exposure(filter_rows: list, services: list, wan_ifaces: set) -> tuple:
+    """[(label, port, why)] of the enabled management services a new connection from the internet reaches, and whether any rule
+    in the way could not be read (unsure)."""
+    rules = [r for r in (filter_rows or []) if isinstance(r, dict) and r.get("chain") == "input" and _rule_active(r)]
+    exposed, unsure = [], False
+    for s in services or []:
+        if not isinstance(s, dict) or s.get("name") not in _SERVICE_LABELS or not _rule_active(s):
+            continue
+        try:
+            port = int(str(s.get("port") or "").strip())
+        except ValueError:
+            continue
+        if _service_restricted(s):
+            continue
+        why = "w łańcuchu input nie ma reguły, która by go odrzuciła (RouterOS domyślnie przyjmuje)"
+        for r in rules:
+            m = _input_verdict(r, port, wan_ifaces)
+            if m is None:
+                unsure = True
+                continue
+            if m and r.get("action") == "jump":
+                unsure = True                                      # what the jumped-to chain does is not followed
+                continue
+            if not m or r.get("action") not in _TERMINAL:
+                continue
+            if r.get("action") in ("accept", "fasttrack-connection"):
+                why = f"reguła accept bez ograniczenia adresu źródłowego ({r.get('comment') or r.get('.id') or 'bez komentarza'})"
+            else:
+                why = None
+            break
+        if why:
+            exposed.append((_SERVICE_LABELS[s["name"]], port, why))
+    return exposed, unsure
+
+
+async def _check_wan_management_exposed(client, filter_rows: list, services: Optional[list] = None) -> tuple:
     """Reuses the same 'WAN' interface-list signal built for WAN link
     monitoring (services/edge_discovery.py) — the operator's own explicit
     statement of which interface faces the internet, far more reliable
-    here than guessing from routing tables."""
+    here than guessing from routing tables. With /ip/service read (3.94.7) the input chain is walked like RouterOS does - see
+    wan_exposure(); without it, the old reading: explicit accept rules from the WAN only."""
     try:
         members = await client.get_interface_list_members()
     except Exception:
@@ -225,6 +338,20 @@ async def _check_wan_management_exposed(client, filter_rows: list) -> tuple:
     }
     if not wan_ifaces:
         return None, "Urządzenie nie ma zdefiniowanej listy interfejsów 'WAN' — nie można ocenić, które reguły dotyczą ruchu z internetu."
+
+    if isinstance(services, list) and services:
+        found, unsure = wan_exposure(filter_rows, services, wan_ifaces)
+        note = (" Część reguł używa warunków, których ten test nie analizuje — wynik do potwierdzenia ręcznie."
+                if unsure else "")
+        if found:
+            items = "; ".join(f"{label} (port {port}) — {why}" for label, port, why in found)
+            return False, (
+                f"Z internetu (interfejs WAN) dostępne są usługi zarządzania: {items}. Zalecenie: zakończ łańcuch input "
+                f"regułą drop dla ruchu spoza LAN (np. in-interface-list=!LAN), zarządzanie dopuść tylko z listy adresów "
+                f"administracyjnych (src-address-list) i ogranicz usługi w /ip service (address=); dostęp zdalny przez "
+                f"WireGuard/IPsec." + note
+            )
+        return True, "Żadna włączona usługa zarządzania nie przyjmuje nowych połączeń z internetu (interfejs WAN)." + note
 
     exposed = set()
     for r in (filter_rows or []):
@@ -419,9 +546,12 @@ async def run_mikrotik_checks(device_id: int) -> list:
     client = MikrotikClient(ip, username, password, api_port=api_port or 8728, web_port=web_port or 80)
 
     results = []
+    read = {}                                                       # one read per path (/ip/service serves 3 checks and the WAN one)
     for check in MIKROTIK_CHECKS:
         try:
-            rows = await client.api_command(check["path"])
+            if check["path"] not in read:
+                read[check["path"]] = await client.api_command(check["path"])
+            rows = read[check["path"]]
             try:
                 passed = check["check"](rows)
             except Exception:
@@ -449,7 +579,7 @@ async def run_mikrotik_checks(device_id: int) -> list:
         results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
                          "passed": passed, "detail": detail})
 
-        passed, detail = await _check_wan_management_exposed(client, filter_rows)
+        passed, detail = await _check_wan_management_exposed(client, filter_rows, read.get("/ip/service"))
         meta = checks_meta["mikrotik.wan_management_restricted"]
         results.append({"check_id": meta["id"], "title": meta["title"], "severity": meta["severity"],
                          "passed": passed, "detail": detail})
